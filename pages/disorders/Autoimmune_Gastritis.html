@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3467,6 +3862,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3543,6 +3942,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3553,6 +3953,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -4652,16 +5060,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD4+ T helper cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000492" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000492">CL:0000492</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000492" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000492</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased CD4+ T helper cell, annotated with CD4-positive helper T cell (CL:0000492). CL:0000492 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4681,16 +5094,21 @@
 
 
 
+
+
                     <span class="tag tag-cell">
                         parietal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000162">CL:0000162</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000162</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves decreased parietal cell (CL:0000162). CL:0000162 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4721,16 +5139,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         adaptive immune response against the H+/K+ ATPase
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002250">GO:0002250</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0002250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased adaptive immune response against the H+/K+ ATPase, annotated with adaptive immune response (GO:0002250). GO:0002250 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4750,16 +5173,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         parietal cell apoptosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased parietal cell apoptosis, annotated with apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4780,6 +5208,7 @@
 
 
                 </div>
+
 
 
 
@@ -4913,16 +5342,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         parietal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000162">CL:0000162</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000162</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves absent parietal cell (CL:0000162). CL:0000162 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4953,16 +5387,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         gastric acid secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001696" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001696">GO:0001696</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001696" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001696</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased gastric acid secretion (GO:0001696). GO:0001696 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4983,6 +5422,7 @@
 
 
                 </div>
+
 
 
 
@@ -5092,16 +5532,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         parietal cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000162">CL:0000162</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000162" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000162</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves absent parietal cell (CL:0000162). CL:0000162 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5122,6 +5567,7 @@
 
 
                 </div>
+
 
 
 
@@ -5236,16 +5682,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         antral G cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000508" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000508">CL:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000508" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased antral G cell, annotated with type G enteroendocrine cell (CL:0000508). CL:0000508 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5265,16 +5716,21 @@
 
 
 
+
+
                     <span class="tag tag-cell">
                         enterochromaffin-like cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000504" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000504">CL:0000504</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000504" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000504</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves increased enterochromaffin-like cell (CL:0000504). CL:0000504 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5295,6 +5751,7 @@
 
 
                 </div>
+
 
 
 
@@ -5553,21 +6010,30 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pernicious-anemia" data-dismech-node="Pernicious Anemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pernicious Anemia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Megaloblastic anemia
+
+                        <span class="phenotype-term-label">Megaloblastic anemia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001889" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001889">HP:0001889</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001889" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001889</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Megaloblastic anemia (HP:0001889). HP:0001889 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5636,21 +6102,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iron-deficiency-anemia" data-dismech-node="Iron Deficiency Anemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Iron Deficiency Anemia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Iron deficiency anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001891">HP:0001891</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001891</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5706,21 +6179,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral Neuropathy
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009830">HP:0009830</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0009830</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5744,21 +6224,28 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atrophic-gastritis" data-dismech-node="Atrophic Gastritis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atrophic Gastritis
 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrophic gastritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002582" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002582">HP:0002582</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002582" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002582</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrophic gastritis (HP:0002582). HP:0002582 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5773,21 +6260,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-achlorhydria" data-dismech-node="Achlorhydria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Achlorhydria
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Achlorhydria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032448" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032448">HP:0032448</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0032448</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Achlorhydria (HP:0032448). HP:0032448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5834,21 +6328,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypergastrinemia" data-dismech-node="Hypergastrinemia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypergastrinemia
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypergastrinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500167" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0500167">HP:0500167</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0500167" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0500167</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypergastrinemia (HP:0500167). HP:0500167 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5863,21 +6364,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-glossitis" data-dismech-node="Glossitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Glossitis
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glossitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000206" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000206">HP:0000206</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000206</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glossitis (HP:0000206). HP:0000206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5892,21 +6400,30 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastric-neuroendocrine-tumor" data-dismech-node="Gastric Neuroendocrine Tumor" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gastric Neuroendocrine Tumor
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gastric carcinoid tumor
+
+                        <span class="phenotype-term-label">Gastric carcinoid tumor</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000898">HP:6000898</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:6000898</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastric carcinoid tumor (HP:6000898). HP:6000898 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5975,21 +6492,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastric-adenocarcinoma" data-dismech-node="Gastric Adenocarcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Gastric Adenocarcinoma
 
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gastric adenocarcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033770" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033770">HP:0033770</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0033770</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastric adenocarcinoma (HP:0033770). HP:0033770 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6075,7 +6599,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-atp4a" data-dismech-node="ATP4A" data-dismech-type="genetic">
                 <div class="item-name">
                     ATP4A
 
@@ -6087,13 +6611,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP4A
 
 
-    <a href="https://bioregistry.io/hgnc:819" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:819">hgnc:819</a>
+    <a href="https://bioregistry.io/hgnc:819" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP4A (hgnc:819). hgnc:819 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6136,9 +6665,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-atp4b" data-dismech-node="ATP4B" data-dismech-type="genetic">
                 <div class="item-name">
                     ATP4B
 
@@ -6150,13 +6680,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP4B
 
 
-    <a href="https://bioregistry.io/hgnc:820" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:820">hgnc:820</a>
+    <a href="https://bioregistry.io/hgnc:820" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:820</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP4B (hgnc:820). hgnc:820 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6199,9 +6734,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6213,13 +6752,18 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vitamin-b12-replacement" data-dismech-node="Vitamin B12 Replacement" data-dismech-type="treatment">
                 <div class="item-name">
                     Vitamin B12 Replacement
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6249,16 +6793,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         vitamin B12
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_176843" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:176843">CHEBI:176843</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_176843" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:176843</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vitamin B12 (CHEBI:176843). CHEBI:176843 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6276,13 +6825,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-iron-replacement" data-dismech-node="Iron Replacement" data-dismech-type="treatment">
                 <div class="item-name">
                     Iron Replacement
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6312,16 +6866,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         iron(2+)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_29033" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:29033">CHEBI:29033</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_29033" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:29033</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses iron(2+) (CHEBI:29033). CHEBI:29033 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6339,13 +6898,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-endoscopic-surveillance" data-dismech-node="Endoscopic Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Endoscopic Surveillance
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">esophagogastroduodenoscopy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">esophagogastroduodenoscopy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is esophagogastroduodenoscopy (NCIT:C78144). NCIT:C78144 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Esophagogastroduodenoscopy</span>
 
 
@@ -6418,13 +6982,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-netazepide-gastrin-cck2-receptor-antagonist" data-dismech-node="Netazepide (Gastrin/CCK2 Receptor Antagonist)" data-dismech-type="treatment">
                 <div class="item-name">
                     Netazepide (Gastrin/CCK2 Receptor Antagonist)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6461,16 +7030,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Gastric carcinoid tumor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000898">HP:6000898</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:6000898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gastric carcinoid tumor (HP:6000898). HP:6000898 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6513,13 +7087,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-endoscopic-resection-of-gastric-neuroendocrine-tumors" data-dismech-node="Endoscopic Resection of Gastric Neuroendocrine Tumors" data-dismech-type="treatment">
                 <div class="item-name">
                     Endoscopic Resection of Gastric Neuroendocrine Tumors
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Endoscopic Mucosal Resection</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Endoscopic Mucosal Resection<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Endoscopic Mucosal Resection (NCIT:C103242). NCIT:C103242 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6556,16 +7135,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Gastric carcinoid tumor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000898">HP:6000898</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6000898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gastric carcinoid tumor (HP:6000898). HP:6000898 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6608,13 +7192,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-somatostatin-analog-therapy" data-dismech-node="Somatostatin Analog Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Somatostatin Analog Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6644,16 +7233,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         octreotide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7726" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7726">CHEBI:7726</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7726" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:7726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6668,16 +7262,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Gastric carcinoid tumor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6000898">HP:6000898</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000898" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:6000898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Gastric carcinoid tumor (HP:6000898). HP:6000898 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6720,13 +7319,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-helicobacter-pylori-eradication" data-dismech-node="Helicobacter pylori Eradication" data-dismech-type="treatment">
                 <div class="item-name">
                     Helicobacter pylori Eradication
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antimicrobial agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">antimicrobial agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antimicrobial agent therapy, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
@@ -6811,8 +7415,31 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-helicobacter-pylori-infection" data-dismech-node="Helicobacter pylori Infection" data-dismech-type="environmental">
                 <div class="item-name">Helicobacter pylori Infection</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to Helicobacter pylori
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-34">ECTO:3000003</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECTO:3000003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
 
 
 
@@ -6854,6 +7481,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -6868,7 +7496,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-parietal-cell-antibody" data-dismech-node="Anti-Parietal Cell Antibody" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-Parietal Cell Antibody
 
@@ -6915,7 +7543,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-intrinsic-factor-antibody" data-dismech-node="Anti-Intrinsic Factor Antibody" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-Intrinsic Factor Antibody
 
@@ -6930,7 +7558,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-gastrin" data-dismech-node="Serum Gastrin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum Gastrin
 
@@ -6977,7 +7605,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-pepsinogen-i" data-dismech-node="Serum Pepsinogen I" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum Pepsinogen I
 
@@ -7032,11 +7660,150 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Comprehensive gene expression analysis using gastric mucosa with autoimmune gastritis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE233973" target="_blank">geo:GSE233973</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">In this study, we aimed to reveal whether gastric mucosa with AIG has a specific gene expression profile, involving in its histology and chronic inflammation. To approach this, we performed comprehensive analysis of gene expression using gastric mucosa with atuoimmune gastritis, that with H. pylori-associated gastritis and healthy mucosa without any inflammation. Potential mechanisms of the gene expression changes in gastric mucosa with AIG were also explored.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=36</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/37962678" target="_blank" style="color: var(--secondary);">PMID:37962678</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Genome-wide DNA methylation analysis of gastric mucosa with autoimmune gastritis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE178925" target="_blank">geo:GSE178925</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">DNA methylation in gastric mucosa with autoimmune gastritis and H. pylori-associated gastritis and normal gastric mucosa</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">METHYLATION</span>
+
+
+                    <span class="tag tag-dataset">n=24</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/35034200" target="_blank" style="color: var(--secondary);">PMID:35034200</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Unveiling Cancer-Related Metaplastic Cells in Both Helicobacter pylori Infection and Autoimmune Gastritis
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE271866" target="_blank">geo:GSE271866</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">We used 10X 5&#39; single cell RNA sequencing (scRNAseq) technology to examine the transcriptional profiles of distinct gastric metaplastic cell types within the gastric corpus of mice chronically infected with Helicobacter pylori or chronically inflamed with autoimmune gastritis and humans with autoimmune gastritis.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-datatype">SINGLE CELL RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=7</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39236896" target="_blank" style="color: var(--secondary);">PMID:39236896</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7500,6 +8267,11 @@ genetic:
     explanation: Identifies the ATP4B subunit of the parietal cell H+/K+ ATPase as a target autoantigen in autoimmune (atrophic body) gastritis.
 environmental:
 - name: Helicobacter pylori Infection
+  exposure_term:
+    preferred_term: exposure to Helicobacter pylori
+    term:
+      id: ECTO:3000003
+      label: exposure to Helicobacter pylori
   description: &gt;
     H. pylori infection is proposed to trigger autoimmune gastritis through
     molecular mimicry between H. pylori antigens and the gastric H+/K+ ATPase,
@@ -8003,6 +8775,38 @@ discussions:
     early detection, but the rate and determinants of progression to irreversible
     atrophy and to neoplasia are not established prospectively, and the
     pediatric-onset subgroup&#39;s long-term course is largely unstudied.
+datasets:
+- accession: geo:GSE233973
+  title: Comprehensive gene expression analysis using gastric mucosa with autoimmune gastritis
+  description: In this study, we aimed to reveal whether gastric mucosa with AIG has a specific gene expression profile, involving in its histology and chronic inflammation. To approach this, we performed comprehensive analysis of gene expression using gastric mucosa with atuoimmune gastritis, that with H. pylori-associated gastritis and healthy mucosa without any inflammation. Potential mechanisms of the gene expression changes in gastric mucosa with AIG were also explored.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 36
+  publication: PMID:37962678
+  notes: Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE178925
+  title: Genome-wide DNA methylation analysis of gastric mucosa with autoimmune gastritis
+  description: DNA methylation in gastric mucosa with autoimmune gastritis and H. pylori-associated gastritis and normal gastric mucosa
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: METHYLATION
+  sample_count: 24
+  publication: PMID:35034200
+  notes: Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE271866
+  title: Unveiling Cancer-Related Metaplastic Cells in Both Helicobacter pylori Infection and Autoimmune Gastritis
+  description: We used 10X 5&#39; single cell RNA sequencing (scRNAseq) technology to examine the transcriptional profiles of distinct gastric metaplastic cell types within the gastric corpus of mice chronically infected with Helicobacter pylori or chronically inflamed with autoimmune gastritis and humans with autoimmune gastritis.
+  data_type: SINGLE_CELL_RNA_SEQ
+  sample_count: 7
+  publication: PMID:39236896
+  notes: Identified by GEO DataSets index search for Autoimmune Gastritis (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-07-31. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -8601,7 +9405,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autoimmune Gastritis", "mondoId": "MONDO:0031014", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Gastritis", "yamlRevision": "0ecdc878499b"};
+        const OS_CONFIG = {"diseaseName": "Autoimmune Gastritis", "mondoId": "MONDO:0031014", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autoimmune_Gastritis", "yamlRevision": "d405e9e3efdf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9020,5 +9824,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

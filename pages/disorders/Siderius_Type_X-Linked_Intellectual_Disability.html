@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3471,6 +3866,10 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3539,6 +3938,15 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
             </a>
 
 
+            <a class="stat-link" href="#variants">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
+
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3559,6 +3967,14 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4867,15 +5283,22 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PHF8
 
 
-    <a href="https://bioregistry.io/hgnc:20672" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20672">hgnc:20672</a>
+    <a href="https://bioregistry.io/hgnc:20672" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:20672</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4894,6 +5317,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -5027,16 +5451,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         histone H4K20 demethylase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035575" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035575">GO:0035575</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035575" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0035575</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased histone H4K20 demethylase activity (GO:0035575). GO:0035575 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5056,16 +5485,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
+
                     <span class="tag tag-bio">
                         histone H3K9 demethylase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032454" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032454">GO:0032454</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032454" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0032454</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased histone H3K9 demethylase activity (GO:0032454). GO:0032454 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5086,6 +5520,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -5212,16 +5647,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         histone H3K4me3 reader activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140002" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140002">GO:0140002</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140002" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0140002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased histone H3K4me3 reader activity (GO:0140002). GO:0140002 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5242,6 +5682,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -5362,16 +5803,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Chromatin organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006325">GO:0006325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Chromatin organization (GO:0006325). GO:0006325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5392,6 +5838,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -5517,16 +5964,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         histone H3K9me/H3K9me2 demethylase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140683" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140683">GO:0140683</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140683" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0140683</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased histone H3K9me/H3K9me2 demethylase activity (GO:0140683). GO:0140683 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5547,6 +5999,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -5664,16 +6117,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Regulation of transcription by RNA polymerase II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006357">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006357</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5698,16 +6156,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transcription coactivator activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003713">GO:0003713</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0003713</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased transcription coactivator activity (GO:0003713). GO:0003713 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5728,6 +6191,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -5871,16 +6335,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         TOR signaling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031929">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0031929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5901,6 +6370,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -5990,16 +6460,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6026,16 +6501,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neuron differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030182">GO:0030182</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Neuron differentiation (GO:0030182). GO:0030182 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6055,16 +6535,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
+
                     <span class="tag tag-bio">
                         Neuron projection development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031175" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031175">GO:0031175</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031175" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0031175</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Neuron projection development (GO:0031175). GO:0031175 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6085,6 +6570,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -6197,16 +6683,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6233,16 +6724,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Astrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048708" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048708">GO:0048708</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048708" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0048708</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Astrocyte differentiation (GO:0048708). GO:0048708 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6263,6 +6759,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -6374,16 +6871,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         oligodendrocyte precursor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002453">CL:0002453</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002453" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0002453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves oligodendrocyte precursor cell (CL:0002453). CL:0002453 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6410,16 +6912,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Oligodendrocyte differentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048709" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048709">GO:0048709</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048709" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0048709</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Oligodendrocyte differentiation (GO:0048709). GO:0048709 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6440,6 +6947,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -6552,16 +7060,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6588,16 +7101,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         L-serine biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006564" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006564">GO:0006564</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006564" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0006564</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased L-serine biosynthetic process (GO:0006564). GO:0006564 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6618,6 +7136,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -6729,16 +7248,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         migratory neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000333">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6765,16 +7289,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Embryonic cranial skeleton morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048701">GO:0048701</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0048701</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Embryonic cranial skeleton morphogenesis (GO:0048701). GO:0048701 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6794,16 +7323,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
+
                     <span class="tag tag-bio">
                         Roof of mouth development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060021">GO:0060021</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0060021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Roof of mouth development (GO:0060021). GO:0060021 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6824,6 +7358,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -6937,16 +7472,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6973,16 +7513,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Long-term synaptic potentiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060291" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060291">GO:0060291</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060291" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0060291</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Long-term synaptic potentiation (GO:0060291). GO:0060291 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7003,6 +7548,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -7099,16 +7645,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Learning or memory
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007611" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007611">GO:0007611</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007611" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0007611</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Learning or memory (GO:0007611). GO:0007611 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7129,6 +7680,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -7212,16 +7764,21 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Roof of mouth development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060021">GO:0060021</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0060021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Roof of mouth development (GO:0060021). GO:0060021 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7242,6 +7799,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
                 </div>
+
 
 
 
@@ -7371,21 +7929,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertelorism" data-dismech-node="Hypertelorism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypertelorism
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertelorism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000316</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7433,21 +7998,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ptosis" data-dismech-node="Ptosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ptosis
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000508">HP:0000508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7504,21 +8076,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-orofacial-clefting" data-dismech-node="Orofacial Clefting" data-dismech-type="phenotype">
                     <div class="item-name">
                         Orofacial Clefting
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Orofacial cleft
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000202">HP:0000202</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Orofacial cleft (HP:0000202). HP:0000202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7588,19 +8167,26 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-lip" data-dismech-node="Cleft Lip" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cleft Lip
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cleft lip
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0410030">HP:0410030</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0410030</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft lip (HP:0410030). HP:0410030 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7647,19 +8233,26 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft Palate" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cleft Palate
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cleft palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000175</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7706,21 +8299,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microcephaly
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7768,21 +8368,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-long-face" data-dismech-node="Long Face" data-dismech-type="phenotype">
                     <div class="item-name">
                         Long Face
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Long face
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000276" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000276">HP:0000276</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000276</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long face (HP:0000276). HP:0000276 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7852,21 +8459,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-asymmetry" data-dismech-node="Facial Asymmetry" data-dismech-type="phenotype">
                     <div class="item-name">
                         Facial Asymmetry
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Facial asymmetry
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000324">HP:0000324</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000324</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial asymmetry (HP:0000324). HP:0000324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7914,19 +8528,26 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-nasal-tip" data-dismech-node="Broad Nasal Tip" data-dismech-type="phenotype">
                     <div class="item-name">
                         Broad Nasal Tip
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Broad nasal tip
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000455" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000455">HP:0000455</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000455" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000455</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7982,21 +8603,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global Developmental Delay
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8044,21 +8672,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intellectual Disability
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8151,19 +8786,26 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mild-intellectual-disability" data-dismech-node="Mild Intellectual Disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mild Intellectual Disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mild intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001256" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001256">HP:0001256</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001256</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mild intellectual disability (HP:0001256). HP:0001256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8254,21 +8896,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic Behavior" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autistic Behavior
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autistic behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000729</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8339,21 +8988,28 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit-hyperactivity-disorder" data-dismech-node="Attention Deficit Hyperactivity Disorder" data-dismech-type="phenotype">
                     <div class="item-name">
                         Attention Deficit Hyperactivity Disorder
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Attention deficit hyperactivity disorder
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007018">HP:0007018</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0007018</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8410,19 +9066,26 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-large-hands" data-dismech-node="Large Hands" data-dismech-type="phenotype">
                     <div class="item-name">
                         Large Hands
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Large hands
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001176" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001176">HP:0001176</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001176" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001176</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Large hands (HP:0001176). HP:0001176 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8509,7 +9172,7 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-phf8" data-dismech-node="PHF8" data-dismech-type="genetic">
                 <div class="item-name">
                     PHF8
 
@@ -8521,13 +9184,18 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PHF8
 
 
-    <a href="https://bioregistry.io/hgnc:20672" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20672">hgnc:20672</a>
+    <a href="https://bioregistry.io/hgnc:20672" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:20672</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8618,7 +9286,248 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
     </details>
 
 
+
             </div>
+
+        </div>
+
+
+        <!-- Variants recorded at the disease level -->
+
+        <div class="card" id="variants">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🔬</div>
+                <h2 class="card-title">Variants</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+    <div class="item-box variant-box anchor-target" id="variant-phf8-p-phe279ser" data-dismech-node="PHF8 p.Phe279Ser" data-dismech-type="genetic">
+
+    <div class="item-name">
+        PHF8 p.Phe279Ser
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: PHF8
+
+
+    <a href="https://bioregistry.io/hgnc:20672" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:20672</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">The c.836C&gt;T (p.F279S) missense allele, identified in a Finnish family with multiply affected males. It is the reference functional allele for this disorder: it substitutes a conserved hydrophobic residue in the JmjC domain and is catalytically dead in assays against both peptide and intact-histone substrates, in two independent laboratories, while leaving the rest of the protein intact. It is also the allele used to show that catalytic activity is required for PHF8 to drive neuronal differentiation.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17661819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17661819" target="_blank">PMID:17661819</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A novel missense mutation c.836C&gt;T of the PHF8 gene was identified in a Finnish family with multiple-affected male patients."</div>
+
+
+                <div class="evidence-explanation">Identifies the allele and its clinical context.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17661819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17661819" target="_blank">PMID:17661819</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The mutation resides in exon 8 and changes phenylalanine to serine (F279S) in the functionally important Jmonji C domain of the protein."</div>
+
+
+                <div class="evidence-explanation">Localises the substitution to the catalytic domain.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19843542" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19843542" target="_blank">PMID:19843542</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This mutant encodes a F279S variant of PHF8 that modifies a conserved hydrophobic region; assays with both peptides and intact histones reveal this variant to be catalytically inactive."</div>
+
+
+                <div class="evidence-explanation">First functional demonstration of catalytic inactivity.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box anchor-target" id="variant-phf8-p-lys177ter" data-dismech-node="PHF8 p.Lys177Ter" data-dismech-type="genetic">
+
+    <div class="item-name">
+        PHF8 p.Lys177Ter
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: PHF8
+
+
+    <a href="https://bioregistry.io/hgnc:20672" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:20672</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in PHF8 (hgnc:20672). hgnc:20672 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">A nonsense allele (p.K177X) reported in a male with intellectual disability and cleft lip/palate. It truncates the protein upstream of the JmjC domain and removes five nuclear localisation signals, so it is the cleanest example of the null end of the allele spectrum and the reason the PHD/nuclear-targeting arm is modelled separately from the catalytic arm.
+</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17594395" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17594395" target="_blank">PMID:17594395</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report a novel nonsense mutation (p.K177X) in a male patient who has MR associated with CL/P."</div>
+
+
+                <div class="evidence-explanation">Identifies the allele and the clinical presentation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17594395" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17594395" target="_blank">PMID:17594395</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The mutation results in a truncated PHF8 protein lacking the Jumonji-like C terminus domain and five nuclear localization signals."</div>
+
+
+                <div class="evidence-explanation">Establishes that the allele removes both the catalytic domain and the nuclear localisation signals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
 
         </div>
 
@@ -8632,13 +9541,18 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-surgical-repair-of-orofacial-cleft" data-dismech-node="Surgical Repair of Orofacial Cleft" data-dismech-type="treatment">
                 <div class="item-name">
                     Surgical Repair of Orofacial Cleft
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">reconstructive surgery for orofacial cleft</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">reconstructive surgery for orofacial cleft<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is reconstructive surgery for orofacial cleft, annotated with Reconstructive Surgery (NCIT:C25351). NCIT:C25351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Reconstructive Surgery</span>
 
 
@@ -8712,13 +9626,18 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-developmental-and-educational-intervention" data-dismech-node="Developmental and Educational Intervention" data-dismech-type="treatment">
                 <div class="item-name">
                     Developmental and Educational Intervention
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">speech and language therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">speech and language therapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is speech and language therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Speech Language Therapy</span>
 
 
@@ -8792,13 +9711,18 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counselling" data-dismech-node="Genetic Counselling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counselling
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -9147,6 +10071,404 @@ IMPORTANT SCOPE NOTE - this entity is defined by PHF8. It must not be conflated 
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">4</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-phf8-knockout-constitutive-null-chen-et-al-2018-line-mus-musculus" data-dismech-node="Phf8 knockout (constitutive null; Chen et al. 2018 line) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Phf8 knockout (constitutive null; Chen et al. 2018 line) Mus musculus
+
+                    <span class="tag tag-exp-model-type">KNOCKOUT</span>
+
+                </div>
+
+                <div class="item-desc">The most informative model for the cognitive phenotype, but see the second mouse entry below for a direct contradiction. Phf8-null mice in this line have impaired learning and memory and impaired hippocampal long-term potentiation with no gross morphological brain defect, which parallels the absence of a consistent structural brain abnormality in patients. The deficits are driven by RSK1 derepression and mTOR hyperactivation and are rescued by rapamycin. Two limitations: the model does not reproduce the craniofacial arm of the human syndrome, and an independently generated knockout line found no cognitive impairment at all.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Phf8 knockout (constitutive null; Chen et al. 2018 line)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29317619" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29317619" target="_blank">PMID:29317619</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we report that Phf8 knockout mice displayed impaired learning and memory, and impaired hippocampal long-term potentiation (LTP) without gross morphological defects."</div>
+
+
+                <div class="evidence-explanation">Describes the model&#39;s core neurobehavioural phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41714361" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41714361" target="_blank">PMID:41714361</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In vivo, PHF8 deficiency in mouse embryos halts neurogenesis, progenitor expansion, and neuron generation in the developing brain."</div>
+
+
+                <div class="evidence-explanation">A second, developmental-stage mouse phenotype from an independent group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-phf8-knockout-independently-generated-constitutive-null-walsh-et-al-2017-line-mus-musculus" data-dismech-node="Phf8 knockout (independently generated constitutive null; Walsh et al. 2017 line) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Phf8 knockout (independently generated constitutive null; Walsh et al. 2017 line) Mus musculus
+
+                    <span class="tag tag-exp-model-type">KNOCKOUT</span>
+
+                </div>
+
+                <div class="item-desc">An independently generated Phf8 knockout allele that directly contradicts the other line on the phenotype that matters most: these mice have neither obvious developmental defects nor signs of cognitive impairment. What they do show is resilience to stress-induced anxiety- and depression-like behaviour, attributable to misregulated serotonin signalling in prefrontal cortex, with Htr1a and Htr2a as direct PHF8 targets. Recorded here because omitting it would misrepresent the strength of the mouse evidence, and because no counterpart of the stress-resilience phenotype has been looked for in patients.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Phf8 knockout (independently generated constitutive null; Walsh et al. 2017 line)</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28485378" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28485378" target="_blank">PMID:28485378</a>
+                    </span>
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Phf8 deficient mice neither display obvious developmental defects nor signs of cognitive impairment."</div>
+
+
+                <div class="evidence-explanation">Marked REFUTE against the claim that a Phf8 knockout mouse models the human cognitive phenotype - this line did not reproduce it, which is the single most important caveat on the mouse literature for this disorder.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28485378" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28485378" target="_blank">PMID:28485378</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, we report a striking resiliency to stress-induced anxiety- and depression-like behaviour on loss of Phf8."</div>
+
+
+                <div class="evidence-explanation">The phenotype this line does show, which has no described human counterpart.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28485378" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28485378" target="_blank">PMID:28485378</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We further observe misregulation of serotonin signalling within the prefrontal cortex of Phf8 deficient mice and identify the serotonin receptors Htr1a and Htr2a as direct targets of PHF8."</div>
+
+
+                <div class="evidence-explanation">Supplies the mechanism of the model-only behavioural phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-phf8-morpholino-knockdown-danio-rerio" data-dismech-node="phf8 morpholino knockdown Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    phf8 morpholino knockdown Danio rerio
+
+                    <span class="tag tag-exp-model-type">KNOCKDOWN</span>
+
+                </div>
+
+                <div class="item-desc">The model that captures the craniofacial arm the mouse misses. Loss of phf8 in zebrafish impairs brain cell survival and jaw development, acting in part through direct regulation of the homeodomain transcription factor MSX1/MSXB. It remains the principal in vivo evidence connecting PHF8 catalysis to craniofacial morphogenesis.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">phf8 morpholino knockdown</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20622853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20622853" target="_blank">PMID:20622853</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PHF8 regulates cell survival in the zebrafish brain and jaw development, thus providing a potentially relevant biological context for understanding the clinical symptoms associated with PHF8 patients."</div>
+
+
+                <div class="evidence-explanation">Establishes the craniofacial and neuronal-survival phenotypes of the model.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20622853" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20622853" target="_blank">PMID:20622853</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our findings indicate that an imbalance of histone methylation dynamics has a critical role in XLMR."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; summary conclusion linking the model back to the human disease class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-f29b9-2-jmjd-1-2-loss-of-function-mutant-caenorhabditis-elegans" data-dismech-node="F29B9.2 (jmjd-1.2) loss-of-function mutant Caenorhabditis elegans" data-dismech-type="animal_model">
+                <div class="item-name">
+                    F29B9.2 (jmjd-1.2) loss-of-function mutant Caenorhabditis elegans
+
+                    <span class="tag tag-exp-model-type">MUTANT</span>
+
+                </div>
+
+                <div class="item-desc">The invertebrate orthologue demonstrates deep conservation of both the enzymatic activity and the neuronal requirement: F29B9.2 catalyses H3K9me2/me1 demethylation, is highly expressed in neurons, and mutant animals have impaired locomotion. Useful for establishing conservation, but the behavioural readout is too distant from human cognition to model the clinical phenotype.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Caenorhabditis elegans</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">F29B9.2 (jmjd-1.2) loss-of-function mutant</div>
+                    </div>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20346720" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20346720" target="_blank">PMID:20346720</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of interest, the C. elegans PHF8 homolog is highly expressed in neurons, and mutant animals show impaired locomotion."</div>
+
+
+                <div class="evidence-explanation">Documents the conserved neuronal expression and the mutant behavioural phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -13321,5 +14643,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

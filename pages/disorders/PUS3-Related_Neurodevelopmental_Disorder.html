@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3861,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3522,6 +3921,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -4156,15 +4564,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PUS3
 
 
-    <a href="https://bioregistry.io/hgnc:25461" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25461">hgnc:25461</a>
+    <a href="https://bioregistry.io/hgnc:25461" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:25461</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PUS3 (hgnc:25461). hgnc:25461 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4184,6 +4599,7 @@
 
 
                 </div>
+
 
 
 
@@ -4287,16 +4703,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         tRNA pseudouridine synthase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0106029" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0106029">GO:0106029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0106029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0106029</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased tRNA pseudouridine synthase activity (GO:0106029). GO:0106029 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4316,16 +4737,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         pseudouridine synthase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009982" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009982">GO:0009982</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009982" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0009982</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased pseudouridine synthase activity (GO:0009982). GO:0009982 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4346,6 +4772,7 @@
 
 
                 </div>
+
 
 
 
@@ -4466,16 +4893,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         tRNA pseudouridine synthesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031119">GO:0031119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0031119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tRNA pseudouridine synthesis (GO:0031119). GO:0031119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4495,16 +4927,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         tRNA modification
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006400" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006400">GO:0006400</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006400" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006400</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tRNA modification (GO:0006400). GO:0006400 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4525,6 +4962,7 @@
 
 
                 </div>
+
 
 
 
@@ -4637,16 +5075,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4673,16 +5116,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006412">GO:0006412</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006412" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0006412</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translation (GO:0006412). GO:0006412 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4703,6 +5151,7 @@
 
 
                 </div>
+
 
 
 
@@ -4822,16 +5271,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         central nervous system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007417" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007417">GO:0007417</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007417" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007417</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal central nervous system development (GO:0007417). GO:0007417 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4852,6 +5306,7 @@
 
 
                 </div>
+
 
 
 
@@ -5009,19 +5464,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-heart-defect" data-dismech-node="Congenital Heart Defect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congenital Heart Defect
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5080,19 +5544,26 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Strabismus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Strabismus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000486</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5163,19 +5634,26 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retinal-dystrophy" data-dismech-node="Retinal Dystrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Retinal Dystrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retinal dystrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000556">HP:0000556</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000556</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retinal dystrophy (HP:0000556). HP:0000556 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5233,21 +5711,28 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microcephaly
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5318,19 +5803,26 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse Facial Features" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coarse Facial Features
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coarse facial features
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000280">HP:0000280</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000280</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5410,21 +5902,28 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hypotonia" data-dismech-node="Generalized Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized Hypotonia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001290">HP:0001290</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001290</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5495,19 +5994,26 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5533,21 +6039,28 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global Developmental Delay
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5618,21 +6131,28 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-intellectual-disability" data-dismech-node="Severe Intellectual Disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Severe Intellectual Disability
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Severe intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010864" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010864">HP:0010864</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0010864</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5703,21 +6223,28 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5810,19 +6337,26 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-leukoencephalopathy" data-dismech-node="Leukoencephalopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Leukoencephalopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Leukoencephalopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002352">HP:0002352</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002352</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Leukoencephalopathy (HP:0002352), qualified as course stable. HP:0002352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5911,19 +6445,28 @@ Term choice. The source says only &#34;congenital heart defect&#34; and names no
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corpus-callosum-dysgenesis" data-dismech-node="Corpus Callosum Dysgenesis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Corpus Callosum Dysgenesis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal corpus callosum morphology
+
+                        <span class="phenotype-term-label">Abnormal corpus callosum morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001273">HP:0001273</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001273</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysgenesis of the corpus callosum, annotated with Abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5973,19 +6516,26 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-hypoplasia" data-dismech-node="Cerebellar Hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebellar Hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebellar hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001321">HP:0001321</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001321</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6034,19 +6584,26 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed Speech and Language Development" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed Speech and Language Development
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed speech and language development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6063,19 +6620,26 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor Delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Motor Delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Motor delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6092,19 +6656,28 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-behavioral-abnormality" data-dismech-node="Behavioral Abnormality" data-dismech-type="phenotype">
                     <div class="item-name">
                         Behavioral Abnormality
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atypical behavior
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Behavioral abnormality, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6130,21 +6703,28 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-short-stature-and-growth-failure" data-dismech-node="Severe Short Stature and Growth Failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Severe Short Stature and Growth Failure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6215,19 +6795,26 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to Thrive" data-dismech-type="phenotype">
                     <div class="item-name">
                         Failure to Thrive
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6285,21 +6872,30 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-grey-sclerae" data-dismech-node="Grey Sclerae" data-dismech-type="phenotype">
                     <div class="item-name">
                         Grey Sclerae
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pigmentation of the sclera
+
+                        <span class="phenotype-term-label">Pigmentation of the sclera</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007832" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007832">HP:0007832</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007832" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0007832</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Grey sclerae, annotated with Pigmentation of the sclera (HP:0007832). HP:0007832 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6370,19 +6966,28 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-extensive-dermal-melanocytosis" data-dismech-node="Extensive Dermal Melanocytosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Extensive Dermal Melanocytosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mongolian blue spot
+
+                        <span class="phenotype-term-label">Mongolian blue spot</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011369">HP:0011369</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0011369</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Extensive Mongolian spots (dermal melanocytosis), annotated with Mongolian blue spot (HP:0011369). HP:0011369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6453,19 +7058,26 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-hypoplasia" data-dismech-node="Renal Hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Renal Hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000089">HP:0000089</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000089</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6553,7 +7165,7 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pus3" data-dismech-node="PUS3" data-dismech-type="genetic">
                 <div class="item-name">
                     PUS3
 
@@ -6563,13 +7175,18 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PUS3
 
 
-    <a href="https://bioregistry.io/hgnc:25461" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25461">hgnc:25461</a>
+    <a href="https://bioregistry.io/hgnc:25461" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:25461</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PUS3 (hgnc:25461). hgnc:25461 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6660,9 +7277,257 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (3)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-1303c-t-p-arg435" data-dismech-node="c.1303C&gt;T (p.Arg435*)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.1303C&gt;T (p.Arg435*)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">The founding allele, homozygous in three affected Saudi sisters. It truncates the final 46 residues plus the end of a conserved region and behaves as a near-complete null in patient lymphoblastoid cells.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27055666" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27055666" target="_blank">PMID:27055666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we identified a homozygous nonsense variant in PUS3; Chr11(GRCh37):g.125763823G&gt;A; NM_031307.3: c.1303C&gt;T: p.(Arg435*) that fully segregated with the phenotype in the family as confirmed by Sanger sequencing"</div>
+
+
+                <div class="evidence-explanation">Names the allele, its genomic and cDNA coordinates, and its full segregation with disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27055666" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27055666" target="_blank">PMID:27055666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This variant is absent in 1,500 Saudi exomes as well as in the ExAC Browser."</div>
+
+
+                <div class="evidence-explanation">Population-frequency evidence supporting pathogenicity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-212a-g-p-tyr71cys" data-dismech-node="c.212A&gt;G (p.Tyr71Cys)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.212A&gt;G (p.Tyr71Cys)
+
+        <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">A recurrent missense allele, found homozygous or in trans with p.Ile299Thr, and carried by five of the fewer than thirty reported individuals. Mechanistically instructive: the purified protein retains normal tRNA binding and pseudouridylation activity, but its thermostability is strongly impaired and it is nearly absent from patient fibroblasts, so it is a functional null despite normal in vitro catalysis.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36125428" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36125428" target="_blank">PMID:36125428</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we find that the p.Tyr71Cys substitution neither affect tRNA binding nor pseudouridylation activity in vitro, but strongly impair the thermostability profile of PUS3, while the p.Ile299Thr mutation causes protein aggregation."</div>
+
+
+                <div class="evidence-explanation">Establishes the destabilisation mechanism that makes this missense allele a functional null.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41971559" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41971559" target="_blank">PMID:41971559</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Whole-exome sequencing identified a homozygous PUS3 c.212A&gt;G (p.Tyr71Cys) variant, classified as likely pathogenic based on ACMG criteria (PM2, PM3, PP3, PP5)."</div>
+
+
+                <div class="evidence-explanation">Supplies the ACMG classification and confirms recurrence of the allele in an unrelated population.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-896t-c-p-ile299thr" data-dismech-node="c.896T&gt;C (p.Ile299Thr)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.896T&gt;C (p.Ile299Thr)
+
+        <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Found in trans with p.Tyr71Cys in a compound heterozygous patient. Unlike p.Tyr71Cys it acts by promoting aggregation of the recombinant protein, a second distinct route to loss of available enzyme.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36125428" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36125428" target="_blank">PMID:36125428</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we find that the p.Tyr71Cys substitution neither affect tRNA binding nor pseudouridylation activity in vitro, but strongly impair the thermostability profile of PUS3, while the p.Ile299Thr mutation causes protein aggregation."</div>
+
+
+                <div class="evidence-explanation">Names the aggregation mechanism specific to this allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6674,13 +7539,18 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
                 <span class="card-count">5</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antiseizure-medication" data-dismech-node="Antiseizure Medication" data-dismech-type="treatment">
                 <div class="item-name">
                     Antiseizure Medication
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">anticonvulsant therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">anticonvulsant therapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is anticonvulsant therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
@@ -6711,16 +7581,21 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         anticonvulsant agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C264">NCIT:C264</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C264</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -6734,16 +7609,21 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6786,13 +7666,18 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-developmental-and-rehabilitative-therapy" data-dismech-node="Developmental and Rehabilitative Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Developmental and Rehabilitative Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">rehabilitation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Rehabilitation</span>
 
 
@@ -6829,17 +7714,24 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Generalized hypotonia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001290">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001290</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Global developmental delay
@@ -6847,11 +7739,16 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001263</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Motor delay
@@ -6859,11 +7756,16 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001270</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Delayed speech and language development
@@ -6871,11 +7773,16 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000750</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Scoliosis
@@ -6883,10 +7790,13 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6929,13 +7839,18 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ophthalmological-surveillance" data-dismech-node="Ophthalmological Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Ophthalmological Surveillance
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">eye examination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">eye examination<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Eye Examination</span>
 
 
@@ -6972,17 +7887,24 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Strabismus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000486</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Retinal dystrophy
@@ -6990,10 +7912,13 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000556">HP:0000556</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000556</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Retinal dystrophy (HP:0000556). HP:0000556 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7058,13 +7983,18 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counselling-and-reproductive-risk-assessment" data-dismech-node="Genetic Counselling and Reproductive Risk Assessment" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counselling and Reproductive Risk Assessment
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -7136,13 +8066,18 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-long-term-neurological-surveillance" data-dismech-node="Long-Term Neurological Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Long-Term Neurological Surveillance
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7510,6 +8445,9 @@ Term choice. The source reports &#34;dysgenesis of corpus callosum&#34;, i.e. a 
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10580,5 +11518,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

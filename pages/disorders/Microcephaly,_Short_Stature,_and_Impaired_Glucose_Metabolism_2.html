@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3861,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3530,6 +3929,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -4172,15 +4580,22 @@ their mechanism of action."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PPP1R15B
 
 
-    <a href="https://bioregistry.io/hgnc:14951" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14951">hgnc:14951</a>
+    <a href="https://bioregistry.io/hgnc:14951" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:14951</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PPP1R15B (hgnc:14951). hgnc:14951 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4209,16 +4624,21 @@ their mechanism of action."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein phosphatase 1 binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008157" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008157">GO:0008157</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008157" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008157</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased protein phosphatase 1 binding (GO:0008157). GO:0008157 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4239,6 +4659,7 @@ their mechanism of action."</div>
 
 
                 </div>
+
 
 
 
@@ -4359,16 +4780,21 @@ microcephaly, developmental delay, and intellectual disability."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         peptidyl-serine dephosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070262" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070262">GO:0070262</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070262" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0070262</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased peptidyl-serine dephosphorylation (GO:0070262). GO:0070262 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4389,6 +4815,7 @@ microcephaly, developmental delay, and intellectual disability."</div>
 
 
                 </div>
+
 
 
 
@@ -4510,16 +4937,21 @@ translation initiation factor 2α."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of translational initiation by eIF2 alpha phosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010998" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010998">GO:0010998</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010998" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0010998</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased regulation of translational initiation by eIF2 alpha phosphorylation (GO:0010998). GO:0010998 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4539,16 +4971,21 @@ translation initiation factor 2α."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         translational initiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006413" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006413">GO:0006413</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006413" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006413</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased translational initiation (GO:0006413). GO:0006413 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4569,6 +5006,7 @@ translation initiation factor 2α."</div>
 
 
                 </div>
+
 
 
 
@@ -4662,16 +5100,21 @@ translation."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pancreatic beta cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000169">CL:0000169</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000169</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pancreatic beta cell, annotated with type B pancreatic cell (CL:0000169). CL:0000169 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4698,16 +5141,21 @@ translation."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         insulin secretion involved in cellular response to glucose stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035773" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035773">GO:0035773</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035773" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0035773</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased insulin secretion involved in cellular response to glucose stimulus (GO:0035773). GO:0035773 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4727,16 +5175,21 @@ translation."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4757,6 +5210,7 @@ translation."</div>
 
 
                 </div>
+
 
 
 
@@ -4847,16 +5301,21 @@ translation."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural progenitor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4883,16 +5342,21 @@ translation."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of translational initiation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006446" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006446">GO:0006446</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006446" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006446</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of translational initiation (GO:0006446). GO:0006446 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4913,6 +5377,7 @@ translation."</div>
 
 
                 </div>
+
 
 
 
@@ -5001,6 +5466,7 @@ translation."</div>
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5045,16 +5511,21 @@ translation."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5071,6 +5542,7 @@ translation."</div>
 
 
                 </div>
+
 
 
 
@@ -5149,6 +5621,7 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
                 <div class="item-name">Impaired Glucose Metabolism and Young-Onset Diabetes</div>
 
                 <div class="item-desc">Loss of functional beta-cell mass manifests as insulin-requiring diabetes presenting in the second-to-third decade, in one sibling with acute hyperglycemia and ketosis. Residual beta-cell function persists (detectable glucagon-stimulated C-peptide) and insulin requirements are initially modest, but the course can become brittle with marked glucose variability and severe hypoglycemia.</div>
+
 
 
 
@@ -5297,19 +5770,26 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-infantile-cirrhosis" data-dismech-node="Infantile Cirrhosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Infantile Cirrhosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cirrhosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5387,19 +5867,26 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-impairment" data-dismech-node="Sensorineural Hearing Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensorineural Hearing Impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5455,19 +5942,26 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-young-onset-diabetes-mellitus" data-dismech-node="Young-Onset Diabetes Mellitus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Young-Onset Diabetes Mellitus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diabetes mellitus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000819">HP:0000819</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diabetes mellitus (HP:0000819). HP:0000819 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5560,19 +6054,26 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-puberty" data-dismech-node="Delayed Puberty" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed Puberty
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed puberty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000823">HP:0000823</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000823</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5619,19 +6120,26 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypothyroidism" data-dismech-node="Hypothyroidism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypothyroidism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000821</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5731,21 +6239,28 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microcephaly
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5814,19 +6329,26 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oligodontia-and-dental-hypoplasia" data-dismech-node="Oligodontia and Dental Hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Oligodontia and Dental Hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Oligodontia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000677">HP:0000677</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000677</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5882,19 +6404,26 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sparse-hair" data-dismech-node="Sparse Hair" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sparse Hair
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sparse hair
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008070">HP:0008070</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008070</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sparse hair (HP:0008070). HP:0008070 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5972,19 +6501,26 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-kyphoscoliosis" data-dismech-node="Kyphoscoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Kyphoscoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Kyphoscoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002751">HP:0002751</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002751</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6031,19 +6567,26 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pectus-excavatum" data-dismech-node="Pectus Excavatum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pectus Excavatum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pectus excavatum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000767">HP:0000767</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000767</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pectus excavatum (HP:0000767). HP:0000767 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6090,19 +6633,28 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-bone-age" data-dismech-node="Delayed Bone Age" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed Bone Age
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed skeletal maturation
+
+                        <span class="phenotype-term-label">Delayed skeletal maturation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002750">HP:0002750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6158,21 +6710,28 @@ expands the phenotypic spectrum of PPP1R15B related diseases."</div>
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intellectual Disability
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6242,19 +6801,26 @@ intellectual disability in two siblings."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-myelination" data-dismech-node="Delayed Myelination" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed Myelination
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed myelination
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012448" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012448">HP:0012448</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012448</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6301,19 +6867,26 @@ intellectual disability in two siblings."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-cerebral-white-matter-morphology" data-dismech-node="Abnormal Cerebral White Matter Morphology" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal Cerebral White Matter Morphology
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal cerebral white matter morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002500">HP:0002500</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002500</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6382,19 +6955,26 @@ intellectual disability in two siblings."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-hypoplasia" data-dismech-node="Cerebellar Hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebellar Hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebellar hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001321">HP:0001321</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001321</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar hypoplasia (HP:0001321). HP:0001321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6441,19 +7021,28 @@ intellectual disability in two siblings."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxic-gait" data-dismech-node="Ataxic Gait" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ataxic Gait
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait ataxia
+
+                        <span class="phenotype-term-label">Gait ataxia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002066">HP:0002066</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002066</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxic gait, annotated with Gait ataxia (HP:0002066). HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6509,21 +7098,28 @@ intellectual disability in two siblings."</div>
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
                     <div class="item-name">
                         Short Stature
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6593,19 +7189,26 @@ short stature, hypoplastic brainstem and cord"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-small-for-gestational-age" data-dismech-node="Small for Gestational Age" data-dismech-type="phenotype">
                     <div class="item-name">
                         Small for Gestational Age
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Small for gestational age
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001518">HP:0001518</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001518</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Small for gestational age (HP:0001518). HP:0001518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6661,19 +7264,28 @@ short stature, hypoplastic brainstem and cord"</div>
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-brainstem-hypoplasia" data-dismech-node="Brainstem Hypoplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Brainstem Hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplasia of the brainstem
+
+                        <span class="phenotype-term-label">Hypoplasia of the brainstem</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002365">HP:0002365</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the brainstem (HP:0002365). HP:0002365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6720,19 +7332,28 @@ short stature, hypoplastic brainstem and cord"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-high-pitched-voice" data-dismech-node="High-Pitched Voice" data-dismech-type="phenotype">
                     <div class="item-name">
                         High-Pitched Voice
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormally high-pitched voice
+
+                        <span class="phenotype-term-label">Abnormally high-pitched voice</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001620" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001620">HP:0001620</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001620" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001620</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormally high-pitched voice (HP:0001620). HP:0001620 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6779,19 +7400,26 @@ short stature, hypoplastic brainstem and cord"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin Corpus Callosum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thin Corpus Callosum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thin corpus callosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033725">HP:0033725</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0033725</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6877,7 +7505,7 @@ short stature, hypoplastic brainstem and cord"</div>
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ppp1r15b" data-dismech-node="PPP1R15B" data-dismech-type="genetic">
                 <div class="item-name">
                     PPP1R15B
 
@@ -6887,13 +7515,18 @@ short stature, hypoplastic brainstem and cord"</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PPP1R15B
 
 
-    <a href="https://bioregistry.io/hgnc:14951" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14951">hgnc:14951</a>
+    <a href="https://bioregistry.io/hgnc:14951" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:14951</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PPP1R15B (hgnc:14951). hgnc:14951 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6962,9 +7595,133 @@ PPP1R15B gene"</div>
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (2)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-arg658cys-c-1972g-a" data-dismech-node="p.Arg658Cys (c.1972G&gt;A)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.Arg658Cys (c.1972G&gt;A)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+
+    <div class="item-desc">Recurrent homozygous missense variant in the C-terminal PP1-binding region, independently reported in two unrelated consanguineous families with the full microcephaly-short stature-diabetes syndrome. It weakens PPP1R15B-PP1 binding and thereby reduces eIF2-alpha dephosphorylation.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26307080" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26307080" target="_blank">PMID:26307080</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a homozygous missense mutation, c.1972G&gt;A; p.Arg658Cys, in protein phosphatase 1,
+regulatory subunit 15b (PPP1R15B)"</div>
+
+
+                <div class="evidence-explanation">Specifies the recurrent variant at cDNA and protein level.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-p-asn423asp" data-dismech-node="p.Asn423Asp" data-dismech-type="genetic">
+
+    <div class="item-name">
+        p.Asn423Asp
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+
+    <div class="item-desc">Homozygous missense variant adjacent to helix H1 of the substrate-recruitment module, reported in a rare syndrome with microcephaly, developmental delay and intellectual disability. Mechanistically distinct from p.Arg658Cys: it reduces capture of the trimeric eIF2 substrate rather than binding of the PP1 catalytic subunit, converging on the same biochemical endpoint of deficient eIF2-alpha dephosphorylation. Diabetes was not established in the primary report, so this allele is best regarded as an overlapping PPP1R15B-related phenotype.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38159565" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38159565" target="_blank">PMID:38159565</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A homozygous N423D variant, adjacent to H1, reducing
+substrate binding and dephosphorylation was discovered in a rare syndrome with
+microcephaly, developmental delay, and intellectual disability."</div>
+
+
+                <div class="evidence-explanation">Establishes a second pathogenic allele acting through impaired substrate recruitment, and the phenotype in which it was found.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6976,13 +7733,18 @@ PPP1R15B gene"</div>
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-insulin-therapy" data-dismech-node="Insulin Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Insulin Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7012,16 +7774,21 @@ PPP1R15B gene"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         insulin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_145810" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:145810">CHEBI:145810</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_145810" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:145810</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses insulin (CHEBI:145810). CHEBI:145810 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7142,13 +7909,18 @@ PPP1R15B gene"</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -7220,13 +7992,18 @@ PPP1R15B gene"</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-liver-transplantation" data-dismech-node="Liver Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Liver Transplantation
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Liver Transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Liver Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7364,7 +8141,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hyperglycemia-and-elevated-hba1c" data-dismech-node="Hyperglycemia and Elevated HbA1c" data-dismech-type="biochemical">
                 <div class="item-name">
                     Hyperglycemia and Elevated HbA1c
 
@@ -7411,7 +8188,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-detectable-c-peptide" data-dismech-node="Detectable C-Peptide" data-dismech-type="biochemical">
                 <div class="item-name">
                     Detectable C-Peptide
 
@@ -7458,7 +8235,7 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-elevated-tsh" data-dismech-node="Elevated TSH" data-dismech-type="biochemical">
                 <div class="item-name">
                     Elevated TSH
 
@@ -7780,6 +8557,9 @@ transplantation; S1 at 7 months and S2 at 22 months."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10744,5 +11524,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3470,6 +3865,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3538,6 +3937,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3548,6 +3948,14 @@
 
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3818,10 +4226,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         cell-type-selective rescue and network experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type cell-type-selective rescue and network experiment.</span>
     </span>
 
 
@@ -3877,15 +4291,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SCN1A
 
 
-    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10585">hgnc:10585</a>
+    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:10585</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -3955,15 +4376,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         synaptic transmission, GABAergic
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051932">GO:0051932</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0051932</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -3991,15 +4419,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         neuronal action potential
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019228">GO:0019228</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0019228</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on dysregulated neuronal action potential (GO:0019228). GO:0019228 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4034,10 +4469,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         multielectrode array recording
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this readout is measured by this assay
+This readout is measured by multielectrode array recording.</span>
     </span>
 
 
@@ -4061,10 +4502,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         patch-clamp electrophysiology
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+This readout is measured by patch-clamp electrophysiology.</span>
     </span>
 
 
@@ -4285,10 +4732,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-7">
 
         voltage-clamp variant functional classification experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this experiment is of type this experiment type
+This experiment is of type voltage-clamp variant functional classification experiment.</span>
     </span>
 
 
@@ -4344,15 +4797,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SCN1A
 
 
-    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10585">hgnc:10585</a>
+    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:10585</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4422,15 +4882,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         neuronal action potential
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019228">GO:0019228</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0019228</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on dysregulated neuronal action potential (GO:0019228). GO:0019228 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4465,10 +4932,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-10">
 
         whole-cell voltage-clamp electrophysiology
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Relation: this readout is measured by this assay
+This readout is measured by whole-cell voltage-clamp electrophysiology.</span>
     </span>
 
 
@@ -4689,10 +5162,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-11">
 
         human-versus-model benchmarking experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">Relation: this experiment is of type this experiment type
+This experiment is of type human-versus-model benchmarking experiment.</span>
     </span>
 
 
@@ -4742,15 +5221,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-12">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4775,15 +5261,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-location">
 
         cerebral cortex
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000956</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
     </span>
 
 
@@ -4811,15 +5304,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         inhibitory interneuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000498">CL:0000498</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000498</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses inhibitory interneuron (CL:0000498). CL:0000498 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4875,15 +5375,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SCN1A
 
 
-    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10585">hgnc:10585</a>
+    <a href="https://bioregistry.io/hgnc:10585" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:10585</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this perturbation targets this gene
+This perturbation targets SCN1A (hgnc:10585). hgnc:10585 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4953,15 +5460,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         neuronal action potential
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019228">GO:0019228</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0019228</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on decreased neuronal action potential (GO:0019228). GO:0019228 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -4996,10 +5510,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-17">
 
         patch-clamp electrophysiology
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">Relation: this readout is measured by this assay
+This readout is measured by patch-clamp electrophysiology.</span>
     </span>
 
 
@@ -5023,10 +5543,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-18">
 
         multielectrode array recording
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">Relation: this readout is measured by this assay
+This readout is measured by multielectrode array recording.</span>
     </span>
 
 
@@ -5221,16 +5747,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         inhibitory interneuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000498">CL:0000498</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000498</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves inhibitory interneuron (CL:0000498). CL:0000498 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5256,6 +5787,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         neuronal action potential
@@ -5263,10 +5796,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019228">GO:0019228</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0019228</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves neuronal action potential (GO:0019228). GO:0019228 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5286,6 +5822,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         voltage-gated sodium channel activity
@@ -5293,10 +5831,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005248">GO:0005248</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005248" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0005248</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves voltage-gated sodium channel activity (GO:0005248). GO:0005248 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5318,17 +5859,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Ammon&#39;s horn
@@ -5336,13 +5884,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001954">UBERON:0001954</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0001954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERON:0001954 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5428,16 +5980,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         inhibitory interneuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000498">CL:0000498</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000498" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000498</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves inhibitory interneuron (CL:0000498). CL:0000498 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5463,6 +6020,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         synaptic transmission, GABAergic
@@ -5470,10 +6029,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051932">GO:0051932</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0051932</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves synaptic transmission, GABAergic (GO:0051932). GO:0051932 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5496,17 +6058,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Ammon&#39;s horn
@@ -5514,11 +6083,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001954">UBERON:0001954</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0001954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERON:0001954 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         dorsal plus ventral thalamus
@@ -5526,13 +6100,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001897" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001897">UBERON:0001897</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001897" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0001897</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in dorsal plus ventral thalamus (UBERON:0001897). UBERON:0001897 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5786,16 +6364,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5822,16 +6405,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of cytosolic calcium ion concentration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051480" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051480">GO:0051480</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051480" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-30">GO:0051480</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated regulation of cytosolic calcium ion concentration (GO:0051480). GO:0051480 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5858,17 +6446,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-31">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Ammon&#39;s horn
@@ -5876,13 +6471,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001954">UBERON:0001954</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0001954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Ammon&#39;s horn (UBERON:0001954). UBERON:0001954 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6032,21 +6631,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-drooling" data-dismech-node="Drooling" data-dismech-type="phenotype">
                     <div class="item-name">
                         Drooling
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Drooling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002307">HP:0002307</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002307</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Drooling (HP:0002307). HP:0002307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6102,21 +6708,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pallor" data-dismech-node="Pallor" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pallor
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pallor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000980">HP:0000980</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000980" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000980</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pallor (HP:0000980). HP:0000980 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6172,21 +6785,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-planus" data-dismech-node="Pes Planus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pes Planus
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pes planus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001763">HP:0001763</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001763</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pes planus (HP:0001763). HP:0001763 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6242,21 +6862,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rigidity" data-dismech-node="Rigidity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rigidity
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rigidity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002063">HP:0002063</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002063</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6303,21 +6930,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-floppy-infant" data-dismech-node="Floppy Infant" data-dismech-type="phenotype">
                     <div class="item-name">
                         Floppy Infant
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Floppy infant
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008947">HP:0008947</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0008947</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Floppy infant (HP:0008947). HP:0008947 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6373,21 +7007,28 @@
                     <span class="cat-count">12</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6456,21 +7097,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-onset-seizure" data-dismech-node="Focal-onset Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal-onset Seizure
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal-onset seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007359">HP:0007359</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0007359</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6517,21 +7165,30 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-febrile-seizures" data-dismech-node="Febrile Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Febrile Seizures
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Febrile seizure (within the age range of 3 months to 6 years)
+
+                        <span class="phenotype-term-label">Febrile seizure (within the age range of 3 months to 6 years)</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002373">HP:0002373</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002373</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Febrile seizure (within the age range of 3 months to 6 years) (HP:0002373). HP:0002373 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6580,21 +7237,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-myoclonic-seizure" data-dismech-node="Generalized Myoclonic Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized Myoclonic Seizure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized myoclonic seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002123" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002123">HP:0002123</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002123</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6641,21 +7305,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-absence-seizure" data-dismech-node="Atypical Absence Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atypical Absence Seizure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atypical absence seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007270">HP:0007270</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0007270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical absence seizure (HP:0007270). HP:0007270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6702,21 +7373,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental Regression" data-dismech-type="phenotype">
                     <div class="item-name">
                         Developmental Regression
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Developmental regression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002376">HP:0002376</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002376</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6783,21 +7461,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cognitive Impairment
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6868,21 +7553,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic Behavior" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autistic Behavior
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autistic behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000729</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6953,21 +7645,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anxiety" data-dismech-node="Anxiety" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anxiety
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anxiety
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000739">HP:0000739</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000739</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7014,21 +7713,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myoclonus" data-dismech-node="Myoclonus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myoclonus
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myoclonus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001336">HP:0001336</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001336</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7075,21 +7781,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-parkinsonism" data-dismech-node="Parkinsonism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Parkinsonism
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Parkinsonism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001300">HP:0001300</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001300</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7136,21 +7849,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bradykinesia" data-dismech-node="Bradykinesia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bradykinesia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bradykinesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002067">HP:0002067</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002067</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bradykinesia (HP:0002067). HP:0002067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7206,21 +7926,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory Failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Respiratory Failure
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Respiratory failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002878">HP:0002878</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002878</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7246,21 +7973,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-unexpected-death-in-epilepsy" data-dismech-node="Sudden Unexpected Death in Epilepsy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sudden Unexpected Death in Epilepsy
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sudden unexpected death in epilepsy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033258" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033258">HP:0033258</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0033258</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden unexpected death in epilepsy (HP:0033258). HP:0033258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7286,21 +8020,28 @@
                     <span class="cat-count">31</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-complex-febrile-seizure" data-dismech-node="Complex Febrile Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Complex Febrile Seizure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Complex febrile seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011172" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011172">HP:0011172</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011172" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0011172</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Complex febrile seizure (HP:0011172). HP:0011172 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7347,21 +8088,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-hemiclonic-seizure" data-dismech-node="Focal Hemiclonic Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal Hemiclonic Seizure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal hemiclonic seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006813" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006813">HP:0006813</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006813" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0006813</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal hemiclonic seizure (HP:0006813). HP:0006813 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7408,21 +8156,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-photosensitive-myoclonic-seizures" data-dismech-node="Photosensitive Myoclonic Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Photosensitive Myoclonic Seizures
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Photosensitive myoclonic seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001327" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001327">HP:0001327</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001327</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Photosensitive myoclonic seizures, annotated with Photosensitive myoclonic seizure (HP:0001327). HP:0001327 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7469,21 +8224,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-photosensitive-tonic-clonic-seizures" data-dismech-node="Photosensitive Tonic-Clonic Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Photosensitive Tonic-Clonic Seizures
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Photosensitive tonic-clonic seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007207" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007207">HP:0007207</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0007207</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Photosensitive tonic-clonic seizures, annotated with Photosensitive tonic-clonic seizure (HP:0007207). HP:0007207 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7530,21 +8292,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-aware-seizure" data-dismech-node="Focal Aware Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal Aware Seizure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal aware seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002349" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002349">HP:0002349</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002349</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal aware seizure (HP:0002349). HP:0002349 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7591,21 +8360,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-impaired-awareness-seizure" data-dismech-node="Focal Impaired Awareness Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Focal Impaired Awareness Seizure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Focal impaired awareness seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002384">HP:0002384</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0002384</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:0002384 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7652,21 +8428,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-clonic-seizure" data-dismech-node="Generalized Clonic Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized Clonic Seizure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized clonic seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011169" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011169">HP:0011169</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011169" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0011169</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized clonic seizure (HP:0011169). HP:0011169 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7713,21 +8496,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epilepsia-partialis-continua" data-dismech-node="Epilepsia Partialis Continua" data-dismech-type="phenotype">
                     <div class="item-name">
                         Epilepsia Partialis Continua
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Epilepsia partialis continua
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012847" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012847">HP:0012847</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012847" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0012847</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epilepsia partialis continua (HP:0012847). HP:0012847 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7774,21 +8564,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-status-epilepticus-without-prominent-motor-symptoms" data-dismech-node="Status Epilepticus Without Prominent Motor Symptoms" data-dismech-type="phenotype">
                     <div class="item-name">
                         Status Epilepticus Without Prominent Motor Symptoms
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Status epilepticus without prominent motor symptoms
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031475" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031475">HP:0031475</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0031475</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Status epilepticus without prominent motor symptoms (HP:0031475). HP:0031475 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7857,21 +8654,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-tonic-seizure" data-dismech-node="Generalized Tonic Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized Tonic Seizure
 
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized tonic seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010818" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010818">HP:0010818</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010818" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0010818</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized tonic seizure (HP:0010818). HP:0010818 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7918,21 +8722,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multifocal-epileptiform-discharges" data-dismech-node="Multifocal Epileptiform Discharges" data-dismech-type="phenotype">
                     <div class="item-name">
                         Multifocal Epileptiform Discharges
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Multifocal epileptiform discharges
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010841" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010841">HP:0010841</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0010841</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Multifocal epileptiform discharges (HP:0010841). HP:0010841 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7979,21 +8790,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interictal-epileptiform-activity" data-dismech-node="Interictal Epileptiform Activity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Interictal Epileptiform Activity
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Interictal epileptiform activity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011182">HP:0011182</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0011182</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Interictal epileptiform activity (HP:0011182). HP:0011182 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8062,21 +8880,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-with-focal-epileptiform-discharges" data-dismech-node="EEG with Focal Epileptiform Discharges" data-dismech-type="phenotype">
                     <div class="item-name">
                         EEG with Focal Epileptiform Discharges
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        EEG with focal epileptiform discharges
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011185" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011185">HP:0011185</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011185" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0011185</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG with focal epileptiform discharges (HP:0011185). HP:0011185 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8123,21 +8948,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-with-generalized-epileptiform-discharges" data-dismech-node="EEG with Generalized Epileptiform Discharges" data-dismech-type="phenotype">
                     <div class="item-name">
                         EEG with Generalized Epileptiform Discharges
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        EEG with generalized epileptiform discharges
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011198" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011198">HP:0011198</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0011198</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG with generalized epileptiform discharges (HP:0011198). HP:0011198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8184,7 +9016,7 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-electrographic-seizures-scn1a-mouse-model" data-dismech-node="Electrographic Seizures (Scn1a+/- Mouse Model)" data-dismech-type="phenotype">
                     <div class="item-name">
                         Electrographic Seizures (Scn1a+/- Mouse Model)
 
@@ -8235,21 +9067,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-gait-ataxia" data-dismech-node="Progressive Gait Ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Gait Ataxia
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Progressive gait ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007240">HP:0007240</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0007240</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive gait ataxia (HP:0007240). HP:0007240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8318,21 +9157,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-obsessive-compulsive-trait" data-dismech-node="Obsessive-Compulsive Trait" data-dismech-type="phenotype">
                     <div class="item-name">
                         Obsessive-Compulsive Trait
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Obsessive-compulsive trait
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008770">HP:0008770</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008770" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0008770</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obsessive-compulsive trait (HP:0008770). HP:0008770 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8379,21 +9225,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-attention-span" data-dismech-node="Short Attention Span" data-dismech-type="phenotype">
                     <div class="item-name">
                         Short Attention Span
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short attention span
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000736" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000736">HP:0000736</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0000736</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short attention span (HP:0000736). HP:0000736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8440,21 +9293,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-impulsivity" data-dismech-node="Impulsivity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Impulsivity
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Impulsivity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100710">HP:0100710</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100710" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0100710</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impulsivity (HP:0100710). HP:0100710 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8501,21 +9361,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cogwheel-rigidity" data-dismech-node="Cogwheel Rigidity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cogwheel Rigidity
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cogwheel rigidity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002396" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002396">HP:0002396</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0002396</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cogwheel rigidity (HP:0002396). HP:0002396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8562,21 +9429,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-action-tremor" data-dismech-node="Action Tremor" data-dismech-type="phenotype">
                     <div class="item-name">
                         Action Tremor
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Action tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002345" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002345">HP:0002345</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002345" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0002345</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Action tremor (HP:0002345). HP:0002345 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8623,21 +9497,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-facial-tics" data-dismech-node="Facial Tics" data-dismech-type="phenotype">
                     <div class="item-name">
                         Facial Tics
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Facial tics
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011468" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011468">HP:0011468</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011468" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0011468</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial tics (HP:0011468). HP:0011468 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8684,21 +9565,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-incoordination" data-dismech-node="Incoordination" data-dismech-type="phenotype">
                     <div class="item-name">
                         Incoordination
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Incoordination
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002311" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002311">HP:0002311</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002311" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0002311</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Incoordination (HP:0002311). HP:0002311 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8745,21 +9633,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-poor-fine-motor-coordination" data-dismech-node="Poor Fine Motor Coordination" data-dismech-type="phenotype">
                     <div class="item-name">
                         Poor Fine Motor Coordination
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Poor fine motor coordination
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007010" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007010">HP:0007010</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0007010</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poor fine motor coordination (HP:0007010). HP:0007010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8806,21 +9701,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-brain-atrophy" data-dismech-node="Global Brain Atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global Brain Atrophy
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global brain atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002283" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002283">HP:0002283</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0002283</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global brain atrophy (HP:0002283). HP:0002283 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8889,21 +9791,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysgenesis-of-the-hippocampus" data-dismech-node="Dysgenesis of the Hippocampus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysgenesis of the Hippocampus
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysgenesis of the hippocampus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025101" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025101">HP:0025101</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025101" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0025101</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysgenesis of the hippocampus (HP:0025101). HP:0025101 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8972,21 +9881,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limited-neck-range-of-motion" data-dismech-node="Limited Neck Range of Motion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Limited Neck Range of Motion
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limited neck range of motion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000466" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000466">HP:0000466</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000466" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-77">HP:0000466</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limited neck range of motion (HP:0000466). HP:0000466 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9033,21 +9949,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pes-valgus" data-dismech-node="Pes Valgus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pes Valgus
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pes valgus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008081" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008081">HP:0008081</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-78">HP:0008081</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pes valgus (HP:0008081). HP:0008081 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9094,21 +10017,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limited-knee-extension" data-dismech-node="Limited Knee Extension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Limited Knee Extension
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limited knee extension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003066" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003066">HP:0003066</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-79">HP:0003066</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limited knee extension (HP:0003066). HP:0003066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9155,21 +10085,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tibial-torsion" data-dismech-node="Tibial Torsion" data-dismech-type="phenotype">
                     <div class="item-name">
                         Tibial Torsion
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tibial torsion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100694" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100694">HP:0100694</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100694" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-80">HP:0100694</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tibial torsion (HP:0100694). HP:0100694 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9216,21 +10153,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cyanotic-episode" data-dismech-node="Cyanotic Episode" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cyanotic Episode
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cyanotic episode
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200048" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200048">HP:0200048</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-81">HP:0200048</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cyanotic episode (HP:0200048). HP:0200048 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9316,7 +10260,7 @@
                 <span class="card-count">11</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-scn1a" data-dismech-node="SCN1A" data-dismech-type="genetic">
                 <div class="item-name">
                     SCN1A
 
@@ -9404,9 +10348,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-scn1b" data-dismech-node="SCN1B" data-dismech-type="genetic">
                 <div class="item-name">
                     SCN1B
 
@@ -9450,9 +10395,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-scn2a" data-dismech-node="SCN2A" data-dismech-type="genetic">
                 <div class="item-name">
                     SCN2A
 
@@ -9496,9 +10442,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-scn9a" data-dismech-node="SCN9A" data-dismech-type="genetic">
                 <div class="item-name">
                     SCN9A
 
@@ -9542,9 +10489,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gabra1" data-dismech-node="GABRA1" data-dismech-type="genetic">
                 <div class="item-name">
                     GABRA1
 
@@ -9588,9 +10536,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-gabrg2" data-dismech-node="GABRG2" data-dismech-type="genetic">
                 <div class="item-name">
                     GABRG2
 
@@ -9634,9 +10583,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pcdh19" data-dismech-node="PCDH19" data-dismech-type="genetic">
                 <div class="item-name">
                     PCDH19
 
@@ -9680,9 +10630,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-stxbp1" data-dismech-node="STXBP1" data-dismech-type="genetic">
                 <div class="item-name">
                     STXBP1
 
@@ -9694,9 +10645,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hcn1" data-dismech-node="HCN1" data-dismech-type="genetic">
                 <div class="item-name">
                     HCN1
 
@@ -9708,9 +10660,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-chd2" data-dismech-node="CHD2" data-dismech-type="genetic">
                 <div class="item-name">
                     CHD2
 
@@ -9722,9 +10675,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-depdc5" data-dismech-node="DEPDC5" data-dismech-type="genetic">
                 <div class="item-name">
                     DEPDC5
 
@@ -9736,9 +10690,13 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -9750,13 +10708,18 @@
                 <span class="card-count">11</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antiepileptic-medications" data-dismech-node="Antiepileptic Medications" data-dismech-type="treatment">
                 <div class="item-name">
                     Antiepileptic Medications
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antiepileptic drug therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-82">antiepileptic drug therapy<span class="pill-tip" role="tooltip" id="pill-tip-82">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antiepileptic drug therapy, annotated with Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Anticonvulsant Therapy</span>
 
 
@@ -9846,13 +10809,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ketogenic-diet" data-dismech-node="Ketogenic Diet" data-dismech-type="treatment">
                 <div class="item-name">
                     Ketogenic Diet
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-83">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-83">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -9910,13 +10878,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-therapies" data-dismech-node="Supportive Therapies" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive Therapies
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-84">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-84">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -9956,13 +10929,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-vagus-nerve-stimulation-vns" data-dismech-node="Vagus Nerve Stimulation (VNS)" data-dismech-type="treatment">
                 <div class="item-name">
                     Vagus Nerve Stimulation (VNS)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-85">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-85">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10020,13 +10998,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-antisense-oligonucleotide-therapy-zorevunersen-stk-001" data-dismech-node="Antisense Oligonucleotide Therapy (Zorevunersen/STK-001)" data-dismech-type="treatment">
                 <div class="item-name">
                     Antisense Oligonucleotide Therapy (Zorevunersen/STK-001)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-86">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-86">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10056,16 +11039,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         zorevunersen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C184885" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C184885">NCIT:C184885</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C184885" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-87">NCIT:C184885</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses zorevunersen (NCIT:C184885). NCIT:C184885 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -10190,13 +11178,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-aav-gene-therapy-etx101" data-dismech-node="AAV Gene Therapy (ETX101)" data-dismech-type="treatment">
                 <div class="item-name">
                     AAV Gene Therapy (ETX101)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-88">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-88">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
@@ -10267,13 +11260,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cannabidiol" data-dismech-node="Cannabidiol" data-dismech-type="treatment">
                 <div class="item-name">
                     Cannabidiol
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-89">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-89">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10303,16 +11301,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cannabidiol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:69478">CHEBI:69478</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-90">CHEBI:69478</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cannabidiol (CHEBI:69478). CHEBI:69478 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10379,13 +11382,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-fenfluramine" data-dismech-node="Fenfluramine" data-dismech-type="treatment">
                 <div class="item-name">
                     Fenfluramine
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-91">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-91">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10415,16 +11423,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         fenfluramine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5000" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:5000">CHEBI:5000</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5000" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-92">CHEBI:5000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses fenfluramine (CHEBI:5000). CHEBI:5000 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10491,13 +11504,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-stiripentol" data-dismech-node="Stiripentol" data-dismech-type="treatment">
                 <div class="item-name">
                     Stiripentol
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-93">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-93">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10527,16 +11545,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         stiripentol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C152433" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C152433">NCIT:C152433</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C152433" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-94">NCIT:C152433</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-94">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses stiripentol (NCIT:C152433). NCIT:C152433 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -10603,13 +11626,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-scn8a-modulation" data-dismech-node="SCN8A Modulation" data-dismech-type="treatment">
                 <div class="item-name">
                     SCN8A Modulation
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">sodium channel modulation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-95">sodium channel modulation<span class="pill-tip" role="tooltip" id="pill-tip-95">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is sodium channel modulation, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -10700,13 +11728,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-tau-suppression" data-dismech-node="Tau Suppression" data-dismech-type="treatment">
                 <div class="item-name">
                     Tau Suppression
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">tau-targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-96">tau-targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-96">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is tau-targeted therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -10809,7 +11842,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-fever" data-dismech-node="Fever" data-dismech-type="environmental">
                 <div class="item-name">Fever</div>
 
 
@@ -10819,13 +11852,15 @@
 
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-excessive-heat-and-overexertion" data-dismech-node="Excessive Heat and Overexertion" data-dismech-type="environmental">
                 <div class="item-name">Excessive Heat and Overexertion</div>
 
 
                 <div class="item-desc">Can trigger or worsen seizures.</div>
+
 
 
 
@@ -10844,11 +11879,183 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Variability vs. phenotype: Multimodal analysis of Dravet syndrome brain organoids powered by deep learning
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE256142" target="_blank">geo:GSE256142</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dravet Syndrome (DS) is a developmental epileptic encephalopathy (DEE) driven by pathogenic variants in SCN1A gene. Brain organoids (BO) have emerged as reliable models for neurodevelopmental genetic disorders, reproducing human brain developmental milestones and rising as a promising drug testing tool. Here, we determined the underlaying molecular DS pathophysiology affecting neuronal connectivity, revealing an early onset excitatory-inhibitory imbalance in maturing DS organoids circuitry. However, neuronal circuitry modeling in BO remains hampered by the notorious inter- and intra-organoid variability.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=18</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41323276" target="_blank" style="color: var(--secondary);">PMID:41323276</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    dCas9-based Scn1a gene activation restores inhibitory interneuron excitability and restrains epileptic crises in Dravet syndrome mice
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE111436" target="_blank">geo:GSE111436</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dravet syndrome (DS) is a severe epileptic encephalopathy caused by heterozygous loss-of-function mutations in the SCN1A gene, indicating a haploinsufficient genetic mechanism underlining this pathology. Here, we tested whether dCas9-mediated Scn1a gene activation could rescue Scn1a haploinsufficiency and restore physiological levels of its gene product, the Nav1.1 voltage-gated sodium channel. We screeened sgRNAs for their ability to stimulate Scn1a gene transcription in association with the dCas9 activation system. Interestingly, we identified one single sgRNA able to significantly increase Scn1a gene expression levels in cell lines as well as in primary neurons, with high specificity.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">mouse</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/31607539" target="_blank" style="color: var(--secondary);">PMID:31607539</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Epigenetic insights into GABAergic development in Dravet Syndrome iPSC and therapeutic implications
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE274660" target="_blank">geo:GSE274660</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dravet syndrome (DS) is a devastating early onset refractory epilepsy syndrome caused by variants in the SCN1A gene. A disturbed GABAergic interneuron function is implicated in the progression to DS but the underlying developmental and pathophysiological mechanisms remain elusive, in particularly at the chromatin level. In this study, we utilized induced pluripotent stem cells (iPSCs) derived from DS cases and healthy donors to model disease-associated epigenetic abnormalities of GABAergic development. Employing the ATAC-Seq technique, we assessed chromatin accessibility at multiple time points (Day 0, Day 19, Day 35, and Day 65) of GABAergic differentiation.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">ATAC SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=56</span>
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Prenatal sodium channel dysfunction in Dravet syndrome alters cortical development
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS50000001645" target="_blank">ega:EGAS50000001645</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This dataset contains bulk RNA-sequencing data generated for the study “Prenatal sodium channel dysfunction in Dravet syndrome alters cortical development.” RNA-seq was performed on human cortical organoids and cortical organoid assemblies derived from induced pluripotent stem cells (iPSCs) from two individuals with Dravet syndrome and their corresponding isogenic control lines. Libraries were prepared from total/bulk mRNA and sequenced as paired-end reads. The dataset is intended to enable transcriptomic analyses of early cortical developmental changes associated with Dravet syndrome in an isogenic background.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Dravet syndrome&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -12842,6 +14049,51 @@ discussions:
     would_support:
     - pathophysiology#SCN1A Gene Mutation
     - pathophysiology#Neuronal Hyperexcitability
+datasets:
+- accession: geo:GSE256142
+  title: &#39;Variability vs. phenotype: Multimodal analysis of Dravet syndrome brain organoids powered by deep learning&#39;
+  description: Dravet Syndrome (DS) is a developmental epileptic encephalopathy (DEE) driven by pathogenic variants in SCN1A gene. Brain organoids (BO) have emerged as reliable models for neurodevelopmental genetic disorders, reproducing human brain developmental milestones and rising as a promising drug testing tool. Here, we determined the underlaying molecular DS pathophysiology affecting neuronal connectivity, revealing an early onset excitatory-inhibitory imbalance in maturing DS organoids circuitry. However, neuronal circuitry modeling in BO remains hampered by the notorious inter- and intra-organoid variability.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 18
+  publication: PMID:41323276
+  notes: Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE111436
+  title: dCas9-based Scn1a gene activation restores inhibitory interneuron excitability and restrains epileptic crises in Dravet syndrome mice
+  description: Dravet syndrome (DS) is a severe epileptic encephalopathy caused by heterozygous loss-of-function mutations in the SCN1A gene, indicating a haploinsufficient genetic mechanism underlining this pathology. Here, we tested whether dCas9-mediated Scn1a gene activation could rescue Scn1a haploinsufficiency and restore physiological levels of its gene product, the Nav1.1 voltage-gated sodium channel. We screeened sgRNAs for their ability to stimulate Scn1a gene transcription in association with the dCas9 activation system. Interestingly, we identified one single sgRNA able to significantly increase Scn1a gene expression levels in cell lines as well as in primary neurons, with high specificity.
+  organism:
+    preferred_term: mouse
+    term:
+      id: NCBITaxon:10090
+      label: Mus musculus
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:31607539
+  notes: Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE274660
+  title: Epigenetic insights into GABAergic development in Dravet Syndrome iPSC and therapeutic implications
+  description: Dravet syndrome (DS) is a devastating early onset refractory epilepsy syndrome caused by variants in the SCN1A gene. A disturbed GABAergic interneuron function is implicated in the progression to DS but the underlying developmental and pathophysiological mechanisms remain elusive, in particularly at the chromatin level. In this study, we utilized induced pluripotent stem cells (iPSCs) derived from DS cases and healthy donors to model disease-associated epigenetic abnormalities of GABAergic development. Employing the ATAC-Seq technique, we assessed chromatin accessibility at multiple time points (Day 0, Day 19, Day 35, and Day 65) of GABAergic differentiation.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: ATAC_SEQ
+  sample_count: 56
+  notes: Identified by GEO DataSets index search for Dravet syndrome (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS50000001645
+  title: Prenatal sodium channel dysfunction in Dravet syndrome alters cortical development
+  description: This dataset contains bulk RNA-sequencing data generated for the study “Prenatal sodium channel dysfunction in Dravet syndrome alters cortical development.” RNA-seq was performed on human cortical organoids and cortical organoid assemblies derived from induced pluripotent stem cells (iPSCs) from two individuals with Dravet syndrome and their corresponding isogenic control lines. Libraries were prepared from total/bulk mRNA and sequenced as paired-end reads. The dataset is intended to enable transcriptomic analyses of early cortical developmental changes associated with Dravet syndrome in an isogenic background.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Dravet syndrome&#34;); description-level mentions were not accepted. EGA study_type: RNASeq. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
 </pre>
             </div>
         </div>
@@ -13943,7 +15195,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dravet_syndrome", "mondoId": "MONDO:0100135", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dravet_syndrome", "yamlRevision": "4521566c0a70"};
+        const OS_CONFIG = {"diseaseName": "Dravet_syndrome", "mondoId": "MONDO:0100135", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dravet_syndrome", "yamlRevision": "4b4642ff7de6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14362,5 +15614,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

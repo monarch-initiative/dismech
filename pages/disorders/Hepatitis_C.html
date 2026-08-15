@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3467,6 +3862,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3511,6 +3910,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3529,6 +3929,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">7</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
 
@@ -3670,16 +4078,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3706,16 +4119,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         viral life cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019058" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019058">GO:0019058</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019058" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0019058</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral life cycle (GO:0019058). GO:0019058 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3732,6 +4150,7 @@
 
 
                 </div>
+
 
 
 
@@ -3754,17 +4173,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatic stellate cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000632">CL:0000632</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000632</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatic stellate cell (CL:0000632). CL:0000632 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3785,10 +4211,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3815,17 +4244,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chronic inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002544" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002544">GO:0002544</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002544" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0002544</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves chronic inflammatory response (GO:0002544). GO:0002544 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3846,11 +4282,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035733" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035733">GO:0035733</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035733" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0035733</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves hepatic stellate cell activation (GO:0035733). GO:0035733 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -3871,10 +4312,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032964">GO:0032964</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032964" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0032964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves collagen biosynthetic process (GO:0032964). GO:0032964 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -3891,6 +4335,7 @@
 
 
                 </div>
+
 
 
 
@@ -3943,16 +4388,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3979,16 +4429,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         symbiont-mediated suppression of host type I interferon-mediated signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0039502" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0039502">GO:0039502</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0039502" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0039502</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves symbiont-mediated suppression of host type I interferon-mediated signaling pathway (GO:0039502). GO:0039502 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4005,6 +4460,7 @@
 
 
                 </div>
+
 
 
 
@@ -4059,16 +4515,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4085,6 +4546,7 @@
 
 
                 </div>
+
 
 
 
@@ -4219,21 +4681,28 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-jaundice" data-dismech-node="Jaundice" data-dismech-type="phenotype">
                     <div class="item-name">
                         Jaundice
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Jaundice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000952">HP:0000952</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000952</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4248,21 +4717,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatomegaly
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002240">HP:0002240</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002240</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4277,21 +4753,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cirrhosis" data-dismech-node="Cirrhosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cirrhosis
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cirrhosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4356,21 +4839,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatocellular-carcinoma" data-dismech-node="Hepatocellular Carcinoma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatocellular Carcinoma
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatocellular carcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001402">HP:0001402</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001402</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4426,21 +4916,30 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-transaminases" data-dismech-node="Elevated Transaminases" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Transaminases
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating hepatic transaminase concentration
+
+                        <span class="phenotype-term-label">Elevated circulating hepatic transaminase concentration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002910">HP:0002910</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002910</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4464,21 +4963,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4564,7 +5070,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-il28b-polymorphisms" data-dismech-node="IL28B Polymorphisms" data-dismech-type="genetic">
                 <div class="item-name">
                     IL28B Polymorphisms
 
@@ -4630,9 +5136,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -4644,13 +5154,18 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-direct-acting-antivirals-daas" data-dismech-node="Direct-Acting Antivirals (DAAs)" data-dismech-type="treatment">
                 <div class="item-name">
                     Direct-Acting Antivirals (DAAs)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antiviral therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">antiviral therapy<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antiviral therapy (NCIT:C16119). NCIT:C16119 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antiviral Therapy</span>
 
 
@@ -4763,13 +5278,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-liver-transplantation" data-dismech-node="Liver Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Liver Transplantation
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Liver Transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">Liver Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -4809,13 +5329,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hepatocellular-carcinoma-surveillance" data-dismech-node="Hepatocellular Carcinoma Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Hepatocellular Carcinoma Surveillance
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surveillance for malignancies</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">surveillance for malignancies<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surveillance for malignancies, annotated with Cancer Screening (NCIT:C15406). NCIT:C15406 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cancer Screening</span>
 
 
@@ -4900,8 +5425,31 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-injection-drug-use" data-dismech-node="Injection Drug Use" data-dismech-type="environmental">
                 <div class="item-name">Injection Drug Use</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        injection drug use
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000007" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-20">ECTO:6000007</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is injection drug use, annotated with exposure to substance abuse (ECTO:6000007). ECTO:6000007 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
 
 
                 <div class="item-desc">Major route of HCV transmission through sharing of needles and drug preparation equipment</div>
@@ -4910,9 +5458,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-unsafe-medical-practices" data-dismech-node="Unsafe Medical Practices" data-dismech-type="environmental">
                 <div class="item-name">Unsafe Medical Practices</div>
 
 
@@ -4922,9 +5471,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-occupational-exposure" data-dismech-node="Occupational Exposure" data-dismech-type="environmental">
                 <div class="item-name">Occupational Exposure</div>
 
 
@@ -4934,13 +5484,15 @@
 
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-tattoos-and-body-piercing" data-dismech-node="Tattoos and Body Piercing" data-dismech-type="environmental">
                 <div class="item-name">Tattoos and Body Piercing</div>
 
 
                 <div class="item-desc">Transmission risk when performed with non-sterile equipment</div>
+
 
 
 
@@ -4960,7 +5512,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-hcv-rna" data-dismech-node="HCV RNA" data-dismech-type="biochemical">
                 <div class="item-name">
                     HCV RNA
 
@@ -4977,7 +5529,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-anti-hcv-antibodies" data-dismech-node="Anti-HCV Antibodies" data-dismech-type="biochemical">
                 <div class="item-name">
                     Anti-HCV Antibodies
 
@@ -4994,7 +5546,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-elevated-alt" data-dismech-node="Elevated ALT" data-dismech-type="biochemical">
                 <div class="item-name">
                     Elevated ALT
 
@@ -5011,7 +5563,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-elevated-bilirubin" data-dismech-node="Elevated Bilirubin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Elevated Bilirubin
 
@@ -5036,11 +5588,292 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">7</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Hepatitis C Virus-induced Differential Transcriptional Traits in Host Cells After Persistent Infection Elimination by Direct-Acting Antivirals In Cell Culture
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE267834" target="_blank">geo:GSE267834</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Chronic hepatitis C virus infection (HCV) causes liver inflammation and fibrosis, leading to development of severe liver disease, such as cirrhosis or hepatocellular carcinoma (HCC). Approval of direct acting antiviral (DAA) drug combinations has revolutionized chronic HCV therapy, with virus eradication in &gt;98% of the treated patients. The efficacy of these treatments is such that it is formally possible for cured patients to carry formerly infected cells that display irreversible transcriptional alterations directly caused by chronic HCV Infection.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=28</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38988177" target="_blank" style="color: var(--secondary);">PMID:38988177</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hepatitis C (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Longitudinal transcriptomic characterization of the immune response to acute hepatitis C virus infection
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE119117" target="_blank">geo:GSE119117</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Most individuals exposed to hepatitis C virus (HCV) become persistently infected while a minority spontaneously eliminate the virus. Although early immune events influence infection outcome, the cellular composition, molecular effectors, and timeframe of the host response active shortly after viral exposure remain incompletely understood. Employing specimens collected from people who inject drugs (PWID) with high risk of HCV exposure, we utilized RNA-Seq to characterize immune function in peripheral blood before, during, and after acute HCV infection resulting in spontaneous resolution.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=53</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/30222771" target="_blank" style="color: var(--secondary);">PMID:30222771</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hepatitis C (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    The human liver circadian transcriptome and its carcinogenic perturbation by hepatitis C virus infection (RNA-Seq I)
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE200809" target="_blank">geo:GSE200809</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Chronic liver disease and cancer are global health challenges. The role of the circadian clock (CC) as a regulator of physiology and disease is well established in animal models. However, in human liver the identity of circadian genes and their epigenetic regulation is unknown. Here, we unraveled the circadian transcriptome and epigenome of human hepatocytes using a human liver chimeric mouse model. We identified genes coding for transcription factors, chromatin modifiers, and critical enzymes which are expressed rhythmically in human hepatocytes, and which differ from the mouse liver circadian transcriptome.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=6</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/39209804" target="_blank" style="color: var(--secondary);">PMID:39209804</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Hepatitis C (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Identification of improved IL28B SNPs and haplotypes for prediction of drug response in treatment of hepatitis C using massively parallel sequencing in a cross-sectional European cohort
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001000096" target="_blank">ega:EGAS00001000096</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">The hepatitis C virus infects nearly 3% of the World’s population, causing severe liver disease in many. Standard of care therapy is currently pegylated interferon alpha and ribavirin (PegIFN/R), which is effective in less than half of those infected with the most common viral genotype. Two IL28B SNPs, rs8099917 and rs12979860, predict response to (PegIFN/R) therapy in treatment of hepatitis C virus infection. These SNPs were identified in genome wide analyses using Illumina genotyping chips. In people of European ancestry, there are 6 common (&gt;1%) haplotypes for IL28B, one tagged by rs8099917 minor allele, four tagged by rs12979860.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Hepatitis C&#34;); description-level mentions were not accepted. EGA study_type: Resequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Genome-to-genome analysis highlights the impact of the human innate and adaptive immune systems on the hepatitis C virus
+
+                    <span class="dataset-accession">
+                        <a href="https://ega-archive.org/studies/EGAS00001002324" target="_blank">ega:EGAS00001002324</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Outcomes of hepatitis C virus (HCV) infection and treatment depend on viral and host genetic factors. We use human genome-wide genotyping arrays and new whole-genome HCV viral sequencing technologies to perform a systematic genome-to-genome study of 542 individuals chronically infected with HCV, predominately genotype 3. We show that both HLA alleles and interferon lambda innate immune system genes drive viral genome polymorphism, and that IFNL4 genotypes determine HCV viral load through a mechanism that is dependent on a specific polymorphism in the HCV polyprotein. We highlight the interplay between innate immune responses and the viral genome in HCV control.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28394351" target="_blank" style="color: var(--secondary);">PMID:28394351</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">European Genome-phenome Archive study, matched because the disease is named in the study&#39;s own title (&#34;Hepatitis C&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Hepatitis C Antiviral Long-term Treatment Against Cirrhosis (HALT-C)
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000430" target="_blank">dbgap:phs000430</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Reprinted from http://www.haltctrial.org/    Purpose    The  H epatitis C  A ntiviral  L ong-term  T reatment against  C irrhosis (HALT-C) Trial is a randomized controlled trial designed to evaluate the safety and efficacy of long-term use of pegylated interferon for the treatment of chronic hepatitis C in patients who failed to respond to previous interferon therapy. The HALT-C Trial was developed to determine whether prolonged interferon therapy altered histological and clinical outcomes in a group of patients who had failed to eradicate hepatitis C</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hepatitis C&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Site specific glycan analysis of hepatitis C virus E1E2 glycoprotein complex
+
+                    <span class="dataset-accession">
+                        <a href="https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=MSV000088553" target="_blank">massive:MSV000088553</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Dataset for N-linked glycosylation analysis contained within &#34;Structure of the hepatitis C virus E1E2 glycoprotein complex&#34;</div>
+
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hepatitis C&#34;). Retrieved 2026-08-02.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -5301,6 +6134,11 @@ genetic:
     explanation: Landmark GWAS linking the IL28B polymorphism to response to interferon-based HCV therapy.
 environmental:
 - name: Injection Drug Use
+  exposure_term:
+    preferred_term: injection drug use
+    term:
+      id: ECTO:6000007
+      label: exposure to substance abuse
   notes: Major route of HCV transmission through sharing of needles and drug preparation equipment
 - name: Unsafe Medical Practices
   notes: Transmission through contaminated medical equipment, blood transfusions (pre-1992), and organ transplants
@@ -5362,6 +6200,69 @@ treatments:
     snippet: &#34;biannual screening reduced HCC mortality by 37%&#34;
     explanation: Landmark randomized controlled trial demonstrating that biannual AFP plus ultrasound surveillance reduces HCC mortality in at-risk chronic-hepatitis patients.
 datasets:
+- accession: geo:GSE267834
+  title: Hepatitis C Virus-induced Differential Transcriptional Traits in Host Cells After Persistent Infection Elimination by Direct-Acting Antivirals In Cell Culture
+  description: Chronic hepatitis C virus infection (HCV) causes liver inflammation and fibrosis, leading to development of severe liver disease, such as cirrhosis or hepatocellular carcinoma (HCC). Approval of direct acting antiviral (DAA) drug combinations has revolutionized chronic HCV therapy, with virus eradication in &gt;98% of the treated patients. The efficacy of these treatments is such that it is formally possible for cured patients to carry formerly infected cells that display irreversible transcriptional alterations directly caused by chronic HCV Infection.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 28
+  publication: PMID:38988177
+  notes: Identified by GEO DataSets index search for Hepatitis C (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE119117
+  title: Longitudinal transcriptomic characterization of the immune response to acute hepatitis C virus infection
+  description: Most individuals exposed to hepatitis C virus (HCV) become persistently infected while a minority spontaneously eliminate the virus. Although early immune events influence infection outcome, the cellular composition, molecular effectors, and timeframe of the host response active shortly after viral exposure remain incompletely understood. Employing specimens collected from people who inject drugs (PWID) with high risk of HCV exposure, we utilized RNA-Seq to characterize immune function in peripheral blood before, during, and after acute HCV infection resulting in spontaneous resolution.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 53
+  publication: PMID:30222771
+  notes: Identified by GEO DataSets index search for Hepatitis C (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE200809
+  title: The human liver circadian transcriptome and its carcinogenic perturbation by hepatitis C virus infection (RNA-Seq I)
+  description: Chronic liver disease and cancer are global health challenges. The role of the circadian clock (CC) as a regulator of physiology and disease is well established in animal models. However, in human liver the identity of circadian genes and their epigenetic regulation is unknown. Here, we unraveled the circadian transcriptome and epigenome of human hepatocytes using a human liver chimeric mouse model. We identified genes coding for transcription factors, chromatin modifiers, and critical enzymes which are expressed rhythmically in human hepatocytes, and which differ from the mouse liver circadian transcriptome.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: BULK_RNA_SEQ
+  sample_count: 6
+  publication: PMID:39209804
+  notes: Identified by GEO DataSets index search for Hepatitis C (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: ega:EGAS00001000096
+  title: Identification of improved IL28B SNPs and haplotypes for prediction of drug response in treatment of hepatitis C using massively parallel sequencing in a cross-sectional European cohort
+  description: The hepatitis C virus infects nearly 3% of the World’s population, causing severe liver disease in many. Standard of care therapy is currently pegylated interferon alpha and ribavirin (PegIFN/R), which is effective in less than half of those infected with the most common viral genotype. Two IL28B SNPs, rs8099917 and rs12979860, predict response to (PegIFN/R) therapy in treatment of hepatitis C virus infection. These SNPs were identified in genome wide analyses using Illumina genotyping chips. In people of European ancestry, there are 6 common (&gt;1%) haplotypes for IL28B, one tagged by rs8099917 minor allele, four tagged by rs12979860.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Hepatitis C&#34;); description-level mentions were not accepted. EGA study_type: Resequencing. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: ega:EGAS00001002324
+  title: Genome-to-genome analysis highlights the impact of the human innate and adaptive immune systems on the hepatitis C virus
+  description: Outcomes of hepatitis C virus (HCV) infection and treatment depend on viral and host genetic factors. We use human genome-wide genotyping arrays and new whole-genome HCV viral sequencing technologies to perform a systematic genome-to-genome study of 542 individuals chronically infected with HCV, predominately genotype 3. We show that both HLA alleles and interferon lambda innate immune system genes drive viral genome polymorphism, and that IFNL4 genotypes determine HCV viral load through a mechanism that is dependent on a specific polymorphism in the HCV polyprotein. We highlight the interplay between innate immune responses and the viral genome in HCV control.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  publication: PMID:28394351
+  notes: &#39;European Genome-phenome Archive study, matched because the disease is named in the study&#39;&#39;s own title (&#34;Hepatitis C&#34;); description-level mentions were not accepted. EGA study_type: Other. Controlled access -- data require a Data Access Agreement. EGA metadata retrieved 2026-08-01.&#39;
+- accession: dbgap:phs000430
+  title: Hepatitis C Antiviral Long-term Treatment Against Cirrhosis (HALT-C)
+  description:  Reprinted from http://www.haltctrial.org/    Purpose    The  H epatitis C  A ntiviral  L ong-term  T reatment against  C irrhosis (HALT-C) Trial is a randomized controlled trial designed to evaluate the safety and efficacy of long-term use of pegylated interferon for the treatment of chronic hepatitis C in patients who failed to respond to previous interferon therapy. The HALT-C Trial was developed to determine whether prolonged interferon therapy altered histological and clinical outcomes in a group of patients who had failed to eradicate hepatitis C
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from dbgap. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hepatitis C&#34;). Retrieved 2026-08-02.
+- accession: massive:MSV000088553
+  title: Site specific glycan analysis of hepatitis C virus E1E2 glycoprotein complex
+  description: Dataset for N-linked glycosylation analysis contained within &#34;Structure of the hepatitis C virus E1E2 glycoprotein complex&#34;
+  notes: Located via OmicsDI, which aggregates across omics repositories; this record comes from massive. Only repositories with no other discovery route in this project and with a working accession resolver are curated from OmicsDI -- GEO, ArrayExpress, PRIDE, MetaboLights and EGA hits are excluded as duplicates of dedicated passes. Matched because the disease is named in the dataset&#39;s own title (&#34;Hepatitis C&#34;). Retrieved 2026-08-02.
 </pre>
             </div>
         </div>
@@ -5871,7 +6772,7 @@ Where mechanistic claims rely on review syntheses, we quoted the authors’ lang
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hepatitis C", "mondoId": "MONDO:0005231", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatitis_C", "yamlRevision": "59a13f730d80"};
+        const OS_CONFIG = {"diseaseName": "Hepatitis C", "mondoId": "MONDO:0005231", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hepatitis_C", "yamlRevision": "6d68095c0817"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -6290,5 +7191,73 @@ Where mechanistic claims rely on review syntheses, we quoted the authors’ lang
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

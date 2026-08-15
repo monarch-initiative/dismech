@@ -1,0 +1,2177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Placental Abruption · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Placental Abruption</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Placental Abruption</h1>
+                
+                <p class="report-subtitle">Placental Abruption (Abruptio Placentae) — Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0004846" target="_blank" rel="noopener noreferrer">MONDO:0004846</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                    <span class="meta-chip">46 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Placental Abruption (Abruptio Placentae) — Comprehensive Research Report</h1>
+<p><strong>Target:</strong> Placental Abruption · <strong><a href="http://purl.obolibrary.org/obo/MONDO_0004846" target="_blank" rel="noopener noreferrer">MONDO:0004846</a></strong> · Category: Complex (multifactorial, non-Mendelian)
+<strong>Report date:</strong> 2026-08-04 · <strong>Evidence cutoff:</strong> literature through mid-2026
+<strong>Verification note:</strong> every PMID below was retrieved from NCBI E-utilities during this session and every quoted snippet is a verbatim substring of the retrieved PubMed abstract. Every ontology CURIE was resolved live against EBI OLS4 (HP/GO/CL/UBERON/CHEBI/NCIT/MONDO) or the HGNC REST API. Items I could not verify are explicitly flagged as <strong>UNVERIFIED</strong>.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>1.1 Overview</h3>
+<p>Placental abruption is the premature separation of a normally implanted placenta from the uterine wall before delivery of the fetus. It is an <em>obstetric</em> rather than a <em>constitutional</em> disease: the affected "organ" is a transient fetomaternal organ, the disease exists only during a pregnancy, and it has two patients (the pregnant person and the fetus) whose risks diverge. Mechanistically it is a hemorrhagic disease of the decidua basalis — rupture of maternal decidual vessels produces a retroplacental hematoma that dissects the maternal–fetal interface, destroying gas-exchange surface acutely and generating a large local thrombin burst that drives inflammation, membrane weakening and uterine contraction.</p>
+<p>Two clinically and mechanistically distinct presentations exist and should be modeled as separate arms:</p>
+<ol>
+<li><strong>Acute abruption</strong> — often trauma- or shear-triggered, with sudden hemorrhage, uterine hypertonus, fetal compromise, coagulopathy.</li>
+<li><strong>Chronic/ischemic abruption</strong> — the culmination of long-standing uteroplacental vasculopathy, sharing risk profile and placental lesions with preeclampsia and fetal growth restriction under the "ischemic placental disease" umbrella.</li>
+</ol>
+<p>Brandt &amp; Ananth (AJOG 2023, <a href="https://pubmed.ncbi.nlm.nih.gov/37164498/" target="_blank" rel="noopener noreferrer">PMID:37164498</a>) — the current definitive review — states: <em>"Placental abruption is the premature separation of the placenta from its uterine attachment before the delivery of a fetus."</em> They emphasize both chronic processes (vasculopathy) and acute triggers (abdominal trauma), and report a prevalence of 0.6%–1.2% of pregnancies.</p>
+<p>The MeSH scope note (D000037, retrieved from NCBI MeSH) is a compact and citable definition:</p>
+<blockquote>
+<p>"Premature separation of the normally implanted PLACENTA from the UTERUS. Signs of varying degree of severity include UTERINE BLEEDING, uterine MUSCLE HYPERTONIA, and FETAL DISTRESS or FETAL DEATH."</p>
+</blockquote>
+<h3>1.2 Key identifiers (all retrieved live)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO</strong></td>
+<td><code>MONDO:0004846</code></td>
+<td>label: <code>placental abruption</code></td>
+</tr>
+<tr>
+<td><strong>HPO</strong></td>
+<td><code>HP:0011419</code></td>
+<td>label: <code>Placental abruption</code> — usable as a <em>phenotype</em> of other disorders</td>
+</tr>
+<tr>
+<td><strong>MeSH</strong></td>
+<td><code>D000037</code> (<code>MESH:D000037</code>)</td>
+<td>Abruptio Placentae; tree numbers C12.050.703.420.078, C12.050.703.590.132</td>
+</tr>
+<tr>
+<td><strong>NCIT</strong></td>
+<td><code>NCIT:C26685</code></td>
+<td>via MONDO xref</td>
+</tr>
+<tr>
+<td><strong>DOID</strong></td>
+<td><code>DOID:9667</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>EFO</strong></td>
+<td><code>EFO:1001754</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>SNOMED CT</strong></td>
+<td><code>415105001</code> (<code>SCTID:415105001</code>)</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>UMLS</strong></td>
+<td><code>C0000832</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>MedGen</strong></td>
+<td><code>49</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>ICD-10-CM</strong></td>
+<td><code>O45</code> (<code>O45.0-</code> with coagulation defect; <code>O45.8-</code>; <code>O45.9-</code>)</td>
+<td>ICD-9: 641.20, 640.0, 640.03</td>
+</tr>
+<tr>
+<td><strong>ICD-11</strong></td>
+<td>reported as <code>JA8C</code> "Maternal care related to premature separation of placenta"</td>
+<td><strong>UNVERIFIED</strong> — from a secondary web source only; confirm in the WHO ICD-11 browser before curating</td>
+</tr>
+<tr>
+<td><strong>OMIM</strong></td>
+<td>none</td>
+<td>no Mendelian entry; this is a complex trait</td>
+</tr>
+<tr>
+<td><strong>Orphanet</strong></td>
+<td>none</td>
+<td>not a rare disease (prevalence ≫ 1/2000)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Data-quality flag for curators:</strong> the MONDO textual definition currently retrieved from OLS4 and the Monarch API for <code>MONDO:0004846</code> reads <em>"Vaginal bleeding preceding the 20th week of gestation."</em> This is <strong>wrong</strong> — that describes threatened abortion, not abruption, and it contradicts MONDO's own synonym set. Worth an upstream MONDO issue; do not propagate this definition into the dismech entry.</p>
+<h3>1.3 Synonyms</h3>
+<p><code>abruptio placentae</code> · <code>abruption of placenta</code> · <code>premature separation of placenta</code> · <code>Abruptio placentae, premature separation of placenta</code> · <code>placental abruption (disease)</code> · <code>accidental hemorrhage</code> (historical British usage) · <code>ablatio placentae</code> (historical) · <code>retroplacental hematoma</code> (the lesion, not strictly the disease) · <code>Couvelaire uterus</code> / <code>uteroplacental apoplexy</code> (a severe complication, not a synonym).</p>
+<h3>1.4 Nature of the evidence base</h3>
+<p>Almost all data are <strong>aggregated disease-level</strong> epidemiology from administrative/registry sources (National Inpatient Sample, Nordic birth registries, Kaiser Permanente EHR, NJ vital records) and from placental pathology series. This has a specific and important consequence for a knowledge base: <strong>abruption is ascertained by ICD code or clinician gestalt in most large studies, with no uniform case definition.</strong> Downes et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/28329897/" target="_blank" rel="noopener noreferrer">PMID:28329897</a>) name this explicitly: <em>"There was also considerable variation in, or absence of, the reporting of abruption definitions."</em> Effect estimates below should be curated with that caveat attached.</p>
+<p>Individual-patient EHR-derived work does exist (Oyelese/Kaiser, <a href="https://pubmed.ncbi.nlm.nih.gov/38366767/" target="_blank" rel="noopener noreferrer">PMID:38366767</a>; PACER/NJ vital-record linkage, <a href="https://pubmed.ncbi.nlm.nih.gov/38273776/" target="_blank" rel="noopener noreferrer">PMID:38273776</a>) and is the best source for recurrence and life-course outcomes.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Causal architecture</h3>
+<p>Abruption is a <strong>final common pathway</strong>, not a single disease. Four upstream routes converge on decidual vessel rupture:</p>
+<ol>
+<li><strong>Chronic uteroplacental vasculopathy / ischemic placental disease.</strong> Shallow trophoblast invasion → failure of spiral-artery conversion → high-resistance, high-velocity maternal flow into the intervillous space, decidual necrosis and vessel fragility. This is the route shared with preeclampsia and fetal growth restriction (<a href="https://pubmed.ncbi.nlm.nih.gov/24836823/" target="_blank" rel="noopener noreferrer">PMID:24836823</a>).</li>
+<li><strong>Acute mechanical shear.</strong> Blunt abdominal trauma, sudden uterine decompression (rupture of membranes with polyhydramnios, delivery of a first twin), short umbilical cord traction, external cephalic version. The uterus is elastic and the placenta is not; deformation shears them apart at the basal plate.</li>
+<li><strong>Inflammation/infection.</strong> Chorioamnionitis and PPROM co-travel with abruption; decidual inflammation and hemorrhage are jointly the major decidual contributors to preterm delivery (<a href="https://pubmed.ncbi.nlm.nih.gov/15998775/" target="_blank" rel="noopener noreferrer">PMID:15998775</a>).</li>
+<li><strong>Hemostatic/thrombotic.</strong> Decidual tissue-factor-dependent hemostasis failure, thrombophilia, and decidual thrombosis with infarction.</li>
+</ol>
+<h3>2.2 Risk factors — quantitative</h3>
+<p><strong>Primary source A — Chen et al., BMC Pregnancy Childbirth 2025 (<a href="https://pubmed.ncbi.nlm.nih.gov/40140972/" target="_blank" rel="noopener noreferrer">PMID:40140972</a>).</strong> Systematic review + meta-analysis, 54 observational studies, <strong>7,267,241 pregnancies, 47,702 abruption cases</strong>, PROSPERO CRD42024546514.</p>
+<blockquote>
+<p>"A total of 54 observational studies were included, covering 7,267,241 pregnant women, with 47,702 cases diagnosed with placental abruption."</p>
+<p>"Among these, previous placental abruption (AOR = 2.72, 95% CI [2.16, 3.42]) was found to be the most significant risk factor."</p>
+<p>"Of these, placenta previa (AOR = 7.31, 95% CI [4.78, 11.19]) was identified as the most significant risk factor."</p>
+</blockquote>
+<p>The 18 maternal baseline factors identified (verbatim from abstract): <em>"maternal age ≥ 35 years, black race, low prepregnancy BMI (&lt; 18.5 kg/m²), unmarried status, smoking during pregnancy, alcohol consumption, inadequate prenatal care (&lt; 4 visits), marijuana use, multiple pregnancy, parity ≥ 3, anemia (hemoglobin &lt; 11 g/dL), previous placental abruption, previous cesarean section, previous miscarriage, previous stillbirth, cervical incompetence, habitual abortions, and assisted reproductive technology."</em></p>
+<p>The 7 pregnancy-complication factors: <em>"preterm premature rupture of membranes, preeclampsia, small for gestational age, polyhydramnios, antepartum hemorrhage, gestational hypertension, and placenta previa."</em></p>
+<p><strong>Primary source B — Jenabi et al., Syst Rev 2022 umbrella review (<a href="https://pubmed.ncbi.nlm.nih.gov/35365209/" target="_blank" rel="noopener noreferrer">PMID:35365209</a>).</strong> Meta-analysis-of-meta-analyses with formal evidence grading. This is the single most important source for <em>evidence quality</em>, because its headline finding is negative:</p>
+<blockquote>
+<p>"There was no risk factor in the present umbrella review with the high level of evidence (class I or II)."</p>
+</blockquote>
+<p>Class III (suggestive) factors, with effect sizes verbatim:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Factor</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cocaine use</td>
+<td>RR 4.55 (95% CI 1.78–6.50)</td>
+</tr>
+<tr>
+<td>Chronic hypertension</td>
+<td>OR 3.13 (95% CI 2.04–4.80)</td>
+</tr>
+<tr>
+<td>Assisted reproductive technology</td>
+<td>OR 1.87 (95% CI 1.70–2.06)</td>
+</tr>
+<tr>
+<td>Maternal smoking</td>
+<td>OR 1.80 (95% CI 1.75–1.85); RR 1.65 (1.51–1.80)</td>
+</tr>
+<tr>
+<td>Advanced maternal age</td>
+<td>OR 1.44 (95% CI 1.35–1.54)</td>
+</tr>
+<tr>
+<td>Endometriosis</td>
+<td>OR 1.40 (95% CI 1.12–1.76)</td>
+</tr>
+<tr>
+<td>Prior cesarean section</td>
+<td>RR 1.38 (95% CI 1.35–1.42)</td>
+</tr>
+<tr>
+<td>Maternal asthma</td>
+<td>RR 1.29 (95% CI 1.14–1.47)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Class IV (weak): uterine leiomyoma OR 2.63 (1.38–3.88); marijuana use OR 1.78 (1.32–2.40); preeclampsia OR 1.73 (1.47–2.04); pre-pregnancy underweight OR 1.38 (1.12–1.70).</p>
+<p><strong>Primary source C — Ananth, Smulian &amp; Vintzileos, Obstet Gynecol 1999 (<a href="https://pubmed.ncbi.nlm.nih.gov/10214847/" target="_blank" rel="noopener noreferrer">PMID:10214847</a>).</strong> The landmark smoking meta-analysis, 13 studies, 1,358,083 pregnancies:</p>
+<blockquote>
+<p>"Smoking was associated with a 90% increase in the risk of placental abruption (odds ratio [OR] 1.9, 95% confidence interval [CI] 1.8, 2.0)."</p>
+<p>"Pooled population attributable risk percentage for each stratum ranged between 15% and 25%, implying that 15-25% of placental abruption episodes are attributable to cigarette smoking."</p>
+<p>"In the presence of smoking, the risk of abruption was further increased due to chronic hypertension, mild or severe preeclampsia, or chronic hypertension with superimposed preeclampsia."</p>
+</blockquote>
+<p>That last sentence is a <strong>directly citable gene-free interaction claim</strong> (smoking × hypertensive disorder super-additivity) and is the cleanest documented exposure–exposure interaction in this disease.</p>
+<p><strong>Primary source D — prior cesarean.</strong> Keag, Norman &amp; Stock, PLoS Med 2018 (<a href="https://pubmed.ncbi.nlm.nih.gov/29360829/" target="_blank" rel="noopener noreferrer">PMID:29360829</a>), 79 cohort studies + 1 RCT, 29,928,274 participants:</p>
+<blockquote>
+<p>"Pregnancy following cesarean delivery was associated with increased risk of placenta previa (OR 1.74, 1.62 to 1.87; n = 7,101,692; 10 studies), placenta accreta (OR 2.95, 1.32 to 6.60; n = 705,108; 3 studies), and placental abruption (OR 1.38, 1.27 to 1.49; n = 5,667,160; 6 studies)."</p>
+</blockquote>
+<p><strong>Primary source E — recent NIS analysis.</strong> Wright, Friedman, Ananth &amp; Wen, Am J Perinatol 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/40940025/" target="_blank" rel="noopener noreferrer">PMID:40940025</a>), 80.2 million deliveries 2000–2020: <em>"Abruption was associated with multiple gestations, hypertensive diagnoses, diabetes, asthma, and Medicaid insurance."</em></p>
+<h3>2.3 Genetic risk factors</h3>
+<p>No causal Mendelian gene. Susceptibility is polygenic and, critically, <strong>two-genome</strong>: maternal <em>and</em> fetal/placental genotypes both contribute, and their interaction matters.</p>
+<p>Workalemahu et al., Placenta 2018 (<a href="https://pubmed.ncbi.nlm.nih.gov/29884306/" target="_blank" rel="noopener noreferrer">PMID:29884306</a>) — GWAS + GWAS meta-analysis, Peruvian PAGE and PAPE cohorts (959 cases / 1553 controls in meta-analysis):</p>
+<blockquote>
+<p>"Accumulating epidemiological evidence points to strong genetic susceptibility to placental abruption (PA). However, characterization of genes associated with PA remains incomplete."</p>
+<p>"Independent loci (linkage-disequilibrium&lt;0.80) suggestively associated with PA (P-value&lt;5e-5) included rs4148646 and rs2074311 in ABCC8, rs7249210, rs7250184, rs7249100 and rs10401828 in ZNF28, rs11133659 in CTNND2, and rs2074314 and rs35271178 near KCNJ11 in the PAGE GWAS. Similarly, independent loci suggestively associated with PA in the GWAS meta-analysis included rs76258369 near IRX1, and rs7094759 and rs12264492 in ADAM12."</p>
+<p>"Functional analyses of these genes showed trophoblast-like cell interaction, as well as networks involved in endocrine system disorders, cardiovascular diseases, and cellular function."</p>
+</blockquote>
+<p><strong>Curatorial caution:</strong> these are <em>suggestive</em> (P &lt; 5×10⁻⁵), not genome-wide significant (5×10⁻⁸), in a modest sample. Curate them as <code>SUSCEPTIBILITY</code> with the significance threshold recorded, and consider a <code>KNOWLEDGE_GAP</code> discussion noting that no locus has reached genome-wide significance or been replicated in an independent ancestry.</p>
+<p>Workalemahu et al., Int J Mol Epidemiol Genet 2013 (<a href="https://pubmed.ncbi.nlm.nih.gov/24046805/" target="_blank" rel="noopener noreferrer">PMID:24046805</a>) — 470 cases / 473 controls, Cardio-Metabo Chip:</p>
+<blockquote>
+<p>"The top hit in the GWAS analyses was rs1238566 (empirical P-value=1.04e-4 and FDR-adjusted P-value=5.65E-04) in FLI-1 gene, a megakaryocyte-specific transcription factor."</p>
+<p>"SNPs known to regulate MB (e.g. CAMK2B, NR1H3, PPARG, PRKCA, and THRB) and OP (e.g., COX5A, and NDUF family of genes) were associated with PA risk (P-value &lt;0.05)."</p>
+</blockquote>
+<p>FLI1 is a megakaryocyte/endothelial transcription factor — biologically coherent with a hemostatic-failure model.</p>
+<p><strong>Verified HGNC identifiers</strong> (HGNC REST API, this session; note dismech convention is lowercase <code>hgnc:</code>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>HGNC</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ABCC8</td>
+<td><code>hgnc:59</code></td>
+<td>GWAS suggestive locus (SUR1, K-ATP channel)</td>
+</tr>
+<tr>
+<td>KCNJ11</td>
+<td><code>hgnc:6257</code></td>
+<td>GWAS suggestive locus (Kir6.2, K-ATP channel)</td>
+</tr>
+<tr>
+<td>ZNF28</td>
+<td><code>hgnc:13073</code></td>
+<td>GWAS suggestive locus</td>
+</tr>
+<tr>
+<td>CTNND2</td>
+<td><code>hgnc:2516</code></td>
+<td>GWAS suggestive locus (δ-catenin)</td>
+</tr>
+<tr>
+<td>ADAM12</td>
+<td><code>hgnc:190</code></td>
+<td>GWAS meta-analysis locus; also a placental serum analyte</td>
+</tr>
+<tr>
+<td>IRX1</td>
+<td><code>hgnc:14358</code></td>
+<td>GWAS meta-analysis locus</td>
+</tr>
+<tr>
+<td>FLI1</td>
+<td><code>hgnc:3749</code></td>
+<td>top candidate hit, megakaryocytic TF</td>
+</tr>
+<tr>
+<td>F5</td>
+<td><code>hgnc:3542</code></td>
+<td>Factor V Leiden thrombophilia</td>
+</tr>
+<tr>
+<td>F2</td>
+<td><code>hgnc:3535</code></td>
+<td>prothrombin G20210A; also the thrombin effector</td>
+</tr>
+<tr>
+<td>F3</td>
+<td><code>hgnc:3541</code></td>
+<td>decidual tissue factor — the central hemostatic effector</td>
+</tr>
+<tr>
+<td>F2R</td>
+<td><code>hgnc:3537</code></td>
+<td>PAR-1, the thrombin receptor mediating inflammation</td>
+</tr>
+<tr>
+<td>MTHFR</td>
+<td><code>hgnc:7436</code></td>
+<td>homocysteine/folate route (weak/inconsistent)</td>
+</tr>
+<tr>
+<td>SERPINE1</td>
+<td><code>hgnc:8583</code></td>
+<td>PAI-1, thrombin-induced</td>
+</tr>
+<tr>
+<td>MMP1</td>
+<td><code>hgnc:7155</code></td>
+<td>thrombin-induced collagenase → PPROM</td>
+</tr>
+<tr>
+<td>CXCL8</td>
+<td><code>hgnc:6025</code></td>
+<td>IL-8, thrombin-induced neutrophil chemoattractant</td>
+</tr>
+<tr>
+<td>PGR</td>
+<td><code>hgnc:8910</code></td>
+<td>progesterone receptor — functional withdrawal target</td>
+</tr>
+<tr>
+<td>CSF2</td>
+<td><code>hgnc:2434</code></td>
+<td>GM-CSF, thrombin-induced membrane weakening</td>
+</tr>
+<tr>
+<td>IL11</td>
+<td><code>hgnc:5966</code></td>
+<td>thrombin/IL-1β-induced decidual cytokine</td>
+</tr>
+<tr>
+<td>PAPPA</td>
+<td><code>hgnc:8602</code></td>
+<td>first-trimester predictive analyte</td>
+</tr>
+<tr>
+<td>AFP</td>
+<td><code>hgnc:317</code></td>
+<td>second-trimester predictive analyte</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Thrombophilia.</strong> The best-quality synthesis is the TREATS HTA (Wu et al., Health Technol Assess 2006, <a href="https://pubmed.ncbi.nlm.nih.gov/16595080/" target="_blank" rel="noopener noreferrer">PMID:16595080</a>), 72 pregnancy studies:</p>
+<blockquote>
+<p>"Significant risks for individual thrombophilic defects were also established for early, recurrent and late pregnancy loss; preeclampsia; placental abruption; and intrauterine growth restriction."</p>
+</blockquote>
+<p>Note the counter-current: contemporary obstetric practice has largely <strong>abandoned</strong> thrombophilia screening for placenta-mediated complications because trials of anticoagulation have not shown benefit. Curate the association as real-but-small and flag the therapeutic-inference gap explicitly (a <code>KNOWLEDGE_GAP</code> discussion is appropriate: association ≠ actionable). The enoxaparin trial NCT00986765 ("Prevention of Maternal and Perinatal Complications by Enoxaparin in Women With Previous Severe…", COMPLETED, Phase 3) is the relevant trial anchor.</p>
+<h3>2.4 Protective factors</h3>
+<p>Only three protective factors reached significance in Chen 2025 (the abstract does not name them individually; the full text is needed — <strong>flag as a retrieval gap</strong>). Practically supported protective exposures:</p>
+<ul>
+<li><strong>Smoking cessation before/early in pregnancy</strong> — implied by the 15–25% population attributable fraction (<a href="https://pubmed.ncbi.nlm.nih.gov/10214847/" target="_blank" rel="noopener noreferrer">PMID:10214847</a>). NCIT: <code>NCIT:C17427</code> Smoking Cessation.</li>
+<li><strong>Treatment of mild chronic hypertension.</strong> This is now RCT-grade. The CHAP trial (Tita et al., NEJM 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35363951/" target="_blank" rel="noopener noreferrer">PMID:35363951</a>; <strong>NCT02299414</strong>) used placental abruption inside its primary composite: <em>"The primary outcome was a composite of preeclampsia with severe features, medically indicated preterm birth at less than 35 weeks' gestation, placental abruption, or fetal or neonatal death."</em> Result: <em>"The incidence of a primary-outcome event was lower in the active-treatment group than in the control group (30.2% vs. 37.0%), for an adjusted risk ratio of 0.82 (95% confidence interval [CI], 0.74 to 0.92; P&lt;0.001)."</em> <strong>Caveat for curators:</strong> this is a composite-outcome benefit, not a demonstrated abruption-specific reduction. Do not curate as "antihypertensives prevent abruption" without that qualifier.</li>
+<li><strong>Adequate prenatal care (≥4 visits)</strong> — the inverse of the "inadequate prenatal care" risk factor.</li>
+</ul>
+<p>No protective <em>genetic</em> variant has been identified. State this as absent, not as unknown.</p>
+<h3>2.5 Gene–environment interaction</h3>
+<p>Genuinely thin literature. The strongest documented interaction is <strong>maternal genome × placental genome</strong>, not gene × exposure: Workalemahu et al. showed that <em>variations in the placental genome and interactions between maternal–placental genetic variations may contribute to PA risk</em> (companion study, PMC4280220). The best-quantified <em>exposure × exposure</em> interaction is smoking × hypertensive disorders (<a href="https://pubmed.ncbi.nlm.nih.gov/10214847/" target="_blank" rel="noopener noreferrer">PMID:10214847</a>, quoted in §2.2).</p>
+<p>This is a legitimate <code>KNOWLEDGE_GAP</code> for the entry: no GxE study of adequate power exists for abruption.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 Maternal clinical presentation</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term (verified)</th>
+<th>Category</th>
+<th>Frequency</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vaginal bleeding</td>
+<td><code>HP:0034263</code> Abnormal vaginal bleeding</td>
+<td>Clinical sign</td>
+<td>FREQUENT (~70–80%)</td>
+<td>20–30% <strong>concealed</strong> — blood trapped retroplacentally; absence does not exclude</td>
+</tr>
+<tr>
+<td>Abdominal pain</td>
+<td><code>HP:0002027</code> Abdominal pain</td>
+<td>Symptom</td>
+<td>FREQUENT</td>
+<td>Classically <em>"out of proportion to the volume of bleeding"</em> when concealed (Merck Manual Professional)</td>
+</tr>
+<tr>
+<td>Uterine tenderness / hypertonus</td>
+<td><em>(no precise HP term; MeSH scope note calls it "uterine MUSCLE HYPERTONIA")</em></td>
+<td>Clinical sign</td>
+<td>FREQUENT</td>
+<td>"board-like" tetanic uterus in severe cases; use <code>preferred_term: Uterine tenderness and hypertonus</code> with no <code>term:</code> or map to a broad parent</td>
+</tr>
+<tr>
+<td>Back pain</td>
+<td><code>HP:0003418</code> Back pain</td>
+<td>Symptom</td>
+<td>OCCASIONAL</td>
+<td>Prominent with posterior placenta</td>
+</tr>
+<tr>
+<td>Fetal distress (non-reassuring FHR)</td>
+<td><code>HP:0025116</code> Fetal distress</td>
+<td>Clinical sign</td>
+<td>FREQUENT</td>
+<td>79% in the CP-causing cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/22805996/" target="_blank" rel="noopener noreferrer">PMID:22805996</a>)</td>
+</tr>
+<tr>
+<td>Hypovolemic shock</td>
+<td><code>HP:0031274</code> Hypovolemic shock</td>
+<td>Clinical sign</td>
+<td>OCCASIONAL</td>
+<td>Sher class 3</td>
+</tr>
+<tr>
+<td>Disseminated intravascular coagulation</td>
+<td><code>HP:0005521</code> Disseminated intravascular coagulation (acute: <code>HP:0011880</code>)</td>
+<td>Lab/clinical</td>
+<td>OCCASIONAL</td>
+<td>OR 6.30 (6.00–6.61) vs no abruption (<a href="https://pubmed.ncbi.nlm.nih.gov/40940025/" target="_blank" rel="noopener noreferrer">PMID:40940025</a>)</td>
+</tr>
+<tr>
+<td>Hypofibrinogenemia</td>
+<td><code>HP:0011900</code> Hypofibrinogenemia</td>
+<td>Lab abnormality</td>
+<td>OCCASIONAL</td>
+<td><em>"Serum fibrinogen and fibrin-split products (the most sensitive indicator)"</em> (Merck Manual Professional)</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td><code>HP:0001873</code> Thrombocytopenia</td>
+<td>Lab abnormality</td>
+<td>OCCASIONAL</td>
+<td>consumptive</td>
+</tr>
+<tr>
+<td>Anemia</td>
+<td><code>HP:0001903</code> Anemia</td>
+<td>Lab abnormality</td>
+<td>FREQUENT</td>
+<td>both a risk factor and a consequence</td>
+</tr>
+<tr>
+<td>Post-partum hemorrhage</td>
+<td><code>HP:0011891</code> Post-partum hemorrhage</td>
+<td>Complication</td>
+<td>OCCASIONAL</td>
+<td>OR 1.76 (1.72–1.80) (<a href="https://pubmed.ncbi.nlm.nih.gov/40940025/" target="_blank" rel="noopener noreferrer">PMID:40940025</a>)</td>
+</tr>
+<tr>
+<td>Acute kidney injury</td>
+<td><code>HP:0001919</code> Acute kidney injury</td>
+<td>Complication</td>
+<td>RARE</td>
+<td>listed by Downes 2017 (<a href="https://pubmed.ncbi.nlm.nih.gov/28329897/" target="_blank" rel="noopener noreferrer">PMID:28329897</a>)</td>
+</tr>
+<tr>
+<td>Preeclampsia (co-occurring)</td>
+<td><code>HP:0100602</code> Preeclampsia</td>
+<td>Comorbid</td>
+<td>OCCASIONAL</td>
+<td>ischemic placental disease overlap</td>
+</tr>
+<tr>
+<td>Uterine rupture</td>
+<td><code>HP:0100718</code> Uterine rupture</td>
+<td>Differential/complication</td>
+<td>RARE</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Couvelaire uterus (uteroplacental apoplexy)</strong> — blood dissecting into the myometrium producing a bruised, boggy, poorly contractile uterus — has no HPO term and no obvious ontology anchor. Curate as free-text <code>preferred_term</code> with a histopathology entry; it is a candidate for the Xogenesis-style open-ontology treatment.</p>
+<h3>3.2 Fetal / neonatal phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term (verified)</th>
+<th>Frequency</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Premature birth</td>
+<td><code>HP:0001622</code> Premature birth</td>
+<td>VERY FREQUENT</td>
+<td>the dominant fetal consequence</td>
+</tr>
+<tr>
+<td>Stillbirth</td>
+<td><code>HP:0003826</code> Stillbirth</td>
+<td>FREQUENT within abruption</td>
+<td><em>"The majority of deaths (77%) occurred in utero"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23072758/" target="_blank" rel="noopener noreferrer">PMID:23072758</a>)</td>
+</tr>
+<tr>
+<td>Neonatal death</td>
+<td><code>HP:0003811</code> Neonatal death</td>
+<td>OCCASIONAL</td>
+<td></td>
+</tr>
+<tr>
+<td>Small for gestational age</td>
+<td><code>HP:0001518</code> Small for gestational age</td>
+<td>FREQUENT</td>
+<td>with chronic abruption</td>
+</tr>
+<tr>
+<td>Intrauterine growth retardation</td>
+<td><code>HP:0001511</code> Intrauterine growth retardation</td>
+<td>FREQUENT</td>
+<td></td>
+</tr>
+<tr>
+<td>Neonatal asphyxia</td>
+<td><code>HP:0012768</code> Neonatal asphyxia</td>
+<td>FREQUENT in severe abruption</td>
+<td>umbilical arterial pH 6.728 ± 0.164 in the CP cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/22805996/" target="_blank" rel="noopener noreferrer">PMID:22805996</a>)</td>
+</tr>
+<tr>
+<td>Cerebral palsy</td>
+<td><code>HP:0100021</code> Cerebral palsy</td>
+<td>OCCASIONAL (long-term)</td>
+<td>see §11</td>
+</tr>
+<tr>
+<td>Oligohydramnios</td>
+<td><code>HP:0001562</code> Oligohydramnios</td>
+<td>OCCASIONAL</td>
+<td>chronic abruption</td>
+</tr>
+<tr>
+<td>Preterm premature rupture of membranes</td>
+<td><code>HP:6000310</code> Preterm premature rupture of membranes</td>
+<td>FREQUENT</td>
+<td>bidirectional with abruption</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Downes et al. 2017 (<a href="https://pubmed.ncbi.nlm.nih.gov/28329897/" target="_blank" rel="noopener noreferrer">PMID:28329897</a>) enumerate the full outcome set verbatim:</p>
+<blockquote>
+<p>"Abruption was associated with elevated risk of cesarean delivery, postpartum hemorrhage and transfusion, preterm birth, intrauterine growth restriction or low birth weight, perinatal mortality, and cerebral palsy. Additional maternal outcomes included relaparotomy, hysterectomy, sepsis, amniotic fluid embolism, venous thromboembolism, acute kidney injury, and maternal intensive care unit admission. Additional perinatal outcomes included acidosis, encephalopathy, severe respiratory disorders, necrotizing enterocolitis, acute kidney injury, need for resuscitation, chronic lung disease, infant death, and epilepsy."</p>
+</blockquote>
+<h3>3.3 Severity grading (Sher classification)</h3>
+<p>Widely used; from StatPearls (NBK482335). Curate as a <code>Subtype</code> set or as a severity scale:</p>
+<ul>
+<li><strong>Class 0 (asymptomatic):</strong> retroplacental clot found only on post-delivery placental inspection.</li>
+<li><strong>Class 1 (mild):</strong> minimal/no vaginal bleeding, slight uterine tenderness, normal maternal vitals, no fetal distress.</li>
+<li><strong>Class 2 (moderate):</strong> none-to-moderate bleeding, significant uterine tenderness with tetanic contractions, maternal tachycardia and orthostatic change, fetal distress, hypofibrinogenemia.</li>
+<li><strong>Class 3 (severe):</strong> minimal-to-heavy bleeding, board-like tetanic uterus, maternal shock, coagulopathy, fetal death.</li>
+</ul>
+<p>Classes 0–1 correspond to partial/marginal separation; classes 2–3 to complete/central separation. StatPearls notes ~70% of cases are low-risk. Page grading (0–3) is an equivalent older scheme.</p>
+<h3>3.4 Quality-of-life impact</h3>
+<p>Under-studied and a real evidence gap. Documented domains, mostly indirect:</p>
+<ul>
+<li><strong>Maternal:</strong> ICU admission, transfusion, emergency hysterectomy (permanent loss of fertility), and — for those with fetal death — bereavement and subsequent-pregnancy anxiety. No abruption-specific EQ-5D/SF-36/PROMIS instrument exists.</li>
+<li><strong>Offspring:</strong> cerebral palsy (<code>HP:0100021</code>) and epilepsy carry lifelong functional burden; chronic lung disease of prematurity.</li>
+<li><strong>Recurrence anxiety</strong> in subsequent pregnancy is clinically salient given the ~5× recurrence odds (<a href="https://pubmed.ncbi.nlm.nih.gov/38366767/" target="_blank" rel="noopener noreferrer">PMID:38366767</a>) but is unmeasured in the literature.</li>
+</ul>
+<p>Curate as <code>KNOWLEDGE_GAP</code>: no validated disease-specific QoL instrument.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal genes</h3>
+<p><strong>None.</strong> Placental abruption has no Mendelian form, no OMIM phenotype entry, and no gene with definitive ClinGen gene–disease validity. This should be stated affirmatively in the entry — an empty <code>genetic:</code> block invites a reviewer to think it was simply not curated.</p>
+<h3>4.2 Susceptibility loci</h3>
+<p>See §2.3 for the verified list. Summary for the <code>genetic:</code> block, all <code>relationship_type: SUSCEPTIBILITY</code>:</p>
+<ul>
+<li><strong>ABCC8</strong> (<code>hgnc:59</code>) rs4148646, rs2074311 — and the physically adjacent <strong>KCNJ11</strong> (<code>hgnc:6257</code>) rs2074314, rs35271178. These two encode the SUR1/Kir6.2 subunits of the same ATP-sensitive potassium channel; the two "independent" signals are likely one locus. Biologically plausible via vascular smooth-muscle tone and trophoblast metabolism.</li>
+<li><strong>ZNF28</strong> (<code>hgnc:13073</code>) — four SNPs, function unknown.</li>
+<li><strong>CTNND2</strong> (<code>hgnc:2516</code>) rs11133659 — δ-catenin, adhesion/junctional.</li>
+<li><strong>ADAM12</strong> (<code>hgnc:190</code>) rs7094759, rs12264492 — placental metalloprotease, also a first-trimester serum marker of placental function. The convergence of a genetic and a biochemical signal on the same gene makes ADAM12 the most interesting single candidate.</li>
+<li><strong>IRX1</strong> (<code>hgnc:14358</code>) rs76258369 — developmental homeobox TF.</li>
+<li><strong>FLI1</strong> (<code>hgnc:3749</code>) rs1238566 — megakaryocyte/endothelial TF (<a href="https://pubmed.ncbi.nlm.nih.gov/24046805/" target="_blank" rel="noopener noreferrer">PMID:24046805</a>).</li>
+</ul>
+<p><strong>Variant classification:</strong> all are common non-coding/intronic SNPs, not ACMG-classifiable pathogenic variants. Do not attempt ACMG classification; record as GWAS-suggestive association only. Allele frequencies are common (this is a common-variant disease); the cohorts were Peruvian, so transferability to other ancestries is unestablished — a genuine <code>KNOWLEDGE_GAP</code>.</p>
+<p><strong>Somatic vs germline:</strong> germline (maternal and/or fetal). No somatic contribution.</p>
+<p><strong>Functional consequence:</strong> unknown for all loci; none has a demonstrated molecular mechanism. Say so.</p>
+<h3>4.3 Thrombophilia variants</h3>
+<ul>
+<li><strong>F5</strong> (<code>hgnc:3542</code>) c.1601G&gt;A p.Arg534Gln — Factor V Leiden, <code>rs6025</code>. A small case-control series reported 8/46 (18%) abruption cases vs 1/46 (2%) controls carrying FVL with APC resistance (secondary report; <strong>verify the primary PMID before curating</strong> — I could not retrieve it directly this session).</li>
+<li><strong>F2</strong> (<code>hgnc:3535</code>) c.*97G&gt;A — prothrombin G20210A, <code>rs1799963</code>.</li>
+<li><strong>MTHFR</strong> (<code>hgnc:7436</code>) c.665C&gt;T p.Ala222Val (<code>rs1801133</code>, the "C677T") — hyperhomocysteinemia route; associations are weak and inconsistent, and TREATS found MTHFR/hyperhomocysteinaemia <em>not</em> associated with postoperative VTE, undercutting the general thrombophilia framing for this variant.</li>
+</ul>
+<p>Curate these as <code>SUSCEPTIBILITY</code> with <code>frequency</code> bands, anchored on TREATS (<a href="https://pubmed.ncbi.nlm.nih.gov/16595080/" target="_blank" rel="noopener noreferrer">PMID:16595080</a>), and add the therapeutic-inference caveat from §2.3.</p>
+<h3>4.4 Modifier genes</h3>
+<p>None established.</p>
+<h3>4.5 Epigenetics</h3>
+<p>No abruption-specific methylation or histone study of adequate quality was identified in this search. Adjacent evidence exists for ischemic placental disease broadly (shared epigenetic regulation between preeclampsia and IUGR was reported in placental microarray work), but nothing abruption-specific. <strong>Flag as an explicit gap</strong> — an obvious high-value target given the acute-on-chronic model.</p>
+<h3>4.6 Chromosomal abnormalities</h3>
+<p>Not applicable. No aneuploidy, translocation, or CNV association. Chromosomal microarray, karyotype and FISH have no role in abruption workup (they may be indicated for an associated stillbirth, which is a different indication).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<h3>5.1 Chemical / toxicant exposures</h3>
+<ul>
+<li><strong>Tobacco smoke / nicotine</strong> (<code>CHEBI:18723</code> nicotine). Strongest modifiable factor: OR 1.9 (1.8–2.0), 15–25% population attributable fraction, with a documented dose–response — <em>"the OR increased with increasing number of cigarettes smoked"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10214847/" target="_blank" rel="noopener noreferrer">PMID:10214847</a>). Mechanism: nicotine-mediated vasoconstriction plus carbon-monoxide-driven chronic hypoxia → decidual necrosis and vessel fragility.</li>
+<li><strong>Cocaine</strong> (<code>CHEBI:27958</code>). RR 4.55 (1.78–6.50) — the largest single effect size for any exposure (<a href="https://pubmed.ncbi.nlm.nih.gov/35365209/" target="_blank" rel="noopener noreferrer">PMID:35365209</a>). Mechanism: acute catecholaminergic vasospasm and hypertensive surge causing decidual vessel rupture. James &amp; Coles (<a href="https://pubmed.ncbi.nlm.nih.gov/1765257/" target="_blank" rel="noopener noreferrer">PMID:1765257</a>): <em>"It not only poses a health risk to the pregnant woman, but can precipitate premature labor and abruptio placentae."</em></li>
+<li><strong>Cannabis/marijuana.</strong> OR 1.78 (1.32–2.40), class IV weak evidence.</li>
+<li><strong>Alcohol.</strong> Identified as an independent risk factor in Chen 2025.</li>
+<li><strong>Air pollution / preconception environmental exposures.</strong> Covered in the Jenabi umbrella review's remit (<a href="https://pubmed.ncbi.nlm.nih.gov/35365209/" target="_blank" rel="noopener noreferrer">PMID:35365209</a>); no exposure reached class I/II evidence. Treat any PM2.5–abruption claim as preliminary.</li>
+</ul>
+<h3>5.2 Physical / mechanical</h3>
+<ul>
+<li><strong>Blunt abdominal trauma</strong> — motor vehicle crashes, falls, intimate partner violence. Abruption can occur with deceleration injury and <em>without</em> direct uterine impact, and can present up to 24 h after the event, which is why post-trauma cardiotocographic monitoring is standard. Trauma screening should include tactful assessment for abuse (StatPearls).</li>
+<li><strong>Sudden uterine decompression</strong> — membrane rupture with polyhydramnios (<code>HP:0001561</code>), delivery of the first twin.</li>
+<li><strong>Short umbilical cord / velamentous cord insertion.</strong> Ananth 2005 (<a href="https://pubmed.ncbi.nlm.nih.gov/15672024/" target="_blank" rel="noopener noreferrer">PMID:15672024</a>) identified <em>"short umbilical cord, and velamentous cord insertion"</em> among the determinants tracking the temporal trend in abruption.</li>
+</ul>
+<h3>5.3 Lifestyle / demographic</h3>
+<p>Advanced maternal age ≥35 (OR 1.44), parity ≥3, pre-pregnancy underweight BMI &lt;18.5 (OR 1.38), unmarried status, inadequate prenatal care &lt;4 visits, Medicaid insurance (<a href="https://pubmed.ncbi.nlm.nih.gov/40940025/" target="_blank" rel="noopener noreferrer">PMID:40940025</a>) — the last two being markers of access rather than biology, and important to curate as such rather than as causal.</p>
+<h3>5.4 Infectious agents</h3>
+<p>No single pathogen causes abruption. <strong>Chorioamnionitis</strong> (ascending polymicrobial intraamniotic infection — <em>Ureaplasma</em>, <em>Mycoplasma hominis</em>, <em>Gardnerella</em>, group B <em>Streptococcus</em>, <em>Fusobacterium</em>, <em>E. coli</em>) is both a determinant of abruption trends (<a href="https://pubmed.ncbi.nlm.nih.gov/15672024/" target="_blank" rel="noopener noreferrer">PMID:15672024</a>) and a co-traveler with PPROM. Simhan &amp; Canavan (<a href="https://pubmed.ncbi.nlm.nih.gov/15715592/" target="_blank" rel="noopener noreferrer">PMID:15715592</a>): <em>"PPROM is associated with significant maternal and neonatal morbidity and mortality from infection, umbilical cord compression, placental abruption and preterm birth."</em> They report <em>"The frequency of positive cultures obtained by transabdominal amniocentesis at the time of presentation with PPROM in the absence of labour is 25-40%."</em></p>
+<p>The best mechanistic bridge between infection and abruption is the thrombin×TLR4 synergy documented by Mhatre et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/27108773/" target="_blank" rel="noopener noreferrer">PMID:27108773</a>) — see §6.4.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>This is the section that should carry the pathograph. I propose an <strong>eight-node chain with two upstream triggers converging</strong>, plus an inflammatory amplification limb.</p>
+<h3>6.1 The causal chain (proposed pathophysiology nodes)</h3>
+<p><strong>Trigger A — Impaired spiral artery remodeling / decidual vasculopathy</strong> · <code>biological_scale: TISSUE</code>
+Shallow extravillous trophoblast invasion leaves maternal spiral arteries incompletely converted, retaining vasoreactivity and delivering high-velocity flow into the intervillous space. Decidual arterioles develop atherosis and necrosis. This is the chronic arm.
+- Cell types: <code>CL:0008036</code> extravillous trophoblast; <code>CL:2000002</code> decidual cell; endothelial cell of the spiral artery
+- Processes: <code>GO:0061450</code> trophoblast cell migration (<code>modifier: DECREASED</code>); <code>GO:0071456</code> cellular response to hypoxia (<code>INCREASED</code>)
+- Anatomy: <code>UBERON:0000453</code> decidua basalis
+- Evidence: <a href="https://pubmed.ncbi.nlm.nih.gov/24836823/" target="_blank" rel="noopener noreferrer">PMID:24836823</a> (ischemic placental disease framework); <a href="https://pubmed.ncbi.nlm.nih.gov/28178056/" target="_blank" rel="noopener noreferrer">PMID:28178056</a> (first-trimester analyte abnormalities predict abruption)</p>
+<p><strong>Trigger B — Acute mechanical shear or vasospasm</strong> · <code>biological_scale: TISSUE</code>
+Trauma, sudden decompression, or cocaine-induced vasospasm mechanically or hemodynamically ruptures decidual vessels. StatPearls: <em>"Since the uterus is elastic but the placenta is not, sudden uterine stretching causes the vascular structures connecting them to tear."</em></p>
+<p><strong>Node 1 — Decidual vessel rupture and hemorrhage into the decidua basalis</strong> · <code>biological_scale: TISSUE</code>
+The defining lesion. Normally prevented by constitutive decidual tissue factor. Lockwood et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/19720393/" target="_blank" rel="noopener noreferrer">PMID:19720393</a>): <em>"In human pregnancy, decidual cell-expressed tissue factor (TF) prevents decidual hemorrhage (abruption)."</em> and <em>"TF expression is highest in decidual cells"</em> — i.e. the decidua is a hemostatically privileged tissue, and abruption is the failure of that privilege.
+- Gene: F3 (<code>hgnc:3541</code>)
+- Anatomy: <code>UBERON:0000453</code> decidua basalis
+- Cell type: <code>CL:2000002</code> decidual cell</p>
+<p><strong>Node 2 — Retroplacental hematoma formation and placental separation</strong> · <code>biological_scale: TISSUE</code>
+Accumulating blood dissects the basal plate, propagating separation and further vessel disruption — a positive-feedback loop. This is the <strong>Xogenesis-shaped node</strong> of the entry: a pathological structure (retroplacental hematoma) forms at a defined anatomical site. If the <code>granuloma_formation</code>/<code>thrombogenesis</code> Xogenesis convention is applied, the anchors would be an OGMS pathological-formation process at <code>UBERON:0000453</code> decidua basalis, forming a hematoma continuant. Note that thrombogenesis (<code>kb/modules/thrombogenesis</code>) is a plausible partial conformance target for the clot itself, though the causal direction is inverted here (hemorrhage first, clot second).
+- Processes: <code>GO:0007596</code> blood coagulation; <code>GO:0030168</code> platelet activation</p>
+<p><strong>Node 3 — Loss of gas-exchange surface and acute fetoplacental hypoxia</strong> · <code>biological_scale: ORGANISM</code>
+The separated area is functionally excluded from maternal perfusion. Fetal compromise scales with the fraction separated; classical teaching is that &gt;50% separation is generally incompatible with fetal survival.
+- Phenotype: <code>HP:0025116</code> Fetal distress; <code>HP:0012768</code> Neonatal asphyxia
+- Process: <code>GO:0071456</code> cellular response to hypoxia (<code>INCREASED</code>)</p>
+<p><strong>Node 4 — Local thrombin generation (the mechanistic hub)</strong> · <code>biological_scale: MOLECULAR</code>
+Decidual TF/FVIIa cleaves prothrombin; the retroplacental clot is a thrombin factory. Everything downstream of node 4 in this entry is thrombin-driven — this is the node other diseases would <code>conforms_to</code>.
+- Genes: F3 (<code>hgnc:3541</code>), F2 (<code>hgnc:3535</code>)
+- Process: <code>GO:0007596</code> blood coagulation (<code>INCREASED</code>)</p>
+<p><strong>Node 5 — PAR-1-mediated decidual and endothelial inflammatory activation</strong> · <code>biological_scale: CELLULAR</code>
+Thrombin signals through protease-activated receptor 1 (F2R, <code>hgnc:3537</code>), converting a hemostatic signal into an inflammatory one. Mhatre et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/27108773/" target="_blank" rel="noopener noreferrer">PMID:27108773</a>):</p>
+<blockquote>
+<p>"Thrombin significantly and synergistically augmented LPS-induced HEEC secretion of interleukin (IL)-6, IL-8, granulocyte colony-stimulating factor (G-CSF), and growth-regulated oncogene-alpha (GRO-α), and significantly augmented monocyte chemotactic protein (MCP)-1, tumor necrosis factor-alpha (TNF-α), and vascular endothelial growth factor (VEGF) secretion additively."</p>
+<p>"Similar to thrombin, a PAR1 agonist synergistically augmented the LPS-induced HEEC secretion of inflammatory IL-6, IL-8, G-CSF, and GRO-α."</p>
+<p>"…suggesting a mechanism by which intrauterine abruption and bacterial infection may together be associated with an aggravated uterine inflammatory response."</p>
+</blockquote>
+<p>This synergy is the mechanistic explanation for the epidemiological co-occurrence of abruption and chorioamnionitis and is worth curating as its own edge.
+- Process: <code>GO:0070493</code> thrombin-activated receptor signaling pathway (<code>INCREASED</code>); <code>GO:0006954</code> inflammatory response (<code>INCREASED</code>)
+- Cell types: <code>CL:2000002</code> decidual cell; endothelial cell (human endometrial endothelial cell)
+- Evidence source: <strong>IN_VITRO</strong></p>
+<p><strong>Node 6 — Decidual neutrophil recruitment via thrombin-induced IL-8</strong> · <code>biological_scale: CELLULAR</code>
+Lockwood et al., Am J Pathol 2005 (<a href="https://pubmed.ncbi.nlm.nih.gov/16251427/" target="_blank" rel="noopener noreferrer">PMID:16251427</a>) — the cleanest in-vivo-plus-in-vitro pairing in this literature:</p>
+<blockquote>
+<p>"Abruptions were associated with a marked decidual neutrophil infiltration that peaked after PPROM, whereas decidua from gestational age-matched controls were virtually devoid of neutrophils."</p>
+<p>"Neutrophil infiltrates co-localized with fibrin deposition."</p>
+<p>"…thrombin (0.1 to 2.5 U/ml) elicited a dose-dependent elevation in secreted IL-8 (P&lt;0.05) with 2.5 U/ml of thrombin increasing IL-8 levels by &gt;14-fold in E2 and E2+medroxyprogesterone incubations."</p>
+</blockquote>
+<ul>
+<li>Gene: CXCL8 (<code>hgnc:6025</code>)</li>
+<li>Process: <code>GO:0030593</code> neutrophil chemotaxis (<code>INCREASED</code>)</li>
+<li>Cell type: neutrophil (<code>CL:0000775</code> neutrophil — <em>verify label before curating</em>)</li>
+<li>Evidence: the immunostaining arm is HUMAN_CLINICAL; the decidual-cell culture arm is IN_VITRO. <strong>Split into two evidence items with different <code>evidence_source</code> values.</strong></li>
+</ul>
+<p><strong>Node 7 — Matrix metalloproteinase-driven membrane weakening → PPROM</strong> · <code>biological_scale: MOLECULAR</code>
+Rosen et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/12380602/" target="_blank" rel="noopener noreferrer">PMID:12380602</a>):</p>
+<blockquote>
+<p>"MPA strongly inhibited MMP-1 levels in endometrial stromal and term decidual cells. However, thrombin overcame this suppression, producing MMP-1 levels that were several-fold higher than control levels."</p>
+<p>"Extrapolation of thrombin-enhanced MMP-1 expression in cultured endometrial stromal and decidual cells to the in vivo pregnant state provides an explanation for the strong association between placental abruption and preterm membrane rupture."</p>
+</blockquote>
+<p>Norwitz et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/17403427/" target="_blank" rel="noopener noreferrer">PMID:17403427</a>) tested and <em>excluded</em> the alternative plasminogen-activator route, concluding: <em>"abruption-associated decidual proteolysis and preterm labor is mediated primarily by thrombin-enhanced matrix metalloproteinase expression rather than an indirect effect on the plasminogen activator/inhibitor system."</em> That is a useful <strong>REFUTE/negative</strong> evidence item — thrombin raised PAI-1 without raising uPA or tPA.
+- Genes: MMP1 (<code>hgnc:7155</code>); SERPINE1 (<code>hgnc:8583</code>) for the PAI-1 arm
+- Process: <code>GO:0022617</code> extracellular matrix disassembly (<code>INCREASED</code>); <code>GO:0042730</code> fibrinolysis
+- Phenotype: <code>HP:6000310</code> Preterm premature rupture of membranes
+- Evidence source: <strong>IN_VITRO</strong></p>
+<p><strong>Node 8 — Functional progesterone withdrawal and myometrial activation → preterm delivery</strong> · <code>biological_scale: CELLULAR</code>
+Lockwood et al., Am J Pathol 2012 (<a href="https://pubmed.ncbi.nlm.nih.gov/23058370/" target="_blank" rel="noopener noreferrer">PMID:23058370</a>):</p>
+<blockquote>
+<p>"In cultured DCs, thrombin inhibited PR but not GR mRNA levels, reduced PR binding to DNA and [(3)H]progesterone binding to PR, and enhanced phosphorylated but not total ERK1/2 levels."</p>
+<p>"Thus, abruption-associated PTD is initiated by functional progesterone withdrawal, as indicated by significantly reduced DC nuclear expression of PR-A and PR-B. Functional withdrawal of progesterone results in increased p-ERK1/2, and is thus one pathway initiating abruption-associated PTD."</p>
+</blockquote>
+<ul>
+<li>Genes: PGR (<code>hgnc:8910</code>)</li>
+<li>Process: <code>GO:0070471</code> uterine smooth muscle contraction (<code>INCREASED</code>)</li>
+<li>Phenotype: <code>HP:0001622</code> Premature birth</li>
+<li>Evidence source: mixed IN_VITRO (culture) + HUMAN_CLINICAL (immunohistochemistry on abruption vs control placentas)</li>
+</ul>
+<p><strong>Node 9 — Consumptive coagulopathy / DIC</strong> · <code>biological_scale: ORGANISM</code>
+Massive thromboplastin (tissue factor) release from the disrupted decidua into the maternal circulation consumes fibrinogen and platelets. Abruption is the classic obstetric cause of DIC.
+- Phenotypes: <code>HP:0005521</code> DIC (acute <code>HP:0011880</code>); <code>HP:0011900</code> Hypofibrinogenemia; <code>HP:0001873</code> Thrombocytopenia; <code>HP:0031274</code> Hypovolemic shock
+- Evidence: <a href="https://pubmed.ncbi.nlm.nih.gov/40940025/" target="_blank" rel="noopener noreferrer">PMID:40940025</a> (DIC OR 6.30, 95% CI 6.00–6.61)</p>
+<h3>6.2 Additional cytokine mediators</h3>
+<p>Cakmak et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/15998775/" target="_blank" rel="noopener noreferrer">PMID:15998775</a>) add IL-11 (<code>hgnc:5966</code>) to the thrombin-responsive set, with a striking magnitude:</p>
+<blockquote>
+<p>"IL-1beta and thrombin elevated IL-11 output during incubations with E2 [24-fold (P &lt; 0.05) and 120-fold (P &lt; 0.05), respectively]. These increases were blunted by the addition of MPA [13-fold (P &lt; 0.05) and 36-fold (P &lt; 0.05), respectively]."</p>
+<p>"Because excess IL-1beta and thrombin generation are associated with chorioamnionitis- and abruption-related PTD, respectively, these findings add to our understanding of the genesis of inflammation- and abruption-associated prematurity."</p>
+</blockquote>
+<p>Note the clean mechanistic dissociation the authors draw: <strong>IL-1β is the chorioamnionitis signal; thrombin is the abruption signal</strong>, converging on the same decidual effectors. That is a good candidate for two <code>mechanistic_hypotheses</code> groups or for a shared downstream node with two distinct upstream edges.</p>
+<p>CSF2/GM-CSF (<code>hgnc:2434</code>) is a further thrombin-induced decidual mediator implicated in fetal-membrane weakening (Am J Pathol, "Thrombin-Induced Decidual Colony-Stimulating Factor-2 Promotes Abruption-Related Preterm Birth by Weakening Fetal Membranes" — <strong>PMID not retrieved this session; verify before curating</strong>).</p>
+<h3>6.3 Immune involvement</h3>
+<p>Bączkowska et al., Int J Mol Sci 2021 (<a href="https://pubmed.ncbi.nlm.nih.gov/34205566/" target="_blank" rel="noopener noreferrer">PMID:34205566</a>) — systematic review, 708 records screened, 22 analyzed:</p>
+<blockquote>
+<p>"The available evidence indicates that the disruption of the immunological processes on the maternal-fetal interface plays a crucial role in the pathophysiology of placental abruption. The features of chronic non-infectious inflammation and augmented immunological cytotoxic response were found to be present in placental abruption samples in the reviewed studies. Various molecules participate in this process, with only a few being examined. More advanced research is needed to fully explain this complicated process."</p>
+</blockquote>
+<p>That final sentence is an ideal anchor for a <code>KNOWLEDGE_GAP</code> discussion. Decidual NK cells (<code>CL:0002343</code> decidual natural killer cell, human; <code>CL:4052028</code> uterine natural killer cell) are the obvious cell population to name, given their established role in spiral-artery remodeling.</p>
+<h3>6.4 Tissue damage mechanisms</h3>
+<p>Ischemia (loss of maternal perfusion to the separated segment), hemorrhage, decidual necrosis, infarction, and — for the fetus — hypoxic-ischemic injury. Oxidative stress is implicated via the ischemic placental disease framework and via the mitochondrial-biogenesis/OXPHOS candidate genes of <a href="https://pubmed.ncbi.nlm.nih.gov/24046805/" target="_blank" rel="noopener noreferrer">PMID:24046805</a> (CAMK2B, NR1H3, PPARG, PRKCA, THRB; COX5A and NDUF-family).</p>
+<h3>6.5 Molecular profiling</h3>
+<ul>
+<li><strong>Transcriptomics:</strong> no abruption-specific placental RNA-seq dataset of note was located. The Bączkowska review's 22-study base is candidate-molecule immunohistochemistry, not unbiased omics. <strong>Substantial gap.</strong> Adjacent resources: GTEx (no placenta), Human Cell Atlas maternal–fetal interface reference (Vento-Tormo et al.).</li>
+<li><strong>Proteomics / metabolomics / lipidomics:</strong> none abruption-specific identified.</li>
+<li><strong>Single-cell / spatial:</strong> none abruption-specific. The maternal–fetal interface single-cell atlas would be the natural reference tissue for a first study; note as an opportunity, not a finding.</li>
+<li><strong>Functional genomics screens:</strong> none.</li>
+</ul>
+<p>Be explicit in the entry that the omics layer for this disease is essentially empty. That is itself a curatable fact.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ level</h3>
+<ul>
+<li><strong>Primary:</strong> <code>UBERON:0001987</code> placenta — specifically the maternal/basal aspect.</li>
+<li><strong>Primary (maternal):</strong> <code>UBERON:0002450</code> decidua, and precisely <code>UBERON:0000453</code> <strong>decidua basalis</strong> — the site of the initiating hemorrhage. Brandt &amp; Ananth locate the lesion at <em>"the interface between the decidua… and the placenta."</em> StatPearls: <em>"The histologic finding most strongly associated with acute abruption is hemorrhage in the decidua basalis with underlying parenchymal indentation."</em></li>
+<li>Also relevant: <code>UBERON:8600019</code> placental basal plate; <code>UBERON:0010008</code> placental cotyledon; <code>UBERON:0006878</code> decidua parietalis (uninvolved comparator).</li>
+<li><strong>Secondary maternal:</strong> uterus/myometrium (Couvelaire uterus), systemic coagulation system, kidney (<code>HP:0001919</code> AKI), pituitary (Sheehan syndrome after massive hemorrhage), cerebrovasculature (long-term, §11).</li>
+<li><strong>Secondary fetal:</strong> brain (hypoxic-ischemic injury), lung (prematurity), gut (necrotizing enterocolitis).</li>
+<li><strong>Body systems:</strong> reproductive, cardiovascular/hematologic, and — downstream — nervous and respiratory.</li>
+</ul>
+<h3>7.2 Tissue and cell level</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Cell / tissue</th>
+<th>CL term (verified)</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decidual cell</td>
+<td><code>CL:2000002</code></td>
+<td>tissue-factor-expressing hemostatic guardian; thrombin-responsive effector</td>
+</tr>
+<tr>
+<td>Stromal cell of endometrium</td>
+<td><code>CL:0002255</code></td>
+<td>precursor of decidual cells; used in the culture models</td>
+</tr>
+<tr>
+<td>Extravillous trophoblast</td>
+<td><code>CL:0008036</code></td>
+<td>spiral-artery remodeling; deficient invasion is Trigger A</td>
+</tr>
+<tr>
+<td>Placental villous trophoblast</td>
+<td><code>CL:2000060</code></td>
+<td>gas exchange surface lost on separation</td>
+</tr>
+<tr>
+<td>Anchoring trophoblast</td>
+<td><code>CL:0002219</code></td>
+<td>basal-plate attachment</td>
+</tr>
+<tr>
+<td>Decidual natural killer cell (human)</td>
+<td><code>CL:0002343</code></td>
+<td>immune arm of spiral-artery remodeling</td>
+</tr>
+<tr>
+<td>Uterine natural killer cell</td>
+<td><code>CL:4052028</code></td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Decidual pericyte</td>
+<td><code>CL:0008033</code></td>
+<td>vessel-wall stability</td>
+</tr>
+<tr>
+<td>Endothelial cell (endometrial/spiral artery)</td>
+<td><em>human endometrial endothelial cell — no exact CL term; use a parent endothelial CL</em></td>
+<td>thrombin/PAR-1 inflammatory amplifier</td>
+</tr>
+<tr>
+<td>Neutrophil</td>
+<td><code>CL:0000775</code> (<em>verify label</em>)</td>
+<td>thrombin/IL-8-recruited effector; co-localizes with fibrin</td>
+</tr>
+<tr>
+<td>Uterine smooth muscle cell / myometrium</td>
+<td></td>
+<td>hypertonus, Couvelaire infiltration</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>7.3 Subcellular level</h3>
+<p>No distinctive subcellular pathology. Relevant GO cellular components if needed: plasma membrane (PAR-1 signaling), extracellular region/extracellular matrix (MMP-1 substrate), mitochondrion (OXPHOS candidate genes, <a href="https://pubmed.ncbi.nlm.nih.gov/24046805/" target="_blank" rel="noopener noreferrer">PMID:24046805</a>).</p>
+<h3>7.4 Localization and laterality</h3>
+<p>The lesion is focal within a single organ. The clinically meaningful spatial axes are:</p>
+<ul>
+<li><strong>Marginal vs central separation.</strong> Marginal (edge) separation → revealed bleeding, lower risk. Central separation → concealed hematoma, higher risk, and can be entirely occult. This is the anatomical basis of the concealed-vs-revealed dichotomy and should be curated.</li>
+<li><strong>Anterior vs posterior placental location.</strong> Posterior placentation makes sonographic detection harder and produces back-predominant pain — a real diagnostic-performance modifier.</li>
+<li><strong>Fraction of placental surface separated</strong> — the principal determinant of fetal outcome.</li>
+</ul>
+<p>Laterality in the conventional sense (unilateral/bilateral) does not apply.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset</h3>
+<ul>
+<li><strong>Age of onset:</strong> not applicable in the usual sense. Onset is defined by <em>gestational age</em>, which is the correct time axis for this entry. Merck Manual Professional states incidence peaks at 24–26 weeks. StatPearls: <em>"Most cases develop before 37 weeks gestation."</em> Brandt &amp; Ananth (<a href="https://pubmed.ncbi.nlm.nih.gov/37164498/" target="_blank" rel="noopener noreferrer">PMID:37164498</a>) is specifically devoted to the late-preterm (34–36 wk) and term (≥37 wk) window, which behaves differently — better fetal outcomes, but a substantial share of the total burden.</li>
+<li><strong>Onset pattern:</strong> bimodal. Acute abruption is <strong>abrupt</strong> (minutes). Chronic abruption is <strong>insidious</strong>, presenting as <em>"continued or intermittent dark brown spotting"</em> (Merck Manual Professional), sometimes with oligohydramnios and growth restriction — the "chronic abruption–oligohydramnios sequence."</li>
+</ul>
+<p>The strongest evidence that the disease <em>begins</em> long before it presents is the biomarker work. Ananth et al., Obstet Gynecol 2017 (<a href="https://pubmed.ncbi.nlm.nih.gov/28178056/" target="_blank" rel="noopener noreferrer">PMID:28178056</a>), 35,307 women / 250 abruption cases from the FASTER cohort:</p>
+<blockquote>
+<p>"We hypothesized that the origins of abruption may extend to the stages of placental implantation; however, there are no reliable markers to predict its development."</p>
+<p>"Women with an abnormally low pregnancy-associated plasma protein A (fifth percentile or less) were at increased risk of abruption compared with those without abruption (9.6% compared with 5.3%; RR 1.9, 95% CI, 1.2-2.8)."</p>
+<p>"Women with all three abnormal pregnancy-associated plasma protein A, maternal serum alpha-fetoprotein, and inhibin-A analytes were at 8.8-fold (95% CI 2.3-34.3) risk of abruption."</p>
+<p>"These data provide support for our hypothesis that the origins of placental abruption may extend to the early stages of pregnancy."</p>
+</blockquote>
+<p><strong>Curatorial note:</strong> this is the key evidence for modeling a first-trimester origin node upstream of everything in §6 — abruption at 32 weeks may be the terminal event of a process initiated at implantation. It also justifies <code>MECHANISTIC_HYPOTHESIS</code> framing for any early-pregnancy prediction algorithm.</p>
+<h3>8.2 Progression</h3>
+<ul>
+<li><strong>Stages:</strong> Sher classes 0→3 (§3.3) function as severity stages. Progression from class 1 to class 3 can occur over minutes to hours.</li>
+<li><strong>Rate:</strong> highly variable. Yamada et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/22805996/" target="_blank" rel="noopener noreferrer">PMID:22805996</a>) give a chilling quantification of the acute time course in the subset that caused cerebral palsy: <em>"strong abdominal pain and/or profuse vaginal bleeding occurred 159 ± 99 min prior to admission to an obstetric facility, and the interval until delivery after admission was 47 ± 31 min."</em> The authors conclude: <em>"New strategies to shorten the interval until admission to an obstetric facility after onset of symptoms are urgently needed."</em></li>
+<li><strong>Course pattern:</strong> acute abruption is a single catastrophic event; chronic abruption is intermittent/relapsing over weeks.</li>
+<li><strong>Duration:</strong> <strong>self-limited by delivery.</strong> This is the disease's defining temporal property — abruption resolves absolutely at delivery of the placenta. There is no chronic abruption state postpartum. What persists is (a) the maternal cardiovascular risk trajectory (§11), (b) offspring sequelae, and (c) elevated recurrence risk in future pregnancies.</li>
+</ul>
+<h3>8.3 Patterns</h3>
+<ul>
+<li><strong>Remission:</strong> not applicable within a pregnancy. Small chronic abruptions may stabilize and the pregnancy continue, with the hematoma organizing.</li>
+<li><strong>Recurrence across pregnancies:</strong> ~5-fold. Oyelese et al., J Obstet Gynaecol Res 2024 (<a href="https://pubmed.ncbi.nlm.nih.gov/38366767/" target="_blank" rel="noopener noreferrer">PMID:38366767</a>), Kaiser Permanente Southern California, 126,264 patients with two consecutive singleton births over 30 years:</li>
+</ul>
+<blockquote>
+<p>"Rates of abruption in the second birth among individuals with and without previous placental abruption were 3.35% and 0.66%, respectively, giving an approximately five-fold increased odds of abruption in a second pregnancy in individuals who had abruption in their first birth when compared with those who did not have placental abruption in their first birth (aOR: 4.95, 95% confidence interval: 3.35-7.31, p &lt; 0.00001)."</p>
+<p>"Interpregnancy interval had no statistically significant association with recurrence."</p>
+</blockquote>
+<p>(StatPearls quotes a recurrence rate of 4–12%; the Kaiser figure of 3.35% is the best contemporary population estimate for a <em>second</em> birth specifically.)</p>
+<ul>
+<li><strong>Critical intervention windows:</strong></li>
+<li><strong>Preconception/first trimester</strong> — the only window for modifying implantation-stage determinants (smoking cessation, blood-pressure control, ART practice).</li>
+<li><strong>&lt;16 weeks</strong> — the window in which low-dose aspirin is effective for placental disease generally.</li>
+<li><strong>24–34 weeks</strong> — antenatal corticosteroids for fetal lung maturity; magnesium sulfate for neuroprotection.</li>
+<li><strong>The acute event, minutes to hours</strong> — the decisive window. Yamada's ~47 min admission-to-delivery interval defines the operational target.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Value</th>
+<th>Population</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Overall incidence</td>
+<td><strong>0.64%</strong> (8,724 / 1,358,623)</td>
+<td>pooled, 13 studies</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10214847/" target="_blank" rel="noopener noreferrer">PMID:10214847</a></td>
+</tr>
+<tr>
+<td>Prevalence</td>
+<td><strong>0.6%–1.2%</strong> of pregnancies</td>
+<td>contemporary review</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37164498/" target="_blank" rel="noopener noreferrer">PMID:37164498</a></td>
+</tr>
+<tr>
+<td>Delivery hospitalizations</td>
+<td><strong>1.2% (2000) → 1.6% (2020)</strong>, AAPC 1.6% (95% CI 1.3%, 2.0%)</td>
+<td>US National Inpatient Sample, 80.2M deliveries, 1.1M with abruption</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40940025/" target="_blank" rel="noopener noreferrer">PMID:40940025</a></td>
+</tr>
+<tr>
+<td>Cohort prevalence</td>
+<td><strong>1.1%</strong> (33,058 / 3,093,241 deliveries)</td>
+<td>New Jersey, 1993–2020</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38273776/" target="_blank" rel="noopener noreferrer">PMID:38273776</a></td>
+</tr>
+<tr>
+<td>First-birth rate</td>
+<td><strong>0.63%</strong>; second-birth rate 0.68%</td>
+<td>Kaiser Permanente S. California, 1991–2021</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38366767/" target="_blank" rel="noopener noreferrer">PMID:38366767</a></td>
+</tr>
+<tr>
+<td>Range (Merck)</td>
+<td>0.4%–1.5%</td>
+<td>all pregnancies</td>
+<td>Merck Manual Professional</td>
+</tr>
+<tr>
+<td>Nordic vs US</td>
+<td>0.38–0.51% (Nordic) vs 0.6–1.0% (US)</td>
+<td></td>
+<td>secondary review source</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Structured <code>prevalence</code> block guidance (dismech convention):</strong> use <code>measure_type: POINT_PREVALENCE</code> per delivery, <code>prevalence_class: ABOVE_1_IN_1000</code>, <code>rate_per_100000: 640</code> for the classic Ananth pooled figure (0.64% × 1000), or <code>rate_per_100000: 1600</code> for the 2020 US NIS figure. Keep the verbatim phrasing in <code>notes</code>. Do <strong>not</strong> mix the incidence-per-delivery denominator with a population denominator.</p>
+<h3>9.2 Temporal trends and disparities</h3>
+<p>Ananth et al., AJOG 2005 (<a href="https://pubmed.ncbi.nlm.nih.gov/15672024/" target="_blank" rel="noopener noreferrer">PMID:15672024</a>), National Hospital Discharge Survey 1979–2001:</p>
+<blockquote>
+<p>"The rate of abruption increased 92% (95% CI, 88, 96) among black women between 1979-1981 (0.76%; n = 13,584 women) and 1999-2001 (1.43%; n = 18,960 women). Among white women, the rate increased by 15% (95% CI, 14,16) over the same period, from 0.82% (n = 66,186 women) in 1979-1981 to 0.94% (n = 59,284 women) in 1999-2001."</p>
+<p>"The temporal increase in rates of abruption may reflect a true increase in risk or may be the result of improved diagnosis of both abruption and its determinants."</p>
+</blockquote>
+<p><strong>Curate the racial disparity as a social/structural exposure, not a biological one.</strong> "Black race" appears as a risk factor in Chen 2025, and Medicaid insurance in Wright 2026; both are markers of differential exposure, access, and chronic stress burden. An entry that curates "black race" as a biological risk factor without that framing is both scientifically wrong and harmful. Ananth's own hedge — that some of the trend may be ascertainment — should be preserved.</p>
+<h3>9.3 Inheritance</h3>
+<ul>
+<li><strong>Pattern:</strong> multifactorial / polygenic. HPO mode-of-inheritance term <code>HP:0010982</code> <strong>Polygenic inheritance</strong> is the appropriate binding, paired with <code>relationship_type: SUSCEPTIBILITY</code> gene typing per the dismech digenic/oligogenic SOP. Do <strong>not</strong> use <code>HP:0010984</code>/<code>HP:0010983</code>.</li>
+<li><strong>Penetrance / expressivity / anticipation / mosaicism / founder effects / consanguinity / carrier frequency:</strong> all <strong>not applicable</strong> — there is no Mendelian allele. Say so explicitly rather than leaving blank.</li>
+<li><strong>Two-genome caveat worth curating:</strong> susceptibility resides in both the maternal and the fetal/placental genome; Workalemahu et al. specifically examined <em>"Placental Genome and Maternal-Placental Genetic Interactions."</em> This is unusual enough to merit a note.</li>
+</ul>
+<h3>9.4 Demographics</h3>
+<ul>
+<li><strong>Sex ratio:</strong> the affected pregnant person is by definition female (<code>HP:0010982</code> context). For the <em>fetus</em>, Tikkanen et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/23072758/" target="_blank" rel="noopener noreferrer">PMID:23072758</a>) found <strong>male fetal sex</strong> an independent risk factor for abruption-related perinatal mortality: <em>"Prematurity, low birthweight, male fetal sex and maternal smoking were independent risk factors for placental abruption-related perinatal mortality."</em></li>
+<li><strong>Age distribution:</strong> rises with maternal age ≥35 (OR 1.44) but also elevated at the young extreme in some series; the relationship is J-shaped.</li>
+<li><strong>Geography:</strong> higher reported rates in the US than Nordic countries; whether that is true risk or coding practice is unresolved.</li>
+<li><strong>Variant geography:</strong> the GWAS loci were discovered in a Peruvian (Andean-admixed) population and have not been replicated elsewhere — a hard limit on generalizability.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Diagnostic status</h3>
+<p><strong>There is no confirmatory antenatal test.</strong> StatPearls: <em>"No definitive diagnostic test exists."</em> Abruption is a clinical diagnosis, confirmed (or refuted) retrospectively by placental examination. This should be stated in the entry's <code>definitions</code> section rather than buried.</p>
+<p>Hurd et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/6828278/" target="_blank" rel="noopener noreferrer">PMID:6828278</a>) show the ceiling of clinical detection: <em>"Diagnosis was confirmed by placental inspection in 59 (1.3%) of 4545 deliveries. Among the 50 patients admitted with a living fetus, the diagnosis was made antenatally in 31 (62%)."</em> — i.e. roughly a third of abruptions with a live fetus were <strong>not</strong> diagnosed before delivery.</p>
+<h3>10.2 Imaging</h3>
+<p>Ultrasound is used to <strong>exclude placenta previa</strong>, not to confirm abruption. Glantz &amp; Purnell, J Ultrasound Med 2002 (<a href="https://pubmed.ncbi.nlm.nih.gov/12164566/" target="_blank" rel="noopener noreferrer">PMID:12164566</a>) — still the definitive performance study, 149 consecutive patients:</p>
+<blockquote>
+<p>"Of 55 patients who gave birth within 14 days of sonography, 8 (15%) had scans consistent with abruption, and 29 (53%) had abruption at delivery; the sensitivity, specificity, and positive and negative predictive values of sonography were 24%, 96%, 88%, and 53%, respectively."</p>
+<p>"Sonography is not sensitive for detection of placental abruption, but a positive finding is associated with more aggressive management and worse neonatal outcome."</p>
+</blockquote>
+<p>The physical reason: acute retroplacental hemorrhage is isoechoic with placental tissue, so a fresh hematoma is often invisible. MRI has higher sensitivity but is impractical in an emergency. <strong>A negative scan does not exclude abruption</strong> — this is the single most important diagnostic caveat in the entry and should be curated as a formal <code>distinguishing_features</code> or <code>KNOWLEDGE_GAP</code> statement.</p>
+<p>Relevant NCIT/LOINC: use <code>NCIT:C92929</code> Fetal Heart Monitoring and <code>NCIT:C92836</code> Non-Stress Test for the monitoring modalities; there is no clean NCIT obstetric-ultrasound clinical-action term reachable from <code>NCIT:C25218</code> in the search performed — verify before binding.</p>
+<h3>10.3 Fetal monitoring</h3>
+<p>Continuous electronic fetal heart rate monitoring is the most informative single test. Category I / II / III tracings guide urgency; a Category III tracing in the setting of bleeding and uterine hypertonus is an indication for immediate delivery. Uterine tocodynamometry showing high-frequency, low-amplitude contractions is characteristic.</p>
+<h3>10.4 Laboratory</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Purpose</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Complete blood count</td>
+<td>anemia, thrombocytopenia</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Fibrinogen</strong></td>
+<td>the key coagulopathy marker</td>
+<td>Merck: <em>"Serum fibrinogen and fibrin-split products (the most sensitive indicator)"</em>. A low fibrinogen in an obstetric hemorrhage is both diagnostic of consumptive coagulopathy and prognostic</td>
+</tr>
+<tr>
+<td>PT / aPTT</td>
+<td>coagulopathy</td>
+<td></td>
+</tr>
+<tr>
+<td>Fibrin degradation products / D-dimer</td>
+<td>DIC</td>
+<td></td>
+</tr>
+<tr>
+<td>Type and screen / crossmatch</td>
+<td>transfusion readiness</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>Kleihauer-Betke</strong></td>
+<td>quantifies fetomaternal hemorrhage</td>
+<td>Essential in Rh-negative patients to dose anti-D immune globulin</td>
+</tr>
+<tr>
+<td>BUN/creatinine</td>
+<td>AKI</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>A dismech <code>reference_ranges</code> block with <code>interpretation_bands</code> on fibrinogen would be well-motivated here: pregnancy raises fibrinogen substantially, so a "normal" non-pregnant value is abnormally low in a bleeding obstetric patient. Curate the pregnancy-specific interval with evidence, and band the values by severity.</p>
+<h3>10.5 Histopathology (the reference standard)</h3>
+<p>Sampling and lesion definitions should follow the <strong>Amsterdam Placental Workshop Group Consensus Statement</strong> (Khong et al., Arch Pathol Lab Med 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/27223167/" target="_blank" rel="noopener noreferrer">PMID:27223167</a>):</p>
+<blockquote>
+<p>"The group agreed on sets of uniform sampling criteria, placental gross descriptors, pathologic terminologies, and diagnostic criteria. The terminology and microscopic descriptions for maternal vascular malperfusion, fetal vascular malperfusion, delayed villous maturation, patterns of ascending intrauterine infection, and villitis of unknown etiology were agreed upon."</p>
+</blockquote>
+<p>Findings to curate under <code>histopathology</code>:
+- Adherent <strong>retroplacental hematoma</strong> with underlying <strong>parenchymal indentation/compression</strong> of the maternal surface — the most specific acute finding.
+- <strong>Decidual hemorrhage / decidual necrosis</strong> in the decidua basalis.
+- <strong>Maternal vascular malperfusion</strong> features (Amsterdam terminology): decidual arteriopathy/atherosis, accelerated villous maturation, infarcts, retroplacental hemorrhage — the chronic-arm signature.
+- <strong>Decidual neutrophil infiltration co-localizing with fibrin</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/16251427/" target="_blank" rel="noopener noreferrer">PMID:16251427</a>) — with the crucial control observation that gestational-age-matched control decidua is <em>"virtually devoid of neutrophils."</em>
+- <strong>Hemosiderin deposition</strong> and organizing hematoma in chronic abruption, dating the process to days–weeks before delivery.
+- Concurrent <strong>acute chorioamnionitis</strong> in the infection-associated subgroup.</p>
+<h3>10.6 Genetic and omics diagnostics</h3>
+<p><strong>None indicated.</strong> WGS, WES, gene panels, single-gene testing, CMA, karyotype, FISH, mtDNA testing and repeat-expansion testing all have <strong>no role</strong> in diagnosing or managing placental abruption. Thrombophilia panels are not recommended for placenta-mediated complications on current evidence. RNA-seq, proteomics, metabolomics, epigenomics and liquid biopsy have <strong>no validated diagnostic application</strong> here. State each of these as explicitly not applicable — this is more useful to a downstream consumer than an omitted field.</p>
+<h3>10.7 Differential diagnosis</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Distinguishing features</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Placenta previa</strong> (<code>HP:0430070</code>)</td>
+<td>Painless, bright red, external bleeding; <strong>soft, relaxed uterus</strong>; placenta over the internal os on ultrasound. StatPearls contrast: abruption gives "pain intense/acute; firm, board-like uterus" vs previa "no pain; soft, relaxed uterus"</td>
+</tr>
+<tr>
+<td>Vasa previa</td>
+<td>Bleeding at membrane rupture, rapid fetal exsanguination, fetal (not maternal) blood</td>
+</tr>
+<tr>
+<td>Uterine rupture (<code>HP:0100718</code>)</td>
+<td>Prior uterine scar, loss of station, abnormal contraction pattern, sudden FHR deterioration</td>
+</tr>
+<tr>
+<td>Preterm labor</td>
+<td>Contractions without hemorrhage or hypertonus</td>
+</tr>
+<tr>
+<td>Cervical/vaginal lesion, cervicitis, post-coital bleeding</td>
+<td>Visualized on speculum exam</td>
+</tr>
+<tr>
+<td>Circumvallate placenta / marginal sinus bleed</td>
+<td>Milder, often self-limited</td>
+</tr>
+<tr>
+<td>Non-obstetric acute abdomen (appendicitis, ovarian torsion, nephrolithiasis)</td>
+<td>Absent bleeding, different pain character</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>10.8 Screening</h3>
+<p>There is <strong>no validated screening test</strong> for abruption in asymptomatic pregnancies. The biomarker combination from <a href="https://pubmed.ncbi.nlm.nih.gov/28178056/" target="_blank" rel="noopener noreferrer">PMID:28178056</a> (low PAPP-A + high MSAFP + abnormal inhibin-A, RR 8.8) is the closest candidate but has never been prospectively validated as a screening instrument — its positive predictive value at population prevalence of ~1% would be poor. If curating a <code>definitions</code> entry for a serum-analyte-based case-finding rule, mark it <code>derivation_basis: MECHANISTIC_HYPOTHESIS</code> with <code>validation_status.status: PROPOSED</code>, and <code>attaches_to</code> the early-implantation origin node.</p>
+<p>Trial anchors for prediction: NCT03455387 (sFlt-1/PlGF for placental complications), NCT03782168 (plasma biomarkers in placental abruption — <strong>TERMINATED</strong>), NCT01279369 (fetal fibronectin to predict abruption delivery — <strong>TERMINATED</strong>). Two terminated prediction studies is itself informative and worth noting.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Perinatal mortality</h3>
+<p>Tikkanen et al., Acta Obstet Gynecol Scand 2013 (<a href="https://pubmed.ncbi.nlm.nih.gov/23072758/" target="_blank" rel="noopener noreferrer">PMID:23072758</a>) — Finnish national registers, 618,735 women / 1.14 million pregnancies / 4,336 abruptions:</p>
+<blockquote>
+<p>"Overall perinatal mortality with abruption was 119 per 1000 births. Placental abruption explained 7% of all perinatal deaths."</p>
+<p>"The mortality among singleton births (125 per 1000) was higher than among multiple births (40 per 1000). The majority of deaths (77%) occurred in utero."</p>
+<p>"Singleton perinatal mortality with abruption decreased from 173 per 1000 in 1987-1990 to 98 per 1000 in 2000-2005 (p &lt; 0.001)."</p>
+<p>"In singleton births at &lt;32 gestational weeks, overall perinatal mortality was high (345 per 1000) and was not increased by placental abruption."</p>
+</blockquote>
+<p>That last finding is subtle and important: <strong>at very early gestations, prematurity — not abruption per se — dominates mortality.</strong> Curate it; it prevents over-attribution.</p>
+<p>Consistently, Delorme et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/26646125/" target="_blank" rel="noopener noreferrer">PMID:26646125</a>, EPIPAGE-2) found that among live births 24–34 weeks, abruption as the cause of preterm birth carried <em>"adjusted OR 1.6 [0.7-3.7]"</em> for in-hospital death — statistically indistinguishable from preterm labor.</p>
+<p>StatPearls gives fetal mortality of 1–40% depending on severity and gestational age, and notes abruption accounts for 10–20% of maternal deaths (in settings without ready blood availability).</p>
+<h3>11.2 Maternal morbidity</h3>
+<p>Wright et al., Am J Perinatol 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/40940025/" target="_blank" rel="noopener noreferrer">PMID:40940025</a>), 80.2M US deliveries:</p>
+<blockquote>
+<p>"In adjusted analyses, abruption was associated with a range of adverse outcomes including transfusion (OR = 6.86, 95% CI: 6.70, 7.03), non-transfusion severe maternal morbidity (OR = 4.05, 95% CI: 3.93, 4.17), postpartum hemorrhage (OR = 1.76, 95% CI: 1.72, 1.80), disseminated intravascular coagulation (OR = 6.30, 95% CI: 6.00, 6.61), and critical care procedures (OR = 4.76, 95% CI: 4.26, 5.32)."</p>
+</blockquote>
+<p>Plus, from Downes et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/28329897/" target="_blank" rel="noopener noreferrer">PMID:28329897</a>): relaparotomy, hysterectomy, sepsis, amniotic fluid embolism, venous thromboembolism, acute kidney injury, ICU admission. Sheehan syndrome (postpartum pituitary necrosis) after massive hemorrhage (StatPearls).</p>
+<h3>11.3 Offspring neurological outcome</h3>
+<p>Yamada et al., Early Hum Dev 2012 (<a href="https://pubmed.ncbi.nlm.nih.gov/22805996/" target="_blank" rel="noopener noreferrer">PMID:22805996</a>) — Japan Council for Quality Health Care national CP review, 107 infants:</p>
+<blockquote>
+<p>"Abruptio placenta was responsible for 28 (26%) of the 107 CP infants, and was the single leading causative factor of CP."</p>
+<p>"Of these 28 women, 22 (79%) exhibited non-reassuring fetal status on admission to obstetric facilities at 36.2 ± 2.6 weeks of gestation and had neonates with umbilical cord arterial blood pH (base excess) of 6.728 ± 0.164 (-25 ± 5.4 mmol/L)."</p>
+</blockquote>
+<p>An umbilical arterial pH of 6.73 is profound acidemia. Note the mean gestational age — 36.2 weeks, i.e. <strong>near-term</strong>, which is exactly why Brandt &amp; Ananth devoted a review to the near-term/term window.</p>
+<h3>11.4 Long-term maternal cardiovascular risk</h3>
+<p>This reframes abruption from an acute obstetric event to a <strong>life-course cardiovascular risk marker</strong>.</p>
+<p>Ananth et al., Neurology 2019 (<a href="https://pubmed.ncbi.nlm.nih.gov/31420459/" target="_blank" rel="noopener noreferrer">PMID:31420459</a>) — Danish population cohort, 828,289 women, 13,231,559 person-years:</p>
+<blockquote>
+<p>"Cerebrovascular mortality rates were 0.8 and 0.5 per 10,000 person-years among women with and without abruption, respectively (hazard ratio [HR] 1.6, 95% confidence interval [CI] 0.9-3.0). Abruption was associated with increased rates of nonfatal ischemic stroke (HR 1.4, 95% CI 1.1-1.7) and hemorrhagic stroke (HR 1.4, 95% CI 1.1-1.9)."</p>
+<p>"The association of abruption and stroke was increased with delivery at &lt;34 weeks, when accompanied by ischemic placental disease, and among women with ≥2 abruptions."</p>
+<p>"Disruption of the hemostatic system manifesting as ischemia and hemorrhage may indicate shared etiologies between abruption and cerebrovascular complications."</p>
+</blockquote>
+<p>Note the elegance of the shared-mechanism argument: abruption raises the risk of <strong>both</strong> ischemic and hemorrhagic stroke by the same factor, which points at a systemic vascular/hemostatic diathesis rather than a thrombotic one.</p>
+<p>Adams et al., Semin Perinatol 2014 (<a href="https://pubmed.ncbi.nlm.nih.gov/24836826/" target="_blank" rel="noopener noreferrer">PMID:24836826</a>) generalize this across ischemic placental disease:</p>
+<blockquote>
+<p>"Retrospective observational studies comparing pregnancies complicated by ischemic placental disease to uncomplicated pregnancies suggest an increased long-term risk of hypertension, cardiovascular death, metabolic syndrome, and cerebrovascular disease. This association is much stronger in women who had an indicated-preterm delivery due to ischemic placental disease."</p>
+</blockquote>
+<p>The ongoing <strong>PACER</strong> cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/38273776/" target="_blank" rel="noopener noreferrer">PMID:38273776</a>) — 1,877,824 birthing persons, 3,093,241 deliveries, median follow-up 15.4 years — is the dedicated infrastructure for this question:</p>
+<blockquote>
+<p>"Pregnancy offers a unique window to study chronic diseases along the life course and efforts to identify the aetiology of abruption may provide important insights into the causes of future CVD."</p>
+</blockquote>
+<p>This is an excellent candidate for a dismech <strong>comorbidity/trajectory entry</strong> (abruption → later cerebrovascular disease) rather than being buried inside the disorder entry.</p>
+<h3>11.5 Prognostic factors</h3>
+<ul>
+<li><strong>Fraction of placenta separated</strong> (dominant).</li>
+<li><strong>Gestational age at delivery.</strong></li>
+<li><strong>Fetal status at presentation</strong> — a Category III tracing or absent fetal heart tones.</li>
+<li><strong>Time from symptom onset to delivery</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22805996/" target="_blank" rel="noopener noreferrer">PMID:22805996</a>).</li>
+<li><strong>Maternal hemodynamic status and fibrinogen level.</strong></li>
+<li><strong>Sher class.</strong></li>
+<li><strong>Fetal sex (male) and low birthweight</strong> for mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/23072758/" target="_blank" rel="noopener noreferrer">PMID:23072758</a>).</li>
+<li>Partial separation carries lower mortality than complete separation (StatPearls).</li>
+</ul>
+<p><strong>Prognostic biomarkers:</strong> fibrinogen is the only routinely useful one. No molecular prognostic marker is validated.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>Management is <strong>delivery-centric</strong>: there is no therapy that reverses abruption. The clinical decisions are (a) when to deliver, (b) by what route, and (c) how to support maternal hemostasis.</p>
+<h3>12.1 Immediate stabilization and supportive care</h3>
+<ul>
+<li>Large-bore IV access, crystalloid resuscitation, supplemental oxygen, left lateral tilt, continuous maternal and fetal monitoring, transfer to a facility with obstetric and neonatal ICU capability (StatPearls).</li>
+<li>NCIT: <code>NCIT:C15747</code> Supportive Care; <code>NCIT:C94624</code> Oxygen Therapy; <code>NCIT:C92929</code> Fetal Heart Monitoring.</li>
+<li><code>therapeutic_modality: OTHER</code> / <code>BEHAVIORAL</code> as appropriate.</li>
+</ul>
+<h3>12.2 Delivery</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>NCIT (verified)</th>
+<th>Modality</th>
+<th>Indication</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cesarean delivery</td>
+<td><code>NCIT:C46088</code> Cesarean Section (emergency: <code>NCIT:C92772</code> Emergency Cesarean Delivery)</td>
+<td><code>SURGERY</code></td>
+<td>Non-reassuring fetal status with a live viable fetus; maternal instability; Sher class 2–3</td>
+</tr>
+<tr>
+<td>Induction of labor / vaginal delivery</td>
+<td><code>NCIT:C92814</code> Induction of Labor</td>
+<td><code>OTHER</code></td>
+<td>Fetal demise; stable mother and fetus. Preferred where feasible because it avoids surgical bleeding in a coagulopathic patient. Hypertonic contractions often permit rapid vaginal delivery</td>
+</tr>
+<tr>
+<td>Emergency hysterectomy</td>
+<td><code>NCIT:C15256</code> Hysterectomy</td>
+<td><code>SURGERY</code></td>
+<td>Uncontrollable hemorrhage / Couvelaire uterus with atony</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Hurd et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/6828278/" target="_blank" rel="noopener noreferrer">PMID:6828278</a>) provide the evidence for <strong>selective (expectant) management</strong> in stable preterm cases:</p>
+<blockquote>
+<p>"It is concluded that optimal fetal survival and an acceptable cesarean section rate may be obtained by selective management, especially in infants weighing more than 1500 g."</p>
+<p>"There was a significant increase in the incidence of both respiratory distress syndrome and low Apgar scores among the study infants (P less than .005), but these increases were not correlated with mode of delivery or diagnosis-to-delivery interval."</p>
+</blockquote>
+<h3>12.3 Blood component therapy</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Product</th>
+<th>NCIT (verified)</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Packed red cells</td>
+<td><code>NCIT:C15409</code> Packed Red Blood Cell Transfusion</td>
+<td>oxygen-carrying capacity</td>
+</tr>
+<tr>
+<td>Blood transfusion (general)</td>
+<td><code>NCIT:C15192</code> Blood Transfusion</td>
+<td>massive transfusion protocol</td>
+</tr>
+<tr>
+<td>Fresh frozen plasma</td>
+<td><code>NCIT:C116475</code> Fresh Frozen Plasma Transfusion</td>
+<td>factor replacement</td>
+</tr>
+<tr>
+<td>Cryoprecipitate</td>
+<td><code>NCIT:C180873</code> Cryoprecipitated Plasma / <code>NCIT:C133260</code> Cryoprecipitated Antihemophilic Factor</td>
+<td>targeted fibrinogen replacement — the key product in abruption-associated DIC</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Given a transfusion OR of 6.86 (<a href="https://pubmed.ncbi.nlm.nih.gov/40940025/" target="_blank" rel="noopener noreferrer">PMID:40940025</a>), transfusion should be curated as a near-defining feature of severe abruption rather than an incidental treatment.</p>
+<h3>12.4 Pharmacotherapy</h3>
+<p>All use <code>treatment_term: NCIT:C15986</code> Pharmacotherapy with a <code>therapeutic_agent</code>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Drug</th>
+<th>CHEBI (verified)</th>
+<th>Modality</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Betamethasone</td>
+<td><code>CHEBI:3077</code></td>
+<td><code>SMALL_MOLECULE</code></td>
+<td>antenatal corticosteroid for fetal lung maturity, &lt;34 weeks. NCIT: <code>NCIT:C114131</code> Antenatal Steroid Therapy Initiated</td>
+</tr>
+<tr>
+<td>Dexamethasone</td>
+<td><code>CHEBI:41879</code></td>
+<td><code>SMALL_MOLECULE</code></td>
+<td>alternative corticosteroid</td>
+</tr>
+<tr>
+<td>Magnesium sulfate</td>
+<td><code>CHEBI:32599</code> (NCIT:C623)</td>
+<td><code>SMALL_MOLECULE</code></td>
+<td>fetal neuroprotection &lt;32 weeks; seizure prophylaxis if preeclamptic. Trial anchors: <strong>NCT00186069</strong> "Magnesium Sulfate vs Placebo for Placental Abruption" (COMPLETED); <strong>NCT00014989</strong> BEAM trial (Phase 3, COMPLETED)</td>
+</tr>
+<tr>
+<td>Tranexamic acid</td>
+<td><code>CHEBI:48669</code></td>
+<td><code>SMALL_MOLECULE</code></td>
+<td>antifibrinolytic adjunct for hemorrhage. Trial anchor: <strong>NCT05840471</strong> "Tranexamic Acid as an Intervention in Abruptio Placenta", COMPLETED, n=116, 2023-01-10 to 2024-02-10, primary outcomes hemostasis / gestational age / favorable perinatal outcome. Evidence base for abruption specifically is thin — do not overstate</td>
+</tr>
+<tr>
+<td>Oxytocin</td>
+<td><code>CHEBI:7872</code></td>
+<td><code>PEPTIDE</code></td>
+<td>labor augmentation and postpartum atony</td>
+</tr>
+<tr>
+<td>Misoprostol</td>
+<td><code>CHEBI:63610</code></td>
+<td><code>SMALL_MOLECULE</code></td>
+<td>uterotonic for postpartum hemorrhage</td>
+</tr>
+<tr>
+<td>Anti-D (Rho(D)) immune globulin</td>
+<td>NCIT: <code>NCIT:C80832</code> Human Rho(D) Immune Globulin; administration <code>NCIT:C92947</code></td>
+<td><code>OTHER</code> / biologic</td>
+<td>Rh-negative patients; dose guided by Kleihauer-Betke</td>
+</tr>
+<tr>
+<td>Labetalol / nifedipine</td>
+<td><code>CHEBI:6343</code> / <code>CHEBI:7565</code></td>
+<td><code>SMALL_MOLECULE</code></td>
+<td>blood-pressure control (see CHAP, §2.4). NCIT: <code>NCIT:C172184</code> Antihypertensive Therapy</td>
+</tr>
+<tr>
+<td>Acetylsalicylic acid</td>
+<td><code>CHEBI:15365</code></td>
+<td><code>SMALL_MOLECULE</code></td>
+<td>low-dose aspirin &lt;16 weeks in high-risk pregnancies (prevention, §13)</td>
+</tr>
+<tr>
+<td>Heparin / LMWH</td>
+<td><code>CHEBI:28304</code></td>
+<td><code>SMALL_MOLECULE</code></td>
+<td>investigational for recurrence prevention; NCT00986765, NCT01068795</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Tocolysis</strong> is controversial and generally contraindicated in acute abruption with fetal compromise; it may be considered in the stable, remote-from-term patient to permit corticosteroid administration. No clean NCIT clinical-action term for tocolysis was found reachable from <code>NCIT:C25218</code> — use free-text <code>preferred_term</code> with <code>NCIT:C15986</code> as the action.</p>
+<h3>12.5 Not applicable</h3>
+<p>Gene therapy, gene editing, cell therapy, RNA-based therapy, targeted therapy, immunotherapy, pharmacogenomics, and rehabilitation have <strong>no role</strong>. Record explicitly.</p>
+<h3>12.6 Treatment algorithm</h3>
+<p>Brandt &amp; Ananth (<a href="https://pubmed.ncbi.nlm.nih.gov/37164498/" target="_blank" rel="noopener noreferrer">PMID:37164498</a>) describe <em>"a proposed management algorithm addressing blood loss, vital signs, and urine output"</em> along with <em>"blood component therapy, coagulopathy management, and care following fetal demise."</em> In outline:</p>
+<ol>
+<li><strong>Fetal demise</strong> → deliver, vaginal route preferred, aggressive coagulopathy correction.</li>
+<li><strong>Live fetus, unstable mother or Category III tracing</strong> → immediate cesarean.</li>
+<li><strong>Live fetus, stable, ≥34–37 weeks</strong> → deliver.</li>
+<li><strong>Live fetus, stable, &lt;34 weeks, Sher class 1</strong> → hospitalize, corticosteroids, magnesium sulfate for neuroprotection, serial monitoring, serial growth ultrasound; deliver on deterioration.</li>
+<li><strong>Postpartum</strong> → monitor for hemorrhage and coagulopathy; neonatal team at delivery.</li>
+</ol>
+<hr />
+<h2>13. Prevention</h2>
+<h3>13.1 Primary prevention</h3>
+<p>The honest summary: <strong>no intervention has been shown in an RCT to prevent placental abruption as a standalone outcome.</strong> Everything below is either risk-factor modification with observational support, or an RCT benefit on a composite that included abruption.</p>
+<ul>
+<li><strong>Smoking cessation</strong> — the highest-yield modifiable target, PAF 15–25% (<a href="https://pubmed.ncbi.nlm.nih.gov/10214847/" target="_blank" rel="noopener noreferrer">PMID:10214847</a>). NCIT <code>NCIT:C17427</code> Smoking Cessation; <code>NCIT:C15372</code> Smoking Cessation Intervention. <code>therapeutic_modality: BEHAVIORAL</code>.</li>
+<li><strong>Cocaine and cannabis cessation</strong> with counseling/rehabilitation support (StatPearls).</li>
+<li><strong>Blood pressure control in chronic hypertension</strong> — CHAP (<a href="https://pubmed.ncbi.nlm.nih.gov/35363951/" target="_blank" rel="noopener noreferrer">PMID:35363951</a>, NCT02299414), composite RR 0.82 (0.74–0.92). Curate with the composite caveat.</li>
+<li><strong>Low-dose aspirin before 16 weeks</strong> in pregnancies at high risk of placental disease — the strongest evidence is for preterm preeclampsia (ASPRE-type data), with abruption benefit inferred through the ischemic-placental-disease framework rather than demonstrated. Trial anchors: NCT04356326 (Chronic Hypertension and ASA in Pregnancy, Phase 3, RECRUITING), NCT01890005. <strong>Do not curate aspirin as an evidence-based abruption prevention without this qualifier.</strong></li>
+<li><strong>Adequate prenatal care</strong> (≥4 visits) and interpregnancy interval counselling — though Oyelese found interpregnancy interval had <strong>no</strong> significant association with recurrence (<a href="https://pubmed.ncbi.nlm.nih.gov/38366767/" target="_blank" rel="noopener noreferrer">PMID:38366767</a>), which argues <em>against</em> interval-based counselling specifically.</li>
+<li><strong>Trauma prevention</strong> — seatbelt use with correct lap-belt placement below the gravid uterus, intimate-partner-violence screening.</li>
+<li><strong>Correction of anemia</strong> (Hb &lt;11 g/dL is an independent risk factor).</li>
+</ul>
+<h3>13.2 Secondary prevention (early detection)</h3>
+<p>No population screening program exists or is recommended. In a pregnancy with prior abruption, closer antenatal surveillance and patient education on warning signs is standard practice, though unvalidated. Given the 159 ± 99 minute symptom-to-admission interval in the CP cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/22805996/" target="_blank" rel="noopener noreferrer">PMID:22805996</a>), <strong>patient education to present immediately for sudden abdominal pain, bleeding, or decreased fetal movement is arguably the highest-value secondary prevention available</strong> — and is measurable.</p>
+<p>StatPearls lists education on <em>"sudden abdominal pain, vaginal bleeding, uterine tenderness, and decreased fetal movement."</em></p>
+<h3>13.3 Tertiary prevention</h3>
+<p>Prevention of complications in the affected pregnancy: massive-transfusion protocols, early fibrinogen replacement, delivery in a facility with blood bank and NICU, anti-D prophylaxis for Rh-negative patients, antenatal corticosteroids and magnesium neuroprotection to mitigate prematurity sequelae.</p>
+<h3>13.4 Immunization, genetic screening, genetic counseling</h3>
+<ul>
+<li><strong>Immunization:</strong> not applicable (no vaccine-preventable etiology). Routine pregnancy immunization is unrelated.</li>
+<li><strong>Genetic screening / carrier screening / PGT / prenatal genetic testing:</strong> <strong>not applicable.</strong> No causal gene. Thrombophilia screening is not recommended for placenta-mediated complications.</li>
+<li><strong>Genetic counseling</strong> (<code>NCIT:C15240</code>): not indicated for abruption per se. Recurrence counseling — quantitatively, ~5× odds and ~3.35% absolute risk in a second birth (<a href="https://pubmed.ncbi.nlm.nih.gov/38366767/" target="_blank" rel="noopener noreferrer">PMID:38366767</a>) — is <em>obstetric</em> counseling and should be curated as such, not as genetic counseling.</li>
+</ul>
+<h3>13.5 Risk stratification</h3>
+<p>Best available: prior abruption (AOR 2.72), placenta previa (AOR 7.31), chronic hypertension (OR 3.13), cocaine use (RR 4.55), plus the first/second-trimester analyte triad (RR 8.8 for all three abnormal, <a href="https://pubmed.ncbi.nlm.nih.gov/28178056/" target="_blank" rel="noopener noreferrer">PMID:28178056</a>). No validated multivariable clinical prediction model with external validation exists — a clear <code>KNOWLEDGE_GAP</code>.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<h3>14.1 Taxonomy</h3>
+<ul>
+<li><em>Homo sapiens</em> — <code>NCBITaxon:9606</code> (the disease as defined).</li>
+<li><em>Equus caballus</em> — <code>NCBITaxon:9796</code> — the most relevant natural-disease species (see below).</li>
+<li><em>Rattus norvegicus</em> — <code>NCBITaxon:10116</code> — induced model only.</li>
+<li><em>Mus musculus</em> — <code>NCBITaxon:10090</code> — induced model only.</li>
+</ul>
+<h3>14.2 Natural disease in other species</h3>
+<p><strong>Horse — premature placental separation ("red bag" delivery).</strong> The only well-documented naturally-occurring analog. In the mare, the chorioallantois separates prematurely and presents intact at the vulva (velvety red, rather than the normal white amnion), meaning the foal is being delivered while still perfused by a detached placenta — an acute asphyxial emergency requiring immediate manual rupture of the chorioallantois. It is strongly associated with ascending bacterial/fungal placentitis.</p>
+<p>Hong et al., J Vet Diagn Invest 1993 (<a href="https://pubmed.ncbi.nlm.nih.gov/8286455/" target="_blank" rel="noopener noreferrer">PMID:8286455</a>) — 1,211 aborted equine fetuses, stillborn foals and placentas, central Kentucky:</p>
+<blockquote>
+<p>"Placentitis (19.4%) and dystocia-perinatal asphyxia (19.5%) were the 2 most important causes of equine reproductive loss. The other causes (in decreasing order) were contracted foal syndrome and other congenital anomalies (8.5%), twinning (6.1%), improper separation of placenta (4.7%), torsion of umbilical cord (4.5%)…"</p>
+</blockquote>
+<p>So <strong>improper separation of placenta accounted for 4.7% of equine reproductive loss</strong> in this large series. Note the mechanistic divergence, which is the interesting comparative point: the equine epitheliochorial, diffuse, non-invasive placenta has <strong>no decidua and no trophoblast invasion of maternal vessels</strong>. Premature separation in the mare is therefore an adhesion/infection failure, <em>not</em> a decidual-hemorrhage disease. The human decidual-hemorrhage mechanism has essentially no equine counterpart.</p>
+<p><strong>Other species.</strong> Sporadic premature placental separation is described in cattle and dogs but is not a recognized syndrome with the human phenotype. No OMIA entry corresponds to human placental abruption (<strong>verify against OMIA before asserting absence</strong>).</p>
+<h3>14.3 Comparative biology — the central caveat</h3>
+<p><strong>Deep hemochorial placentation with extensive extravillous trophoblast invasion of maternal spiral arteries is largely restricted to humans and great apes.</strong> Mice and rats are hemochorial but with far shallower and more limited invasion; horses, cattle, pigs and sheep are epitheliochorial/synepitheliochorial and non-invasive.</p>
+<p>This is the single most important comparative fact for this entry, and it should be curated as a <code>HUMAN_MODEL_MISMATCH</code> discussion rather than a generic <code>KNOWLEDGE_GAP</code>: model-organism evidence about decidual hemorrhage exists, but the anatomical substrate that makes human abruption possible — a deeply invaded, decidualized maternal–fetal interface — is not reproduced in any standard model. This limits the translational validity of every animal result in §15.</p>
+<h3>14.4 Orthologous genes</h3>
+<p>Orthologs of F3, F2, F2R, MMP1, PGR, SERPINE1 exist across mammals (Alliance of Genome Resources / HomoloGene). Notably, <strong>mice lack a direct CXCL8/IL-8 ortholog</strong> (using KC/CXCL1 and MIP-2/CXCL2 instead), so the thrombin→IL-8→decidual neutrophil axis of <a href="https://pubmed.ncbi.nlm.nih.gov/16251427/" target="_blank" rel="noopener noreferrer">PMID:16251427</a> cannot be modeled in mouse without careful substitution. Another concrete <code>HUMAN_MODEL_MISMATCH</code> item.</p>
+<h3>14.5 Zoonotic potential</h3>
+<p>None. Not transmissible; not infectious in the communicable sense.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 The candid summary</h3>
+<p>There is <strong>no established, widely-used animal model of placental abruption.</strong> This is a genuine and consequential gap: the entire molecular mechanism in §6 rests on human decidual cell culture plus human placental immunohistochemistry, with only scattered in-vivo support.</p>
+<h3>15.2 In vivo models</h3>
+<p><strong>Rat — local cold-stress model (the best-characterized).</strong> Khatun et al., Semin Thromb Hemost 2001 (<a href="https://pubmed.ncbi.nlm.nih.gov/11372774/" target="_blank" rel="noopener noreferrer">PMID:11372774</a>):</p>
+<blockquote>
+<p>"Cold stress at 0 degrees C and 12 degrees C significantly decreased uterine blood flow (P &lt; .005, P &lt; .02) compared with controls (23 degrees C)."</p>
+<p>"Cold-induced stress (0 degrees C) also evoked an isometric tension with increased frequency and amplitude in the rat uterus (P &lt; .003, P &lt; .0002) compared with controls (23 degrees C)."</p>
+<p>"Placental histology of rats stressed at 0 degreesC revealed hemorrhages into the decidua basalis."</p>
+<p>"These findings suggest that local cold stress decreases uterine blood flow and increases uterine contraction, resulting in retroplacental hemorrhage in rats. This model may account for human abruptio placentae."</p>
+</blockquote>
+<ul>
+<li>Model type: <strong>induced</strong>, environmental manipulation (sympathetically-mediated uterine vasoconstriction).</li>
+<li>Phenotype recapitulation: <strong>partial and mechanistically apt</strong> — it reproduces the target lesion (hemorrhage into decidua basalis) via a plausible route (uterine vasoconstriction + hypertonus).</li>
+<li>Limitations: acute and non-physiological stimulus; no chronic vasculopathy arm; does not reproduce coagulopathy or PPROM; rat placentation is shallower than human; no genetic component.</li>
+<li>Evidence source: <strong>MODEL_ORGANISM</strong>.</li>
+</ul>
+<p><strong>Other induced approaches described in the literature</strong> (uterine ischemia-reperfusion, LPS administration, cocaine administration in pregnant rodents) exist but no single one is standardized as an abruption model. Do not assert specifics without a retrieved primary source.</p>
+<h3>15.3 Genetic models</h3>
+<p><strong>None purpose-built for abruption.</strong> Knockout/knock-in/conditional/humanized models of the pathway genes (F3, F2R, PGR, MMP1, SERPINE1) exist in mouse and are informative for individual mechanistic steps, but none produces an abruption phenotype. Notably, complete F3 (tissue factor) knockout in mouse is embryonic lethal with yolk-sac vascular failure — which is itself indirect support for the "TF maintains uteroplacental hemostasis" thesis, but it is not an abruption model.</p>
+<p>Resources: MGI, IMPC, KOMP, IMSR for the individual gene models; there is no abruption-specific model registry entry.</p>
+<h3>15.4 In vitro / cellular models (where the mechanism actually comes from)</h3>
+<p>These carry most of the mechanistic weight in §6 and should be curated as <strong>IN_VITRO</strong> evidence throughout.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>Used for</th>
+<th>Key PMIDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Leukocyte-depleted primary term human decidual cells (DCs)</strong>, cultured with estradiol ± medroxyprogesterone acetate to mimic the pregnant hormonal milieu, ± thrombin</td>
+<td>The workhorse system. Established the thrombin→IL-8, thrombin→MMP-1, thrombin→PAI-1, thrombin→IL-11, and thrombin→PR-downregulation results</td>
+<td>16251427, 12380602, 17403427, 15998775, 23058370</td>
+</tr>
+<tr>
+<td><strong>Human endometrial endothelial cells (HEECs)</strong> ± thrombin ± PAR agonists ± LPS</td>
+<td>Established the thrombin×TLR4 inflammatory synergy and PAR-1 dependence</td>
+<td>27108773</td>
+</tr>
+<tr>
+<td><strong>Predecidualized cycling endometrial stromal cells</strong></td>
+<td>Non-pregnant comparator for the hormonal-milieu contrast</td>
+<td>12380602</td>
+</tr>
+<tr>
+<td><strong>Human placental/decidual tissue immunohistochemistry</strong> (abruption vs gestational-age-matched control)</td>
+<td>The in-vivo validation arm; this is HUMAN_CLINICAL, not in vitro</td>
+<td>16251427, 23058370, 34205566</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The <strong>hormonal-priming design</strong> in this body of work deserves specific note when curating: the DC cultures deliberately compare E2 alone (proliferative-phase-like) with E2+MPA (pregnancy-like), and the striking finding across papers is that <strong>progestin suppresses the inflammatory/proteolytic response but thrombin overrides that suppression.</strong> That override <em>is</em> the mechanism of abruption-associated preterm delivery, and it is the most reusable idea in the entry.</p>
+<p>Trophoblast-invasion models (HTR-8/SVneo, primary EVT, trophoblast organoids, iPSC-derived trophoblast) are relevant to Trigger A but have not been applied to abruption specifically.</p>
+<h3>15.5 Research applications and limitations</h3>
+<p><strong>Can be studied:</strong> thrombin/PAR-1 signaling in decidual and endometrial endothelial cells; progesterone-receptor regulation; MMP and cytokine induction; neutrophil recruitment; the infection×hemorrhage synergy; membrane weakening.</p>
+<p><strong>Cannot currently be studied in any model:</strong> the initiating decidual vessel rupture in a physiologically deeply-invaded placenta; the natural history from first-trimester implantation defect to third-trimester event; genetic susceptibility (no model carries the human risk alleles); the maternal life-course cardiovascular sequelae; human-specific coagulopathy dynamics.</p>
+<hr />
+<h2>Appendix A — Consolidated ontology term suggestions (all verified this session)</h2>
+<p><strong>Disease:</strong> <code>MONDO:0004846</code> placental abruption (with the definition-error caveat, §1.2)
+<strong>As a phenotype of other disorders:</strong> <code>HP:0011419</code> Placental abruption</p>
+<p><strong>Anatomy (UBERON):</strong> <code>UBERON:0000453</code> decidua basalis · <code>UBERON:0002450</code> decidua · <code>UBERON:0006878</code> decidua parietalis · <code>UBERON:0001987</code> placenta · <code>UBERON:8600019</code> placental basal plate · <code>UBERON:0010008</code> placental cotyledon · <code>UBERON:0000426</code> extravillous trophoblast</p>
+<p><strong>Cell types (CL):</strong> <code>CL:2000002</code> decidual cell · <code>CL:0002255</code> stromal cell of endometrium · <code>CL:0008036</code> extravillous trophoblast · <code>CL:2000060</code> placental villous trophoblast · <code>CL:0002219</code> anchoring trophoblast · <code>CL:0002343</code> decidual natural killer cell, human · <code>CL:4052028</code> uterine natural killer cell · <code>CL:0008033</code> decidual pericyte</p>
+<p><strong>Biological processes (GO):</strong> <code>GO:0007596</code> blood coagulation · <code>GO:0070493</code> thrombin-activated receptor signaling pathway · <code>GO:0006954</code> inflammatory response · <code>GO:0030593</code> neutrophil chemotaxis · <code>GO:0022617</code> extracellular matrix disassembly · <code>GO:0071456</code> cellular response to hypoxia · <code>GO:0070471</code> uterine smooth muscle contraction · <code>GO:0061450</code> trophoblast cell migration · <code>GO:0046697</code> decidualization · <code>GO:0042730</code> fibrinolysis · <code>GO:0030168</code> platelet activation · <code>GO:0001893</code> maternal placenta development</p>
+<p><strong>Phenotypes (HP):</strong> see the tables in §3.1–3.2.</p>
+<p><strong>Chemicals (CHEBI):</strong> <code>CHEBI:3077</code> betamethasone · <code>CHEBI:41879</code> dexamethasone · <code>CHEBI:32599</code> magnesium sulfate · <code>CHEBI:48669</code> tranexamic acid · <code>CHEBI:7872</code> oxytocin · <code>CHEBI:63610</code> misoprostol · <code>CHEBI:6343</code> labetalol · <code>CHEBI:7565</code> nifedipine · <code>CHEBI:15365</code> acetylsalicylic acid · <code>CHEBI:28304</code> heparin · <code>CHEBI:27958</code> cocaine · <code>CHEBI:18723</code> nicotine · <code>CHEBI:27470</code> folic acid</p>
+<p><strong>Treatments (NCIT):</strong> <code>NCIT:C46088</code> Cesarean Section · <code>NCIT:C92772</code> Emergency Cesarean Delivery · <code>NCIT:C92814</code> Induction of Labor · <code>NCIT:C15256</code> Hysterectomy · <code>NCIT:C15192</code> Blood Transfusion · <code>NCIT:C15409</code> Packed Red Blood Cell Transfusion · <code>NCIT:C116475</code> Fresh Frozen Plasma Transfusion · <code>NCIT:C180873</code> Cryoprecipitated Plasma · <code>NCIT:C114131</code> Antenatal Steroid Therapy Initiated · <code>NCIT:C92947</code> Rh Immune Globulin Administration · <code>NCIT:C80832</code> Human Rho(D) Immune Globulin · <code>NCIT:C17427</code> Smoking Cessation · <code>NCIT:C15372</code> Smoking Cessation Intervention · <code>NCIT:C172184</code> Antihypertensive Therapy · <code>NCIT:C15747</code> Supportive Care · <code>NCIT:C94624</code> Oxygen Therapy · <code>NCIT:C92929</code> Fetal Heart Monitoring · <code>NCIT:C92836</code> Non-Stress Test · <code>NCIT:C15986</code> Pharmacotherapy · <code>NCIT:C623</code> Magnesium Sulfate</p>
+<hr />
+<h2>Appendix B — Module conformance candidates</h2>
+<p>Reviewing the existing <code>kb/modules/</code> inventory, plausible conformance targets for this entry:</p>
+<ul>
+<li><strong><code>thrombogenesis</code></strong> — partial. The retroplacental hematoma involves coagulation cascade activation and thrombin-driven fibrin formation (<code>thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation</code>). But the causal direction is <em>inverted</em>: in thrombogenesis a thrombus occludes a vessel; here hemorrhage precedes and drives clot formation, and the clot is the destructive agent by mass effect rather than by occlusion. Declare conformance only at the thrombin/fibrin node, with a note.</li>
+<li><strong>No existing module covers "ischemic placental disease."</strong> Abruption, preeclampsia and fetal growth restriction share risk factors, recurrence, co-occurrence and placental lesions (<a href="https://pubmed.ncbi.nlm.nih.gov/24836823/" target="_blank" rel="noopener noreferrer">PMID:24836823</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24836826/" target="_blank" rel="noopener noreferrer">PMID:24836826</a>). If the KB already carries preeclampsia and FGR entries, <strong>a new <code>ischemic_placental_disease</code> mechanism module is the highest-value structural contribution this entry could motivate</strong> — trigger (impaired spiral-artery remodeling) → uteroplacental malperfusion → divergent clinical manifestation (hypertensive / growth-restrictive / hemorrhagic).</li>
+<li><strong>A <code>decidual_hemorrhage_thrombin_signaling</code> module</strong> is also well-supported: thrombin generation → PAR-1 activation → MMP/IL-8/CSF-2/IL-11 induction + functional progesterone withdrawal → PPROM and preterm delivery. This recurs across abruption, PPROM, and subchorionic hematoma, so it is genuinely reusable.</li>
+<li><strong><code>fibrotic_response</code>, <code>cellular_senescence</code>, hallmark modules</strong> — not applicable.</li>
+</ul>
+<hr />
+<h2>Appendix C — Explicit gaps and negative findings (curate these, don't omit them)</h2>
+<ol>
+<li>No Mendelian gene, no OMIM entry, no ORPHA code.</li>
+<li>No genome-wide significant, replicated GWAS locus; all associations suggestive, single-ancestry (Peruvian).</li>
+<li>No abruption-specific transcriptomic, proteomic, metabolomic, epigenomic, single-cell or spatial dataset.</li>
+<li>No confirmatory antenatal diagnostic test; ultrasound sensitivity 24% (<a href="https://pubmed.ncbi.nlm.nih.gov/12164566/" target="_blank" rel="noopener noreferrer">PMID:12164566</a>).</li>
+<li>No externally-validated clinical prediction model.</li>
+<li>No RCT demonstrating prevention of abruption as a standalone outcome.</li>
+<li>No standardized animal model; the human-specific depth of trophoblast invasion is not reproduced in any model (<code>HUMAN_MODEL_MISMATCH</code>).</li>
+<li>Mice lack a CXCL8/IL-8 ortholog, blocking direct modeling of the neutrophil-recruitment arm (<code>HUMAN_MODEL_MISMATCH</code>).</li>
+<li>No validated disease-specific quality-of-life instrument.</li>
+<li>No uniform case definition across the epidemiological literature (<a href="https://pubmed.ncbi.nlm.nih.gov/28329897/" target="_blank" rel="noopener noreferrer">PMID:28329897</a>) — attach this caveat to every effect estimate.</li>
+<li>The <a href="http://purl.obolibrary.org/obo/MONDO_0004846" target="_blank" rel="noopener noreferrer">MONDO:0004846</a> textual definition is factually wrong and should be reported upstream.</li>
+<li>Two biomarker-prediction trials (NCT03782168, NCT01279369) were terminated — the prediction problem has a track record of failure.</li>
+<li>The umbrella review found <strong>zero</strong> class I or II evidence risk factors (<a href="https://pubmed.ncbi.nlm.nih.gov/35365209/" target="_blank" rel="noopener noreferrer">PMID:35365209</a>) — the entire risk-factor literature is class III or weaker.</li>
+</ol>
+<hr />
+<h2>Sources</h2>
+<p>Primary literature (PubMed, all abstracts retrieved and quoted verbatim this session):
+<a href="https://pubmed.ncbi.nlm.nih.gov/37164498/">PMID:37164498</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/40940025/">PMID:40940025</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/40140972/">PMID:40140972</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/38366767/">PMID:38366767</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/38273776/">PMID:38273776</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/35365209/">PMID:35365209</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/35363951/">PMID:35363951</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/34205566/">PMID:34205566</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/31420459/">PMID:31420459</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/29884306/">PMID:29884306</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/29360829/">PMID:29360829</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/28329897/">PMID:28329897</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/28178056/">PMID:28178056</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/27223167/">PMID:27223167</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/27108773/">PMID:27108773</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/26646125/">PMID:26646125</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/24836823/">PMID:24836823</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/24836826/">PMID:24836826</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/24046805/">PMID:24046805</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/23072758/">PMID:23072758</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/23058370/">PMID:23058370</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/22805996/">PMID:22805996</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/19720393/">PMID:19720393</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/17403427/">PMID:17403427</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/16595080/">PMID:16595080</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/16251427/">PMID:16251427</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/15998775/">PMID:15998775</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/15715592/">PMID:15715592</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/15672024/">PMID:15672024</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/12380602/">PMID:12380602</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/12164566/">PMID:12164566</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/11372774/">PMID:11372774</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/10214847/">PMID:10214847</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/8286455/">PMID:8286455</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/6828278/">PMID:6828278</a> ·
+<a href="https://pubmed.ncbi.nlm.nih.gov/1765257/">PMID:1765257</a></p>
+<p>Reference works and databases:
+<a href="https://www.ncbi.nlm.nih.gov/books/NBK482335/">StatPearls: Placental Abruption (NBK482335)</a> ·
+<a href="https://www.merckmanuals.com/professional/gynecology-and-obstetrics/antenatal-complications/placental-abruption-abruptio-placentae">Merck Manual Professional: Placental Abruption</a> ·
+<a href="https://www.ajog.org/article/S0002-9378(22)00535-X/fulltext">AJOG: Placental abruption at near-term and term gestations</a> ·
+<a href="https://www.bjaed.org/article/S2058-5349(24)00065-9/fulltext">BJA Education: Placental abruption (2024)</a> ·
+<a href="https://link.springer.com/article/10.1186/s12884-025-07482-7">BMC Pregnancy Childbirth: Independent risk factors for placental abruption</a> ·
+<a href="https://www.ncbi.nlm.nih.gov/mesh/68000037">NCBI MeSH D000037</a> ·
+<a href="https://www.ebi.ac.uk/ols4/">EBI OLS4</a> (HP, GO, CL, UBERON, CHEBI, NCIT, MONDO term resolution) ·
+<a href="https://api.monarchinitiative.org/v3/api/entity/MONDO:0004846">Monarch Initiative API — MONDO:0004846</a> ·
+<a href="https://rest.genenames.org/">HGNC REST API</a> ·
+<a href="https://clinicaltrials.gov/">ClinicalTrials.gov API v2</a> (NCT02299414, NCT05840471, NCT00186069, NCT00014989, NCT00986765, NCT04356326, NCT03455387, NCT03782168, NCT01279369, NCT04168606)</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="PKP2_Cardiomyopathy-falcon.html">← PKP2_Cardiomyopathy (Falcon)</a>
+                
+                
+                <a href="Plasma_Cell_Neoplasm-falcon.html">Plasma Cell Neoplasm (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Placental_Abruption.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Placental_Abruption-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

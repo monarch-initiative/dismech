@@ -22,9 +22,10 @@ Alias: interpretation
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [ReferenceRangeBand](../classes/ReferenceRangeBand.md) | A single graded interpretation band within a reference range, mapping a value... |  yes  |
-| [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  yes  |
 | [BiomarkerReadout](../classes/BiomarkerReadout.md) | Links a biochemical biomarker to a pathograph node that it measures, reflects... |  yes  |
+| [ExperimentalReadout](../classes/ExperimentalReadout.md) | A structured readout or outcome measured in an experiment |  yes  |
+| [PhenotypeReadout](../classes/PhenotypeReadout.md) | Links an investigation-readout phenotype (an abnormal electrophysiology, func... |  yes  |
+| [ReferenceRangeBand](../classes/ReferenceRangeBand.md) | A single graded interpretation band within a reference range, mapping a value... |  yes  |
 
 
 
@@ -38,7 +39,7 @@ Alias: interpretation
 | Property | Value |
 | --- | --- |
 | Range | [String](../types/String.md) |
-| Domain Of | [ExperimentalReadout](../classes/ExperimentalReadout.md), [BiomarkerReadout](../classes/BiomarkerReadout.md), [ReferenceRangeBand](../classes/ReferenceRangeBand.md) |
+| Domain Of | [ExperimentalReadout](../classes/ExperimentalReadout.md), [BiomarkerReadout](../classes/BiomarkerReadout.md), [PhenotypeReadout](../classes/PhenotypeReadout.md), [ReferenceRangeBand](../classes/ReferenceRangeBand.md) |
 
 ### Cardinality and Requirements
 
@@ -91,6 +92,7 @@ alias: interpretation
 domain_of:
 - ExperimentalReadout
 - BiomarkerReadout
+- PhenotypeReadout
 - ReferenceRangeBand
 range: string
 

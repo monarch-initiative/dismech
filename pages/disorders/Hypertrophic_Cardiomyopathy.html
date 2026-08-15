@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3861,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3510,10 +3909,11 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -3816,16 +4216,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -3852,16 +4257,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MYH7
 
 
-    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7577">hgnc:7577</a>
+    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7577</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYH7 (hgnc:7577). hgnc:7577 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3889,11 +4305,18 @@
         MYBPC3
 
 
-    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7551">hgnc:7551</a>
+    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:7551</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3921,11 +4344,18 @@
         TNNT2
 
 
-    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11949">hgnc:11949</a>
+    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11949</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNT2 (hgnc:11949). hgnc:11949 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3953,11 +4383,18 @@
         TNNI3
 
 
-    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11947">hgnc:11947</a>
+    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11947</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNI3 (hgnc:11947). hgnc:11947 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -3985,11 +4422,18 @@
         TPM1
 
 
-    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12010">hgnc:12010</a>
+    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:12010</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TPM1 (hgnc:12010). hgnc:12010 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4017,11 +4461,18 @@
         ACTC1
 
 
-    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:143">hgnc:143</a>
+    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:143</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4049,11 +4500,18 @@
         MYL2
 
 
-    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7583">hgnc:7583</a>
+    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:7583</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYL2 (hgnc:7583). hgnc:7583 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4081,11 +4539,18 @@
         MYL3
 
 
-    <a href="https://bioregistry.io/hgnc:7584" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7584">hgnc:7584</a>
+    <a href="https://bioregistry.io/hgnc:7584" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:7584</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYL3 (hgnc:7584). hgnc:7584 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4113,11 +4578,18 @@
         CSRP3
 
 
-    <a href="https://bioregistry.io/hgnc:2472" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2472">hgnc:2472</a>
+    <a href="https://bioregistry.io/hgnc:2472" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:2472</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CSRP3 (hgnc:2472). hgnc:2472 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4145,11 +4617,18 @@
         NEXN
 
 
-    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29557">hgnc:29557</a>
+    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:29557</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NEXN (hgnc:29557). hgnc:29557 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4177,11 +4656,18 @@
         OBSCN
 
 
-    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15719">hgnc:15719</a>
+    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:15719</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OBSCN (hgnc:15719). hgnc:15719 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4209,11 +4695,18 @@
         PDLIM3
 
 
-    <a href="https://bioregistry.io/hgnc:20767" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20767">hgnc:20767</a>
+    <a href="https://bioregistry.io/hgnc:20767" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:20767</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PDLIM3 (hgnc:20767). hgnc:20767 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4241,11 +4734,18 @@
         TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:12403</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4273,11 +4773,18 @@
         ALPK3
 
 
-    <a href="https://bioregistry.io/hgnc:17574" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17574">hgnc:17574</a>
+    <a href="https://bioregistry.io/hgnc:17574" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:17574</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ALPK3 (hgnc:17574). hgnc:17574 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4305,11 +4812,18 @@
         FHOD3
 
 
-    <a href="https://bioregistry.io/hgnc:26178" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:26178">hgnc:26178</a>
+    <a href="https://bioregistry.io/hgnc:26178" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:26178</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FHOD3 (hgnc:26178). hgnc:26178 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4337,11 +4851,18 @@
         TRIM63
 
 
-    <a href="https://bioregistry.io/hgnc:16007" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16007">hgnc:16007</a>
+    <a href="https://bioregistry.io/hgnc:16007" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:16007</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TRIM63 (hgnc:16007). hgnc:16007 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4369,11 +4890,18 @@
         SVIL
 
 
-    <a href="https://bioregistry.io/hgnc:11480" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11480">hgnc:11480</a>
+    <a href="https://bioregistry.io/hgnc:11480" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:11480</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SVIL (hgnc:11480). hgnc:11480 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4401,11 +4929,18 @@
         KLHL24
 
 
-    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25947">hgnc:25947</a>
+    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:25947</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KLHL24 (hgnc:25947). hgnc:25947 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4433,10 +4968,13 @@
         RBM20
 
 
-    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27424">hgnc:27424</a>
+    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:27424</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RBM20 (hgnc:27424). hgnc:27424 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4464,17 +5002,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006936">GO:0006936</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0006936</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves muscle contraction (GO:0006936). GO:0006936 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4495,10 +5040,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008016" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008016">GO:0008016</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008016" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0008016</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves regulation of heart contraction (GO:0008016). GO:0008016 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4518,6 +5066,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         ATP hydrolysis activity
@@ -4525,10 +5075,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016887" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016887">GO:0016887</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016887" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0016887</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves ATP hydrolysis activity (GO:0016887). GO:0016887 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4548,6 +5101,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-component">
                         sarcomere
@@ -4555,11 +5110,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030017" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030017">GO:0030017</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030017" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0030017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves sarcomere (GO:0030017). GO:0030017 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         thick filament
@@ -4567,11 +5127,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032982" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032982">GO:0032982</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032982" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0032982</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves thick filament, annotated with myosin filament (GO:0032982). GO:0032982 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         thin filament
@@ -4579,10 +5144,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005865" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005865">GO:0005865</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005865" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0005865</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves thin filament, annotated with striated muscle thin filament (GO:0005865). GO:0005865 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4590,17 +5158,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in left ventricle, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         interventricular septum
@@ -4608,13 +5183,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002094">UBERON:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-28">UBERON:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in interventricular septum (UBERON:0002094). UBERON:0002094 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4711,16 +5290,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4750,19 +5334,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         ventricular myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-30">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ventricular myocardium, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4857,17 +5447,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Interstitial Cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030031" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4030031">CL:4030031</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030031" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:4030031</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Interstitial Cells, annotated with interstitial cell (CL:4030031). CL:4030031 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4888,10 +5485,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-32">CL:0002548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4918,15 +5518,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         KLF10
 
 
-    <a href="https://bioregistry.io/hgnc:11810" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11810">hgnc:11810</a>
+    <a href="https://bioregistry.io/hgnc:11810" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:11810</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KLF10 (hgnc:11810). hgnc:11810 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4954,17 +5561,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4985,10 +5599,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071559" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071559">GO:0071559</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071559" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0071559</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to TGF-beta, annotated with response to transforming growth factor beta (GO:0071559). GO:0071559 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5009,6 +5626,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-component">
                         extracellular matrix
@@ -5016,10 +5635,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031012">GO:0031012</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0031012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves extracellular matrix (GO:0031012). GO:0031012 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5027,19 +5649,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         myocardial interstitium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-37">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myocardial interstitium, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5136,16 +5764,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5172,16 +5805,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         JPH2
 
 
-    <a href="https://bioregistry.io/hgnc:14202" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14202">hgnc:14202</a>
+    <a href="https://bioregistry.io/hgnc:14202" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:14202</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves JPH2 (hgnc:14202). hgnc:14202 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5209,11 +5853,18 @@
         RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10484">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:10484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5241,10 +5892,13 @@
         TNNC1
 
 
-    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11943">hgnc:11943</a>
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:11943</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5272,17 +5926,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         calcium ion transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006816" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006816">GO:0006816</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006816" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-42">GO:0006816</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves calcium ion transport (GO:0006816). GO:0006816 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5303,10 +5964,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055117" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055117">GO:0055117</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055117" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-43">GO:0055117</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves regulation of cardiac muscle contraction (GO:0055117). GO:0055117 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5327,6 +5991,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-component">
                         sarcoplasmic reticulum
@@ -5334,10 +6000,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016529">GO:0016529</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-44">GO:0016529</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves sarcoplasmic reticulum (GO:0016529). GO:0016529 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5345,19 +6014,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-45">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in left ventricle, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5376,16 +6051,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-46">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5412,15 +6092,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MT-TI
 
 
-    <a href="https://bioregistry.io/hgnc:7488" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7488">hgnc:7488</a>
+    <a href="https://bioregistry.io/hgnc:7488" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:7488</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MT-TI (hgnc:7488). hgnc:7488 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5448,17 +6135,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ATP metabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0046034" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0046034">GO:0046034</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0046034" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0046034</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves ATP metabolic process (GO:0046034). GO:0046034 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5479,10 +6173,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006119">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-49">GO:0006119</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5503,6 +6200,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-component">
                         mitochondrion
@@ -5510,10 +6209,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-50">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5521,19 +6223,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-51">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in myocardium, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5552,16 +6260,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-52">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5591,17 +6304,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         interventricular septum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002094">UBERON:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-53">UBERON:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in interventricular septum (UBERON:0002094). UBERON:0002094 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         mitral valve
@@ -5609,11 +6329,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002135">UBERON:0002135</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-54">UBERON:0002135</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:0002135 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         left ventricular outflow tract
@@ -5621,13 +6346,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004145" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004145">UBERON:0004145</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004145" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-55">UBERON:0004145</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in left ventricular outflow tract, annotated with outflow tract (UBERON:0004145). UBERON:0004145 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5700,21 +6429,28 @@
                     <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-syncope" data-dismech-node="Syncope" data-dismech-type="phenotype">
                     <div class="item-name">
                         Syncope
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Syncope
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001279">HP:0001279</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001279</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5807,21 +6543,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arrhythmias" data-dismech-node="Arrhythmias" data-dismech-type="phenotype">
                     <div class="item-name">
                         Arrhythmias
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0011675</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arrhythmias, annotated with Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5925,21 +6668,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-palpitations" data-dismech-node="Palpitations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Palpitations
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Palpitations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001962">HP:0001962</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0001962</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5956,21 +6706,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sudden Cardiac Death
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0001645</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden Cardiac Death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5987,21 +6744,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-hypertrophy" data-dismech-node="Left Ventricular Hypertrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Left Ventricular Hypertrophy
 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular hypertrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001712">HP:0001712</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001712</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6018,21 +6782,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atrial-fibrillation" data-dismech-node="Atrial Fibrillation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atrial Fibrillation
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrial fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0005110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6058,21 +6829,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dyspnea
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6128,21 +6906,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-pain" data-dismech-node="Chest Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chest Pain
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chest pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100749">HP:0100749</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0100749</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6189,21 +6974,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fatigue
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6261,21 +7053,30 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-valve-regurgitation" data-dismech-node="Mitral Valve Regurgitation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mitral Valve Regurgitation
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral regurgitation
+
+                        <span class="phenotype-term-label">Mitral regurgitation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001653">HP:0001653</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0001653</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral Valve Regurgitation, annotated with Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6409,7 +7210,7 @@
                 <span class="card-count">26</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-myh7" data-dismech-node="MYH7" data-dismech-type="genetic">
                 <div class="item-name">
                     MYH7
 
@@ -6499,9 +7300,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-mybpc3" data-dismech-node="MYBPC3" data-dismech-type="genetic">
                 <div class="item-name">
                     MYBPC3
 
@@ -6591,9 +7393,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnnt2" data-dismech-node="TNNT2" data-dismech-type="genetic">
                 <div class="item-name">
                     TNNT2
 
@@ -6681,9 +7484,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-alpk3" data-dismech-node="ALPK3" data-dismech-type="genetic">
                 <div class="item-name">
                     ALPK3
 
@@ -6749,9 +7553,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-fhod3" data-dismech-node="FHOD3" data-dismech-type="genetic">
                 <div class="item-name">
                     FHOD3
 
@@ -6795,9 +7600,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-trim63" data-dismech-node="TRIM63" data-dismech-type="genetic">
                 <div class="item-name">
                     TRIM63
 
@@ -6841,9 +7647,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-svil" data-dismech-node="SVIL" data-dismech-type="genetic">
                 <div class="item-name">
                     SVIL
 
@@ -6855,9 +7662,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-actc1" data-dismech-node="ACTC1" data-dismech-type="genetic">
                 <div class="item-name">
                     ACTC1
 
@@ -6869,13 +7677,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ACTC1
 
 
-    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:143">hgnc:143</a>
+    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-66">hgnc:143</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6918,9 +7731,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-csrp3" data-dismech-node="CSRP3" data-dismech-type="genetic">
                 <div class="item-name">
                     CSRP3
 
@@ -6932,13 +7746,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CSRP3
 
 
-    <a href="https://bioregistry.io/hgnc:2472" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2472">hgnc:2472</a>
+    <a href="https://bioregistry.io/hgnc:2472" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-67">hgnc:2472</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CSRP3 (hgnc:2472). hgnc:2472 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6981,9 +7800,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-jph2" data-dismech-node="JPH2" data-dismech-type="genetic">
                 <div class="item-name">
                     JPH2
 
@@ -6995,13 +7815,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: JPH2
 
 
-    <a href="https://bioregistry.io/hgnc:14202" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14202">hgnc:14202</a>
+    <a href="https://bioregistry.io/hgnc:14202" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-68">hgnc:14202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is JPH2 (hgnc:14202). hgnc:14202 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7044,9 +7869,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-klf10" data-dismech-node="KLF10" data-dismech-type="genetic">
                 <div class="item-name">
                     KLF10
 
@@ -7058,13 +7884,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KLF10
 
 
-    <a href="https://bioregistry.io/hgnc:11810" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11810">hgnc:11810</a>
+    <a href="https://bioregistry.io/hgnc:11810" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-69">hgnc:11810</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KLF10 (hgnc:11810). hgnc:11810 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7107,9 +7938,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-klhl24" data-dismech-node="KLHL24" data-dismech-type="genetic">
                 <div class="item-name">
                     KLHL24
 
@@ -7121,13 +7953,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KLHL24
 
 
-    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25947">hgnc:25947</a>
+    <a href="https://bioregistry.io/hgnc:25947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-70">hgnc:25947</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KLHL24 (hgnc:25947). hgnc:25947 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7170,9 +8007,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-mt-ti" data-dismech-node="MT-TI" data-dismech-type="genetic">
                 <div class="item-name">
                     MT-TI
 
@@ -7184,13 +8022,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MT-TI
 
 
-    <a href="https://bioregistry.io/hgnc:7488" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7488">hgnc:7488</a>
+    <a href="https://bioregistry.io/hgnc:7488" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-71">hgnc:7488</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MT-TI (hgnc:7488). hgnc:7488 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7233,9 +8076,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-myl2" data-dismech-node="MYL2" data-dismech-type="genetic">
                 <div class="item-name">
                     MYL2
 
@@ -7247,13 +8091,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYL2
 
 
-    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7583">hgnc:7583</a>
+    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-72">hgnc:7583</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYL2 (hgnc:7583). hgnc:7583 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7296,9 +8145,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-myl3" data-dismech-node="MYL3" data-dismech-type="genetic">
                 <div class="item-name">
                     MYL3
 
@@ -7310,13 +8160,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYL3
 
 
-    <a href="https://bioregistry.io/hgnc:7584" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7584">hgnc:7584</a>
+    <a href="https://bioregistry.io/hgnc:7584" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-73">hgnc:7584</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYL3 (hgnc:7584). hgnc:7584 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7359,9 +8214,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nexn" data-dismech-node="NEXN" data-dismech-type="genetic">
                 <div class="item-name">
                     NEXN
 
@@ -7373,13 +8229,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NEXN
 
 
-    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29557">hgnc:29557</a>
+    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-74">hgnc:29557</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7422,9 +8283,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-obscn" data-dismech-node="OBSCN" data-dismech-type="genetic">
                 <div class="item-name">
                     OBSCN
 
@@ -7436,13 +8298,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: OBSCN
 
 
-    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15719">hgnc:15719</a>
+    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-75">hgnc:15719</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OBSCN (hgnc:15719). hgnc:15719 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7485,9 +8352,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pdlim3" data-dismech-node="PDLIM3" data-dismech-type="genetic">
                 <div class="item-name">
                     PDLIM3
 
@@ -7499,13 +8367,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PDLIM3
 
 
-    <a href="https://bioregistry.io/hgnc:20767" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20767">hgnc:20767</a>
+    <a href="https://bioregistry.io/hgnc:20767" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-76">hgnc:20767</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PDLIM3 (hgnc:20767). hgnc:20767 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7548,9 +8421,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-rbm20" data-dismech-node="RBM20" data-dismech-type="genetic">
                 <div class="item-name">
                     RBM20
 
@@ -7562,13 +8436,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RBM20
 
 
-    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27424">hgnc:27424</a>
+    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-77">hgnc:27424</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RBM20 (hgnc:27424). hgnc:27424 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7611,9 +8490,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-rps6kb1" data-dismech-node="RPS6KB1" data-dismech-type="genetic">
                 <div class="item-name">
                     RPS6KB1
 
@@ -7625,13 +8505,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RPS6KB1
 
 
-    <a href="https://bioregistry.io/hgnc:10436" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10436">hgnc:10436</a>
+    <a href="https://bioregistry.io/hgnc:10436" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-78">hgnc:10436</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RPS6KB1 (hgnc:10436). hgnc:10436 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7674,9 +8559,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ryr2" data-dismech-node="RYR2" data-dismech-type="genetic">
                 <div class="item-name">
                     RYR2
 
@@ -7688,13 +8574,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10484">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-79">hgnc:10484</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7737,9 +8628,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tmpo" data-dismech-node="TMPO" data-dismech-type="genetic">
                 <div class="item-name">
                     TMPO
 
@@ -7751,13 +8643,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMPO
 
 
-    <a href="https://bioregistry.io/hgnc:11875" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11875">hgnc:11875</a>
+    <a href="https://bioregistry.io/hgnc:11875" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-80">hgnc:11875</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMPO (hgnc:11875). hgnc:11875 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7800,9 +8697,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnnc1" data-dismech-node="TNNC1" data-dismech-type="genetic">
                 <div class="item-name">
                     TNNC1
 
@@ -7814,13 +8712,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNC1
 
 
-    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11943">hgnc:11943</a>
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-81">hgnc:11943</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7863,9 +8766,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnni3" data-dismech-node="TNNI3" data-dismech-type="genetic">
                 <div class="item-name">
                     TNNI3
 
@@ -7877,13 +8781,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNI3
 
 
-    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11947">hgnc:11947</a>
+    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-82">hgnc:11947</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNI3 (hgnc:11947). hgnc:11947 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7926,9 +8835,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tpm1" data-dismech-node="TPM1" data-dismech-type="genetic">
                 <div class="item-name">
                     TPM1
 
@@ -7940,13 +8850,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TPM1
 
 
-    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12010">hgnc:12010</a>
+    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-83">hgnc:12010</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TPM1 (hgnc:12010). hgnc:12010 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7989,9 +8904,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-ttn" data-dismech-node="TTN" data-dismech-type="genetic">
                 <div class="item-name">
                     TTN
 
@@ -8003,13 +8919,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-84">hgnc:12403</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8052,9 +8973,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -8063,16 +8988,21 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">8</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-beta-blockers" data-dismech-node="Beta Blockers" data-dismech-type="treatment">
                 <div class="item-name">
                     Beta Blockers
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">beta adrenergic agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-85">beta adrenergic agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-85">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is beta adrenergic agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -8103,16 +9033,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         beta-adrenergic agonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C48149" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C48149">NCIT:C48149</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C48149" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-86">NCIT:C48149</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses beta-adrenergic agonist (NCIT:C48149). NCIT:C48149 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8205,13 +9140,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-calcium-channel-blockers" data-dismech-node="Calcium Channel Blockers" data-dismech-type="treatment">
                 <div class="item-name">
                     Calcium Channel Blockers
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">calcium channel blocking agent therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-87">calcium channel blocking agent therapy<span class="pill-tip" role="tooltip" id="pill-tip-87">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is calcium channel blocking agent therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -8242,16 +9182,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         calcium channel blocker
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C333" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C333">NCIT:C333</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C333" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-88">NCIT:C333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses calcium channel blocker (NCIT:C333). NCIT:C333 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8344,13 +9289,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-septal-myectomy" data-dismech-node="Septal Myectomy" data-dismech-type="treatment">
                 <div class="item-name">
                     Septal Myectomy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-89">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-89">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8444,13 +9394,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-alcohol-septal-ablation" data-dismech-node="Alcohol Septal Ablation" data-dismech-type="treatment">
                 <div class="item-name">
                     Alcohol Septal Ablation
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-90">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-90">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8568,13 +9523,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-implantable-cardioverter-defibrillator-icd" data-dismech-node="Implantable Cardioverter Defibrillator (ICD)" data-dismech-type="treatment">
                 <div class="item-name">
                     Implantable Cardioverter Defibrillator (ICD)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-91">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-91">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8692,6 +9652,299 @@
 
             </div>
 
+            <div class="item-box treatment-box anchor-target" id="treatment-aav-gene-replacement-therapy" data-dismech-node="AAV Gene Replacement Therapy" data-dismech-type="treatment">
+                <div class="item-name">
+                    AAV Gene Replacement Therapy
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-92">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-92">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Adeno-associated virus-mediated gene replacement to restore normal sarcomeric protein expression in HCM-causing genes. Represents a disease-modifying approach targeting the genetic root cause.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42526431" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42526431" target="_blank">PMID:42526431</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We review recent advances in gene-based approaches for HCM, including adeno-associated virus-mediate gene replacement, allele-specific silencing, and emerging gene editing strategies, and highlight the first demonstrations of in vivo target engagement and early clinical translation."</div>
+
+
+                <div class="evidence-explanation">This comprehensive review highlights AAV-mediated gene replacement as a leading gene therapy approach for HCM with evidence of early in vivo target engagement and clinical translation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42526431" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42526431" target="_blank">PMID:42526431</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Early-phase studies suggest that restoration of sarcomeric biology can favorably impact molecular and structural disease features."</div>
+
+
+                <div class="evidence-explanation">AAV gene replacement demonstrates the ability to restore sarcomeric protein function and improve disease-relevant molecular and structural outcomes in early-phase studies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-allele-specific-silencing" data-dismech-node="Allele-Specific Silencing" data-dismech-type="treatment">
+                <div class="item-name">
+                    Allele-Specific Silencing
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-93">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-93">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Gene-based silencing therapy targeting pathogenic alleles to reduce expression of disease-causing sarcomeric protein variants. Selective allele-specific approach to spare wild-type protein.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42526431" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42526431" target="_blank">PMID:42526431</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We review recent advances in gene-based approaches for HCM, including adeno-associated virus-mediate gene replacement, allele-specific silencing, and emerging gene editing strategies, and highlight the first demonstrations of in vivo target engagement and early clinical translation."</div>
+
+
+                <div class="evidence-explanation">Allele-specific silencing is highlighted as a major gene-based therapeutic strategy for HCM with demonstrated early in vivo target engagement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-gene-editing-base-editing-and-crispr" data-dismech-node="Gene Editing (Base Editing and CRISPR)" data-dismech-type="treatment">
+                <div class="item-name">
+                    Gene Editing (Base Editing and CRISPR)
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-94">gene editing<span class="pill-tip" role="tooltip" id="pill-tip-94">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene editing, annotated with Gene Therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15238" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15238">NCIT:C15238</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+                <div class="item-desc">Precision gene editing approaches including base editing and CRISPR-Cas9 to correct or disrupt pathogenic sarcomeric gene variants at their genomic source. Emerging strategy with potential for durable long-term correction.</div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42526431" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42526431" target="_blank">PMID:42526431</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We review recent advances in gene-based approaches for HCM, including adeno-associated virus-mediate gene replacement, allele-specific silencing, and emerging gene editing strategies, and highlight the first demonstrations of in vivo target engagement and early clinical translation."</div>
+
+
+                <div class="evidence-explanation">Gene editing is presented as an emerging strategy among the leading gene-based therapeutic approaches for HCM, with first demonstrations of in vivo target engagement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42526431" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42526431" target="_blank">PMID:42526431</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Together, these developments establish HCM as one of the important early models for cardiac gene therapy and highlight both the promise and complexity of translating genetic insight into durable clinical benefit."</div>
+
+
+                <div class="evidence-explanation">Gene editing contributes to HCM being recognized as an important early model for cardiac gene therapy, with potential for achieving durable clinical benefit through genomic correction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -8704,7 +9957,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-strenuous-exertion-and-heat-stress" data-dismech-node="Strenuous exertion and heat stress" data-dismech-type="environmental">
                 <div class="item-name">Strenuous exertion and heat stress</div>
 
 
@@ -8746,6 +9999,7 @@
     </details>
 
 
+
             </div>
 
         </div>
@@ -8760,7 +10014,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-troponin" data-dismech-node="Troponin" data-dismech-type="biochemical">
                 <div class="item-name">
                     Troponin
 
@@ -8829,7 +10083,7 @@
                     Heart-on-a-chip spaceflight RNA-seq from engineered human heart tissues on ISS
 
                     <span class="dataset-accession">
-                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-OSD-737" target="_blank">osdr:OSD-737</a>
+                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-737" target="_blank">osdr:OSD-737</a>
                     </span>
 
                 </div>
@@ -8849,9 +10103,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         engineered heart tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-95">UBERON:0000948</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-95">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples engineered heart tissue, annotated with heart (UBERON:0000948). UBERON:0000948 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -8940,9 +10208,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         iPSC-derived cardiomyocyte
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-96">UBERON:0000948</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-96">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples iPSC-derived cardiomyocyte, annotated with heart (UBERON:0000948). UBERON:0000948 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -9031,9 +10313,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         iPSC-derived cardiac progenitor
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-97">UBERON:0000948</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples iPSC-derived cardiac progenitor, annotated with heart (UBERON:0000948). UBERON:0000948 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -9100,7 +10396,7 @@
                     Transcriptomic effects on the mouse heart following 30 days on the ISS
 
                     <span class="dataset-accession">
-                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-OSD-574" target="_blank">osdr:OSD-574</a>
+                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-574" target="_blank">osdr:OSD-574</a>
                     </span>
 
                 </div>
@@ -9120,9 +10416,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         heart tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-98">UBERON:0000948</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-98">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples heart tissue, annotated with heart (UBERON:0000948). UBERON:0000948 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -9189,7 +10499,7 @@
                     Transcriptional profiling of heart tissue from mice flown on the RRRM-2 mission
 
                     <span class="dataset-accession">
-                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-OSD-580" target="_blank">osdr:OSD-580</a>
+                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-580" target="_blank">osdr:OSD-580</a>
                     </span>
 
                 </div>
@@ -9209,9 +10519,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         right ventricle tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-99">UBERON:0002080</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-99">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples right ventricle tissue, annotated with heart right ventricle (UBERON:0002080). UBERON:0002080 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -9248,7 +10572,7 @@
                     NASA Twins Study multidimensional analysis of year-long human spaceflight
 
                     <span class="dataset-accession">
-                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-OSD-530" target="_blank">osdr:OSD-530</a>
+                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-530" target="_blank">osdr:OSD-530</a>
                     </span>
 
                 </div>
@@ -9328,7 +10652,7 @@
                     Comprehensive multi-omics analysis reveals mitochondrial stress as central hub for spaceflight impact
 
                     <span class="dataset-accession">
-                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-OSD-488" target="_blank">osdr:OSD-488</a>
+                        <a href="https://osdr.nasa.gov/bio/repo/data/studies/OSD-488" target="_blank">osdr:OSD-488</a>
                     </span>
 
                 </div>
@@ -9410,6 +10734,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10685,6 +12012,63 @@ treatments:
     term:
       id: NCIT:C15329
       label: Surgical Procedure
+- name: AAV Gene Replacement Therapy
+  description: Adeno-associated virus-mediated gene replacement to restore normal sarcomeric protein expression in HCM-causing genes. Represents a disease-modifying approach targeting the genetic root cause.
+  therapeutic_modality: GENE_THERAPY
+  treatment_term:
+    preferred_term: gene therapy
+    term:
+      id: NCIT:C15238
+      label: Gene Therapy
+  evidence:
+  - reference: PMID:42526431
+    reference_title: &#34;Rewriting the sarcomere: Gene therapy approaches for hypertrophic cardiomyopathy from bench to bedside.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: We review recent advances in gene-based approaches for HCM, including adeno-associated virus-mediate gene replacement, allele-specific silencing, and emerging gene editing strategies, and highlight the first demonstrations of in vivo target engagement and early clinical translation.
+    explanation: This comprehensive review highlights AAV-mediated gene replacement as a leading gene therapy approach for HCM with evidence of early in vivo target engagement and clinical translation.
+  - reference: PMID:42526431
+    reference_title: &#34;Rewriting the sarcomere: Gene therapy approaches for hypertrophic cardiomyopathy from bench to bedside.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Early-phase studies suggest that restoration of sarcomeric biology can favorably impact molecular and structural disease features.
+    explanation: AAV gene replacement demonstrates the ability to restore sarcomeric protein function and improve disease-relevant molecular and structural outcomes in early-phase studies.
+- name: Allele-Specific Silencing
+  description: Gene-based silencing therapy targeting pathogenic alleles to reduce expression of disease-causing sarcomeric protein variants. Selective allele-specific approach to spare wild-type protein.
+  therapeutic_modality: GENE_THERAPY
+  treatment_term:
+    preferred_term: gene therapy
+    term:
+      id: NCIT:C15238
+      label: Gene Therapy
+  evidence:
+  - reference: PMID:42526431
+    reference_title: &#34;Rewriting the sarcomere: Gene therapy approaches for hypertrophic cardiomyopathy from bench to bedside.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: We review recent advances in gene-based approaches for HCM, including adeno-associated virus-mediate gene replacement, allele-specific silencing, and emerging gene editing strategies, and highlight the first demonstrations of in vivo target engagement and early clinical translation.
+    explanation: Allele-specific silencing is highlighted as a major gene-based therapeutic strategy for HCM with demonstrated early in vivo target engagement.
+- name: Gene Editing (Base Editing and CRISPR)
+  description: Precision gene editing approaches including base editing and CRISPR-Cas9 to correct or disrupt pathogenic sarcomeric gene variants at their genomic source. Emerging strategy with potential for durable long-term correction.
+  therapeutic_modality: GENE_EDITING
+  treatment_term:
+    preferred_term: gene editing
+    term:
+      id: NCIT:C15238
+      label: Gene Therapy
+  evidence:
+  - reference: PMID:42526431
+    reference_title: &#34;Rewriting the sarcomere: Gene therapy approaches for hypertrophic cardiomyopathy from bench to bedside.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: We review recent advances in gene-based approaches for HCM, including adeno-associated virus-mediate gene replacement, allele-specific silencing, and emerging gene editing strategies, and highlight the first demonstrations of in vivo target engagement and early clinical translation.
+    explanation: Gene editing is presented as an emerging strategy among the leading gene-based therapeutic approaches for HCM, with first demonstrations of in vivo target engagement.
+  - reference: PMID:42526431
+    reference_title: &#34;Rewriting the sarcomere: Gene therapy approaches for hypertrophic cardiomyopathy from bench to bedside.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: Together, these developments establish HCM as one of the important early models for cardiac gene therapy and highlight both the promise and complexity of translating genetic insight into durable clinical benefit.
+    explanation: Gene editing contributes to HCM being recognized as an important early model for cardiac gene therapy, with potential for achieving durable clinical benefit through genomic correction.
 disease_term:
   preferred_term: hypertrophic cardiomyopathy
   term:
@@ -11467,7 +12851,7 @@ Hypertrophic cardiomyopathy is primarily a disease of the cardiac sarcomere with
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypertrophic Cardiomyopathy", "mondoId": "MONDO:0005045", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertrophic_Cardiomyopathy", "yamlRevision": "73325ba14b11"};
+        const OS_CONFIG = {"diseaseName": "Hypertrophic Cardiomyopathy", "mondoId": "MONDO:0005045", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertrophic_Cardiomyopathy", "yamlRevision": "7dd1c3b8ff01"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11886,5 +13270,73 @@ Hypertrophic cardiomyopathy is primarily a disease of the cardiac sarcomere with
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

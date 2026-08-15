@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3680,16 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3335,7 +3730,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Choriocarcinoma"
@@ -3474,6 +3869,10 @@ Scope note: this entry covers choriocarcinoma proper (both gestational and non-g
 
 
 
+
+
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3527,7 +3926,7 @@ Scope note: this entry covers choriocarcinoma proper (both gestational and non-g
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">18</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3540,6 +3939,7 @@ Scope note: this entry covers choriocarcinoma proper (both gestational and non-g
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -4444,16 +4844,21 @@ novel approaches in this group of patients."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         trophoblast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000351">CL:0000351</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000351</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves trophoblast cell (CL:0000351). CL:0000351 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4470,6 +4875,7 @@ novel approaches in this group of patients."</div>
 
 
                 </div>
+
 
 
 
@@ -4579,17 +4985,24 @@ patient’s normal tissues"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         mononuclear cytotrophoblast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000523" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000523">CL:0000523</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000523" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000523</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves mononuclear cytotrophoblast cell (CL:0000523). CL:0000523 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4610,10 +5023,13 @@ patient’s normal tissues"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000525">CL:0000525</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves syncytiotrophoblast cell (CL:0000525). CL:0000525 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4640,16 +5056,21 @@ patient’s normal tissues"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4670,6 +5091,7 @@ patient’s normal tissues"</div>
 
 
                 </div>
+
 
 
 
@@ -4787,16 +5209,21 @@ trophoblast cells and an absence of chorionic villi."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         syncytiotrophoblast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000525">CL:0000525</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves syncytiotrophoblast cell (CL:0000525). CL:0000525 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4823,16 +5250,21 @@ trophoblast cells and an absence of chorionic villi."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         gonadotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032274">GO:0032274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0032274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4853,6 +5285,7 @@ trophoblast cells and an absence of chorionic villi."</div>
 
 
                 </div>
+
 
 
 
@@ -4944,16 +5377,21 @@ serum hCG measurement combined with imaging studies."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         syncytiotrophoblast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000525">CL:0000525</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves syncytiotrophoblast cell (CL:0000525). CL:0000525 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4980,16 +5418,21 @@ serum hCG measurement combined with imaging studies."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         gonadotropin secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032274">GO:0032274</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032274" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0032274</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased gonadotropin secretion (GO:0032274). GO:0032274 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5010,6 +5453,7 @@ serum hCG measurement combined with imaging studies."</div>
 
 
                 </div>
+
 
 
 
@@ -5063,16 +5507,21 @@ serum hCG measurement combined with imaging studies."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         extravillous trophoblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008036">CL:0008036</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008036" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0008036</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves extravillous trophoblast (CL:0008036). CL:0008036 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5099,16 +5548,21 @@ serum hCG measurement combined with imaging studies."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         trophoblast cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061450" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061450">GO:0061450</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061450" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0061450</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased trophoblast cell migration (GO:0061450). GO:0061450 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5135,19 +5589,25 @@ serum hCG measurement combined with imaging studies."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         uterus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000995" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000995">UBERON:0000995</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000995" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0000995</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in uterus (UBERON:0000995). UBERON:0000995 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5239,16 +5699,21 @@ ile vessels."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         syncytiotrophoblast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000525">CL:0000525</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves syncytiotrophoblast cell (CL:0000525). CL:0000525 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5275,16 +5740,21 @@ ile vessels."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         vascular endothelial growth factor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038084" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0038084">GO:0038084</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038084" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0038084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased vascular endothelial growth factor signaling pathway (GO:0038084). GO:0038084 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5305,6 +5775,7 @@ ile vessels."</div>
 
 
                 </div>
+
 
 
 
@@ -5403,16 +5874,21 @@ ile vessels."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         trophoblast cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000351">CL:0000351</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000351</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves trophoblast cell (CL:0000351). CL:0000351 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5442,17 +5918,24 @@ ile vessels."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         brain
@@ -5460,13 +5943,17 @@ ile vessels."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5590,17 +6077,24 @@ hemorrhage as a result of metastasis"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lung
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002048">UBERON:0002048</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         brain
@@ -5608,13 +6102,17 @@ hemorrhage as a result of metastasis"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5690,17 +6188,24 @@ for pulmonary, intraperitoneal, or intracranial hemorrhage"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5721,10 +6226,13 @@ for pulmonary, intraperitoneal, or intracranial hemorrhage"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000525">CL:0000525</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000525" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000525</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves syncytiotrophoblast cell (CL:0000525). CL:0000525 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5751,16 +6259,21 @@ for pulmonary, intraperitoneal, or intracranial hemorrhage"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of T cell mediated immune response to tumor cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002841" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002841">GO:0002841</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002841" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0002841</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased negative regulation of T cell mediated immune response to tumor cell (GO:0002841). GO:0002841 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5781,6 +6294,7 @@ for pulmonary, intraperitoneal, or intracranial hemorrhage"</div>
 
 
                 </div>
+
 
 
 
@@ -5882,16 +6396,21 @@ gestational trophoblastic neoplasia (GTN)."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5912,6 +6431,7 @@ gestational trophoblastic neoplasia (GTN)."</div>
 
 
                 </div>
+
 
 
 
@@ -6002,6 +6522,7 @@ immunostaining  &gt;  90%"</div>
                 <div class="item-name">Multidrug-Resistant Refractory Disease</div>
 
                 <div class="item-desc">Fewer than 5% of women with gestational choriocarcinoma die, and when they do it is overwhelmingly from disease that has become resistant to multiple cytotoxic agents rather than from untreated bulk. This small refractory population — together with the inherently less chemosensitive non-gestational and intermediate-trophoblast tumours — is the entire remaining unmet need in an otherwise near-curable disease, and is the population in which PD-1/PD-L1 blockade has produced durable responses.</div>
+
 
 
 
@@ -6328,7 +6849,7 @@ choriocarcinoma of both germ cell and gestational origin"</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjunctive Cranial Radiotherapy for Cerebral Metastases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Radiotherapy is retained as an adjunct to multiagent chemotherapy for brain metastases in high-risk disease, both for local control and to reduce the risk of intracranial haemorrhage. It is no longer the default CNS-directed modality; that role has passed to CNS-penetrating high-dose methotrexate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CNS-Penetrating High-Dose Methotrexate EMA-CO for Cerebral Metastases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Contemporary first-line practice for brain metastases is CNS-penetrating systemic therapy rather than radiation by default: EMA-CO is given with a higher dose and slower infusion of methotrexate (1000 mg/m2 over 12-24 hours) to achieve adequate cerebrospinal-fluid levels, which produces complete responses and can negate the need for whole-brain radiotherapy, with reported five-year survival of 81.5%.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"Deregulated Trophoblast Invasion and Vascular Permeation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normal extravillous trophoblast is physiologically one of the most invasive cell types in human biology: it penetrates decidua and myometrium and remodels spiral arteries, and it does so as a tightly regulated, self-limiting program. Choriocarcinoma is that program run without its brakes. Tumour trophoblast permeates myometrium and directly invades vascular channels, so intravasation is an early rather than a late event \\u2014 this is the mechanistic reason choriocarcinoma metastasises hematogenously at small primary volumes and may present with a metastasis before any uterine lesion is apparent. Conformance note: the module\u0027s canonical upstream driver is EMT activation in a somatic epithelium; here the invasive phenotype is a retained developmental program of trophoblast rather than a de-differentiation event, so this node conforms at the invasion/intravasation step without asserting the module\u0027s EMT trigger node.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"extravillous trophoblast\"], \"biological_processes\": [\"trophoblast cell migration\"], \"role\": \"effector\", \"locations\": [\"uterus\"]}}, {\"id\": \"EMA-CO Multiagent Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard first-line regimen for high-risk (FIGO score 7 or more, or stage IV) gestational choriocarcinoma: etoposide, methotrexate and dactinomycin alternating weekly with cyclophosphamide and vincristine. It is chosen for a favourable toxicity profile, high complete-response rate and high survival. In very-high-score disease gentle induction chemotherapy precedes EMA-CO to avoid catastrophic haemorrhage from rapid lysis of friable, vascular tumour.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"etoposide\", \"methotrexate\", \"actinomycin D\", \"cyclophosphamide\", \"vincristine\"]}}, {\"id\": \"EMA-EP and Platinum/Taxane Salvage Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Roughly 30-40% of patients develop a rising hCG after completing EMA-CO. The first-line cytotoxic salvage is EMA-EP (etoposide, methotrexate, dactinomycin alternating with etoposide and cisplatin), which achieves a response rate near 85%. Patients progressing on EMA-EP move to platinum/taxane doublets alternating as TP/TE, and thereafter to germ-cell regimens. This cytotoxic salvage ladder sits alongside, not instead of, checkpoint blockade for the multidrug-resistant population.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"etoposide\", \"methotrexate\", \"actinomycin D\", \"cisplatin\", \"paclitaxel\"]}}, {\"id\": \"Haemorrhagic Destruction of Colonised Organs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every choriocarcinoma deposit reproduces the vascular-erosive phenotype of the primary, so metastases behave less like space-occupying nodules and more like bleeding lesions. Pulmonary deposits cause haemoptysis and dyspnoea; vaginal deposits bleed and should not be biopsied; hepatic deposits bleed intra-abdominally; cerebral deposits may be silent or may cause fatal intracranial haemorrhage. This is also why induction chemotherapy is deliberately gentle in very-high-score disease \\u2014 rapid lysis of a friable, highly vascular tumour risks catastrophic pulmonary, intraperitoneal or intracranial bleeding.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"locations\": [\"lung\", \"brain\"]}}, {\"id\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumour emboli entering uterine veins arrive first at the pulmonary capillary bed, which is why the lung is by far the commonest metastatic site and why multiple rounded pulmonary nodules are a classic radiographic presentation. Onward arterial spread reaches vagina, liver, brain, spleen, kidney and bowel. Metastatic site is a weighted term in the FIGO/WHO prognostic score precisely because it stratifies risk: lung scores 0, spleen/kidney 1, gastrointestinal 2, and liver or brain 4. Colonisation can occur at very small primary tumour volume, so metastatic disease is a common first presentation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"trophoblast cell\"], \"role\": \"consequence\", \"locations\": [\"lung\", \"brain\"]}}, {\"id\": \"High Proliferative Fraction and Chemosensitivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The same feature that makes choriocarcinoma lethal untreated \\u2014 a near-maximal proliferative fraction with Ki-67 frequently above 90% \\u2014 makes it exceptionally vulnerable to cell-cycle-dependent cytotoxics. Antifolate (methotrexate), intercalating/transcription-blocking (dactinomycin), topoisomerase-II (etoposide), alkylating (cyclophosphamide) and antimitotic (vincristine) agents all act preferentially on rapidly cycling cells. Combined with a quantitative serum biomarker that permits treatment to a biochemical endpoint, this makes gestational choriocarcinoma one of the most curable of all solid malignancies \\u2014 single-agent therapy cures low-risk disease and EMA-CO cures the great majority of high-risk disease. Non-gestational germ cell choriocarcinoma does not share this degree of sensitivity to the GTN regimens and is treated on germ cell lines. Modelling note: this node deliberately bundles a cellular property (near-maximal proliferative fraction) with the therapeutic-response property it produces, because the chemosensitivity is the clinically load-bearing consequence and three cytotoxic treatments attach to it via `target_mechanisms`. A future refactor could split it into a proliferation node and a drug-response node.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Multidrug-Resistant Refractory Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fewer than 5% of women with gestational choriocarcinoma die, and when they do it is overwhelmingly from disease that has become resistant to multiple cytotoxic agents rather than from untreated bulk. This small refractory population \\u2014 together with the inherently less chemosensitive non-gestational and intermediate-trophoblast tumours \\u2014 is the entire remaining unmet need in an otherwise near-curable disease, and is the population in which PD-1/PD-L1 blockade has produced durable responses.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transformed cell population reconstitutes the two differentiation states of early implanting trophoblast \\u2014 a proliferative mononuclear cytotrophoblast compartment and a fused, hormonally active syncytiotrophoblast compartment \\u2014 but does so as a solid, sheet-like proliferation that never organises chorionic villi. Loss of the villous scaffold is not a cosmetic difference: villous architecture normally constrains trophoblast to a defined invasive front, and its absence accompanies unconstrained, vessel-permeating growth. The proliferative fraction is extreme (Ki-67 often above 90%), with marked nuclear atypia and atypical mitoses.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mononuclear cytotrophoblast cell\", \"syncytiotrophoblast cell\"], \"biological_processes\": [\"cell population proliferation\"], \"role\": \"central_effector\"}}, {\"id\": \"PD-1/PD-L1 Immune Checkpoint Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-PD-1 (pembrolizumab) and anti-PD-L1 (avelumab) antibodies target the checkpoint axis that the allogeneic tumour uses to escape host T cells. Response rates of 50-70% are reported, and the principal role is in chemoresistant disease: in the TROPHIMMUN phase II trial avelumab was active in GTN resistant to single-agent chemotherapy, though not after multiagent failure. Checkpoint blockade is also being explored to de-escalate or replace cytotoxic therapy in young women for whom long-term chemotherapy toxicity matters, and in combination with VEGFR-2-directed agents.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"avelumab\", \"pembrolizumab\"]}}, {\"id\": \"PD-L1-Mediated Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gestational choriocarcinoma is an allograft growing in an immunocompetent host, which should be rejected \\u2014 and occasionally is, since spontaneous regressions of metastatic disease are recorded. To survive, the tumour co-opts the same PD-1/PD-L1 axis that normal placental trophoblast uses to maintain fetomaternal tolerance: PD-L1 is expressed strongly and essentially uniformly by neoplastic trophoblast, engaging PD-1 on tumour-infiltrating T cells and shutting down the anti-tumour response. This is an unusually clean example of adaptive immune resistance, because the antigenic stimulus (a foreign paternal genome) is known rather than inferred, and it is directly druggable.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"syncytiotrophoblast cell\"], \"biological_processes\": [\"negative regulation of T cell mediated immune response to tumor cell\"], \"role\": \"adaptive_escape\"}}, {\"id\": \"Paraneoplastic Consequences of Extreme hCG Elevation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"hCG shares an alpha subunit with TSH, LH and FSH and is a weak agonist at the thyrotropin receptor; when tumour-derived concentrations exceed roughly 100,000 mIU/mL, that weak cross-reactivity becomes clinically significant and produces biochemical or overt hyperthyroidism. The same extreme gonadotropin-like signal overstimulates the ovaries, producing bilateral theca-lutein cysts (occasionally with virilisation), and is associated with hyperemesis and pre-eclampsia. These paraneoplastic features are a direct dose-dependent consequence of the biomarker itself rather than of tumour mass, and they resolve as hCG falls with treatment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"syncytiotrophoblast cell\"], \"biological_processes\": [\"gonadotropin secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Paternal Genome Content and Semi-Allogeneic Tumour Identity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gestational choriocarcinoma derives from the trophoblast of a prior conceptus, so its genome contains a paternal allele complement that is absent from the patient\u0027s own tissues. In the most common precursor, the complete hydatidiform mole, the conceptus genome is entirely androgenetic. The tumour is therefore a partial or complete natural allograft. Two consequences follow and organise the rest of the pathograph: detection of that foreign paternal allele set by STR genotyping definitively separates gestational from non-gestational choriocarcinoma, which matters because the two are treated differently; and the allogeneic tumour is intrinsically immunogenic and must actively suppress host T cells to survive. Non-gestational (germ cell) choriocarcinoma, by contrast, carries only the patient\u0027s own genome and lacks this feature. The imprinting biology of the molar precursor itself (CDKN1C/p57 loss) is curated in Hydatidiform_Mole and Gestational_Trophoblastic_Neoplasm.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"trophoblast cell\"], \"role\": \"trigger\"}}, {\"id\": \"Single-Agent Dactinomycin (Actinomycin D)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The alternative single agent for low-risk disease \\u2014 used first-line in some centres and as salvage after methotrexate resistance, which is common enough at FIGO scores 5-6 that a planned second single agent is part of the low-risk algorithm.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"actinomycin D\"]}}, {\"id\": \"Single-Agent Methotrexate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line therapy for low-risk (FIGO score 0-6) gestational choriocarcinoma. Methotrexate, usually with folinic acid rescue, exploits the tumour\u0027s extreme proliferative fraction; treatment is continued to hCG normalisation plus consolidation courses. Overall survival approaches 100%, and fertility is preserved.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"VEGF-Driven Neoangiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neoplastic trophoblast drives VEGF-dependent neovascularisation, building the fragile, disorganised tumour vasculature that both sustains the rapidly expanding mass and creates the bleeding diathesis characteristic of choriocarcinoma deposits. This is the mechanistic anchor for the antiangiogenic arm of therapy: the VEGFR-2 inhibitor apatinib is combined with PD-1 blockade in multidrug-resistant disease, so the pathograph needs a node for that drug to target.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"syncytiotrophoblast cell\"], \"biological_processes\": [\"vascular endothelial growth factor signaling pathway\"], \"role\": \"effector\"}}, {\"id\": \"hCG Hypersecretion by Neoplastic Syncytiotrophoblast\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neoplastic syncytiotrophoblast retains the endocrine function of normal placental syncytiotrophoblast and secretes human chorionic gonadotropin in quantities proportional to viable tumour burden. Because hCG is essentially absent in the non-pregnant state, this converts an internal, often radiographically occult tumour into a continuously measurable quantity: hCG establishes the diagnosis (a plateauing or rising titre after evacuation), contributes a weighted term to the FIGO/WHO prognostic score, tracks response during chemotherapy, and detects relapse. It is the reason gestational trophoblastic neoplasia can be treated to a biochemical endpoint without tissue confirmation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"syncytiotrophoblast cell\"], \"biological_processes\": [\"gonadotropin secretion\"], \"role\": \"effector\"}}], \"edges\": [{\"source\": \"Paternal Genome Content and Semi-Allogeneic Tumour Identity\", \"target\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malignant transformation of the (often androgenetic) trophoblast of the antecedent gestation gives rise to the tumour cell population.\"}, {\"source\": \"Paternal Genome Content and Semi-Allogeneic Tumour Identity\", \"target\": \"PD-L1-Mediated Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Allogeneic tumour identity makes the neoplasm immunogenic, creating the selective pressure for checkpoint-ligand-mediated immune evasion.\"}, {\"source\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"target\": \"hCG Hypersecretion by Neoplastic Syncytiotrophoblast\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The syncytiotrophoblast compartment retains and amplifies its endocrine program.\"}, {\"source\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"target\": \"Deregulated Trophoblast Invasion and Vascular Permeation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mononuclear/intermediate trophoblast compartment retains its invasive program, now unconstrained by villous architecture.\"}, {\"source\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"target\": \"VEGF-Driven Neoangiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The transformed trophoblast population drives the VEGF-dependent neovascularisation that supplies the rapidly expanding mass.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"target\": \"High Proliferative Fraction and Chemosensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The extreme proliferative index that drives aggressiveness simultaneously creates the therapeutic vulnerability.\"}, {\"source\": \"hCG Hypersecretion by Neoplastic Syncytiotrophoblast\", \"target\": \"Paraneoplastic Consequences of Extreme hCG Elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At very high circulating concentrations hCG cross-activates receptors for structurally related glycoprotein hormones and overstimulates the ovary.\"}, {\"source\": \"Deregulated Trophoblast Invasion and Vascular Permeation\", \"target\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early intravasation seeds tumour emboli into the venous circulation, whose first capillary bed is the lung.\"}, {\"source\": \"VEGF-Driven Neoangiogenesis\", \"target\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumour neovasculature provides the intravasation route for hematogenous spread.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"VEGF-Driven Neoangiogenesis\", \"target\": \"Haemorrhagic Destruction of Colonised Organs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fragile, disorganised neovasculature is what ruptures, producing the haemorrhagic destruction characteristic of choriocarcinoma deposits.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"target\": \"Haemorrhagic Destruction of Colonised Organs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metastatic deposits recapitulate the friable, vessel-eroding phenotype of the primary.\"}, {\"source\": \"PD-L1-Mediated Adaptive Immune Resistance\", \"target\": \"Multidrug-Resistant Refractory Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune escape sustains a residual tumour population that can also evolve chemoresistance; conversely, checkpoint blockade can salvage it.\"}, {\"source\": \"High Proliferative Fraction and Chemosensitivity\", \"target\": \"Multidrug-Resistant Refractory Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of tumours survive selection pressure from the standard regimens and become the dominant cause of death.\"}, {\"source\": \"Single-Agent Methotrexate\", \"target\": \"High Proliferative Fraction and Chemosensitivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Single-Agent Dactinomycin (Actinomycin D)\", \"target\": \"High Proliferative Fraction and Chemosensitivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"EMA-CO Multiagent Chemotherapy\", \"target\": \"High Proliferative Fraction and Chemosensitivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"EMA-EP and Platinum/Taxane Salvage Chemotherapy\", \"target\": \"Multidrug-Resistant Refractory Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CNS-Penetrating High-Dose Methotrexate EMA-CO for Cerebral Metastases\", \"target\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjunctive Cranial Radiotherapy for Cerebral Metastases\", \"target\": \"Haemorrhagic Destruction of Colonised Organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PD-1/PD-L1 Immune Checkpoint Blockade\", \"target\": \"PD-L1-Mediated Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjunctive Cranial Radiotherapy for Cerebral Metastases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Radiotherapy is retained as an adjunct to multiagent chemotherapy for brain metastases in high-risk disease, both for local control and to reduce the risk of intracranial haemorrhage. It is no longer the default CNS-directed modality; that role has passed to CNS-penetrating high-dose methotrexate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Antecedent Complete Hydatidiform Mole\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A prior complete hydatidiform mole raises the risk of choriocarcinoma roughly 1000-fold over a background pregnancy, and about half of gestational choriocarcinomas follow a mole. This is the entire rationale for post-molar hCG surveillance programmes, and it is why widespread surveillance has made choriocarcinoma a progressively rarer diagnosis. The biology of the molar precursor lesion itself is curated in Hydatidiform_Mole.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"PRESENT\"}}, {\"id\": \"CNS-Penetrating High-Dose Methotrexate EMA-CO for Cerebral Metastases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Contemporary first-line practice for brain metastases is CNS-penetrating systemic therapy rather than radiation by default: EMA-CO is given with a higher dose and slower infusion of methotrexate (1000 mg/m2 over 12-24 hours) to achieve adequate cerebrospinal-fluid levels, which produces complete responses and can negate the need for whole-brain radiotherapy, with reported five-year survival of 81.5%.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"Deregulated Trophoblast Invasion and Vascular Permeation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normal extravillous trophoblast is physiologically one of the most invasive cell types in human biology: it penetrates decidua and myometrium and remodels spiral arteries, and it does so as a tightly regulated, self-limiting program. Choriocarcinoma is that program run without its brakes. Tumour trophoblast permeates myometrium and directly invades vascular channels, so intravasation is an early rather than a late event \\u2014 this is the mechanistic reason choriocarcinoma metastasises hematogenously at small primary volumes and may present with a metastasis before any uterine lesion is apparent. Conformance note: the module\u0027s canonical upstream driver is EMT activation in a somatic epithelium; here the invasive phenotype is a retained developmental program of trophoblast rather than a de-differentiation event, so this node conforms at the invasion/intravasation step without asserting the module\u0027s EMT trigger node.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"extravillous trophoblast\"], \"biological_processes\": [\"trophoblast cell migration\"], \"role\": \"effector\", \"locations\": [\"uterus\"]}}, {\"id\": \"EMA-CO Multiagent Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The standard first-line regimen for high-risk (FIGO score 7 or more, or stage IV) gestational choriocarcinoma: etoposide, methotrexate and dactinomycin alternating weekly with cyclophosphamide and vincristine. It is chosen for a favourable toxicity profile, high complete-response rate and high survival. In very-high-score disease gentle induction chemotherapy precedes EMA-CO to avoid catastrophic haemorrhage from rapid lysis of friable, vascular tumour.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"etoposide\", \"methotrexate\", \"actinomycin D\", \"cyclophosphamide\", \"vincristine\"]}}, {\"id\": \"EMA-EP and Platinum/Taxane Salvage Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Roughly 30-40% of patients develop a rising hCG after completing EMA-CO. The first-line cytotoxic salvage is EMA-EP (etoposide, methotrexate, dactinomycin alternating with etoposide and cisplatin), which achieves a response rate near 85%. Patients progressing on EMA-EP move to platinum/taxane doublets alternating as TP/TE, and thereafter to germ-cell regimens. This cytotoxic salvage ladder sits alongside, not instead of, checkpoint blockade for the multidrug-resistant population.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"etoposide\", \"methotrexate\", \"actinomycin D\", \"cisplatin\", \"paclitaxel\"]}}, {\"id\": \"Haemorrhagic Destruction of Colonised Organs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every choriocarcinoma deposit reproduces the vascular-erosive phenotype of the primary, so metastases behave less like space-occupying nodules and more like bleeding lesions. Pulmonary deposits cause haemoptysis and dyspnoea; vaginal deposits bleed and should not be biopsied; hepatic deposits bleed intra-abdominally; cerebral deposits may be silent or may cause fatal intracranial haemorrhage. This is also why induction chemotherapy is deliberately gentle in very-high-score disease \\u2014 rapid lysis of a friable, highly vascular tumour risks catastrophic pulmonary, intraperitoneal or intracranial bleeding.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"locations\": [\"lung\", \"brain\"]}}, {\"id\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Tumour emboli entering uterine veins arrive first at the pulmonary capillary bed, which is why the lung is by far the commonest metastatic site and why multiple rounded pulmonary nodules are a classic radiographic presentation. Onward arterial spread reaches vagina, liver, brain, spleen, kidney and bowel. Metastatic site is a weighted term in the FIGO/WHO prognostic score precisely because it stratifies risk: lung scores 0, spleen/kidney 1, gastrointestinal 2, and liver or brain 4. Colonisation can occur at very small primary tumour volume, so metastatic disease is a common first presentation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"trophoblast cell\"], \"role\": \"consequence\", \"locations\": [\"lung\", \"brain\"]}}, {\"id\": \"High Proliferative Fraction and Chemosensitivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The same feature that makes choriocarcinoma lethal untreated \\u2014 a near-maximal proliferative fraction with Ki-67 frequently above 90% \\u2014 makes it exceptionally vulnerable to cell-cycle-dependent cytotoxics. Antifolate (methotrexate), intercalating/transcription-blocking (dactinomycin), topoisomerase-II (etoposide), alkylating (cyclophosphamide) and antimitotic (vincristine) agents all act preferentially on rapidly cycling cells. Combined with a quantitative serum biomarker that permits treatment to a biochemical endpoint, this makes gestational choriocarcinoma one of the most curable of all solid malignancies \\u2014 single-agent therapy cures low-risk disease and EMA-CO cures the great majority of high-risk disease. Non-gestational germ cell choriocarcinoma does not share this degree of sensitivity to the GTN regimens and is treated on germ cell lines. Modelling note: this node deliberately bundles a cellular property (near-maximal proliferative fraction) with the therapeutic-response property it produces, because the chemosensitivity is the clinically load-bearing consequence and three cytotoxic treatments attach to it via `target_mechanisms`. A future refactor could split it into a proliferation node and a drug-response node.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"], \"role\": \"therapeutic_vulnerability\"}}, {\"id\": \"Multidrug-Resistant Refractory Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fewer than 5% of women with gestational choriocarcinoma die, and when they do it is overwhelmingly from disease that has become resistant to multiple cytotoxic agents rather than from untreated bulk. This small refractory population \\u2014 together with the inherently less chemosensitive non-gestational and intermediate-trophoblast tumours \\u2014 is the entire remaining unmet need in an otherwise near-curable disease, and is the population in which PD-1/PD-L1 blockade has produced durable responses.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\"}}, {\"id\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The transformed cell population reconstitutes the two differentiation states of early implanting trophoblast \\u2014 a proliferative mononuclear cytotrophoblast compartment and a fused, hormonally active syncytiotrophoblast compartment \\u2014 but does so as a solid, sheet-like proliferation that never organises chorionic villi. Loss of the villous scaffold is not a cosmetic difference: villous architecture normally constrains trophoblast to a defined invasive front, and its absence accompanies unconstrained, vessel-permeating growth. The proliferative fraction is extreme (Ki-67 often above 90%), with marked nuclear atypia and atypical mitoses.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"mononuclear cytotrophoblast cell\", \"syncytiotrophoblast cell\"], \"biological_processes\": [\"cell population proliferation\"], \"role\": \"central_effector\"}}, {\"id\": \"PD-1/PD-L1 Immune Checkpoint Blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-PD-1 (pembrolizumab) and anti-PD-L1 (avelumab) antibodies target the checkpoint axis that the allogeneic tumour uses to escape host T cells. Response rates of 50-70% are reported, and the principal role is in chemoresistant disease: in the TROPHIMMUN phase II trial avelumab was active in GTN resistant to single-agent chemotherapy, though not after multiagent failure. Checkpoint blockade is also being explored to de-escalate or replace cytotoxic therapy in young women for whom long-term chemotherapy toxicity matters, and in combination with VEGFR-2-directed agents.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"avelumab\", \"pembrolizumab\"]}}, {\"id\": \"PD-L1-Mediated Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gestational choriocarcinoma is an allograft growing in an immunocompetent host, which should be rejected \\u2014 and occasionally is, since spontaneous regressions of metastatic disease are recorded. To survive, the tumour co-opts the same PD-1/PD-L1 axis that normal placental trophoblast uses to maintain fetomaternal tolerance: PD-L1 is expressed strongly and essentially uniformly by neoplastic trophoblast, engaging PD-1 on tumour-infiltrating T cells and shutting down the anti-tumour response. This is an unusually clean example of adaptive immune resistance, because the antigenic stimulus (a foreign paternal genome) is known rather than inferred, and it is directly druggable.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"syncytiotrophoblast cell\"], \"biological_processes\": [\"negative regulation of T cell mediated immune response to tumor cell\"], \"role\": \"adaptive_escape\"}}, {\"id\": \"Paraneoplastic Consequences of Extreme hCG Elevation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"hCG shares an alpha subunit with TSH, LH and FSH and is a weak agonist at the thyrotropin receptor; when tumour-derived concentrations exceed roughly 100,000 mIU/mL, that weak cross-reactivity becomes clinically significant and produces biochemical or overt hyperthyroidism. The same extreme gonadotropin-like signal overstimulates the ovaries, producing bilateral theca-lutein cysts (occasionally with virilisation), and is associated with hyperemesis and pre-eclampsia. These paraneoplastic features are a direct dose-dependent consequence of the biomarker itself rather than of tumour mass, and they resolve as hCG falls with treatment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"syncytiotrophoblast cell\"], \"biological_processes\": [\"gonadotropin secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Paternal Genome Content and Semi-Allogeneic Tumour Identity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Gestational choriocarcinoma derives from the trophoblast of a prior conceptus, so its genome contains a paternal allele complement that is absent from the patient\u0027s own tissues. In the most common precursor, the complete hydatidiform mole, the conceptus genome is entirely androgenetic. The tumour is therefore a partial or complete natural allograft. Two consequences follow and organise the rest of the pathograph: detection of that foreign paternal allele set by STR genotyping definitively separates gestational from non-gestational choriocarcinoma, which matters because the two are treated differently; and the allogeneic tumour is intrinsically immunogenic and must actively suppress host T cells to survive. Non-gestational (germ cell) choriocarcinoma, by contrast, carries only the patient\u0027s own genome and lacks this feature. The imprinting biology of the molar precursor itself (CDKN1C/p57 loss) is curated in Hydatidiform_Mole and Gestational_Trophoblastic_Neoplasm.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"trophoblast cell\"], \"role\": \"trigger\"}}, {\"id\": \"Single-Agent Dactinomycin (Actinomycin D)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The alternative single agent for low-risk disease \\u2014 used first-line in some centres and as salvage after methotrexate resistance, which is common enough at FIGO scores 5-6 that a planned second single agent is part of the low-risk algorithm.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"actinomycin D\"]}}, {\"id\": \"Single-Agent Methotrexate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line therapy for low-risk (FIGO score 0-6) gestational choriocarcinoma. Methotrexate, usually with folinic acid rescue, exploits the tumour\u0027s extreme proliferative fraction; treatment is continued to hCG normalisation plus consolidation courses. Overall survival approaches 100%, and fertility is preserved.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"methotrexate\"]}}, {\"id\": \"VEGF-Driven Neoangiogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neoplastic trophoblast drives VEGF-dependent neovascularisation, building the fragile, disorganised tumour vasculature that both sustains the rapidly expanding mass and creates the bleeding diathesis characteristic of choriocarcinoma deposits. This is the mechanistic anchor for the antiangiogenic arm of therapy: the VEGFR-2 inhibitor apatinib is combined with PD-1 blockade in multidrug-resistant disease, so the pathograph needs a node for that drug to target.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"syncytiotrophoblast cell\"], \"biological_processes\": [\"vascular endothelial growth factor signaling pathway\"], \"role\": \"effector\"}}, {\"id\": \"hCG Hypersecretion by Neoplastic Syncytiotrophoblast\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neoplastic syncytiotrophoblast retains the endocrine function of normal placental syncytiotrophoblast and secretes human chorionic gonadotropin in quantities proportional to viable tumour burden. Because hCG is essentially absent in the non-pregnant state, this converts an internal, often radiographically occult tumour into a continuously measurable quantity: hCG establishes the diagnosis (a plateauing or rising titre after evacuation), contributes a weighted term to the FIGO/WHO prognostic score, tracks response during chemotherapy, and detects relapse. It is the reason gestational trophoblastic neoplasia can be treated to a biochemical endpoint without tissue confirmation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"syncytiotrophoblast cell\"], \"biological_processes\": [\"gonadotropin secretion\"], \"role\": \"effector\"}}], \"edges\": [{\"source\": \"Paternal Genome Content and Semi-Allogeneic Tumour Identity\", \"target\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malignant transformation of the (often androgenetic) trophoblast of the antecedent gestation gives rise to the tumour cell population.\"}, {\"source\": \"Paternal Genome Content and Semi-Allogeneic Tumour Identity\", \"target\": \"PD-L1-Mediated Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Allogeneic tumour identity makes the neoplasm immunogenic, creating the selective pressure for checkpoint-ligand-mediated immune evasion.\"}, {\"source\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"target\": \"hCG Hypersecretion by Neoplastic Syncytiotrophoblast\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The syncytiotrophoblast compartment retains and amplifies its endocrine program.\"}, {\"source\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"target\": \"Deregulated Trophoblast Invasion and Vascular Permeation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mononuclear/intermediate trophoblast compartment retains its invasive program, now unconstrained by villous architecture.\"}, {\"source\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"target\": \"VEGF-Driven Neoangiogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The transformed trophoblast population drives the VEGF-dependent neovascularisation that supplies the rapidly expanding mass.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neoplastic Trophoblastic Transformation without Villous Formation\", \"target\": \"High Proliferative Fraction and Chemosensitivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The extreme proliferative index that drives aggressiveness simultaneously creates the therapeutic vulnerability.\"}, {\"source\": \"hCG Hypersecretion by Neoplastic Syncytiotrophoblast\", \"target\": \"Paraneoplastic Consequences of Extreme hCG Elevation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At very high circulating concentrations hCG cross-activates receptors for structurally related glycoprotein hormones and overstimulates the ovary.\"}, {\"source\": \"Deregulated Trophoblast Invasion and Vascular Permeation\", \"target\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early intravasation seeds tumour emboli into the venous circulation, whose first capillary bed is the lung.\"}, {\"source\": \"VEGF-Driven Neoangiogenesis\", \"target\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tumour neovasculature provides the intravasation route for hematogenous spread.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"VEGF-Driven Neoangiogenesis\", \"target\": \"Haemorrhagic Destruction of Colonised Organs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fragile, disorganised neovasculature is what ruptures, producing the haemorrhagic destruction characteristic of choriocarcinoma deposits.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"target\": \"Haemorrhagic Destruction of Colonised Organs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Metastatic deposits recapitulate the friable, vessel-eroding phenotype of the primary.\"}, {\"source\": \"PD-L1-Mediated Adaptive Immune Resistance\", \"target\": \"Multidrug-Resistant Refractory Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune escape sustains a residual tumour population that can also evolve chemoresistance; conversely, checkpoint blockade can salvage it.\"}, {\"source\": \"High Proliferative Fraction and Chemosensitivity\", \"target\": \"Multidrug-Resistant Refractory Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of tumours survive selection pressure from the standard regimens and become the dominant cause of death.\"}, {\"source\": \"Antecedent Complete Hydatidiform Mole\", \"target\": \"Paternal Genome Content and Semi-Allogeneic Tumour Identity\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"An unusually tight exposure-to-node fit: this node names the complete hydatidiform mole as the most common precursor and states that its conceptus genome is entirely androgenetic, which is the paternal genome content the node is built around. The exposure supplies the node\u0027s content rather than acting on it from outside. Both items are graded partial because each measures incidence, one the risk after a mole and one the fall in incidence once molar surveillance was introduced, rather than genome content.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Single-Agent Methotrexate\", \"target\": \"High Proliferative Fraction and Chemosensitivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Single-Agent Dactinomycin (Actinomycin D)\", \"target\": \"High Proliferative Fraction and Chemosensitivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"EMA-CO Multiagent Chemotherapy\", \"target\": \"High Proliferative Fraction and Chemosensitivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"EMA-EP and Platinum/Taxane Salvage Chemotherapy\", \"target\": \"Multidrug-Resistant Refractory Disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CNS-Penetrating High-Dose Methotrexate EMA-CO for Cerebral Metastases\", \"target\": \"Hematogenous Dissemination and Pulmonary Colonisation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjunctive Cranial Radiotherapy for Cerebral Metastases\", \"target\": \"Haemorrhagic Destruction of Colonised Organs\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PD-1/PD-L1 Immune Checkpoint Blockade\", \"target\": \"PD-L1-Mediated Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6372,19 +6893,28 @@ choriocarcinoma of both germ cell and gestational origin"</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-metastases" data-dismech-node="Hepatic Metastases" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hepatic Metastases
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the liver
+
+                        <span class="phenotype-term-label">Neoplasm of the liver</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002896">HP:0002896</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002896" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002896</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the liver (HP:0002896). HP:0002896 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6441,19 +6971,26 @@ and often have a poor prognosis"</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperthyroidism" data-dismech-node="Hyperthyroidism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hyperthyroidism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hyperthyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000836">HP:0000836</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000836</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6509,19 +7046,26 @@ and often have a poor prognosis"</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
                     <div class="item-name">
                         Headache
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6579,19 +7123,28 @@ logic symptoms such as headache."</div>
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-haemoptysis" data-dismech-node="Haemoptysis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Haemoptysis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemoptysis
+
+                        <span class="phenotype-term-label">Hemoptysis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002105">HP:0002105</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002105</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6639,19 +7192,28 @@ chest pain, tachypnoea, and haemoptysis."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnoea" data-dismech-node="Dyspnoea" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dyspnoea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
+
+                        <span class="phenotype-term-label">Dyspnea</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6708,19 +7270,26 @@ chest pain, tachypnoea, and haemoptysis."</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chest-pain" data-dismech-node="Chest Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chest Pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chest pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100749">HP:0100749</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0100749</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6777,19 +7346,28 @@ chest pain, tachypnoea, and haemoptysis."</div>
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-metastases" data-dismech-node="Pulmonary Metastases" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Metastases
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neoplasm of the lung
+
+                        <span class="phenotype-term-label">Neoplasm of the lung</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100526">HP:0100526</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100526</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neoplasm of the lung (HP:0100526). HP:0100526 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6846,21 +7424,28 @@ metastatic sites are the lungs"</div>
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vaginal-bleeding" data-dismech-node="Abnormal Vaginal Bleeding" data-dismech-type="phenotype">
                     <div class="item-name">
                         Abnormal Vaginal Bleeding
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal vaginal bleeding
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0034263">HP:0034263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0034263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal vaginal bleeding (HP:0034263). HP:0034263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6932,19 +7517,28 @@ not be distinguished from the uterine blood loss."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intracranial-haemorrhage" data-dismech-node="Intracranial Haemorrhage" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intracranial Haemorrhage
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intracranial hemorrhage
+
+                        <span class="phenotype-term-label">Intracranial hemorrhage</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002170">HP:0002170</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002170</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intracranial hemorrhage (HP:0002170), qualified as severity severe. HP:0002170 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7011,19 +7605,28 @@ tal if they cause intracranial haemorrhage."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intra-abdominal-haemorrhage-from-hepatic-metastases" data-dismech-node="Intra-abdominal Haemorrhage from Hepatic Metastases" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intra-abdominal Haemorrhage from Hepatic Metastases
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hemoperitoneum
+
+                        <span class="phenotype-term-label">Hemoperitoneum</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011854" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011854">HP:0011854</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011854" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0011854</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Haemoperitoneum from ruptured hepatic metastases, annotated with Hemoperitoneum (HP:0011854), qualified as severity severe. HP:0011854 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7091,19 +7694,26 @@ life-threatening."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-theca-lutein-ovarian-cysts" data-dismech-node="Theca-Lutein Ovarian Cysts" data-dismech-type="phenotype">
                     <div class="item-name">
                         Theca-Lutein Ovarian Cysts
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ovarian cyst
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000138">HP:0000138</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000138</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Theca-lutein ovarian cyst, annotated with Ovarian cyst (HP:0000138). HP:0000138 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7150,21 +7760,30 @@ life-threatening."</div>
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-metastases" data-dismech-node="Cerebral Metastases" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral Metastases
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Brain neoplasm
+
+                        <span class="phenotype-term-label">Brain neoplasm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030692" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030692">HP:0030692</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030692" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0030692</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Brain neoplasm (HP:0030692). HP:0030692 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7250,7 +7869,7 @@ life-threatening."</div>
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-paternal-androgenetic-allele-complement-of-gestational-choriocarcinoma" data-dismech-node="Paternal (Androgenetic) Allele Complement of Gestational Choriocarcinoma" data-dismech-type="genetic">
                 <div class="item-name">
                     Paternal (Androgenetic) Allele Complement of Gestational Choriocarcinoma
 
@@ -7318,9 +7937,10 @@ index gestation, where DNA genotyping can provide highly relevant information."<
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-host-non-paternal-genome-of-non-gestational-choriocarcinoma" data-dismech-node="Host (Non-Paternal) Genome of Non-Gestational Choriocarcinoma" data-dismech-type="genetic">
                 <div class="item-name">
                     Host (Non-Paternal) Genome of Non-Gestational Choriocarcinoma
 
@@ -7389,9 +8009,13 @@ have profound therapeutic and prognostic implications."</div>
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7403,13 +8027,18 @@ have profound therapeutic and prognostic implications."</div>
                 <span class="card-count">9</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-single-agent-methotrexate" data-dismech-node="Single-Agent Methotrexate" data-dismech-type="treatment">
                 <div class="item-name">
                     Single-Agent Methotrexate
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -7440,16 +8069,21 @@ have profound therapeutic and prognostic implications."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         methotrexate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:44185">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:44185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7576,13 +8210,18 @@ additional agents"</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-single-agent-dactinomycin-actinomycin-d" data-dismech-node="Single-Agent Dactinomycin (Actinomycin D)" data-dismech-type="treatment">
                 <div class="item-name">
                     Single-Agent Dactinomycin (Actinomycin D)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -7613,16 +8252,21 @@ additional agents"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         actinomycin D
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27666">CHEBI:27666</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:27666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7746,13 +8390,18 @@ additional agents; although scores 5-6 are associated with more drug resistance"
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ema-co-multiagent-chemotherapy" data-dismech-node="EMA-CO Multiagent Chemotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     EMA-CO Multiagent Chemotherapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -7777,7 +8426,12 @@ additional agents; although scores 5-6 are associated with more drug resistance"
 
 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
-                    <span class="tag tag-treatment">EMA-CO regimen</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">EMA-CO regimen<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this regimen component is this clinical intervention
+This regimen component is EMA-CO regimen (NCIT:C67511). NCIT:C67511 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: EMA-CO Regimen</span>
 
 
@@ -7808,17 +8462,24 @@ additional agents; although scores 5-6 are associated with more drug resistance"
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         etoposide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         methotrexate
@@ -7826,11 +8487,16 @@ additional agents; although scores 5-6 are associated with more drug resistance"
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:44185">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:44185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         actinomycin D
@@ -7838,11 +8504,16 @@ additional agents; although scores 5-6 are associated with more drug resistance"
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27666">CHEBI:27666</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:27666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cyclophosphamide
@@ -7850,11 +8521,16 @@ additional agents; although scores 5-6 are associated with more drug resistance"
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4027">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-44">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         vincristine
@@ -7862,10 +8538,13 @@ additional agents; although scores 5-6 are associated with more drug resistance"
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28445">CHEBI:28445</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:28445</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8014,13 +8693,18 @@ chemotherapy helps reduce early deaths in patients with extensive tumor burden"<
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-surgical-staging-with-bleomycin-based-chemotherapy-non-gestational-disease" data-dismech-node="Surgical Staging with Bleomycin-Based Chemotherapy (Non-Gestational Disease)" data-dismech-type="treatment">
                 <div class="item-name">
                     Surgical Staging with Bleomycin-Based Chemotherapy (Non-Gestational Disease)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -8051,17 +8735,24 @@ chemotherapy helps reduce early deaths in patients with extensive tumor burden"<
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         bleomycin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_22907" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:22907">CHEBI:22907</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_22907" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:22907</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bleomycin (CHEBI:22907). CHEBI:22907 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         etoposide
@@ -8069,11 +8760,16 @@ chemotherapy helps reduce early deaths in patients with extensive tumor burden"<
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cisplatin
@@ -8081,10 +8777,13 @@ chemotherapy helps reduce early deaths in patients with extensive tumor burden"<
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27899">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8157,13 +8856,18 @@ prognosis for NGOC patients even among advanced patients."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-adjuvant-surgery-hysterectomy-or-resection-of-resistant-foci" data-dismech-node="Adjuvant Surgery (Hysterectomy or Resection of Resistant Foci)" data-dismech-type="treatment">
                 <div class="item-name">
                     Adjuvant Surgery (Hysterectomy or Resection of Resistant Foci)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Hysterectomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Hysterectomy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Hysterectomy (NCIT:C15256). NCIT:C15256 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8259,13 +8963,18 @@ is associated with favorable prognosis and fertility preservation."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ema-ep-and-platinum-taxane-salvage-chemotherapy" data-dismech-node="EMA-EP and Platinum/Taxane Salvage Chemotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     EMA-EP and Platinum/Taxane Salvage Chemotherapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -8296,17 +9005,24 @@ is associated with favorable prognosis and fertility preservation."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         etoposide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4911">CHEBI:4911</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:4911</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses etoposide (CHEBI:4911). CHEBI:4911 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         methotrexate
@@ -8314,11 +9030,16 @@ is associated with favorable prognosis and fertility preservation."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:44185">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:44185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         actinomycin D
@@ -8326,11 +9047,16 @@ is associated with favorable prognosis and fertility preservation."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27666">CHEBI:27666</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27666" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-54">CHEBI:27666</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses actinomycin D (CHEBI:27666). CHEBI:27666 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         cisplatin
@@ -8338,11 +9064,16 @@ is associated with favorable prognosis and fertility preservation."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27899">CHEBI:27899</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-55">CHEBI:27899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         paclitaxel
@@ -8350,10 +9081,13 @@ is associated with favorable prognosis and fertility preservation."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:45863">CHEBI:45863</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:45863</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8474,13 +9208,18 @@ is associated with favorable prognosis and fertility preservation."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cns-penetrating-high-dose-methotrexate-ema-co-for-cerebral-metastases" data-dismech-node="CNS-Penetrating High-Dose Methotrexate EMA-CO for Cerebral Metastases" data-dismech-type="treatment">
                 <div class="item-name">
                     CNS-Penetrating High-Dose Methotrexate EMA-CO for Cerebral Metastases
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-57">Chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8504,7 +9243,12 @@ is associated with favorable prognosis and fertility preservation."</div>
 
 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
-                    <span class="tag tag-treatment">EMA-CO regimen</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-58">EMA-CO regimen<span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)
+Relation: this regimen component is this clinical intervention
+This regimen component is EMA-CO regimen (NCIT:C67511). NCIT:C67511 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: EMA-CO Regimen</span>
 
 
@@ -8535,16 +9279,21 @@ is associated with favorable prognosis and fertility preservation."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         methotrexate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:44185">CHEBI:44185</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-59">CHEBI:44185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses methotrexate (CHEBI:44185). CHEBI:44185 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -8611,13 +9360,18 @@ is associated with favorable prognosis and fertility preservation."</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-adjunctive-cranial-radiotherapy-for-cerebral-metastases" data-dismech-node="Adjunctive Cranial Radiotherapy for Cerebral Metastases" data-dismech-type="treatment">
                 <div class="item-name">
                     Adjunctive Cranial Radiotherapy for Cerebral Metastases
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Radiation Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8707,13 +9461,18 @@ metastases"</div>
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-pd-1-pd-l1-immune-checkpoint-blockade" data-dismech-node="PD-1/PD-L1 Immune Checkpoint Blockade" data-dismech-type="treatment">
                 <div class="item-name">
                     PD-1/PD-L1 Immune Checkpoint Blockade
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8743,17 +9502,24 @@ metastases"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         avelumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C116870" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C116870">NCIT:C116870</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C116870" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C116870</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses avelumab (NCIT:C116870). NCIT:C116870 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         pembrolizumab
@@ -8761,10 +9527,13 @@ metastases"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C106432">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-63">NCIT:C106432</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8902,7 +9671,7 @@ to monochemotherapy."</div>
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-antecedent-complete-hydatidiform-mole" data-dismech-node="Antecedent Complete Hydatidiform Mole" data-dismech-type="environmental">
                 <div class="item-name">Antecedent Complete Hydatidiform Mole</div>
 
 
@@ -8969,9 +9738,84 @@ surveillance programs and timely initiation of chemotherapy."</div>
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Paternal Genome Content and Semi-Allogeneic Tumour Identity</strong>
+
+                        <span style="color: #0d9488;"> &mdash; An unusually tight exposure-to-node fit: this node names the complete hydatidiform mole as the most common precursor and states that its conceptus genome is entirely androgenetic, which is the paternal genome content the node is built around. The exposure supplies the node&#39;s content rather than acting on it from outside. Both items are graded partial because each measures incidence, one the risk after a mole and one the fall in incidence once molar surveillance was introduced, rather than genome content.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36286620" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36286620" target="_blank">PMID:36286620</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Choriocarcinoma affects approximately 1 in 40.000 pregnancies and 1 in 40 HMs."</div>
+
+
+                <div class="evidence-explanation">One in forty molar pregnancies against one in forty thousand pregnancies overall. The size of that gap is what makes the mole the dominant precursor, but it is an incidence figure.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="evidence-item" data-dismech-evidence="PMID:40588865" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40588865" target="_blank">PMID:40588865</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"gestational choriocarcinoma has become a rare encounter, largely owing to the implementation of postmolar surveillance programs and timely initiation of chemotherapy."</div>
+
+
+                <div class="evidence-explanation">Records that the disease became rare largely through postmolar surveillance. Removing the precursor reduces the disease, which is the strongest causal design available here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-extremes-of-maternal-age" data-dismech-node="Extremes of Maternal Age" data-dismech-type="environmental">
                 <div class="item-name">Extremes of Maternal Age</div>
 
 
@@ -9037,9 +9881,10 @@ GTD was found in younger (10 –19 years of age) and older (40 –
     </details>
 
 
+
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-population-and-host-correlates-ancestry-blood-group-a" data-dismech-node="Population and Host Correlates (Ancestry, Blood Group A)" data-dismech-type="environmental">
                 <div class="item-name">Population and Host Correlates (Ancestry, Blood Group A)</div>
 
 
@@ -9104,6 +9949,7 @@ US-American women are over-represented in national registers,"</div>
     </details>
 
 
+
             </div>
 
         </div>
@@ -9118,7 +9964,7 @@ US-American women are over-represented in national registers,"</div>
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-human-chorionic-gonadotropin-total-hcg" data-dismech-node="Serum Human Chorionic Gonadotropin (total hCG)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Serum Human Chorionic Gonadotropin (total hCG)
 
@@ -9773,16 +10619,21 @@ somatic origin."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neoplasm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002664">HP:0002664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002664</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9841,16 +10692,21 @@ somatic origin."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Neoplasm
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002664">HP:0002664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0002664</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -9896,6 +10752,9 @@ somatic origin."</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -11419,6 +12278,38 @@ diagnosis:
       requirement that follows it.
 environmental:
 - name: Antecedent Complete Hydatidiform Mole
+  influences_mechanisms:
+  - target: Paternal Genome Content and Semi-Allogeneic Tumour Identity
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      An unusually tight exposure-to-node fit: this node names the complete
+      hydatidiform mole as the most common precursor and states that its
+      conceptus genome is entirely androgenetic, which is the paternal genome
+      content the node is built around. The exposure supplies the node&#39;s
+      content rather than acting on it from outside. Both items are graded
+      partial because each measures incidence, one the risk after a mole and
+      one the fall in incidence once molar surveillance was introduced, rather
+      than genome content.
+    evidence:
+    - reference: PMID:36286620
+      reference_title: &#34;Advances in diagnostics and management of gestational trophoblastic disease.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Choriocarcinoma affects approximately 1 in 40.000 pregnancies and 1 in 40 HMs.&#34;
+      explanation: &gt;-
+        One in forty molar pregnancies against one in forty thousand
+        pregnancies overall. The size of that gap is what makes the mole the
+        dominant precursor, but it is an incidence figure.
+    - reference: PMID:40588865
+      reference_title: &#34;Gestational Choriocarcinoma: A Timely Review of Diagnostic Pathology.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;gestational choriocarcinoma has become a rare encounter, largely owing to the implementation of postmolar surveillance programs and timely initiation of chemotherapy.&#34;
+      explanation: &gt;-
+        Records that the disease became rare largely through postmolar
+        surveillance. Removing the precursor reduces the disease, which is the
+        strongest causal design available here.
   presence: PRESENT
   effect: Strongest single risk factor for gestational choriocarcinoma
   description: &gt;-
@@ -13681,7 +14572,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Choriocarcinoma", "mondoId": "MONDO:0005207", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Choriocarcinoma", "yamlRevision": "8816925c33eb"};
+        const OS_CONFIG = {"diseaseName": "Choriocarcinoma", "mondoId": "MONDO:0005207", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Choriocarcinoma", "yamlRevision": "52def9369670"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -14100,5 +14991,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
