@@ -827,7 +827,7 @@ list-short-snippets:
 update-snippet-length-baseline:
     uv run python scripts/check_snippet_length.py --update-baseline
 
-# Guard against NEW evidence-free `environmental:` exposures in kb/disorders/ --
+# Guard against NEW evidence-free `environmental:` exposures in kb/ --
 # an entry with no `evidence:` block is an uncited causation claim that
 # `just validate`/`validate-terms`/`count-verified-snippets` cannot see, since
 # `evidence` is optional on the class (#8296). The pre-existing backlog is
