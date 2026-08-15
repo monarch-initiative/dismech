@@ -69,9 +69,13 @@ if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
 
 from dismech.yaml_io import safe_load
 
-# `environmental:` currently only appears under kb/disorders/ (not
-# kb/modules/ or kb/comorbidities/) -- scope the scan there.
-SCAN_DIR = ROOT / "kb" / "disorders"
+# Scan all of kb/, not just kb/disorders/. `environmental:` only appears under
+# kb/disorders/ today, so this is a no-op on current content (verified: 0
+# environmental entries under modules/comorbidities/groupings), but kb/modules/
+# and kb/comorbidities/ validate against the same `Disease` class and may carry
+# `environmental:` in future -- scoping to disorders/ would make them a silent
+# blind spot in a check whose whole point is that the gap is invisible.
+SCAN_DIR = ROOT / "kb"
 BASELINE_PATH = ROOT / "tests" / "environmental_evidence_baseline.txt"
 
 # When set (CI sets it to ``origin/main``), the grandfather baseline is derived
@@ -329,6 +333,10 @@ def main(argv=None) -> int:
         for rel, location, name in new:
             print(f"{rel}:{location}: {name!r}")
         print(f"\n{len(new)} new finding(s).")
+        print("Note: findings are keyed on (file, exposure name), so *renaming* an")
+        print("already-baselined exposure reads as a new finding even though no")
+        print("uncited claim was added. If that is what happened, the fix is to")
+        print("re-baseline, not to cite.")
         if args.against_ref or os.environ.get(BASELINE_REF_ENV):
             print("Grandfathering is unavailable when checking against a ref: add")
             print("an evidence block to the new exposure, or drop it.")
@@ -345,4 +353,4 @@ def main(argv=None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())
