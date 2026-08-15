@@ -99,6 +99,35 @@ def test_non_dict_entries_are_skipped():
     assert not list(find_violations({"environmental": ["not-a-dict"]}))
 
 
+def test_scan_dir_is_the_kb_root_not_just_disorders():
+    # Pins the module-level constant. The behavioural test below passes
+    # scan_dir= explicitly, so on its own it would stay green if SCAN_DIR were
+    # narrowed back to kb/disorders -- this is the assertion that actually
+    # fails in that case.
+    assert cee.SCAN_DIR == cee.ROOT / "kb"
+
+
+def test_scan_covers_kb_beyond_disorders(tmp_path):
+    # SCAN_DIR is kb/, not kb/disorders/. kb/modules/ and kb/comorbidities/
+    # validate against the same `Disease` class, so an evidence-free
+    # `environmental:` entry there is the same uncited causation claim and must
+    # be found. This is a no-op on current content (nothing outside
+    # kb/disorders/ carries `environmental:` today), so without this test
+    # narrowing SCAN_DIR back would leave all other tests green and silently
+    # restore the blind spot.
+    for sub in ("modules", "comorbidities"):
+        target = tmp_path / "kb" / sub
+        target.mkdir(parents=True)
+        (target / "X.yaml").write_text(
+            "environmental:\n- name: Smoking\n  notes: uncited\n", encoding="utf-8"
+        )
+    findings = scan_repo(scan_dir=tmp_path / "kb", rel_to=tmp_path)
+    assert sorted(rel for rel, _, _ in findings) == [
+        "kb/comorbidities/X.yaml",
+        "kb/modules/X.yaml",
+    ]
+
+
 def test_baseline_key_is_location_independent():
     # Locations shift whenever the environmental list above them grows; the
     # key must not.

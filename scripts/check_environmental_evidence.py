@@ -33,7 +33,7 @@ The pre-existing backlog is grandfathered, mirroring
 ``scripts/check_snippet_length.py`` exactly:
 
 * ``--against-ref REF`` (env ``ENVIRONMENTAL_EVIDENCE_BASELINE_REF``) derives
-  the grandfather set *live* from ``kb/disorders`` at a git ref -- CI sets it
+  the grandfather set *live* from ``kb/`` at a git ref -- CI sets it
   to the base branch (``origin/main``). Nothing is stored, so the base branch
   is green by construction and parallel merges have nothing to clobber.
 * ``tests/environmental_evidence_baseline.txt`` is the committed fallback used
@@ -71,10 +71,13 @@ from dismech.yaml_io import safe_load
 
 # Scan all of kb/, not just kb/disorders/. `environmental:` only appears under
 # kb/disorders/ today, so this is a no-op on current content (verified: 0
-# environmental entries under modules/comorbidities/groupings), but kb/modules/
+# environmental entries anywhere outside kb/disorders/, across all six
+# subdirectories -- the finding count is identical either way), but kb/modules/
 # and kb/comorbidities/ validate against the same `Disease` class and may carry
 # `environmental:` in future -- scoping to disorders/ would make them a silent
 # blind spot in a check whose whole point is that the gap is invisible.
+# test_scan_covers_kb_beyond_disorders pins this so the scope cannot be
+# narrowed back silently.
 SCAN_DIR = ROOT / "kb"
 BASELINE_PATH = ROOT / "tests" / "environmental_evidence_baseline.txt"
 
@@ -103,7 +106,7 @@ def scan_repo(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
 
     ``rel_to`` is the base the reported relative paths are computed against. It
     defaults to :data:`ROOT` for the working tree, but :func:`baseline_from_ref`
-    scans an extracted copy of ``kb/disorders`` under a temp dir and passes that
+    scans an extracted copy of ``kb/`` under a temp dir and passes that
     dir so the reported paths still come out as ``kb/disorders/X.yaml`` --
     matching the working-tree keys the baseline is compared on.
     """
@@ -183,7 +186,7 @@ def baseline_from_ref(ref: str, root: Path = ROOT) -> Counter | None:
     """Grandfather baseline derived live from a git *ref* (e.g. ``origin/main``).
 
     Returns the per-``(file, name)`` occurrence counts of evidence-free
-    exposures as they exist in ``kb/disorders`` at *ref* -- i.e. exactly the
+    exposures as they exist in ``kb/`` at *ref* -- i.e. exactly the
     backlog already on the base branch. Because the grandfather set is
     computed from the base branch rather than a committed snapshot, there is
     nothing to keep in sync and nothing for parallel merges to clobber: the
@@ -287,7 +290,7 @@ def main(argv=None) -> int:
         default=None,
         help=(
             "grandfather against the evidence-free exposures present in "
-            "kb/disorders at this git ref instead of the committed baseline "
+            "kb/ at this git ref instead of the committed baseline "
             f"(env: {BASELINE_REF_ENV}). CI uses origin/main so the base "
             "branch is green by construction."
         ),
@@ -333,14 +336,17 @@ def main(argv=None) -> int:
         for rel, location, name in new:
             print(f"{rel}:{location}: {name!r}")
         print(f"\n{len(new)} new finding(s).")
-        print("Note: findings are keyed on (file, exposure name), so *renaming* an")
-        print("already-baselined exposure reads as a new finding even though no")
-        print("uncited claim was added. If that is what happened, the fix is to")
-        print("re-baseline, not to cite.")
         if args.against_ref or os.environ.get(BASELINE_REF_ENV):
             print("Grandfathering is unavailable when checking against a ref: add")
-            print("an evidence block to the new exposure, or drop it.")
+            print("an evidence block to the new exposure, or drop it. Findings are")
+            print("keyed on (file, exposure name), so *renaming* a baselined")
+            print("exposure also reads as a new finding here, and re-baselining")
+            print("will not clear it -- cite it or revert the rename.")
         else:
+            print("Note: findings are keyed on (file, exposure name), so *renaming* an")
+            print("already-baselined exposure reads as a new finding even though no")
+            print("uncited claim was added. If that is what happened, the fix is to")
+            print("re-baseline, not to cite.")
             print("If a finding is genuinely unavoidable right now, run")
             print("--update-baseline to grandfather it.")
         return 1
