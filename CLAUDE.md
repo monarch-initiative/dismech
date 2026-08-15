@@ -1607,6 +1607,44 @@ clinical_trials:
 just fetch-reference NCT05813288  # Caches trial data from ClinicalTrials.gov API
 ```
 
+#### Trials not registered on ClinicalTrials.gov (`ICTRP:`)
+
+A trial registered on ChiCTR, ISRCTN, EUCTR, jRCT/UMIN, CTRI, ANZCTR, IRCT, or
+any other WHO primary registry has no NCT identifier. Key it on its **WHO ICTRP**
+identifier and cite the ICTRP record — one prefix covers every primary registry,
+because ICTRP is the umbrella that normalizes them (24-element WHO Trial
+Registration Data Set). Do **not** bury the identifier in `description:`/`notes:`
+prose or wedge it into a free-text `name`; nothing validates either form.
+
+```bash
+just ictrp-fetch ChiCTR2100045397        # → references_cache/ICTRP_ChiCTR2100045397.md
+just fetch-reference ICTRP:ISRCTN67795930  # equivalent
+just ictrp-audit                          # registry IDs still stranded in prose
+```
+
+```yaml
+clinical_trials:
+- name: ISRCTN67795930
+  phase: PHASE_III
+  status: COMPLETED
+  evidence:
+  - reference: ICTRP:ISRCTN67795930
+    supports: SUPPORT
+    evidence_source: OTHER          # a registration document, not study evidence
+    snippet: "| Register | ISRCTN |"
+    explanation: WHO ICTRP registration record establishing the trial's identity.
+```
+
+Each `## Registration` table row is a stable quotable substring (pipes optional,
+as with ORPHA/ICEES rows). Investigator contact details are deliberately excluded
+from the cache. The portal returns its "not found" page with **HTTP 200**, so a
+malformed identifier is caught by the fetcher, not by a status code — this is how
+a nonexistent `ChiCTR-2100045397` (hyphenated, and mislabeled "Clinicaltrials.gov"
+in the publication itself) was found in `Progressive_Supranuclear_Palsy`. Never
+"correct" an identifier inside an evidence `snippet:`; that quote belongs to the
+cited paper. Worked examples: `Progressive_Supranuclear_Palsy` (ChiCTR),
+`Ectopic_Pregnancy` (ISRCTN). See [`docs/ictrp.md`](docs/ictrp.md).
+
 **Key fields:**
 - `name`: NCT identifier (e.g., NCT05813288)
 - `phase` (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or
@@ -2229,6 +2267,7 @@ as evidence `snippet:` values.
 | `CIVIC_ASSERTION:`, `CIVIC_EID:` | CIViC accepted assertion and clinical evidence TSVs | One record per accepted CIViC assertion or evidence item | CIViC |
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
+| `ICTRP:` | WHO International Clinical Trials Registry Platform search portal | One record per trial, fetched per identifier on demand (no bulk file) | WHO ICTRP terms |
 
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 

@@ -1848,6 +1848,9 @@ fetch-reference +identifiers:
                 fi
                 uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
                 ;;
+            ICTRP:*|ictrp:*)
+                uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+                ;;
             *)
                 scripts/run_reference_validator.sh cache reference "$identifier"
                 ;;
@@ -1984,6 +1987,35 @@ icees-rebuild *args="":
 [group('Research')]
 icees-list limit="20":
     uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
+
+# Fetch WHO ICTRP trial registration record(s) into references_cache/.
+# Covers every ICTRP primary registry (ChiCTR, ISRCTN, EUCTR, JPRN, CTRI, ...)
+# so a non-ClinicalTrials.gov trial can be cited as ICTRP:<TrialID>.
+#   just ictrp-fetch ChiCTR2100045397 ISRCTN67795930
+[group('Research')]
+ictrp-fetch +identifiers:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for identifier in "$@"; do
+        uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+    done
+
+# Refresh every cached references_cache/ICTRP_*.md from the ICTRP portal.
+# Use --id to restrict to specific trial identifiers.
+[group('Research')]
+ictrp-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild ictrp {{args}}
+
+# List the trial identifiers already cached from WHO ICTRP
+[group('Research')]
+ictrp-list limit="20":
+    uv run python -m dismech.structured_sources.cli list ictrp --limit {{limit}}
+
+# Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
+# is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.
+[group('Research')]
+ictrp-audit *args="":
+    uv run python -m dismech.ictrp_audit {{args}}
 
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
