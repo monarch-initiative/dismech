@@ -298,7 +298,9 @@ EvidenceItem:
 
 The `ClinicalTrial` class in the schema supports:
 - **name**: NCT identifier or trial name
-- **phase** (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or `NOT_APPLICABLE`
+- **phase** (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or
+  `NOT_APPLICABLE` (observational or device studies that do not follow the standard FDA
+  phase classification)
 - **status** (`ClinicalTrialStatusEnum`): `RECRUITING`, `NOT_RECRUITING`, `ACTIVE_NOT_RECRUITING`,
   `COMPLETED`, `ENROLLING_BY_INVITATION`, `SUSPENDED`, `TERMINATED`, `WITHDRAWN`, or `UNKNOWN`.
   Both slots are enum-bound — the free-text spellings (`Phase III`, `Completed`) fail `just validate`.
