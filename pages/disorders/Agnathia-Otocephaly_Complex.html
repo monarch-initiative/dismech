@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3788,7 +3956,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4433,17 +4601,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cranial Neural Crest Cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000333">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cranial Neural Crest Cell, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4464,10 +4639,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000008">CL:0000008</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory cranial neural crest cell (CL:0000008). CL:0000008 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4494,16 +4672,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PRRX1
 
 
-    <a href="https://bioregistry.io/hgnc:9142" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9142">hgnc:9142</a>
+    <a href="https://bioregistry.io/hgnc:9142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:9142</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PRRX1 (hgnc:9142). hgnc:9142 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4531,10 +4720,13 @@
         OTX2
 
 
-    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8522">hgnc:8522</a>
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:8522</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4562,16 +4754,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neural Crest Cell Development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014032">GO:0014032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0014032</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Neural Crest Cell Development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4580,6 +4777,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -4597,10 +4796,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001755">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001755</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4620,16 +4822,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         pharyngeal system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060037" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060037">GO:0060037</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0060037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal pharyngeal system development (GO:0060037). GO:0060037 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4654,16 +4861,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Homeodomain transcription factor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003700">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0003700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased Homeodomain transcription factor activity, annotated with DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4689,17 +4901,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         first pharyngeal arch
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004362" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004362">UBERON:0004362</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004362" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0004362</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in first pharyngeal arch, annotated with pharyngeal arch 1 (UBERON:0004362). UBERON:0004362 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         pharyngeal arch
@@ -4707,13 +4926,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002539">UBERON:0002539</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002539" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002539</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON:0002539 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4841,16 +5064,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011012">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0011012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4877,16 +5105,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Embryonic Skeletal System Morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048704" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048704">GO:0048704</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048704" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0048704</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Embryonic Skeletal System Morphogenesis (GO:0048704). GO:0048704 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4895,6 +5128,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -4912,10 +5147,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060021">GO:0060021</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0060021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Roof of Mouth Development (GO:0060021). GO:0060021 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4935,16 +5173,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         embryonic cranial skeleton morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048701">GO:0048701</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048701" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0048701</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal embryonic cranial skeleton morphogenesis (GO:0048701). GO:0048701 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4971,17 +5214,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mandible
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001684" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001684">UBERON:0001684</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001684" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0001684</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mandible (UBERON:0001684). UBERON:0001684 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Meckel&#39;s cartilage
@@ -4989,13 +5239,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003107">UBERON:0003107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0003107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Meckel&#39;s cartilage (UBERON:0003107). UBERON:0003107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5158,16 +5412,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         face morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060325">GO:0060325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0060325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal face morphogenesis (GO:0060325). GO:0060325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5194,17 +5453,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         external ear
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001691" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001691">UBERON:0001691</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001691" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0001691</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in external ear (UBERON:0001691). UBERON:0001691 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         pharyngeal arch 2
@@ -5212,13 +5478,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0003066" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0003066">UBERON:0003066</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0003066" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0003066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pharyngeal arch 2 (UBERON:0003066). UBERON:0003066 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5333,16 +5603,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         smoothened signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007224">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0007224</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5369,19 +5644,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         forebrain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001890">UBERON:0001890</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001890" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0001890</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in forebrain (UBERON:0001890). UBERON:0001890 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5519,15 +5800,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SMAD3
 
 
-    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6769">hgnc:6769</a>
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:6769</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5555,16 +5843,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         transforming growth factor beta receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007179">GO:0007179</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0007179</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased transforming growth factor beta receptor signaling pathway (GO:0007179). GO:0007179 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5584,16 +5877,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030509">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5614,6 +5912,7 @@
 
 
                 </div>
+
 
 
 
@@ -5749,19 +6048,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pharynx
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0006562" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0006562">UBERON:0006562</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0006562" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0006562</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5956,14 +6261,23 @@
                         Situs inversus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Situs inversus totalis
+
+                        <span class="phenotype-term-label">Situs inversus totalis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001696" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001696">HP:0001696</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001696" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001696</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Situs inversus totalis (HP:0001696). HP:0001696 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6068,14 +6382,21 @@
                         Microphthalmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000568</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6180,14 +6501,21 @@
                         Micrognathia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Micrognathia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000347">HP:0000347</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000347</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Micrognathia (HP:0000347), qualified as severity severe. HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6279,14 +6607,23 @@
                         Microstomia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Narrow mouth
+
+                        <span class="phenotype-term-label">Narrow mouth</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000160">HP:0000160</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000160</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microstomia, annotated with Narrow mouth (HP:0000160). HP:0000160 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6360,14 +6697,21 @@
                         Cleft palate
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cleft palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000175</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6428,14 +6772,21 @@
                         Holoprosencephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Holoprosencephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001360">HP:0001360</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001360</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6542,14 +6893,21 @@
                         Polyhydramnios
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Polyhydramnios
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001561">HP:0001561</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001561</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6632,14 +6990,21 @@
                         Upper airway obstruction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Upper airway obstruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002781">HP:0002781</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002781</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Upper airway obstruction (HP:0002781). HP:0002781 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6713,14 +7078,21 @@
                         Neonatal respiratory distress
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neonatal respiratory distress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002643">HP:0002643</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002643</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neonatal respiratory distress (HP:0002643). HP:0002643 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6794,14 +7166,21 @@
                         Pulmonary hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002089">HP:0002089</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002089</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6862,14 +7241,23 @@
                         Agnathia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aplasia/Hypoplasia of the mandible
+
+                        <span class="phenotype-term-label">Aplasia/Hypoplasia of the mandible</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009118" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009118">HP:0009118</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009118" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0009118</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Agnathia, annotated with Aplasia/Hypoplasia of the mandible (HP:0009118). HP:0009118 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6967,14 +7355,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Synotia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100663">HP:0100663</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Synotia (HP:0100663). HP:0100663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7070,14 +7465,21 @@
                         Aglossia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aglossia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012730" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012730">HP:0012730</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012730" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0012730</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aglossia (HP:0012730). HP:0012730 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7151,14 +7553,21 @@
                         Microglossia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microglossia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000171" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000171">HP:0000171</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000171" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000171</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microglossia (HP:0000171). HP:0000171 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7232,14 +7641,21 @@
                         Cyclopia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cyclopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009914" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009914">HP:0009914</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009914" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0009914</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cyclopia (HP:0009914). HP:0009914 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7335,13 +7751,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRRX1
 
 
-    <a href="https://bioregistry.io/hgnc:9142" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9142">hgnc:9142</a>
+    <a href="https://bioregistry.io/hgnc:9142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:9142</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRRX1 (hgnc:9142). hgnc:9142 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7445,13 +7866,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: OTX2
 
 
-    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8522">hgnc:8522</a>
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:8522</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7555,13 +7981,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SMAD3
 
 
-    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6769">hgnc:6769</a>
+    <a href="https://bioregistry.io/hgnc:6769" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:6769</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7619,13 +8050,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CRKL
 
 
-    <a href="https://bioregistry.io/hgnc:2363" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2363">hgnc:2363</a>
+    <a href="https://bioregistry.io/hgnc:2363" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:2363</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CRKL (hgnc:2363). hgnc:2363 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7705,13 +8141,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PGAP1
 
 
-    <a href="https://bioregistry.io/hgnc:25712" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:25712">hgnc:25712</a>
+    <a href="https://bioregistry.io/hgnc:25712" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:25712</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PGAP1 (hgnc:25712). hgnc:25712 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7791,13 +8232,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CNBP
 
 
-    <a href="https://bioregistry.io/hgnc:13164" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:13164">hgnc:13164</a>
+    <a href="https://bioregistry.io/hgnc:13164" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:13164</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CNBP (hgnc:13164). hgnc:13164 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7888,7 +8334,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -7988,7 +8439,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -8088,7 +8544,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">airway management (EXIT-to-airway)</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">airway management (EXIT-to-airway)<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is airway management (EXIT-to-airway), annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8188,7 +8649,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">tracheostomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">tracheostomy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is tracheostomy, annotated with Tracheotomy (NCIT:C15341). NCIT:C15341 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Tracheotomy</span>
 
 
@@ -8316,7 +8782,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">gastrostomy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">gastrostomy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gastrostomy</span>
 
 
@@ -8416,7 +8887,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">mandibular reconstruction with autologous bone graft</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">mandibular reconstruction with autologous bone graft<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is mandibular reconstruction with autologous bone graft, annotated with Reconstructive Surgery (NCIT:C25351). NCIT:C25351 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Reconstructive Surgery</span>
 
 
@@ -8538,7 +9014,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">mandibular distraction osteogenesis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">mandibular distraction osteogenesis<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is mandibular distraction osteogenesis, annotated with Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Orthopedic Surgical Procedure</span>
 
 
@@ -8616,7 +9097,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">oral commissuroplasty</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">oral commissuroplasty<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is oral commissuroplasty, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -9466,6 +9952,8 @@
 
 
 
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9489,6 +9977,934 @@
 
 
                 <div class="evidence-explanation">Demonstrates a PRRX1-dosage-dependent chondrogenic readout in human cells, the functional axis lost in PRRX1-related disease. PARTIAL because the system was not developed for, or validated against, agnathia-otocephaly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">6</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-prx1-prx2-prrx1-prrx2-compound-null-mouse-mouse-mus-musculus" data-dismech-node="Prx1/Prx2 (Prrx1/Prrx2) compound-null mouse Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Prx1/Prx2 (Prrx1/Prrx2) compound-null mouse Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">Prx1/Prx2 double-mutant mice reproduce the mandibular and ear defects of the human first-arch malformation, demonstrating the developmental role of the paired-related homeobox genes in lower jaw and ear formation.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Reduced and sometimes cleft mandible</span>
+
+                    <span class="tag tag-phenotype">External, middle, and inner ear defects</span>
+
+                    <span class="tag tag-phenotype">Reduction or loss of skull bones</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Prx1/Prx2 (Prrx1/Prrx2) compound-null mouse</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PRRX1
+
+
+    <a href="https://bioregistry.io/hgnc:9142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:9142</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns PRRX1 (hgnc:9142). hgnc:9142 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9729491" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9729491" target="_blank">PMID:9729491</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found defects in external, middle and inner ear, reduction or loss of skull bones, a reduced and sometimes cleft mandible, and limb abnormalities including postaxial polydactyly and bent zeugopods."</div>
+
+
+                <div class="evidence-explanation">Documents the mandibular and ear phenotypes of the Prx1/Prx2 compound-null mouse.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-mhox-prrx1-homozygous-loss-of-function-mouse-mus-musculus" data-dismech-node="MHox (Prrx1) homozygous loss-of-function Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    MHox (Prrx1) homozygous loss-of-function Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">Homozygous MHox (Prrx1) null mice die shortly after birth with loss or malformation of craniofacial, limb, and vertebral skeletal elements derived from cranial neural crest, reflecting failure to form preskeletal condensations from undifferentiated mesenchyme. This single-gene model complements the Prx1/Prx2 compound-null by isolating the PRRX1 contribution.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Loss or malformation of craniofacial skeletal structures</span>
+
+                    <span class="tag tag-phenotype">Perinatal lethality</span>
+
+                    <span class="tag tag-phenotype">Defective formation of chondrogenic and osteogenic precursors</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">MHox (Prrx1) homozygous loss-of-function</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PRRX1
+
+
+    <a href="https://bioregistry.io/hgnc:9142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:9142</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns PRRX1 (hgnc:9142). hgnc:9142 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7758948" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7758948" target="_blank">PMID:7758948</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mice homozygous for a mutant MHox allele die soon after birth and exhibit defects of skeletogenesis, involving the loss or malformation of craniofacial, limb, and vertebral skeletal structures."</div>
+
+
+                <div class="evidence-explanation">Loss of the mouse PRRX1 orthologue causes craniofacial skeletal loss with perinatal lethality, the animal counterpart of the human lesion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7758948" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7758948" target="_blank">PMID:7758948</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Analysis of the mutant phenotype during ontogeny demonstrated a defect in the formation and growth of chondrogenic and osteogenic precursors."</div>
+
+
+                <div class="evidence-explanation">Identifies the cellular step lost in the model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-otx2-heterozygous-null-mouse-mus-musculus" data-dismech-node="Otx2 heterozygous null Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Otx2 heterozygous null Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">Otx2 heterozygous mice develop otocephaly whose severity depends on strain background; genome-wide scans mapped two modifier loci, Otmf2 (chromosome 2) and Otmf18 (chromosome 18), that account for the difference. This is the mechanistic model for the &#34;second genetic hit&#34; postulated alongside OTX2 loss in humans.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Otocephaly / agnathia-holoprosencephaly complex</span>
+
+                    <span class="tag tag-phenotype">Strain-dependent severity of the mandibular phenotype</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Otx2 heterozygous null</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Background</div>
+                        <div class="model-detail-value">C57BL/6 versus CBA</div>
+                    </div>
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        OTX2
+
+
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:8522</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12183386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12183386" target="_blank">PMID:12183386</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mice heterozygous for the Otx2 mutation display a craniofacial malformation, known as otocephaly or agnathia-holoprosencephaly complex."</div>
+
+
+                <div class="evidence-explanation">Establishes the Otx2 heterozygous mouse as a direct model of the human complex.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12183386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12183386" target="_blank">PMID:12183386</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified one significant locus, Otmf18, between D18Mit68 and D18Mit120 on chromosomes 18, linked to the mandibular phenotype (LOD score 3.33)."</div>
+
+
+                <div class="evidence-explanation">Maps a modifier locus underlying the strain-dependent severity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7590242" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7590242" target="_blank">PMID:7590242</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In contrast, heterozygous mutants displayed craniofacial malformations designated as otocephaly; affected structures appeared to correspond to the most posterior and most anterior domains of Otx expression where Otx1 is not expressed."</div>
+
+
+                <div class="evidence-explanation">The originating description of the model, independently establishing that Otx2 haploinsufficiency alone produces otocephaly and locating the affected structures within the Otx2 expression domain.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-crkl-snoopy-splice-site-mutant-mouse-mus-musculus" data-dismech-node="Crkl &#34;snoopy&#34; splice-site mutant Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Crkl &#34;snoopy&#34; splice-site mutant Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Spontaneous</span>
+
+                </div>
+
+                <div class="item-desc">A spontaneous Crkl splice-site mutation abolishing Crkl expression produces a variable first-arch and midline phenotype overlapping the human complex, with altered retinoic acid and endothelin signalling in the developing oropharyngeal complex. CRKL lies in the 22q11.2 deletion interval.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Micrognathia</span>
+
+                    <span class="tag tag-phenotype">Pharyngeal occlusion</span>
+
+                    <span class="tag tag-phenotype">Aglossia</span>
+
+                    <span class="tag tag-phenotype">Holoprosencephaly</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Crkl &#34;snoopy&#34; splice-site mutant</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CRKL
+
+
+    <a href="https://bioregistry.io/hgnc:2363" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:2363</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns CRKL (hgnc:2363). hgnc:2363 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25565927" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25565927" target="_blank">PMID:25565927</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The snoopy strain exhibits a variable phenotype that includes micrognathia, pharyngeal occlusion, aglossia and holoprosencephaly, and altered retinoic acid and endothelin signalling."</div>
+
+
+                <div class="evidence-explanation">Documents the first-arch and midline phenotype of the Crkl mutant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25565927" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25565927" target="_blank">PMID:25565927</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These analyses demonstrate the central role of Crkl in regulating signalling events in the developing oropharyngeal complex and its potential to contribute to dysmorphology."</div>
+
+
+                <div class="evidence-explanation">Positions Crkl as a signalling hub for the oropharyngeal developmental field disrupted in this complex.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-pgap1-knockout-mouse-mus-musculus" data-dismech-node="Pgap1 knockout Mouse (Mus musculus)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Pgap1 knockout Mouse (Mus musculus)
+
+                    <span class="tag tag-exp-model-type">Knockout</span>
+
+                </div>
+
+                <div class="item-desc">Knockout of the GPI inositol-deacylase Pgap1 causes otocephaly with perinatal death in most mutants, implicating GPI-anchor remodelling in first-arch development.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Otocephaly</span>
+
+                    <span class="tag tag-phenotype">Perinatal death</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mouse (Mus musculus)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Pgap1 knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PGAP1
+
+
+    <a href="https://bioregistry.io/hgnc:25712" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:25712</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns PGAP1 (hgnc:25712). hgnc:25712 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17711852" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17711852" target="_blank">PMID:17711852</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most PGAP1 knock-out mice showed otocephaly, a developmental defect, and died right after birth."</div>
+
+
+                <div class="evidence-explanation">Establishes otocephaly as the dominant developmental phenotype of Pgap1 loss in mouse.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-otx2-c-265c-t-p-arg89-de-novo-heterozygous-nonsense-sheep-ovis-aries" data-dismech-node="OTX2 c.265C&gt;T (p.Arg89*) de novo heterozygous nonsense Sheep (Ovis aries)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    OTX2 c.265C&gt;T (p.Arg89*) de novo heterozygous nonsense Sheep (Ovis aries)
+
+                    <span class="tag tag-exp-model-type">Spontaneous</span>
+
+                </div>
+
+                <div class="item-desc">A stillborn Istrian Pramenka lamb with microstomia, agnathia, aglossia, and synotia carried a de novo OTX2 nonsense variant truncating over 70% of the open reading frame — a naturally occurring cross-species counterpart of the human OTX2 haploinsufficiency mechanism.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Microstomia</span>
+
+                    <span class="tag tag-phenotype">Agnathia</span>
+
+                    <span class="tag tag-phenotype">Aglossia</span>
+
+                    <span class="tag tag-phenotype">Synotia</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Sheep (Ovis aries)</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">OTX2 c.265C&gt;T (p.Arg89*) de novo heterozygous nonsense</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        OTX2
+
+
+    <a href="https://bioregistry.io/hgnc:8522" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:8522</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns OTX2 (hgnc:8522). hgnc:8522 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31969185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31969185" target="_blank">PMID:31969185</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A stillborn male lamb of the Istrian Pramenka sheep breed showed several congenital craniofacial anomalies including microstomia, agnathia, aglossia, and synotia."</div>
+
+
+                <div class="evidence-explanation">Documents a spontaneous ovine phenocopy of the human malformation bundle.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31969185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31969185" target="_blank">PMID:31969185</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The genetic findings were consistent with the diagnosis of the otocephaly and provide strong evidence that the identified loss-of-function variant is pathogenic due to OTX2 haploinsufficiency."</div>
+
+
+                <div class="evidence-explanation">Independently supports OTX2 haploinsufficiency as the operative mechanism across species.</div>
 
 
 
@@ -13473,5 +14889,73 @@ datasets: []
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

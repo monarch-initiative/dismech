@@ -217,26 +217,28 @@ Now you're ready to set up your cloud environment (this is a one-time step).
 
 1. **Configure the environment.** At [claude.ai/code](https://claude.ai/code), select
    the current environment by clicking the button with a cloud icon (which probably says "Default") to open the environment selector.
+   
    <img width="378" height="338" alt="Screenshot 2026-07-28 at 4 36 54 PM" src="https://github.com/user-attachments/assets/8b0eb12b-954a-4e50-a9c9-282d0db22a4d" />
 
    Now (this is a bit non-obvious) _hover_ your mouse over the checkmark next to "Default" to make the gear icon appear, and click the gear to open the environment settings dialog.
+   
    <img width="355" height="104" alt="Screenshot 2026-07-28 at 4 37 20 PM" src="https://github.com/user-attachments/assets/2d91832c-2742-4f4d-ac9a-ce548a2414d6" />
 
    The dialog has fields for the name, network access level, environment
    variables, and setup script.
    (The "Create your environment" step of [the get-started guide](https://code.claude.com/docs/en/web-quickstart) describes these fields.)
 
-2. **Name your environment.**
+3. **Name your environment.**
    Click on the Name box and choose a name for your environment (e.g., "dismech").
    
-3. **Set Network access to Full.**
+4. **Set Network access to Full.**
    Use the **Network
    access** selector and choose **Full**. The default setting, **Trusted**,
    only allows an allowlist of package registries and GitHub, which blocks the
    literature/deep-research and structured-source hosts that dismech curation accesses
    (PubMed, ClinicalTrials.gov, Edison, OpenScientist, Orphanet, ClinGen).
 
-4. **Add your deep-research API keys** in the Environment variables field. This field
+5. **Add your deep-research API keys** in the Environment variables field. This field
    uses `.env` format — one `KEY=value` per line, and **do not use quotes** (quotes are stored as part of the value):
    ```text
    EDISON_API_KEY=<YOUR_EDISON_KEY>
@@ -251,7 +253,7 @@ Now you're ready to set up your cloud environment (this is a one-time step).
    Note: the Environment variables field is plain text, not a secrets store — the values are
    visible to anyone who can open the environment's settings. On a personal account, that's only you.
    
-5. **Add an install of `just` to the setup script** in the "Setup script" box (just this one line):
+6. **Add an install of `just` to the setup script** in the "Setup script" box (just this one line):
    ```
    uv tool install rust-just
    ```

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% set pill_tips = namespace(n=0) %}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -248,6 +248,64 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .go-terms li {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible,
+        .go-terms li:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .go-terms li:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-parent {
             background: #e0e7ff;
             color: #3730a3;
@@ -440,12 +498,12 @@
     {% endif %}
     {% endmacro %}
 
-    {% macro render_term_link(term_id, label=None, include_gap_badge=True) %}
+    {% macro render_term_link(term_id, label=None, include_gap_badge=True, describedby="") %}
     {% if term_id %}
     {% set is_mondo = term_id.startswith('MONDO:') %}
     {% set has_local_page = (term_id | has_local_disorder_page) if is_mondo else False %}
     {% set dismech_href = (term_id | dismech_page_url) if is_mondo else None %}
-    <a href="{{ term_id | curie_to_url }}" target="_blank"{% if is_mondo and not has_local_page %} class="missing-ontology-link"{% endif %}>{{ label or term_id }}</a>
+    <a href="{{ term_id | curie_to_url }}" target="_blank"{% if is_mondo and not has_local_page %} class="missing-ontology-link"{% endif %}{% if describedby %} aria-describedby="{{ describedby }}"{% endif %}>{{ label or term_id }}</a>
     {% if dismech_href %}
     <a class="dismech-inline-link" href="{{ dismech_href }}">dismech</a>
     {% elif is_mondo and include_gap_badge %}
@@ -637,11 +695,20 @@
                     <div class="field"><span class="field-label">GO enrichment:</span>{{ signal.go_enrichment.description }}</div>
                     <ul class="go-terms">
                         {% for term in signal.go_enrichment.go_terms %}
+                        {# Gated like the shared-phenotype item below. Today
+                           GOEnrichmentTerm carries no label of its own, so an
+                           unbound one yields no tooltip anyway -- but that is
+                           correct by data shape, not by construction, and would
+                           stop being true the moment the class gains a label. #}
+                        {% set has_term = term.term and term.term.id %}
+                        {% set tooltip = term_tooltip(term, "signal.go_enrichment") if has_term else "" %}
+                        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
                         <li>
-                            {% if term.term %}
-                            {{ render_term_link(term.term.id, term.term.label or term.term.id) }}
+                            {% if has_term %}
+                            {{ render_term_link(term.term.id, term.term.label or term.term.id, describedby=tip_id) }}
                             {% endif %}
                             {% if term.fdr is not none %} (FDR {{ term.fdr }}){% endif %}
+                            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -674,8 +741,11 @@
                     <div class="tag-list">
                         {% for ct in patho.cell_types %}
                         {% if ct.term and ct.term.id %}
+                        {% set tooltip = term_tooltip(ct, "pathophysiology.cell_types") %}
+                        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
                         <span class="tag tag-parent">
-                            {{ render_term_link(ct.term.id, ct.term.label or ct.preferred_term or ct.term.id) }}
+                            {{ render_term_link(ct.term.id, ct.term.label or ct.preferred_term or ct.term.id, describedby=tip_id) }}
+                            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                         </span>
                         {% else %}
                         <span class="tag tag-parent">{{ ct.preferred_term }}</span>
@@ -690,8 +760,11 @@
                     <div class="tag-list">
                         {% for bp in patho.biological_processes %}
                         {% if bp.term and bp.term.id %}
+                        {% set tooltip = term_tooltip(bp, "pathophysiology.biological_processes") %}
+                        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
                         <span class="tag tag-classification">
-                            {{ render_term_link(bp.term.id, bp.term.label or bp.preferred_term or bp.term.id) }}
+                            {{ render_term_link(bp.term.id, bp.term.label or bp.preferred_term or bp.term.id, describedby=tip_id) }}
+                            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                         </span>
                         {% else %}
                         <span class="tag tag-classification">{{ bp.preferred_term }}</span>
@@ -706,8 +779,11 @@
                     <div class="tag-list">
                         {% for mf in patho.molecular_functions %}
                         {% if mf.term and mf.term.id %}
+                        {% set tooltip = term_tooltip(mf, "pathophysiology.molecular_functions") %}
+                        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
                         <span class="tag tag-classification">
-                            {{ render_term_link(mf.term.id, mf.term.label or mf.preferred_term or mf.term.id) }}
+                            {{ render_term_link(mf.term.id, mf.term.label or mf.preferred_term or mf.term.id, describedby=tip_id) }}
+                            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                         </span>
                         {% else %}
                         <span class="tag tag-classification">{{ mf.preferred_term }}</span>
@@ -722,8 +798,11 @@
                     <div class="tag-list">
                         {% for gp in patho.gene_products %}
                         {% if gp.term and gp.term.id %}
+                        {% set tooltip = term_tooltip(gp, "pathophysiology.gene_products") %}
+                        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
                         <span class="tag tag-mechanistic">
-                            {{ render_term_link(gp.term.id, gp.term.label or gp.preferred_term or gp.term.id) }}
+                            {{ render_term_link(gp.term.id, gp.term.label or gp.preferred_term or gp.term.id, describedby=tip_id) }}
+                            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                         </span>
                         {% else %}
                         <span class="tag tag-mechanistic">{{ gp.preferred_term }}</span>
@@ -781,12 +860,20 @@
             </div>
             <ul class="go-terms">
                 {% for pheno in comorbidity.phenotypes %}
+                {# Gated on the same condition as the link below: without a bound
+                   term the item falls back to `pheno.name`, and a tooltip built
+                   from `phenotype_term` would then describe a label the item is
+                   not showing. #}
+                {% set has_term = pheno.phenotype_term and pheno.phenotype_term.term and pheno.phenotype_term.term.id %}
+                {% set tooltip = term_tooltip(pheno.phenotype_term, "comorbidity.phenotypes") if has_term else "" %}
+                {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
                 <li>
-                    {% if pheno.phenotype_term and pheno.phenotype_term.term and pheno.phenotype_term.term.id %}
-                    {{ render_term_link(pheno.phenotype_term.term.id, pheno.phenotype_term.term.label or pheno.name or pheno.preferred_term) }}
+                    {% if has_term %}
+                    {{ render_term_link(pheno.phenotype_term.term.id, pheno.phenotype_term.term.label or pheno.name or pheno.preferred_term, describedby=tip_id) }}
                     {% else %}
                     {{ pheno.name or pheno.preferred_term }}
                     {% endif %}
+                    {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                 </li>
                 {% endfor %}
             </ul>
@@ -807,5 +894,73 @@
             {% endif %}
         </div>
     </div>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .go-terms li';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
