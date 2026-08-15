@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Multiple%20Sclerosis"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3748,7 +3916,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">17</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4382,17 +4550,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Oligodendrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000128">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000128</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4413,11 +4588,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4438,11 +4618,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4463,11 +4648,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4488,11 +4678,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4513,10 +4708,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000624">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4543,17 +4741,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Antigen processing and presentation of peptide antigen via MHC class II
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002495" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002495">GO:0002495</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002495" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0002495</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Antigen processing and presentation of peptide antigen via MHC class II (GO:0002495). GO:0002495 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4574,11 +4779,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042110">GO:0042110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042110</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T cell activation (GO:0042110). GO:0042110 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4599,11 +4809,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019221">GO:0019221</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0019221</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cytokine-mediated signaling pathway (GO:0019221). GO:0019221 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4624,11 +4839,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006956">GO:0006956</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Complement activation (GO:0006956). GO:0006956 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4649,10 +4869,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042552">GO:0042552</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0042552</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Myelination (GO:0042552). GO:0042552 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4675,17 +4898,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Central nervous system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001017">UBERON:0001017</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Central nervous system (UBERON:0001017). UBERON:0001017 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Meninges
@@ -4693,11 +4923,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002360">UBERON:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002360</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Meninges, annotated with meninx (UBERON:0002360). UBERON:0002360 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         White matter
@@ -4705,11 +4940,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002316">UBERON:0002316</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0002316</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in White matter (UBERON:0002316). UBERON:0002316 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Gray matter
@@ -4717,11 +4957,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002020" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002020">UBERON:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002020" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Gray matter (UBERON:0002020). UBERON:0002020 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Brain
@@ -4729,11 +4974,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Spinal cord
@@ -4741,13 +4991,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002240">UBERON:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0002240</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4866,6 +5120,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -4950,17 +5205,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T-helper 17 cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000899">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000899</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4981,10 +5243,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000545">CL:0000545</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000545</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T-helper 1 cell (CL:0000545). CL:0000545 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5011,16 +5276,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:4948</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5048,11 +5324,18 @@
         TYK2
 
 
-    <a href="https://bioregistry.io/hgnc:12440" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12440">hgnc:12440</a>
+    <a href="https://bioregistry.io/hgnc:12440" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:12440</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TYK2 (hgnc:12440). hgnc:12440 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5080,11 +5363,18 @@
         STAT3
 
 
-    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11364">hgnc:11364</a>
+    <a href="https://bioregistry.io/hgnc:11364" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:11364</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves STAT3 (hgnc:11364). hgnc:11364 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5112,11 +5402,18 @@
         IL7R
 
 
-    <a href="https://bioregistry.io/hgnc:6024" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6024">hgnc:6024</a>
+    <a href="https://bioregistry.io/hgnc:6024" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:6024</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL7R (hgnc:6024). hgnc:6024 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5144,11 +5441,18 @@
         IL2RA
 
 
-    <a href="https://bioregistry.io/hgnc:6008" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6008">hgnc:6008</a>
+    <a href="https://bioregistry.io/hgnc:6008" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:6008</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IL2RA (hgnc:6008). hgnc:6008 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5176,11 +5480,18 @@
         CD40
 
 
-    <a href="https://bioregistry.io/hgnc:11919" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11919">hgnc:11919</a>
+    <a href="https://bioregistry.io/hgnc:11919" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:11919</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CD40 (hgnc:11919). hgnc:11919 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5208,10 +5519,13 @@
         CD28
 
 
-    <a href="https://bioregistry.io/hgnc:1653" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1653">hgnc:1653</a>
+    <a href="https://bioregistry.io/hgnc:1653" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:1653</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CD28 (hgnc:1653). hgnc:1653 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5239,17 +5553,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T-helper 17 type immune response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072538">GO:0072538</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072538" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0072538</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves T-helper 17 type immune response (GO:0072538). GO:0072538 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5270,10 +5591,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5290,6 +5614,7 @@
 
 
                 </div>
+
 
 
 
@@ -5396,17 +5721,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5427,10 +5759,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5457,15 +5792,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TNFRSF1A
 
 
-    <a href="https://bioregistry.io/hgnc:11916" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11916">hgnc:11916</a>
+    <a href="https://bioregistry.io/hgnc:11916" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:11916</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5493,16 +5835,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5519,6 +5866,7 @@
 
 
                 </div>
+
 
 
 
@@ -5624,17 +5972,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Microglial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5655,10 +6010,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5684,6 +6042,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         Inflammatory response
@@ -5691,10 +6051,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5717,17 +6080,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Meninges
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002360">UBERON:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-36">UBERON:0002360</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Meninges, annotated with meninx (UBERON:0002360). UBERON:0002360 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Gray matter
@@ -5735,13 +6105,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002020" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002020">UBERON:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002020" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-37">UBERON:0002020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Gray matter (UBERON:0002020). UBERON:0002020 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5846,7 +6220,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-CD20 B-cell Depletion Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibodies (ocrelizumab, ofatumumab) selectively deplete CD20+ B lymphocytes, providing direct interventional validation of the B-cell arm of MS pathogenesis. They markedly reduce relapse rate and MRI activity in relapsing MS, and ocrelizumab is the first therapy shown to modestly slow confirmed disability progression in primary progressive MS.\", \"meta\": {\"evidence_count\": 6, \"therapeutic_agents\": [\"ocrelizumab\", \"ofatumumab\"]}}, {\"id\": \"Axonal Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Along with demyelination, damage to the axons themselves contributes to the permanent neurological deficits.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"CD28\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"CD40\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Compartmentalized CNS Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation behind a relatively closed blood-brain barrier, including chronic active lesions, meningeal inflammation, and innate immune activation, contributes to smoldering tissue injury and disability progression not fully captured by conventional relapse-focused MRI outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Microglial cell\", \"B cell\"], \"biological_processes\": [\"Inflammatory response\"], \"locations\": [\"Meninges\", \"Gray matter\"]}}, {\"id\": \"Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Used to reduce inflammation and speed recovery during acute exacerbations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system attacks and destroys myelin, the protective sheath around nerve fibers, disrupting nerve signal transmission.\", \"meta\": {\"evidence_count\": 9, \"cell_types\": [\"Oligodendrocyte\", \"T cell\", \"B cell\", \"Microglial cell\", \"Astrocyte\", \"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"Antigen processing and presentation of peptide antigen via MHC class II\", \"T cell activation\", \"Cytokine-mediated signaling pathway\", \"Complement activation\", \"Myelination\"], \"locations\": [\"Central nervous system\", \"Meninges\", \"White matter\", \"Gray matter\", \"Brain\", \"Spinal cord\"]}}, {\"id\": \"Disease-Modifying Therapies (DMTs)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Medications that can slow the progression of the disease and reduce the frequency and severity of relapses.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"HLA-DRB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"association\": \"Risk Factor\"}}, {\"id\": \"IL2RA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"IL7R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"Inflammatory Lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune cells crossing the blood-brain barrier create focal areas of inflammation in the central nervous system.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"T cell\", \"Macrophage\"], \"biological_processes\": [\"Inflammatory response\"], \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\", \"id\": \"hgnc:11916\"}]}}, {\"id\": \"Neurological Disability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"TNFRSF1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"TYK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Th1/Th17-Mediated Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MS immunopathology is mediated by myelin-reactive CD4+ T cells of Th1 and Th17 lineage. Th17 cells produce IL-17, IL-22, and other proinflammatory cytokines that disrupt blood-brain barrier tight junction proteins and recruit neutrophils into the CNS. The IL-23/IL-17 axis amplifies neuroinflammation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T-helper 17 cell\", \"T-helper 1 cell\"], \"biological_processes\": [\"T-helper 17 type immune response\", \"Inflammatory response\"], \"genes\": [\"HLA-DRB1\", \"TYK2\", \"STAT3\", \"IL7R\", \"IL2RA\", \"CD40\", \"CD28\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}, {\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"IL7R\", \"id\": \"hgnc:6024\"}, {\"label\": \"IL2RA\", \"id\": \"hgnc:6008\"}, {\"label\": \"CD40\", \"id\": \"hgnc:11919\"}, {\"label\": \"CD28\", \"id\": \"hgnc:1653\"}]}}], \"edges\": [{\"source\": \"Demyelination\", \"target\": \"Neurological Disability\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Autoimmune demyelination and neuronal loss lead to progressive neurological disability.\"}, {\"source\": \"Th1/Th17-Mediated Neuroinflammation\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoreactive Th17 cells migrate through the BBB and drive focal demyelinating lesion formation.\"}, {\"source\": \"Compartmentalized CNS Inflammation\", \"target\": \"Axonal Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent compartmentalized inflammation at chronic active lesion rims sustains demyelination and axonal degeneration that contribute to PIRA.\", \"hypothesis_groups\": [\"chronic_active_lesion_smouldering_inflammation_pira\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic active lesion demyelination\"]}, {\"source\": \"Disease-Modifying Therapies (DMTs)\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Disease-Modifying Therapies (DMTs)\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-CD20 B-cell Depletion Therapy\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroids\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HLA-DRB1\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL7R\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL2RA\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TYK2\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CD40\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFRSF1A\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CD28\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Neurological Disability\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anti-CD20 B-cell Depletion Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibodies (ocrelizumab, ofatumumab) selectively deplete CD20+ B lymphocytes, providing direct interventional validation of the B-cell arm of MS pathogenesis. They markedly reduce relapse rate and MRI activity in relapsing MS, and ocrelizumab is the first therapy shown to modestly slow confirmed disability progression in primary progressive MS.\", \"meta\": {\"evidence_count\": 6, \"therapeutic_agents\": [\"ocrelizumab\", \"ofatumumab\"]}}, {\"id\": \"Axonal Damage\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Along with demyelination, damage to the axons themselves contributes to the permanent neurological deficits.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"CD28\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"CD40\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Compartmentalized CNS Inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation behind a relatively closed blood-brain barrier, including chronic active lesions, meningeal inflammation, and innate immune activation, contributes to smoldering tissue injury and disability progression not fully captured by conventional relapse-focused MRI outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Microglial cell\", \"B cell\"], \"biological_processes\": [\"Inflammatory response\"], \"locations\": [\"Meninges\", \"Gray matter\"]}}, {\"id\": \"Corticosteroids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Used to reduce inflammation and speed recovery during acute exacerbations.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Demyelination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune system attacks and destroys myelin, the protective sheath around nerve fibers, disrupting nerve signal transmission.\", \"meta\": {\"evidence_count\": 9, \"cell_types\": [\"Oligodendrocyte\", \"T cell\", \"B cell\", \"Microglial cell\", \"Astrocyte\", \"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"Antigen processing and presentation of peptide antigen via MHC class II\", \"T cell activation\", \"Cytokine-mediated signaling pathway\", \"Complement activation\", \"Myelination\"], \"locations\": [\"Central nervous system\", \"Meninges\", \"White matter\", \"Gray matter\", \"Brain\", \"Spinal cord\"]}}, {\"id\": \"Disease-Modifying Therapies (DMTs)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Medications that can slow the progression of the disease and reduce the frequency and severity of relapses.\", \"meta\": {\"evidence_count\": 6}}, {\"id\": \"Epstein-Barr Virus Infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6}}, {\"id\": \"HLA-DRB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"association\": \"Risk Factor\"}}, {\"id\": \"IL2RA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"IL7R\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"association\": \"Risk Factor\"}}, {\"id\": \"Inflammatory Lesions\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Immune cells crossing the blood-brain barrier create focal areas of inflammation in the central nervous system.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"T cell\", \"Macrophage\"], \"biological_processes\": [\"Inflammatory response\"], \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\", \"id\": \"hgnc:11916\"}]}}, {\"id\": \"Neurological Disability\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"STAT3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"GWAS\"}}, {\"id\": \"TNFRSF1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"TYK2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"association\": \"Risk Factor\"}}, {\"id\": \"Th1/Th17-Mediated Neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MS immunopathology is mediated by myelin-reactive CD4+ T cells of Th1 and Th17 lineage. Th17 cells produce IL-17, IL-22, and other proinflammatory cytokines that disrupt blood-brain barrier tight junction proteins and recruit neutrophils into the CNS. The IL-23/IL-17 axis amplifies neuroinflammation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T-helper 17 cell\", \"T-helper 1 cell\"], \"biological_processes\": [\"T-helper 17 type immune response\", \"Inflammatory response\"], \"genes\": [\"HLA-DRB1\", \"TYK2\", \"STAT3\", \"IL7R\", \"IL2RA\", \"CD40\", \"CD28\"], \"gene_terms\": [{\"label\": \"HLA-DRB1\", \"id\": \"hgnc:4948\"}, {\"label\": \"TYK2\", \"id\": \"hgnc:12440\"}, {\"label\": \"STAT3\", \"id\": \"hgnc:11364\"}, {\"label\": \"IL7R\", \"id\": \"hgnc:6024\"}, {\"label\": \"IL2RA\", \"id\": \"hgnc:6008\"}, {\"label\": \"CD40\", \"id\": \"hgnc:11919\"}, {\"label\": \"CD28\", \"id\": \"hgnc:1653\"}]}}, {\"id\": \"Vitamin D Deficiency\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Demyelination\", \"target\": \"Neurological Disability\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"Autoimmune demyelination and neuronal loss lead to progressive neurological disability.\"}, {\"source\": \"Th1/Th17-Mediated Neuroinflammation\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoreactive Th17 cells migrate through the BBB and drive focal demyelinating lesion formation.\"}, {\"source\": \"Compartmentalized CNS Inflammation\", \"target\": \"Axonal Damage\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent compartmentalized inflammation at chronic active lesion rims sustains demyelination and axonal degeneration that contribute to PIRA.\", \"hypothesis_groups\": [\"chronic_active_lesion_smouldering_inflammation_pira\"], \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic active lesion demyelination\"]}, {\"source\": \"Vitamin D Deficiency\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the Epstein-Barr link into this same node. The second item is the more interesting of the two and the reason this link is drawn at all: a low-frequency coding variant that raises the risk of vitamin D insufficiency also raises the odds of this disease, which is a genetic-instrument argument rather than another observational association. Both items stop at disease risk.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Epstein-Barr Virus Infection\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded above the vitamin D link into this same node, on evidence rather than on preference: this exposure has a quantified hazard, is described by its source as the strongest known risk factor for the disease, and is argued elsewhere to be necessary though not sufficient. The intermediates are nonetheless unknown, because no cited sentence follows the virus to myelin-reactive T cells; the route from infection to this node is exactly what the field is still arguing about.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disease-Modifying Therapies (DMTs)\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Disease-Modifying Therapies (DMTs)\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-CD20 B-cell Depletion Therapy\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroids\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HLA-DRB1\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL7R\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IL2RA\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TYK2\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CD40\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFRSF1A\", \"target\": \"Inflammatory Lesions\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"STAT3\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CD28\", \"target\": \"Th1/Th17-Mediated Neuroinflammation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Neurological Disability\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5899,14 +6273,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5970,14 +6351,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vertigo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002321">HP:0002321</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002321</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vertigo (HP:0002321). HP:0002321 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6060,14 +6448,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Optic neuritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100653">HP:0100653</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0100653</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic neuritis (HP:0100653). HP:0100653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6091,14 +6486,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000639">HP:0000639</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000639</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6152,14 +6554,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diplopia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000651">HP:0000651</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000651</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6222,14 +6631,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Neurogenic bladder
+
+                        <span class="phenotype-term-label">Neurogenic bladder</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000011" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000011">HP:0000011</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000011" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000011</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6332,14 +6750,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Muscle weakness
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001324">HP:0001324</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001324</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6431,14 +6856,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6541,14 +6973,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Gait disturbance
+
+                        <span class="phenotype-term-label">Gait disturbance</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001288">HP:0001288</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001288</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6640,14 +7081,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cognitive impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100543">HP:0100543</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0100543</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive Impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6741,14 +7189,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6772,14 +7227,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysesthesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012534" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012534">HP:0012534</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012534" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0012534</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysesthesia (HP:0012534). HP:0012534 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6803,14 +7265,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depression
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000716">HP:0000716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6865,14 +7334,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intention tremor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002080">HP:0002080</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002080" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002080</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intention tremor (HP:0002080). HP:0002080 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6947,14 +7423,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Paresthesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003401">HP:0003401</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0003401</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7026,14 +7509,21 @@
                         Memory impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Memory impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002354">HP:0002354</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002354</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7096,14 +7586,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7175,14 +7672,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012531">HP:0012531</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0012531</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7357,14 +7861,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoesthesia
+
+                        <span class="phenotype-term-label">Hypoesthesia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033748" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033748">HP:0033748</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0033748</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoesthesia (HP:0033748). HP:0033748 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7460,14 +7973,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lhermitte&#39;s sign
+
+                        <span class="phenotype-term-label">Lhermitte&#39;s sign</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032504" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032504">HP:0032504</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0032504</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lhermitte&#39;s sign (HP:0032504). HP:0032504 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7542,14 +8064,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Male sexual dysfunction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040307" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040307">HP:0040307</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040307" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0040307</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Male sexual dysfunction (HP:0040307). HP:0040307 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7602,14 +8131,21 @@
                         Internuclear ophthalmoplegia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Internuclear ophthalmoplegia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030773" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030773">HP:0030773</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0030773</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Internuclear ophthalmoplegia (HP:0030773). HP:0030773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8118,7 +8654,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8266,7 +8807,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8296,17 +8842,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ocrelizumab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66250" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C66250">NCIT:C66250</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66250" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C66250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ocrelizumab (NCIT:C66250). NCIT:C66250 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ofatumumab
@@ -8314,10 +8867,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66952" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C66952">NCIT:C66952</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66952" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-63">NCIT:C66952</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ofatumumab (NCIT:C66952). NCIT:C66952 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8436,7 +8992,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -8554,7 +9115,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -8600,7 +9166,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">systemic corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">systemic corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Systemic Corticosteroid Therapy</span>
 
 
@@ -8705,16 +9276,21 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Vitamin D exposure (deficiency)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_9000133" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:9000133">ECTO:9000133</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_9000133" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-67">ECTO:9000133</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Vitamin D exposure (deficiency), annotated with exposure to vitamin D (ECTO:9000133). ECTO:9000133 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
@@ -8797,6 +9373,80 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Th1/Th17-Mediated Neuroinflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded below the Epstein-Barr link into this same node. The second item is the more interesting of the two and the reason this link is drawn at all: a low-frequency coding variant that raises the risk of vitamin D insufficiency also raises the odds of this disease, which is a genetic-instrument argument rather than another observational association. Both items stop at disease risk.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28757204" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28757204" target="_blank">PMID:28757204</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"By analyzing 8,711 individuals, we showed that heterozygote carriers of this low-frequency variant have an increased risk of vitamin D insufficiency... Individuals carrying one copy of this variant also had increased odds of multiple sclerosis..."</div>
+
+
+                <div class="evidence-explanation">Carriers of a variant that increases the risk of vitamin D insufficiency also have increased odds of this disease. A genetic instrument, which is harder to confound than an observational association, but still measured against disease risk.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20494325" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20494325" target="_blank">PMID:20494325</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall, the results of these studies support a protective effect of vitamin D, but there are uncertainties and many unanswered questions, including how vitamin D exerts a protective effect, how genetic variations modify the effect, and whether vitamin D can influence the course of MS progression."</div>
+
+
+                <div class="evidence-explanation">Review supporting a protective effect of vitamin D while listing the open questions, including how the effect is exerted. Its own uncertainty is why this link&#39;s intermediates are unknown.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-epstein-barr-virus-infection" data-dismech-node="Epstein-Barr Virus Infection" data-dismech-type="environmental">
@@ -8804,16 +9454,21 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         Epstein-Barr virus exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:3000001">ECTO:3000001</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_3000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-68">ECTO:3000001</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is Epstein-Barr virus exposure, annotated with exposure to virus (ECTO:3000001). ECTO:3000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
@@ -8897,6 +9552,80 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Th1/Th17-Mediated Neuroinflammation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded above the vitamin D link into this same node, on evidence rather than on preference: this exposure has a quantified hazard, is described by its source as the strongest known risk factor for the disease, and is argued elsewhere to be necessary though not sufficient. The intermediates are nonetheless unknown, because no cited sentence follows the virus to myelin-reactive T cells; the route from infection to this node is exactly what the field is still arguing about.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24289836" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24289836" target="_blank">PMID:24289836</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The strongest known risk factor for MS is infection with Epstein-Barr virus (EBV). Compared with uninfected individuals, the hazard of developing MS is approximately 15-fold higher among individuals infected with EBV in childhood and about 30-fold higher among those infected with EBV in..."</div>
+
+
+                <div class="evidence-explanation">Calls this the strongest known risk factor and quantifies it, with roughly fifteen-fold higher hazard after childhood infection and thirty-fold after adolescent or later infection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.14288/1.0444003" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.14288/1.0444003" target="_blank">DOI:10.14288/1.0444003</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"MS does not develop in the absence of EBV exposure, and EBV is necessary, but insufficient on its own, to cause disease."</div>
+
+
+                <div class="evidence-explanation">States that the disease does not develop in the absence of this exposure and that the virus is necessary but insufficient alone. A necessity claim, from a model-organism thesis, so it is carried at partial and not alone.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -9041,9 +9770,23 @@
 
                 <div class="item-meta" style="margin-top: 6px;">
 
+
+
+
+
                     <span class="tag tag-cell">
                         demyelinated white-matter lesion tissue
 
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-69">UBERON:0002316</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Uberon multi-species anatomy ontology (UBERON)
+Relation: this dataset samples this sample type
+This dataset samples demyelinated white-matter lesion tissue, annotated with white matter (UBERON:0002316). UBERON:0002316 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -9441,6 +10184,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10780,6 +11526,37 @@ genetic:
   notes: Protein tyrosine phosphatase modulating T cell receptor signaling threshold
 environmental:
 - name: Vitamin D Deficiency
+  influences_mechanisms:
+  - target: Th1/Th17-Mediated Neuroinflammation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded below the Epstein-Barr link into this same node. The second item
+      is the more interesting of the two and the reason this link is drawn at
+      all: a low-frequency coding variant that raises the risk of vitamin D
+      insufficiency also raises the odds of this disease, which is a
+      genetic-instrument argument rather than another observational
+      association. Both items stop at disease risk.
+    evidence:
+    - reference: PMID:28757204
+      reference_title: &#34;Low-Frequency Synonymous Coding Variation in CYP2R1 Has Large Effects on Vitamin D Levels and Risk of Multiple Sclerosis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;By analyzing 8,711 individuals, we showed that heterozygote carriers of this low-frequency variant have an increased risk of vitamin D insufficiency... Individuals carrying one copy of this variant also had increased odds of multiple sclerosis...&#34;
+      explanation: &gt;-
+        Carriers of a variant that increases the risk of vitamin D
+        insufficiency also have increased odds of this disease. A genetic
+        instrument, which is harder to confound than an observational
+        association, but still measured against disease risk.
+    - reference: PMID:20494325
+      reference_title: &#34;Vitamin D and multiple sclerosis.&#34;
+      supports: PARTIAL
+      evidence_source: OTHER
+      snippet: &#34;Overall, the results of these studies support a protective effect of vitamin D, but there are uncertainties and many unanswered questions, including how vitamin D exerts a protective effect, how genetic variations modify the effect, and whether vitamin D can influence the course of MS progression.&#34;
+      explanation: &gt;-
+        Review supporting a protective effect of vitamin D while listing the
+        open questions, including how the effect is exerted. Its own
+        uncertainty is why this link&#39;s intermediates are unknown.
   effect: Increased risk
   evidence:
   - reference: PMID:20494325
@@ -10803,6 +11580,38 @@ environmental:
       id: ECTO:9000133
       label: exposure to vitamin D
 - name: Epstein-Barr Virus Infection
+  influences_mechanisms:
+  - target: Th1/Th17-Mediated Neuroinflammation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded above the vitamin D link into this same node, on evidence rather
+      than on preference: this exposure has a quantified hazard, is described
+      by its source as the strongest known risk factor for the disease, and is
+      argued elsewhere to be necessary though not sufficient. The
+      intermediates are nonetheless unknown, because no cited sentence follows
+      the virus to myelin-reactive T cells; the route from infection to this
+      node is exactly what the field is still arguing about.
+    evidence:
+    - reference: PMID:24289836
+      reference_title: &#34;Environmental factors in multiple sclerosis.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;The strongest known risk factor for MS is infection with Epstein-Barr virus (EBV). Compared with uninfected individuals, the hazard of developing MS is approximately 15-fold higher among individuals infected with EBV in childhood and about 30-fold higher among those infected with EBV in adolescence or later in life.&#34;
+      explanation: &gt;-
+        Calls this the strongest known risk factor and quantifies it, with
+        roughly fifteen-fold higher hazard after childhood infection and
+        thirty-fold after adolescent or later infection.
+    - reference: DOI:10.14288/1.0444003
+      reference_title: &#34;Vaccination against gammaherpesvirus attenuates viral enhanced disease in a murine model of multiple sclerosis&#34;
+      supports: PARTIAL
+      evidence_source: MODEL_ORGANISM
+      snippet: &#34;MS does not develop in the absence of EBV exposure, and EBV is necessary, but insufficient on its own, to cause disease.&#34;
+      explanation: &gt;-
+        States that the disease does not develop in the absence of this
+        exposure and that the virus is necessary but insufficient alone. A
+        necessity claim, from a model-organism thesis, so it is carried at
+        partial and not alone.
   effect: Increased risk
   evidence:
   - reference: PMID:35145009
@@ -11626,7 +12435,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Multiple Sclerosis", "mondoId": "MONDO:0005301", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Sclerosis", "yamlRevision": "7fe78e8050ad"};
+        const OS_CONFIG = {"diseaseName": "Multiple Sclerosis", "mondoId": "MONDO:0005301", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Multiple_Sclerosis", "yamlRevision": "5bbc07dd913f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12045,5 +12854,73 @@ datasets:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

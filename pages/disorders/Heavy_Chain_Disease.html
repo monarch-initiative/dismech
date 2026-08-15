@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3564,7 +3730,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 45</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 47</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Heavy%20Chain%20Disease"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3748,7 +3916,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">45</div>
+                <div class="stat-value">47</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4798,16 +4966,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4827,16 +5000,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         immunoglobulin production in mucosal tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002426" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002426">GO:0002426</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002426" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0002426</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased immunoglobulin production in mucosal tissue (GO:0002426). GO:0002426 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4863,19 +5041,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lamina propria of small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001238" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001238">UBERON:0001238</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001238" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001238</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lamina propria of small intestine (UBERON:0001238). UBERON:0001238 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4992,16 +5176,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Inflammatory Response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Inflammatory Response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5021,16 +5210,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of B cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030890" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030890">GO:0030890</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030890" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030890</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of B cell proliferation (GO:0030890). GO:0030890 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5051,6 +5245,7 @@
 
 
                 </div>
+
 
 
 
@@ -5149,17 +5344,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000786">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5180,10 +5382,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000236">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000236</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neoplastic B cell, annotated with B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5204,6 +5409,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -5215,10 +5424,13 @@
         MYD88
 
 
-    <a href="https://bioregistry.io/hgnc:7562" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7562">hgnc:7562</a>
+    <a href="https://bioregistry.io/hgnc:7562" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:7562</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYD88 (hgnc:7562). hgnc:7562 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5246,16 +5458,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         positive regulation of B cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030890" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030890">GO:0030890</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030890" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030890</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased positive regulation of B cell proliferation (GO:0030890). GO:0030890 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5264,6 +5481,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5281,10 +5500,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002377">GO:0002377</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0002377</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased immunoglobulin production (GO:0002377). GO:0002377 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5305,6 +5527,7 @@
 
 
                 </div>
+
 
 
 
@@ -5410,16 +5633,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         IGHA1
 
 
-    <a href="https://bioregistry.io/hgnc:5478" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5478">hgnc:5478</a>
+    <a href="https://bioregistry.io/hgnc:5478" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:5478</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IGHA1 (hgnc:5478). hgnc:5478 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5447,11 +5681,18 @@
         IGHG1
 
 
-    <a href="https://bioregistry.io/hgnc:5525" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5525">hgnc:5525</a>
+    <a href="https://bioregistry.io/hgnc:5525" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:5525</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IGHG1 (hgnc:5525). hgnc:5525 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5479,10 +5720,13 @@
         IGHM
 
 
-    <a href="https://bioregistry.io/hgnc:5541" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5541">hgnc:5541</a>
+    <a href="https://bioregistry.io/hgnc:5541" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:5541</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves IGHM (hgnc:5541). hgnc:5541 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5510,16 +5754,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         somatic hypermutation of immunoglobulin genes
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016446" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016446">GO:0016446</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016446" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0016446</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal somatic hypermutation of immunoglobulin genes (GO:0016446). GO:0016446 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5540,6 +5789,7 @@
 
 
                 </div>
+
 
 
 
@@ -5650,19 +5900,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         endoplasmic reticulum lumen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005788" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005788">GO:0005788</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005788" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0005788</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum lumen (GO:0005788). GO:0005788 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5799,16 +6055,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein folding in endoplasmic reticulum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034975" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034975">GO:0034975</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034975" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0034975</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal protein folding in endoplasmic reticulum (GO:0034975). GO:0034975 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5828,16 +6089,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         ERAD pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0036503" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0036503">GO:0036503</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0036503" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0036503</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased ERAD pathway (GO:0036503). GO:0036503 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5861,6 +6127,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         BiP chaperone binding by the unpaired heavy chain
@@ -5868,10 +6136,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0051087" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0051087">GO:0051087</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0051087" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0051087</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased BiP chaperone binding by the unpaired heavy chain, annotated with protein-folding chaperone binding (GO:0051087). GO:0051087 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5896,19 +6167,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         endoplasmic reticulum lumen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005788" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005788">GO:0005788</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005788" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0005788</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves endoplasmic reticulum lumen (GO:0005788). GO:0005788 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6021,16 +6298,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000786">CL:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000786</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves plasma cell (CL:0000786). CL:0000786 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6057,16 +6339,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         protein secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009306">GO:0009306</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0009306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased protein secretion (GO:0009306). GO:0009306 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6087,6 +6374,7 @@
 
 
                 </div>
+
 
 
 
@@ -6219,16 +6507,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         B cell receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050853" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050853">GO:0050853</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050853" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0050853</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased B cell receptor signaling pathway (GO:0050853). GO:0050853 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6249,6 +6542,7 @@
 
 
                 </div>
+
 
 
 
@@ -6350,17 +6644,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         IgA plasma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000987" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000987">CL:0000987</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000987" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000987</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves IgA plasma cell (CL:0000987). CL:0000987 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6381,10 +6682,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000845" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000845">CL:0000845</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000845" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000845</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves marginal zone-like B cell, annotated with marginal zone B cell of spleen (CL:0000845). CL:0000845 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6414,17 +6718,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         lamina propria of small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001238" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001238">UBERON:0001238</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001238" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0001238</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in lamina propria of small intestine (UBERON:0001238). UBERON:0001238 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         duodenum
@@ -6432,11 +6743,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002114">UBERON:0002114</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0002114</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in duodenum (UBERON:0002114). UBERON:0002114 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         jejunum
@@ -6444,13 +6760,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002115" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002115">UBERON:0002115</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002115" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0002115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in jejunum (UBERON:0002115). UBERON:0002115 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6699,6 +7019,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6777,6 +7098,7 @@
                 <div class="item-name">Transformation to Aggressive Lymphoma</div>
 
                 <div class="item-desc">IPSID is generally regarded as a pre-lymphomatous condition. Untreated or antibiotic-refractory alpha-HCD progresses from an antigen-dependent mucosal lesion to lymphoplasmacytic and immunoblastic lymphoma invading the bowel wall and mesenteric nodes, with distant spread; the same transformation accounts for constitutional symptoms and for death from obstruction, perforation, cachexia, and infection. Gamma-HCD shows an analogous spectrum, with disseminated lymphoma and constitutional symptoms in roughly two-thirds of patients. Recent reports of longstanding non-progressive IPSID show the transformation is not obligate.</div>
+
 
 
 
@@ -7111,7 +7433,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain and discomfort accompany the mucosal and, later, transmural bowel involvement of alpha-HCD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Alkylator and Proteasome-Inhibitor Therapy for Plasma-Cell-Predominant Gamma-HCD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For gamma-HCD in which the underlying neoplasm is plasma-cell predominant rather than a disseminated aggressive lymphoma, the treatments of choice are chlorambucil, melphalan plus prednisone, or bortezomib plus prednisone. A single-institution series has also reported responses to modern myeloma- and lymphoma-derived regimens including CRd (cyclophosphamide, lenalidomide, dexamethasone), CyBorD, R-CVP, bendamustine-rituximab, and V-EPOCH.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"chlorambucil\", \"melphalan\", \"prednisone\", \"bortezomib\"]}}, {\"id\": \"Anasarca\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anasarca accompanies ascites in advanced gastrointestinal alpha-HCD, reflecting the profound hypoalbuminaemia of the malabsorption syndrome. No frequency band is asserted for the same reason as ascites.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0012050\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-moderate hypochromic anaemia is a common laboratory abnormality in alpha-HCD, reflecting malabsorptive iron and vitamin deficiency; hypoproliferative anaemia is the commonest laboratory abnormality in mu-HCD and reflects marrow infiltration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed self-reinforcing arm: the membrane-anchored form of the truncated heavy chain, incorporated into the B-cell receptor, has been suggested to aggregate and signal without antigen, conferring a ligand-independent growth and survival advantage on the clone. This would make the CH1 lesion not just a secretory-escape event but an oncogenic driver in its own right, and would explain why disease can progress after the initiating antigen (for example C. jejuni) has been eradicated. The proposal is not established in human HCD tissue and is recorded here as an emerging hypothesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"B cell receptor signaling pathway\"], \"role\": \"amplifier\"}}, {\"id\": \"Antimicrobial Therapy for Early Alpha-HCD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment of early-stage alpha-HCD/IPSID, and the therapeutic expression of its antigen-driven pathogenesis. Any documented bacterial or parasitic gastrointestinal infection is eradicated; empirical treatment with metronidazole, ampicillin, or tetracycline is commonly given even without a demonstrated organism. A six-month course is recommended, since shorter courses relapse. Clinical, laboratory, and histological remission is achieved in 33-71% of early-stage patients, though recurrence is frequent. These are historical regimen choices and require contemporary susceptibility, safety, and antimicrobial-stewardship review.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metronidazole\", \"ampicillin\", \"tetracycline\"]}}, {\"id\": \"Ascites\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ascites is a feature of advanced gastrointestinal alpha-HCD, detectable on physical examination together with anasarca. No frequency band is asserted: the source describes it as a finding of advanced disease without quantifying it.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0001541\"}}, {\"id\": \"Autoimmune Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coombs-positive autoimmune haemolytic anaemia is a distinctive gamma-HCD cytopenia, occurring alongside normochromic normocytic anaemia and thrombocytopenia as laboratory evidence of the autoimmune diathesis and marrow infiltration. No frequency band is asserted because the source lists these cytopenias without quantifying them.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0001890\"}}, {\"id\": \"Autologous Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose therapy with autologous haematopoietic stem cell transplantation should be considered for refractory or relapsing disease. Evidence is limited to case-level experience; there is no trial-level support in any HCD subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bence Jones Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bence Jones proteinuria is frequent in mu-HCD despite the heavy-chain assembly defect, because the clone continues to produce monoclonal (usually kappa) light chains that cannot assemble with the truncated mu chain and are therefore excreted free. It only rarely causes renal complications, but cast nephropathy and amyloidosis are reported. It has never been described in alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030156\"}}, {\"id\": \"Chronic Autoimmune B-Cell Stimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In gamma-HCD, a coexisting autoimmune disease - rheumatoid arthritis most often, then Sjogren syndrome, systemic lupus erythematosus, vasculitis, myasthenia gravis, and autoimmune cytopenias - is present in about a quarter of patients and its manifestations typically precede the HCD diagnosis by years. Chronic autoimmune B-cell stimulation is therefore the plausible gamma-HCD counterpart of the enteric-infection drive in alpha-HCD, but the temporal ordering is not proof of causation and the direction of the relationship remains formally unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\", \"positive regulation of B cell proliferation\"], \"subtypes\": [\"Gamma-HCD\"], \"role\": \"trigger\"}}, {\"id\": \"Chronic Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic diarrhoea is one of the cardinal presenting features of alpha-HCD/IPSID, reflecting extensive lymphoplasmacytic infiltration of the proximal small-bowel mucosa with villous atrophy.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002028\"}}, {\"id\": \"Chronic Enteric Antigenic Stimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In alpha-HCD/IPSID, persistent bacterial (most convincingly Campylobacter jejuni, sometimes Helicobacter pylori) or parasitic colonisation of the proximal small bowel provides sustained antigenic drive to mucosa-associated lymphoid tissue. The epidemiological concentration of the disease in low-socioeconomic Mediterranean, North African, and Middle Eastern populations, and the responsiveness of early disease to antimicrobials, both support an antigen-driven initiating step. This is the same chronic-infection-driven lymphomagenesis logic as Helicobacter pylori and gastric MALT lymphoma. Neither organism has been shown to be necessary or sufficient in every case.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Inflammatory Response\", \"immunoglobulin production in mucosal tissue\"], \"subtypes\": [\"Alpha-HCD\"], \"role\": \"trigger\", \"locations\": [\"lamina propria of small intestine\"]}}, {\"id\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mature B-cell/plasmacytic clone expands in the small-intestinal lamina propria (alpha-HCD), in marrow, spleen, lymph nodes, and extranodal sites (gamma-HCD), or in the bone marrow as a CLL/SLL-like or lymphoplasmacytic neoplasm (mu-HCD). The expanding clone is the substrate within which the heavy-chain gene lesion is acquired and selected.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"plasma cell\", \"neoplastic B cell\"], \"biological_processes\": [\"positive regulation of B cell proliferation\", \"immunoglobulin production\"], \"genes\": [\"MYD88\"], \"gene_terms\": [{\"label\": \"MYD88\", \"id\": \"hgnc:7562\"}], \"role\": \"driver\"}}, {\"id\": \"Doxorubicin-Containing Combination Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For alpha-HCD that is refractory to antimicrobials, bulky, or transformed, and for aggressive gamma-HCD. CHOP (cyclophosphamide, doxorubicin, vincristine, prednisone) is the standard backbone, with rituximab added in CD20-positive disease; CHVP and ABV are historical alternatives. Total abdominal radiation is an alternative for refractory alpha-HCD. There is no randomised trial evidence in HCD; regimens are adapted from infection-associated MALT lymphoma and other B-cell neoplasms.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cyclophosphamide\", \"doxorubicin\", \"vincristine\", \"prednisone\"]}}, {\"id\": \"Escape from BiP-Dependent ER Quality Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normally, an unpaired heavy chain is trapped in the endoplasmic reticulum: the unfolded CH1 domain permanently exposes chaperone-binding sites, the Hsp70 chaperone BiP/GRP78 binds it stably (its ATPase cycle stalled until light chain arrives), and the retained chain is routed to proteasomal degradation, which is why free heavy chains are never found in normal serum or urine. A CH1-deleted chain presents no such binding surface. It binds neither light chain nor BiP, bypasses ER retention and degradation, and enters the secretory pathway. This is the mechanistic core of every heavy chain disease.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"ERAD pathway\"], \"molecular_functions\": [\"BiP chaperone binding by the unpaired heavy chain\"], \"role\": \"mediator\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever, malaise, and weight loss constitute the constitutional syndrome that accompanies disseminated lymphoma in 57-66% of gamma-HCD patients.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation follows chronic malabsorption in the adolescents and young adults in whom alpha-HCD typically presents; amenorrhoea and alopecia occur in the same context. No frequency band is asserted: the source says only that malabsorption \\\"can cause\\\" growth retardation, which gives no quantitative or qualitative frequency signal.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly occurs in about a quarter of mu-HCD patients and less commonly in gamma-HCD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"IGHA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHA1\"], \"gene_terms\": [{\"label\": \"IGHA1\", \"id\": \"hgnc:5478\"}], \"subtypes\": [\"Alpha-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IGHG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHG1\"], \"gene_terms\": [{\"label\": \"IGHG1\", \"id\": \"hgnc:5525\"}], \"subtypes\": [\"Gamma-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IGHM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHM\"], \"gene_terms\": [{\"label\": \"IGHM\", \"id\": \"hgnc:5541\"}], \"subtypes\": [\"Mu-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IgA Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgA (alpha) heavy chain without associated light chain in serum, and in small amounts in jejunal or gastric fluid and urine. Serum protein electrophoresis may be normal, hypogammaglobulinaemic, or show only a broad band in the alpha-2/beta region, so positivity of anti-IgA immunofixation is required to confirm the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0020194\"}}, {\"id\": \"IgG Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgG (gamma) heavy chain without associated light chain, typically migrating in the beta region and, because of its low molecular weight and tendency to dimerise, often detectable in urine as well as serum. Anti-IgG immunofixation positivity without kappa or lambda reactivity is required for diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0020195\"}}, {\"id\": \"IgM Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgM (mu) heavy chain without associated light chain. Serum protein electrophoresis is generally normal or shows only a broad band, and the abnormal immunoglobulin is missed on electrophoresis in most cases; immunofixation positive with anti-mu but negative with anti-kappa and anti-lambda antiserum, using immunoselection, confirms the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"term_id\": \"HP:0020196\"}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small bowel obstruction, together with perforation and intussusception, is a potentially fatal local complication of the enlarging lymphomatous mass in alpha-HCD, and one of the recognised causes of death. It is the principal indication for surgery in this disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0005214\"}}, {\"id\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CH1 is the heavy-chain constant domain that pairs with the light-chain constant (CL) domain, and the two are covalently joined by an interchain disulfide bond. CH1 is unusual among immunoglobulin domains in being intrinsically unfolded in isolation: it acquires structure only on association with a folded CL domain, in a reaction rate-limited by isomerisation of a conserved proline. A heavy chain that has lost CH1 has therefore lost the only interface through which it can engage light chain, and the resulting molecule is a light-chain-free heavy chain - the defining lesion shared by all three HCD subtypes.\", \"meta\": {\"evidence_count\": 3, \"role\": \"central_effector\"}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised lymphadenopathy is present in about half of gamma-HCD patients and palpable superficial lymphadenopathy in 40% of mu-HCD patients; mesenteric nodal involvement is characteristic of advancing alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002716\"}}, {\"id\": \"Lymphoplasmacytic Tissue Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neoplastic clone infiltrates tissue in a subtype-specific distribution. In alpha-HCD a dense plasma-cell-rich lymphoplasmacytic infiltrate fills the lamina propria of the duodenum and jejunum, admixed with marginal-zone-like small lymphocytes and sometimes lymphoepithelial lesions; the infiltrate causes villous atrophy and hence malabsorption. In gamma-HCD the infiltrate involves bone marrow, spleen, lymph nodes, and extranodal sites including skin and the Waldeyer\u0027s ring lymphoid tissue. In mu-HCD marrow infiltration by a CLL/SLL-like population with vacuolated plasma cells produces cytopenias, with splenomegaly and hepatomegaly.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"IgA plasma cell\", \"marginal zone-like B cell\"], \"role\": \"effector\", \"locations\": [\"lamina propria of small intestine\", \"duodenum\", \"jejunum\"]}}, {\"id\": \"MYD88\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYD88\"], \"gene_terms\": [{\"label\": \"MYD88\", \"id\": \"hgnc:7562\"}], \"subtypes\": [\"Mu-HCD\"], \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A malabsorption syndrome is the defining clinical presentation of alpha-HCD/IPSID, producing hypoalbuminaemia, hypocalcaemia, hypokalaemia, hypomagnesaemia, and vitamin and mineral deficiency, and driving weight loss and growth retardation.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Palatal Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oedema of the soft palate and uvula, attributed to lymphoid infiltration of the Waldeyer\u0027s ring tissue, is a classically reported sign of gamma-HCD. No HPO term exists for palatal oedema specifically; the entry is bound to the nearest correct parent, Abnormal soft palate morphology, with the specific finding retained in preferred_term. No frequency is asserted because no quantitative estimate was found.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0100736\"}}, {\"id\": \"Radiation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Radiotherapy has two distinct roles in HCD. In alpha-HCD it is used as total abdominal radiation for disease refractory to antimicrobials, as an alternative to doxorubicin-containing chemotherapy. In gamma-HCD it is used as local radiation for localised extranodal disease, where surgical resection is the other option. As with every HCD treatment, the evidence is case-level and adapted from related B-cell neoplasms.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent pulmonary infection is a recognised but explicitly rare association of mu-HCD, attributable to marrow replacement and failure of normal polyclonal immunoglobulin production.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mu-HCD\"], \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Rheumatoid Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rheumatoid arthritis is the commonest of the autoimmune diseases that accompany gamma-HCD, found together with Sjogren syndrome, systemic lupus erythematosus, vasculitis, myasthenia gravis, and autoimmune cytopenias in about 25% of patients - a figure reaching 69% in a dedicated pathology series. Its manifestations often precede the HCD diagnosis by years.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Gamma-HCD\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001370\"}}, {\"id\": \"Rituximab-Based Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody therapy for CD20-positive gamma-HCD, used alone or with chemotherapy. Fludarabine plus rituximab has been reported effective in gamma-HCD complicated by pancytopenia.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CH1-deleted heavy chain is exported into serum and urine as a monoclonal paraprotein that reacts with isotype-specific anti-IgA, anti-IgG, or anti-mu antiserum but with neither anti-kappa nor anti-lambda antiserum. This light-chain-free monoclonal heavy chain is the pathognomonic and diagnosis-defining finding of heavy chain disease. Because the truncated chain is small and may fail to form a discrete band, serum protein electrophoresis is frequently normal or shows only a broad band, so immunofixation with immunoselection - not electrophoresis - is the diagnostic test.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"plasma cell\"], \"biological_processes\": [\"protein secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deletions, insertions, and point mutations acquired somatically during somatic hypermutation of the rearranged IGH locus (14q32.33) remove a large portion of the sequence encoding the first constant (CH1) domain, and in alpha-HCD frequently the variable (VH) region as well. These are clone-specific somatic structural lesions of the rearranged immunoglobulin genes, not constitutional pathogenic variants; no germline predisposing variant is established for HCD. Terminology caveat: GO:0016446 is defined for hypermutation of the rearranged V regions, whereas the HCD lesion falls in the CH1 constant domain. The term is used here for the somatic hypermutation machinery that the source identifies as the origin of the lesion, not to assert that the mutations lie in V.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"somatic hypermutation of immunoglobulin genes\"], \"genes\": [\"IGHA1\", \"IGHG1\", \"IGHM\"], \"gene_terms\": [{\"label\": \"IGHA1\", \"id\": \"hgnc:5478\"}, {\"label\": \"IGHG1\", \"id\": \"hgnc:5525\"}, {\"label\": \"IGHM\", \"id\": \"hgnc:5541\"}], \"role\": \"central_effector\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is frequent in mu-HCD and occurs in roughly half of gamma-HCD patients with disseminated disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Surgical Resection and Management of Bowel Complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery has two roles. In localised extranodal gamma-HCD, surgical resection is a definitive option alongside radiation. In alpha-HCD it is complication-directed rather than disease-directed: small bowel obstruction, perforation, and intussusception arising from enlargement of the lymphomatous tissue are the dreadful and potentially fatal local complications that require operative management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia occurs alongside normochromic normocytic anaemia and Coombs-positive autoimmune haemolytic anaemia as laboratory evidence of autoimmune disease or marrow infiltration in gamma-HCD. No frequency band is asserted because the source lists these cytopenias without quantifying them.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0001873\"}}, {\"id\": \"Transformation to Aggressive Lymphoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IPSID is generally regarded as a pre-lymphomatous condition. Untreated or antibiotic-refractory alpha-HCD progresses from an antigen-dependent mucosal lesion to lymphoplasmacytic and immunoblastic lymphoma invading the bowel wall and mesenteric nodes, with distant spread; the same transformation accounts for constitutional symptoms and for death from obstruction, perforation, cachexia, and infection. Gamma-HCD shows an analogous spectrum, with disseminated lymphoma and constitutional symptoms in roughly two-thirds of patients. Recent reports of longstanding non-progressive IPSID show the transformation is not obligate.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Unassembled Free Light Chain Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mu-HCD-specific and superficially paradoxical consequence of the same lesion. The clone continues to synthesise monoclonal light chains, usually kappa, but the CH1-deleted mu chain cannot assemble with them. The unassembled light chains are secreted freely, filtered at the glomerulus, and appear in the urine as Bence Jones protein - so a disease defined by a heavy-chain defect commonly presents with light-chain proteinuria, sometimes with cast nephropathy or amyloidosis. This does not occur in alpha-HCD, where Bence Jones proteinuria has never been reported.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"role\": \"consequence\"}}, {\"id\": \"Villous Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattening of the small-bowel villi produced by the expanding lamina propria lymphoplasmacytic infiltrate. It is the histological substrate of the malabsorption syndrome and the feature that makes celiac disease the principal biopsy differential. It is also recorded under `histopathology` as the microscopic finding; it is curated here as well so that it is a node in the causal graph downstream of mucosal infiltration.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011473\", \"histopathology_terms\": [{\"name\": \"Villous Atrophy\", \"preferred_term\": \"Villous atrophy\", \"term_id\": \"NCIT:C38731\", \"term_label\": \"Villous Atrophy\"}]}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive weight loss results from malabsorption in alpha-HCD and from constitutional symptoms of disseminated lymphoma in gamma-HCD. Severe malnutrition and cachexia are recognised causes of death in advanced alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Chronic Enteric Antigenic Stimulation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained mucosal antigen exposure selects and expands an IgA-committed mucosal B-cell/plasma-cell clone.\"}, {\"source\": \"Chronic Autoimmune B-Cell Stimulation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic autoimmune B-cell stimulation is proposed to favour emergence of the lymphoplasmacytic clone; directionality is not established.\"}, {\"source\": \"Chronic Autoimmune B-Cell Stimulation\", \"target\": \"Rheumatoid Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rheumatoid arthritis is the commonest clinical expression of the autoimmune context in gamma-HCD.\"}, {\"source\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic hypermutation acting on the expanding clone generates the CH1-disrupting IGH lesion.\"}, {\"source\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding clone infiltrates gut lamina propria, marrow, spleen, and lymph nodes.\"}, {\"source\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"target\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deletion of CH1-encoding sequence yields a heavy chain protein lacking the light-chain-binding domain.\"}, {\"source\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"target\": \"Escape from BiP-Dependent ER Quality Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without CH1 there is no stably unfolded domain for BiP to hold, so the chain is no longer retained.\"}, {\"source\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"target\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same CH1-deleted chain, in its membrane-anchored form, is the substrate proposed to aggregate within the B-cell receptor without antigen.\", \"hypothesis_groups\": [\"antigen_independent_bcr_signaling\"]}, {\"source\": \"Escape from BiP-Dependent ER Quality Control\", \"target\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Having escaped retention and degradation, the truncated chain transits the secretory pathway and reaches serum and urine.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgA Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-HCD secretes a truncated IgA heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgG Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gamma-HCD secretes a truncated IgG heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgM Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mu-HCD secretes a truncated IgM heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"Unassembled Free Light Chain Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In mu-HCD the clone keeps producing light chains that the truncated heavy chain cannot assemble with, leaving them free.\"}, {\"source\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen-independent BCR signalling is proposed to sustain the clone once the initiating antigen drive is removed.\", \"hypothesis_groups\": [\"antigen_independent_bcr_signaling\"]}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Villous Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lamina propria infiltrate flattens the small-bowel villi.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Villous atrophy and mucosal infiltration impair nutrient absorption.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Ascites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced disease with profound hypoalbuminaemia produces ascites.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Anasarca\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypoalbuminaemia of advanced malabsorptive disease produces anasarca.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Chronic Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucosal infiltration and malabsorption produce chronic diarrhoea.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bowel wall infiltration causes abdominal discomfort and pain.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malabsorption and mucosal disease drive progressive weight loss.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic malabsorption in adolescents and young adults retards growth.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nodal infiltration produces mesenteric and generalised lymphadenopathy.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic infiltration produces splenomegaly.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic and portal infiltration produces hepatomegaly.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow infiltration plus malabsorptive iron and vitamin deficiency produces anaemia.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Autoimmune Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In gamma-HCD, marrow infiltration is accompanied by Coombs-positive autoimmune haemolytic anaemia and other autoimmune cytopenias.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow infiltration and the autoimmune diathesis of gamma-HCD produce thrombocytopenia alongside the anaemias.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Palatal Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infiltration of the Waldeyer\u0027s ring lymphoid tissue produces oedema of the soft palate in gamma-HCD.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow replacement and failure of normal immunoglobulin production predispose to recurrent respiratory infection in mu-HCD.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated mucosal disease progresses to transmural and disseminated high-grade lymphoma.\"}, {\"source\": \"Unassembled Free Light Chain Excess\", \"target\": \"Bence Jones Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Free unassembled monoclonal light chains are filtered and excreted as Bence Jones protein.\"}, {\"source\": \"Transformation to Aggressive Lymphoma\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated lymphoma produces constitutional symptoms including fever.\"}, {\"source\": \"Transformation to Aggressive Lymphoma\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enlargement of the lymphomatous mass obstructs the small bowel, and may also perforate or intussuscept.\"}, {\"source\": \"Antimicrobial Therapy for Early Alpha-HCD\", \"target\": \"Chronic Enteric Antigenic Stimulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxorubicin-Containing Combination Chemotherapy\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab-Based Immunotherapy\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alkylator and Proteasome-Inhibitor Therapy for Plasma-Cell-Predominant Gamma-HCD\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Autologous Hematopoietic Stem Cell Transplantation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Radiation Therapy\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection and Management of Bowel Complications\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection and Management of Bowel Complications\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IGHA1\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGHG1\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGHM\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYD88\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abdominal pain and discomfort accompany the mucosal and, later, transmural bowel involvement of alpha-HCD.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Alkylator and Proteasome-Inhibitor Therapy for Plasma-Cell-Predominant Gamma-HCD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For gamma-HCD in which the underlying neoplasm is plasma-cell predominant rather than a disseminated aggressive lymphoma, the treatments of choice are chlorambucil, melphalan plus prednisone, or bortezomib plus prednisone. A single-institution series has also reported responses to modern myeloma- and lymphoma-derived regimens including CRd (cyclophosphamide, lenalidomide, dexamethasone), CyBorD, R-CVP, bendamustine-rituximab, and V-EPOCH.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"chlorambucil\", \"melphalan\", \"prednisone\", \"bortezomib\"]}}, {\"id\": \"Anasarca\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anasarca accompanies ascites in advanced gastrointestinal alpha-HCD, reflecting the profound hypoalbuminaemia of the malabsorption syndrome. No frequency band is asserted for the same reason as ascites.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0012050\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild-to-moderate hypochromic anaemia is a common laboratory abnormality in alpha-HCD, reflecting malabsorptive iron and vitamin deficiency; hypoproliferative anaemia is the commonest laboratory abnormality in mu-HCD and reflects marrow infiltration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001903\"}}, {\"id\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed self-reinforcing arm: the membrane-anchored form of the truncated heavy chain, incorporated into the B-cell receptor, has been suggested to aggregate and signal without antigen, conferring a ligand-independent growth and survival advantage on the clone. This would make the CH1 lesion not just a secretory-escape event but an oncogenic driver in its own right, and would explain why disease can progress after the initiating antigen (for example C. jejuni) has been eradicated. The proposal is not established in human HCD tissue and is recorded here as an emerging hypothesis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"B cell receptor signaling pathway\"], \"role\": \"amplifier\"}}, {\"id\": \"Antimicrobial Therapy for Early Alpha-HCD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment of early-stage alpha-HCD/IPSID, and the therapeutic expression of its antigen-driven pathogenesis. Any documented bacterial or parasitic gastrointestinal infection is eradicated; empirical treatment with metronidazole, ampicillin, or tetracycline is commonly given even without a demonstrated organism. A six-month course is recommended, since shorter courses relapse. Clinical, laboratory, and histological remission is achieved in 33-71% of early-stage patients, though recurrence is frequent. These are historical regimen choices and require contemporary susceptibility, safety, and antimicrobial-stewardship review.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"metronidazole\", \"ampicillin\", \"tetracycline\"]}}, {\"id\": \"Ascites\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ascites is a feature of advanced gastrointestinal alpha-HCD, detectable on physical examination together with anasarca. No frequency band is asserted: the source describes it as a finding of advanced disease without quantifying it.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0001541\"}}, {\"id\": \"Autoimmune Hemolytic Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coombs-positive autoimmune haemolytic anaemia is a distinctive gamma-HCD cytopenia, occurring alongside normochromic normocytic anaemia and thrombocytopenia as laboratory evidence of the autoimmune diathesis and marrow infiltration. No frequency band is asserted because the source lists these cytopenias without quantifying them.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0001890\"}}, {\"id\": \"Autologous Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose therapy with autologous haematopoietic stem cell transplantation should be considered for refractory or relapsing disease. Evidence is limited to case-level experience; there is no trial-level support in any HCD subtype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bence Jones Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bence Jones proteinuria is frequent in mu-HCD despite the heavy-chain assembly defect, because the clone continues to produce monoclonal (usually kappa) light chains that cannot assemble with the truncated mu chain and are therefore excreted free. It only rarely causes renal complications, but cast nephropathy and amyloidosis are reported. It has never been described in alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0030156\"}}, {\"id\": \"Chronic Autoimmune B-Cell Stimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In gamma-HCD, a coexisting autoimmune disease - rheumatoid arthritis most often, then Sjogren syndrome, systemic lupus erythematosus, vasculitis, myasthenia gravis, and autoimmune cytopenias - is present in about a quarter of patients and its manifestations typically precede the HCD diagnosis by years. Chronic autoimmune B-cell stimulation is therefore the plausible gamma-HCD counterpart of the enteric-infection drive in alpha-HCD, but the temporal ordering is not proof of causation and the direction of the relationship remains formally unresolved.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Inflammatory Response\", \"positive regulation of B cell proliferation\"], \"subtypes\": [\"Gamma-HCD\"], \"role\": \"trigger\"}}, {\"id\": \"Chronic Campylobacter jejuni infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Persistent small-bowel colonisation by Campylobacter jejuni is the best-supported environmental factor in alpha-HCD/IPSID. It was identified by PCR, sequencing, FISH, and immunohistochemistry in an index patient with a dramatic response to antibiotics and in four of six further archival cases, and persistent colonisation has since been documented in contemporary cases. Its causal weight remains debated and it is neither necessary nor sufficient in every case.\", \"meta\": {\"evidence_count\": 2, \"presence\": \"Positive\"}}, {\"id\": \"Chronic Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic diarrhoea is one of the cardinal presenting features of alpha-HCD/IPSID, reflecting extensive lymphoplasmacytic infiltration of the proximal small-bowel mucosa with villous atrophy.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002028\"}}, {\"id\": \"Chronic Enteric Antigenic Stimulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In alpha-HCD/IPSID, persistent bacterial (most convincingly Campylobacter jejuni, sometimes Helicobacter pylori) or parasitic colonisation of the proximal small bowel provides sustained antigenic drive to mucosa-associated lymphoid tissue. The epidemiological concentration of the disease in low-socioeconomic Mediterranean, North African, and Middle Eastern populations, and the responsiveness of early disease to antimicrobials, both support an antigen-driven initiating step. This is the same chronic-infection-driven lymphomagenesis logic as Helicobacter pylori and gastric MALT lymphoma. Neither organism has been shown to be necessary or sufficient in every case.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Inflammatory Response\", \"immunoglobulin production in mucosal tissue\"], \"subtypes\": [\"Alpha-HCD\"], \"role\": \"trigger\", \"locations\": [\"lamina propria of small intestine\"]}}, {\"id\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mature B-cell/plasmacytic clone expands in the small-intestinal lamina propria (alpha-HCD), in marrow, spleen, lymph nodes, and extranodal sites (gamma-HCD), or in the bone marrow as a CLL/SLL-like or lymphoplasmacytic neoplasm (mu-HCD). The expanding clone is the substrate within which the heavy-chain gene lesion is acquired and selected.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"plasma cell\", \"neoplastic B cell\"], \"biological_processes\": [\"positive regulation of B cell proliferation\", \"immunoglobulin production\"], \"genes\": [\"MYD88\"], \"gene_terms\": [{\"label\": \"MYD88\", \"id\": \"hgnc:7562\"}], \"role\": \"driver\"}}, {\"id\": \"Doxorubicin-Containing Combination Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For alpha-HCD that is refractory to antimicrobials, bulky, or transformed, and for aggressive gamma-HCD. CHOP (cyclophosphamide, doxorubicin, vincristine, prednisone) is the standard backbone, with rituximab added in CD20-positive disease; CHVP and ABV are historical alternatives. Total abdominal radiation is an alternative for refractory alpha-HCD. There is no randomised trial evidence in HCD; regimens are adapted from infection-associated MALT lymphoma and other B-cell neoplasms.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"cyclophosphamide\", \"doxorubicin\", \"vincristine\", \"prednisone\"]}}, {\"id\": \"Escape from BiP-Dependent ER Quality Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Normally, an unpaired heavy chain is trapped in the endoplasmic reticulum: the unfolded CH1 domain permanently exposes chaperone-binding sites, the Hsp70 chaperone BiP/GRP78 binds it stably (its ATPase cycle stalled until light chain arrives), and the retained chain is routed to proteasomal degradation, which is why free heavy chains are never found in normal serum or urine. A CH1-deleted chain presents no such binding surface. It binds neither light chain nor BiP, bypasses ER retention and degradation, and enters the secretory pathway. This is the mechanistic core of every heavy chain disease.\", \"meta\": {\"evidence_count\": 6, \"biological_processes\": [\"protein folding in endoplasmic reticulum\", \"ERAD pathway\"], \"molecular_functions\": [\"BiP chaperone binding by the unpaired heavy chain\"], \"role\": \"mediator\"}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever, malaise, and weight loss constitute the constitutional syndrome that accompanies disseminated lymphoma in 57-66% of gamma-HCD patients.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001945\"}}, {\"id\": \"Growth Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth retardation follows chronic malabsorption in the adolescents and young adults in whom alpha-HCD typically presents; amenorrhoea and alopecia occur in the same context. No frequency band is asserted: the source says only that malabsorption \\\"can cause\\\" growth retardation, which gives no quantitative or qualitative frequency signal.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0001510\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatomegaly occurs in about a quarter of mu-HCD patients and less commonly in gamma-HCD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002240\"}}, {\"id\": \"IGHA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHA1\"], \"gene_terms\": [{\"label\": \"IGHA1\", \"id\": \"hgnc:5478\"}], \"subtypes\": [\"Alpha-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IGHG1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHG1\"], \"gene_terms\": [{\"label\": \"IGHG1\", \"id\": \"hgnc:5525\"}], \"subtypes\": [\"Gamma-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IGHM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"IGHM\"], \"gene_terms\": [{\"label\": \"IGHM\", \"id\": \"hgnc:5541\"}], \"subtypes\": [\"Mu-HCD\"], \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"IgA Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgA (alpha) heavy chain without associated light chain in serum, and in small amounts in jejunal or gastric fluid and urine. Serum protein electrophoresis may be normal, hypogammaglobulinaemic, or show only a broad band in the alpha-2/beta region, so positivity of anti-IgA immunofixation is required to confirm the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0020194\"}}, {\"id\": \"IgG Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgG (gamma) heavy chain without associated light chain, typically migrating in the beta region and, because of its low molecular weight and tendency to dimerise, often detectable in urine as well as serum. Anti-IgG immunofixation positivity without kappa or lambda reactivity is required for diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0020195\"}}, {\"id\": \"IgM Heavy Chain Paraproteinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A monoclonal truncated IgM (mu) heavy chain without associated light chain. Serum protein electrophoresis is generally normal or shows only a broad band, and the abnormal immunoglobulin is missed on electrophoresis in most cases; immunofixation positive with anti-mu but negative with anti-kappa and anti-lambda antiserum, using immunoselection, confirms the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"term_id\": \"HP:0020196\"}}, {\"id\": \"Intestinal Obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small bowel obstruction, together with perforation and intussusception, is a potentially fatal local complication of the enlarging lymphomatous mass in alpha-HCD, and one of the recognised causes of death. It is the principal indication for surgery in this disease.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"term_id\": \"HP:0005214\"}}, {\"id\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CH1 is the heavy-chain constant domain that pairs with the light-chain constant (CL) domain, and the two are covalently joined by an interchain disulfide bond. CH1 is unusual among immunoglobulin domains in being intrinsically unfolded in isolation: it acquires structure only on association with a folded CL domain, in a reaction rate-limited by isomerisation of a conserved proline. A heavy chain that has lost CH1 has therefore lost the only interface through which it can engage light chain, and the resulting molecule is a light-chain-free heavy chain - the defining lesion shared by all three HCD subtypes.\", \"meta\": {\"evidence_count\": 3, \"role\": \"central_effector\"}}, {\"id\": \"Low socioeconomic conditions and poor sanitation\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Alpha-HCD is strikingly concentrated in Mediterranean, North African, and Middle Eastern populations of low socioeconomic background, an epidemiological pattern that itself argues for an environmental, probably infectious, pathogenetic mechanism. Improved sanitation is biologically plausible as primary prevention but has never been shown prospectively to prevent HCD.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\"}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised lymphadenopathy is present in about half of gamma-HCD patients and palpable superficial lymphadenopathy in 40% of mu-HCD patients; mesenteric nodal involvement is characteristic of advancing alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002716\"}}, {\"id\": \"Lymphoplasmacytic Tissue Infiltration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neoplastic clone infiltrates tissue in a subtype-specific distribution. In alpha-HCD a dense plasma-cell-rich lymphoplasmacytic infiltrate fills the lamina propria of the duodenum and jejunum, admixed with marginal-zone-like small lymphocytes and sometimes lymphoepithelial lesions; the infiltrate causes villous atrophy and hence malabsorption. In gamma-HCD the infiltrate involves bone marrow, spleen, lymph nodes, and extranodal sites including skin and the Waldeyer\u0027s ring lymphoid tissue. In mu-HCD marrow infiltration by a CLL/SLL-like population with vacuolated plasma cells produces cytopenias, with splenomegaly and hepatomegaly.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"IgA plasma cell\", \"marginal zone-like B cell\"], \"role\": \"effector\", \"locations\": [\"lamina propria of small intestine\", \"duodenum\", \"jejunum\"]}}, {\"id\": \"MYD88\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYD88\"], \"gene_terms\": [{\"label\": \"MYD88\", \"id\": \"hgnc:7562\"}], \"subtypes\": [\"Mu-HCD\"], \"relationship_type\": \"COOPERATING\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Malabsorption\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A malabsorption syndrome is the defining clinical presentation of alpha-HCD/IPSID, producing hypoalbuminaemia, hypocalcaemia, hypokalaemia, hypomagnesaemia, and vitamin and mineral deficiency, and driving weight loss and growth retardation.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002024\"}}, {\"id\": \"Palatal Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oedema of the soft palate and uvula, attributed to lymphoid infiltration of the Waldeyer\u0027s ring tissue, is a classically reported sign of gamma-HCD. No HPO term exists for palatal oedema specifically; the entry is bound to the nearest correct parent, Abnormal soft palate morphology, with the specific finding retained in preferred_term. No frequency is asserted because no quantitative estimate was found.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0100736\"}}, {\"id\": \"Radiation Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Radiotherapy has two distinct roles in HCD. In alpha-HCD it is used as total abdominal radiation for disease refractory to antimicrobials, as an alternative to doxorubicin-containing chemotherapy. In gamma-HCD it is used as local radiation for localised extranodal disease, where surgical resection is the other option. As with every HCD treatment, the evidence is case-level and adapted from related B-cell neoplasms.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Recurrent Respiratory Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent pulmonary infection is a recognised but explicitly rare association of mu-HCD, attributable to marrow replacement and failure of normal polyclonal immunoglobulin production.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Mu-HCD\"], \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Rheumatoid Arthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rheumatoid arthritis is the commonest of the autoimmune diseases that accompany gamma-HCD, found together with Sjogren syndrome, systemic lupus erythematosus, vasculitis, myasthenia gravis, and autoimmune cytopenias in about 25% of patients - a figure reaching 69% in a dedicated pathology series. Its manifestations often precede the HCD diagnosis by years.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Gamma-HCD\"], \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001370\"}}, {\"id\": \"Rituximab-Based Immunotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-CD20 monoclonal antibody therapy for CD20-positive gamma-HCD, used alone or with chemotherapy. Fludarabine plus rituximab has been reported effective in gamma-HCD complicated by pancytopenia.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rituximab\"]}}, {\"id\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CH1-deleted heavy chain is exported into serum and urine as a monoclonal paraprotein that reacts with isotype-specific anti-IgA, anti-IgG, or anti-mu antiserum but with neither anti-kappa nor anti-lambda antiserum. This light-chain-free monoclonal heavy chain is the pathognomonic and diagnosis-defining finding of heavy chain disease. Because the truncated chain is small and may fail to form a discrete band, serum protein electrophoresis is frequently normal or shows only a broad band, so immunofixation with immunoselection - not electrophoresis - is the diagnostic test.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"plasma cell\"], \"biological_processes\": [\"protein secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deletions, insertions, and point mutations acquired somatically during somatic hypermutation of the rearranged IGH locus (14q32.33) remove a large portion of the sequence encoding the first constant (CH1) domain, and in alpha-HCD frequently the variable (VH) region as well. These are clone-specific somatic structural lesions of the rearranged immunoglobulin genes, not constitutional pathogenic variants; no germline predisposing variant is established for HCD. Terminology caveat: GO:0016446 is defined for hypermutation of the rearranged V regions, whereas the HCD lesion falls in the CH1 constant domain. The term is used here for the somatic hypermutation machinery that the source identifies as the origin of the lesion, not to assert that the mutations lie in V.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"somatic hypermutation of immunoglobulin genes\"], \"genes\": [\"IGHA1\", \"IGHG1\", \"IGHM\"], \"gene_terms\": [{\"label\": \"IGHA1\", \"id\": \"hgnc:5478\"}, {\"label\": \"IGHG1\", \"id\": \"hgnc:5525\"}, {\"label\": \"IGHM\", \"id\": \"hgnc:5541\"}], \"role\": \"central_effector\"}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is frequent in mu-HCD and occurs in roughly half of gamma-HCD patients with disseminated disease.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Surgical Resection and Management of Bowel Complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgery has two roles. In localised extranodal gamma-HCD, surgical resection is a definitive option alongside radiation. In alpha-HCD it is complication-directed rather than disease-directed: small bowel obstruction, perforation, and intussusception arising from enlargement of the lymphomatous tissue are the dreadful and potentially fatal local complications that require operative management.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thrombocytopenia occurs alongside normochromic normocytic anaemia and Coombs-positive autoimmune haemolytic anaemia as laboratory evidence of autoimmune disease or marrow infiltration in gamma-HCD. No frequency band is asserted because the source lists these cytopenias without quantifying them.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Gamma-HCD\"], \"term_id\": \"HP:0001873\"}}, {\"id\": \"Transformation to Aggressive Lymphoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IPSID is generally regarded as a pre-lymphomatous condition. Untreated or antibiotic-refractory alpha-HCD progresses from an antigen-dependent mucosal lesion to lymphoplasmacytic and immunoblastic lymphoma invading the bowel wall and mesenteric nodes, with distant spread; the same transformation accounts for constitutional symptoms and for death from obstruction, perforation, cachexia, and infection. Gamma-HCD shows an analogous spectrum, with disseminated lymphoma and constitutional symptoms in roughly two-thirds of patients. Recent reports of longstanding non-progressive IPSID show the transformation is not obligate.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Unassembled Free Light Chain Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A mu-HCD-specific and superficially paradoxical consequence of the same lesion. The clone continues to synthesise monoclonal light chains, usually kappa, but the CH1-deleted mu chain cannot assemble with them. The unassembled light chains are secreted freely, filtered at the glomerulus, and appear in the urine as Bence Jones protein - so a disease defined by a heavy-chain defect commonly presents with light-chain proteinuria, sometimes with cast nephropathy or amyloidosis. This does not occur in alpha-HCD, where Bence Jones proteinuria has never been reported.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"Mu-HCD\"], \"role\": \"consequence\"}}, {\"id\": \"Villous Atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flattening of the small-bowel villi produced by the expanding lamina propria lymphoplasmacytic infiltrate. It is the histological substrate of the malabsorption syndrome and the feature that makes celiac disease the principal biopsy differential. It is also recorded under `histopathology` as the microscopic finding; it is curated here as well so that it is a node in the causal graph downstream of mucosal infiltration.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"Alpha-HCD\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0011473\", \"histopathology_terms\": [{\"name\": \"Villous Atrophy\", \"preferred_term\": \"Villous atrophy\", \"term_id\": \"NCIT:C38731\", \"term_label\": \"Villous Atrophy\"}]}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive weight loss results from malabsorption in alpha-HCD and from constitutional symptoms of disseminated lymphoma in gamma-HCD. Severe malnutrition and cachexia are recognised causes of death in advanced alpha-HCD.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Chronic Enteric Antigenic Stimulation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained mucosal antigen exposure selects and expands an IgA-committed mucosal B-cell/plasma-cell clone.\"}, {\"source\": \"Chronic Autoimmune B-Cell Stimulation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic autoimmune B-cell stimulation is proposed to favour emergence of the lymphoplasmacytic clone; directionality is not established.\"}, {\"source\": \"Chronic Autoimmune B-Cell Stimulation\", \"target\": \"Rheumatoid Arthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rheumatoid arthritis is the commonest clinical expression of the autoimmune context in gamma-HCD.\"}, {\"source\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic hypermutation acting on the expanding clone generates the CH1-disrupting IGH lesion.\"}, {\"source\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding clone infiltrates gut lamina propria, marrow, spleen, and lymph nodes.\"}, {\"source\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"target\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Deletion of CH1-encoding sequence yields a heavy chain protein lacking the light-chain-binding domain.\"}, {\"source\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"target\": \"Escape from BiP-Dependent ER Quality Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without CH1 there is no stably unfolded domain for BiP to hold, so the chain is no longer retained.\"}, {\"source\": \"Loss of the CH1 Domain and Failure of Light Chain Pairing\", \"target\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same CH1-deleted chain, in its membrane-anchored form, is the substrate proposed to aggregate within the B-cell receptor without antigen.\", \"hypothesis_groups\": [\"antigen_independent_bcr_signaling\"]}, {\"source\": \"Escape from BiP-Dependent ER Quality Control\", \"target\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Having escaped retention and degradation, the truncated chain transits the secretory pathway and reaches serum and urine.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgA Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-HCD secretes a truncated IgA heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgG Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Gamma-HCD secretes a truncated IgG heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"IgM Heavy Chain Paraproteinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mu-HCD secretes a truncated IgM heavy chain.\"}, {\"source\": \"Secretion of Truncated Light Chain Free Heavy Chain\", \"target\": \"Unassembled Free Light Chain Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In mu-HCD the clone keeps producing light chains that the truncated heavy chain cannot assemble with, leaving them free.\"}, {\"source\": \"Antigen-Independent B-Cell Receptor Aggregation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigen-independent BCR signalling is proposed to sustain the clone once the initiating antigen drive is removed.\", \"hypothesis_groups\": [\"antigen_independent_bcr_signaling\"]}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Villous Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lamina propria infiltrate flattens the small-bowel villi.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Malabsorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Villous atrophy and mucosal infiltration impair nutrient absorption.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Ascites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced disease with profound hypoalbuminaemia produces ascites.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Anasarca\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypoalbuminaemia of advanced malabsorptive disease produces anasarca.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Chronic Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mucosal infiltration and malabsorption produce chronic diarrhoea.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bowel wall infiltration causes abdominal discomfort and pain.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malabsorption and mucosal disease drive progressive weight loss.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Growth Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic malabsorption in adolescents and young adults retards growth.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nodal infiltration produces mesenteric and generalised lymphadenopathy.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splenic infiltration produces splenomegaly.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hepatic and portal infiltration produces hepatomegaly.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow infiltration plus malabsorptive iron and vitamin deficiency produces anaemia.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Autoimmune Hemolytic Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In gamma-HCD, marrow infiltration is accompanied by Coombs-positive autoimmune haemolytic anaemia and other autoimmune cytopenias.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow infiltration and the autoimmune diathesis of gamma-HCD produce thrombocytopenia alongside the anaemias.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Palatal Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infiltration of the Waldeyer\u0027s ring lymphoid tissue produces oedema of the soft palate in gamma-HCD.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Recurrent Respiratory Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Marrow replacement and failure of normal immunoglobulin production predispose to recurrent respiratory infection in mu-HCD.\"}, {\"source\": \"Lymphoplasmacytic Tissue Infiltration\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated mucosal disease progresses to transmural and disseminated high-grade lymphoma.\"}, {\"source\": \"Unassembled Free Light Chain Excess\", \"target\": \"Bence Jones Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Free unassembled monoclonal light chains are filtered and excreted as Bence Jones protein.\"}, {\"source\": \"Transformation to Aggressive Lymphoma\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminated lymphoma produces constitutional symptoms including fever.\"}, {\"source\": \"Transformation to Aggressive Lymphoma\", \"target\": \"Intestinal Obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enlargement of the lymphomatous mass obstructs the small bowel, and may also perforate or intussuscept.\"}, {\"source\": \"Chronic Campylobacter jejuni infection\", \"target\": \"Chronic Enteric Antigenic Stimulation\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The node names this organism as the most convincingly implicated source of the sustained antigenic drive it describes, so colonisation by it is the node\u0027s own content. Both items are graded partial rather than supporting, and the exposure\u0027s own description gives the reason better than the grade can: the causal weight remains debated, and the organism is neither necessary nor sufficient in every case. What the evidence establishes is detection and persistence, not causation. The triggering effect and the directness are therefore inherited from the node, which names this organism as the antigenic drive it describes, rather than asserted by any cited sentence.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low socioeconomic conditions and poor sanitation\", \"target\": \"Chronic Enteric Antigenic Stimulation\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the organism link into this same node, which is the right order but worth stating plainly: this exposure is an epidemiological pattern rather than an agent. Its value is that the pattern itself argues for an environmental and probably infectious mechanism, which is what makes it a claim about this node at all rather than only about who gets the disease. The entry is candid that improved sanitation has never been shown prospectively to prevent it.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antimicrobial Therapy for Early Alpha-HCD\", \"target\": \"Chronic Enteric Antigenic Stimulation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Doxorubicin-Containing Combination Chemotherapy\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Rituximab-Based Immunotherapy\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Alkylator and Proteasome-Inhibitor Therapy for Plasma-Cell-Predominant Gamma-HCD\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Autologous Hematopoietic Stem Cell Transplantation\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Radiation Therapy\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection and Management of Bowel Complications\", \"target\": \"Lymphoplasmacytic Tissue Infiltration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection and Management of Bowel Complications\", \"target\": \"Transformation to Aggressive Lymphoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"IGHA1\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGHG1\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"IGHM\", \"target\": \"Somatic Immunoglobulin Heavy Chain Gene Deletion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYD88\", \"target\": \"Clonal Lymphoplasmacytic B-Cell Expansion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7164,14 +7486,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001903">HP:0001903</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001903</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7223,14 +7552,21 @@
                         Thrombocytopenia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thrombocytopenia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001873">HP:0001873</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001873</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7282,14 +7618,21 @@
                         Autoimmune Hemolytic Anemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Autoimmune hemolytic anemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001890">HP:0001890</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001890</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coombs-positive autoimmune hemolytic anemia, annotated with Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7352,14 +7695,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lymphadenopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002716">HP:0002716</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002716</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7435,14 +7785,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Splenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001744">HP:0001744</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001744</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7527,14 +7884,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002028">HP:0002028</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002028</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic diarrhea (HP:0002028), qualified as temporality chronic. HP:0002028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7628,14 +7992,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Malabsorption
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002024">HP:0002024</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002024" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002024</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7711,14 +8082,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002240">HP:0002240</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002240</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7770,14 +8148,21 @@
                         Ascites
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ascites
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001541">HP:0001541</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001541</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ascites (HP:0001541). HP:0001541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7829,14 +8214,21 @@
                         Intestinal Obstruction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intestinal obstruction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005214" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005214">HP:0005214</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005214" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0005214</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Small bowel obstruction, annotated with Intestinal obstruction (HP:0005214). HP:0005214 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7899,14 +8291,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent respiratory infections
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002205">HP:0002205</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002205</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent respiratory infections (HP:0002205), qualified as temporality recurrent. HP:0002205 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7987,14 +8386,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8057,14 +8463,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abdominal pain
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002027">HP:0002027</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002027</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8127,14 +8540,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Weight loss
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001824">HP:0001824</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001824</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Weight loss (HP:0001824), qualified as course progressive. HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8226,14 +8646,21 @@
                         Growth Delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Growth delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001510">HP:0001510</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001510</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8294,14 +8721,21 @@
                         IgA Heavy Chain Paraproteinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        IgA heavy chain paraproteinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020194" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0020194">HP:0020194</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0020194</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is IgA heavy chain paraproteinemia (HP:0020194). HP:0020194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8375,14 +8809,21 @@
                         IgG Heavy Chain Paraproteinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        IgG heavy chain paraproteinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020195" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0020195">HP:0020195</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020195" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0020195</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is IgG heavy chain paraproteinemia (HP:0020195). HP:0020195 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8456,14 +8897,21 @@
                         IgM Heavy Chain Paraproteinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        IgM heavy chain paraproteinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020196" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0020196">HP:0020196</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020196" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0020196</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is IgM heavy chain paraproteinemia (HP:0020196). HP:0020196 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8539,14 +8987,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Villous atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011473" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011473">HP:0011473</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0011473</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Villous atrophy (HP:0011473). HP:0011473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8598,14 +9053,21 @@
                         Anasarca
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anasarca
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012050" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012050">HP:0012050</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0012050</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anasarca (HP:0012050). HP:0012050 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8659,14 +9121,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rheumatoid arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001370" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001370">HP:0001370</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001370" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001370</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rheumatoid arthritis (HP:0001370). HP:0001370 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8742,14 +9211,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bence Jones Proteinuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030156" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030156">HP:0030156</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0030156</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bence Jones Proteinuria (HP:0030156). HP:0030156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8823,14 +9299,23 @@
                         Palatal Edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal soft palate morphology
+
+                        <span class="phenotype-term-label">Abnormal soft palate morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100736" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100736">HP:0100736</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100736" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0100736</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palatal oedema, annotated with Abnormal soft palate morphology (HP:0100736). HP:0100736 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8926,13 +9411,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IGHA1
 
 
-    <a href="https://bioregistry.io/hgnc:5478" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5478">hgnc:5478</a>
+    <a href="https://bioregistry.io/hgnc:5478" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:5478</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IGHA1 (hgnc:5478). hgnc:5478 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8992,13 +9482,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IGHG1
 
 
-    <a href="https://bioregistry.io/hgnc:5525" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5525">hgnc:5525</a>
+    <a href="https://bioregistry.io/hgnc:5525" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:5525</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IGHG1 (hgnc:5525). hgnc:5525 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9058,13 +9553,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: IGHM
 
 
-    <a href="https://bioregistry.io/hgnc:5541" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5541">hgnc:5541</a>
+    <a href="https://bioregistry.io/hgnc:5541" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:5541</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is IGHM (hgnc:5541). hgnc:5541 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9124,13 +9624,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYD88
 
 
-    <a href="https://bioregistry.io/hgnc:7562" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7562">hgnc:7562</a>
+    <a href="https://bioregistry.io/hgnc:7562" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:7562</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYD88 (hgnc:7562). hgnc:7562 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9212,13 +9717,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PAX5
 
 
-    <a href="https://bioregistry.io/hgnc:8619" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8619">hgnc:8619</a>
+    <a href="https://bioregistry.io/hgnc:8619" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:8619</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PAX5 (hgnc:8619). hgnc:8619 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9311,7 +9821,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">antibiotic therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Therapy</span>
 
 
@@ -9342,17 +9857,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         metronidazole
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6909" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6909">CHEBI:6909</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6909" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:6909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses metronidazole (CHEBI:6909). CHEBI:6909 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ampicillin
@@ -9360,11 +9882,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28971" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28971">CHEBI:28971</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28971" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-58">CHEBI:28971</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ampicillin (CHEBI:28971). CHEBI:28971 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         tetracycline
@@ -9372,10 +9899,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27902" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:27902">CHEBI:27902</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27902" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-59">CHEBI:27902</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tetracycline (CHEBI:27902). CHEBI:27902 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9470,7 +10000,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -9495,7 +10030,12 @@
 
 
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
-                    <span class="tag tag-treatment">CHOP regimen</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">CHOP regimen<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this regimen component is this clinical intervention
+This regimen component is CHOP regimen (NCIT:C9549). NCIT:C9549 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: CHOP Regimen</span>
 
 
@@ -9526,17 +10066,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cyclophosphamide
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:4027">CHEBI:4027</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4027" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-62">CHEBI:4027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cyclophosphamide (CHEBI:4027). CHEBI:4027 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         doxorubicin
@@ -9544,11 +10091,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28748">CHEBI:28748</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-63">CHEBI:28748</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         vincristine
@@ -9556,11 +10108,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28445">CHEBI:28445</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28445" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-64">CHEBI:28445</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses vincristine (CHEBI:28445). CHEBI:28445 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         prednisone
@@ -9568,10 +10125,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8382">CHEBI:8382</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-65">CHEBI:8382</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9666,7 +10226,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">monoclonal antibody therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">monoclonal antibody therapy<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is monoclonal antibody therapy (NCIT:C15490). NCIT:C15490 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Monoclonal Antibody Therapy</span>
 
 
@@ -9697,16 +10262,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rituximab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1702">NCIT:C1702</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1702" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-67">NCIT:C1702</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9779,7 +10349,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-68">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -9810,17 +10385,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         chlorambucil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28830" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28830">CHEBI:28830</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28830" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-69">CHEBI:28830</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses chlorambucil (CHEBI:28830). CHEBI:28830 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         melphalan
@@ -9828,11 +10410,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28876" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:28876">CHEBI:28876</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28876" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-70">CHEBI:28876</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses melphalan (CHEBI:28876). CHEBI:28876 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         prednisone
@@ -9840,11 +10427,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:8382">CHEBI:8382</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8382" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-71">CHEBI:8382</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         bortezomib
@@ -9852,10 +10444,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_52717" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:52717">CHEBI:52717</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_52717" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-72">CHEBI:52717</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bortezomib (CHEBI:52717). CHEBI:52717 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -9950,7 +10545,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">hematopoietic stem cell transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-73">hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hematopoietic stem cell transplantation, annotated with Hematopoietic Cell Transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Hematopoietic Cell Transplantation</span>
 
 
@@ -10046,7 +10646,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">radiation therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-74">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-74">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
@@ -10164,7 +10769,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-75">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-75">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10368,7 +10978,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">dietary intervention</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-76">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Dietary Intervention</span>
 
 
@@ -10517,10 +11132,131 @@
 
 
 
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Enteric Antigenic Stimulation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The node names this organism as the most convincingly implicated source of the sustained antigenic drive it describes, so colonisation by it is the node&#39;s own content. Both items are graded partial rather than supporting, and the exposure&#39;s own description gives the reason better than the grade can: the causal weight remains debated, and the organism is neither necessary nor sufficient in every case. What the evidence establishes is detection and persistence, not causation. The triggering effect and the directness are therefore inherited from the node, which names this organism as the antigenic drive it describes, rather than asserted by any cited sentence.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14724303" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14724303" target="_blank">PMID:14724303</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A follow-up retrospective analysis of archival intestinal-biopsy specimens disclosed campylobacter species in four of six additional patients with immunoproliferative small intestinal disease."</div>
+
+
+                <div class="evidence-explanation">Retrospective analysis finding the organism in four of six further archival cases beyond the index patient. Detection in a small series, which is the evidential ceiling for this exposure.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14724303" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14724303" target="_blank">PMID:14724303</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results indicate that campylobacter and immunoproliferative small intestinal disease are associated and that C. jejuni should be added to the growing list of human pathogens responsible for immunoproliferative states"</div>
+
+
+                <div class="evidence-explanation">The study&#39;s own conclusion, which is the strongest wording it offers: the organism and the disease are associated, and it should be added to the list of pathogens responsible for immunoproliferative states. Associated is the operative word, and it is why this is partial.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29372346" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29372346" target="_blank">PMID:29372346</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A link between Campylobacter jejuni infection and IPSID has been established, but there is controversy as to the role played by this organism in disease pathogenesis"</div>
+
+
+                <div class="evidence-explanation">Carried on this link so that the dispute travels with the claim rather than sitting apart from it: the link is established, and the organism&#39;s role in pathogenesis is contested. That is the honest state of this exposure and the reason no item here is graded supporting.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-low-socioeconomic-conditions-and-poor-sanitation" data-dismech-node="Low socioeconomic conditions and poor sanitation" data-dismech-type="environmental">
                 <div class="item-name">Low socioeconomic conditions and poor sanitation</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to adverse socioeconomic factors
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000028" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-77">ECTO:6000028</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to adverse socioeconomic factors, annotated with exposure to socioeconomic factors (ECTO:6000028). ECTO:6000028 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
 
 
 
@@ -10561,6 +11297,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Enteric Antigenic Stimulation</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Graded below the organism link into this same node, which is the right order but worth stating plainly: this exposure is an epidemiological pattern rather than an agent. Its value is that the pattern itself argues for an environmental and probably infectious mechanism, which is what makes it a claim about this node at all rather than only about who gets the disease. The entry is candid that improved sanitation has never been shown prospectively to prevent it.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29326807" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29326807" target="_blank">PMID:29326807</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"particularly those of low socio-economic background, suggesting an environmental, possibly infectious, pathogenetic mechanism."</div>
+
+
+                <div class="evidence-explanation">States the socioeconomic concentration of the disease and reads it as suggesting an environmental, possibly infectious, mechanism. The inference to this node is the source&#39;s own, and it is offered as a suggestion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -11294,6 +12082,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -13315,6 +14106,60 @@ genetic:
       it is typed DISPUTED rather than a driver.
 environmental:
 - name: Chronic Campylobacter jejuni infection
+  influences_mechanisms:
+  - target: Chronic Enteric Antigenic Stimulation
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The node names this organism as the most convincingly implicated source
+      of the sustained antigenic drive it describes, so colonisation by it is
+      the node&#39;s own content. Both items are graded partial rather than
+      supporting, and the exposure&#39;s own description gives the reason better
+      than the grade can: the causal weight remains debated, and the organism
+      is neither necessary nor sufficient in every case. What the evidence
+      establishes is detection and persistence, not causation. The triggering
+      effect and the directness are therefore inherited from the node, which
+      names this organism as the antigenic drive it describes, rather than
+      asserted by any cited sentence.
+    evidence:
+    - reference: PMID:14724303
+      reference_title: &#34;Immunoproliferative small intestinal disease associated with Campylobacter jejuni.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;A follow-up retrospective analysis of archival intestinal-biopsy specimens disclosed campylobacter species in four of six additional patients with immunoproliferative small intestinal disease.&#34;
+      explanation: &gt;-
+        Retrospective analysis finding the organism in four of six further
+        archival cases beyond the index patient. Detection in a small series,
+        which is the evidential ceiling for this exposure.
+    - reference: PMID:14724303
+      reference_title: &#34;Immunoproliferative small intestinal disease associated with Campylobacter jejuni.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;These results indicate that campylobacter and immunoproliferative small intestinal disease are associated and that C. jejuni should be added to the growing list of human pathogens responsible for immunoproliferative states&#34;
+      explanation: &gt;-
+        The study&#39;s own conclusion, which is the strongest wording it offers:
+        the organism and the disease are associated, and it should be added to
+        the list of pathogens responsible for immunoproliferative states.
+        Associated is the operative word, and it is why this is partial.
+    - reference: PMID:29372346
+      reference_title: &#34;Heavy Chain Disease of the Small Bowel.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;A link between Campylobacter jejuni infection and IPSID has been established, but there is controversy as to the role played by this organism in disease pathogenesis&#34;
+      explanation: &gt;-
+        Carried on this link so that the dispute travels with the claim rather
+        than sitting apart from it: the link is established, and the
+        organism&#39;s role in pathogenesis is contested. That is the honest state
+        of this exposure and the reason no item here is graded supporting.
+    - reference: PMID:39176219
+      reference_title: &#34;Gastrointestinal Alpha Heavy Chain Disease With Persistent Campylobacter Jejuni Colonization and Refractory Giardiasis.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;We report a rare case of GI αHCD with 5 concomitant pathogens identified on a GI multiplex real-time polymerase chain reaction panel, featured by persistent Campylobacter jejuni colonization and refractory giardiasis.&#34;
+      explanation: &gt;-
+        A contemporary case documenting persistent colonisation alongside
+        other enteric pathogens. One patient, and the co-pathogens make
+        attribution to this organism harder rather than easier.
   presence: Positive
   description: &gt;-
     Persistent small-bowel colonisation by Campylobacter jejuni is the
@@ -13348,6 +14193,34 @@ environmental:
       A contemporary case documenting persistent C. jejuni colonisation in
       alpha-HCD alongside other enteric pathogens.
 - name: Low socioeconomic conditions and poor sanitation
+  exposure_term:
+    preferred_term: exposure to adverse socioeconomic factors
+    term:
+      id: ECTO:6000028
+      label: exposure to socioeconomic factors
+  influences_mechanisms:
+  - target: Chronic Enteric Antigenic Stimulation
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Graded below the organism link into this same node, which is the right
+      order but worth stating plainly: this exposure is an epidemiological
+      pattern rather than an agent. Its value is that the pattern itself
+      argues for an environmental and probably infectious mechanism, which is
+      what makes it a claim about this node at all rather than only about who
+      gets the disease. The entry is candid that improved sanitation has never
+      been shown prospectively to prevent it.
+    evidence:
+    - reference: PMID:29326807
+      reference_title: &#34;Heavy-Chain Diseases and Myeloma-Associated Fanconi Syndrome: an Update.&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;particularly those of low socio-economic background, suggesting an environmental, possibly infectious, pathogenetic mechanism.&#34;
+      explanation: &gt;-
+        States the socioeconomic concentration of the disease and reads it as
+        suggesting an environmental, possibly infectious, mechanism. The
+        inference to this node is the source&#39;s own, and it is offered as a
+        suggestion.
   presence: Positive
   description: &gt;-
     Alpha-HCD is strikingly concentrated in Mediterranean, North African, and
@@ -14744,7 +15617,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Heavy Chain Disease", "mondoId": "MONDO:0019464", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Heavy_Chain_Disease", "yamlRevision": "be17912da89b"};
+        const OS_CONFIG = {"diseaseName": "Heavy Chain Disease", "mondoId": "MONDO:0019464", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Heavy_Chain_Disease", "yamlRevision": "04bf046b0562"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -15163,5 +16036,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

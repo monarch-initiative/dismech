@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3837,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4000,16 +4168,21 @@ manner."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ATP8B1
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:3706" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3706">hgnc:3706</a>
+    <a href="https://bioregistry.io/hgnc:3706" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:3706</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ATP8B1 (hgnc:3706). hgnc:3706 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4076,16 +4249,21 @@ manner."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ABCB11
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:42">hgnc:42</a>
+    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:42</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ABCB11 (hgnc:42). hgnc:42 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4153,16 +4331,21 @@ present as infants with progressive cholestatic liver disease."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ABCB4
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:45" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:45">hgnc:45</a>
+    <a href="https://bioregistry.io/hgnc:45" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:45</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ABCB4 (hgnc:45). hgnc:45 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4231,16 +4414,21 @@ leading to a high biliary cholesterol saturation index."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 TJP2
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:11828" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11828">hgnc:11828</a>
+    <a href="https://bioregistry.io/hgnc:11828" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11828</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TJP2 (hgnc:11828). hgnc:11828 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4307,16 +4495,21 @@ leading to a high biliary cholesterol saturation index."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 NR1H4
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7967" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7967">hgnc:7967</a>
+    <a href="https://bioregistry.io/hgnc:7967" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:7967</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NR1H4 (hgnc:7967). hgnc:7967 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4386,16 +4579,21 @@ transferase activity, elevated serum alpha-fetoprotein and undetectable liver...
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 MYO5B
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:7603" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7603">hgnc:7603</a>
+    <a href="https://bioregistry.io/hgnc:7603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7603</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MYO5B (hgnc:7603). hgnc:7603 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4464,16 +4662,21 @@ familial intrahepatic cholestasis gene."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 USP53
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:29255" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29255">hgnc:29255</a>
+    <a href="https://bioregistry.io/hgnc:29255" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:29255</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in USP53 (hgnc:29255). hgnc:29255 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4563,16 +4766,21 @@ further patients with cholestasis, from 5 families."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 KIF12
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:21495" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21495">hgnc:21495</a>
+    <a href="https://bioregistry.io/hgnc:21495" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:21495</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in KIF12 (hgnc:21495). hgnc:21495 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4641,16 +4849,21 @@ liver disease with high GGT in 3 previously undiagnosed children."</div>
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 ZFYVE19
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:20758" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20758">hgnc:20758</a>
+    <a href="https://bioregistry.io/hgnc:20758" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:20758</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ZFYVE19 (hgnc:20758). hgnc:20758 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4733,16 +4946,21 @@ neonatal onset."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4769,16 +4987,27 @@ neonatal onset."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ATP8B1
 
 
-    <a href="https://bioregistry.io/hgnc:3706" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3706">hgnc:3706</a>
+    <a href="https://bioregistry.io/hgnc:3706" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:3706</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP8B1 (hgnc:3706). hgnc:3706 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4806,11 +5035,18 @@ neonatal onset."</div>
         ABCB11
 
 
-    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:42">hgnc:42</a>
+    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:42</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCB11 (hgnc:42). hgnc:42 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4838,11 +5074,18 @@ neonatal onset."</div>
         ABCB4
 
 
-    <a href="https://bioregistry.io/hgnc:45" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:45">hgnc:45</a>
+    <a href="https://bioregistry.io/hgnc:45" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:45</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCB4 (hgnc:45). hgnc:45 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4870,11 +5113,18 @@ neonatal onset."</div>
         TJP2
 
 
-    <a href="https://bioregistry.io/hgnc:11828" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11828">hgnc:11828</a>
+    <a href="https://bioregistry.io/hgnc:11828" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11828</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TJP2 (hgnc:11828). hgnc:11828 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4902,11 +5152,18 @@ neonatal onset."</div>
         NR1H4
 
 
-    <a href="https://bioregistry.io/hgnc:7967" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7967">hgnc:7967</a>
+    <a href="https://bioregistry.io/hgnc:7967" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:7967</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NR1H4 (hgnc:7967). hgnc:7967 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4934,11 +5191,18 @@ neonatal onset."</div>
         MYO5B
 
 
-    <a href="https://bioregistry.io/hgnc:7603" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7603">hgnc:7603</a>
+    <a href="https://bioregistry.io/hgnc:7603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:7603</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYO5B (hgnc:7603). hgnc:7603 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4966,11 +5230,18 @@ neonatal onset."</div>
         USP53
 
 
-    <a href="https://bioregistry.io/hgnc:29255" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29255">hgnc:29255</a>
+    <a href="https://bioregistry.io/hgnc:29255" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:29255</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves USP53 (hgnc:29255). hgnc:29255 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4998,11 +5269,18 @@ neonatal onset."</div>
         KIF12
 
 
-    <a href="https://bioregistry.io/hgnc:21495" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21495">hgnc:21495</a>
+    <a href="https://bioregistry.io/hgnc:21495" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:21495</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KIF12 (hgnc:21495). hgnc:21495 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5030,10 +5308,13 @@ neonatal onset."</div>
         ZFYVE19
 
 
-    <a href="https://bioregistry.io/hgnc:20758" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20758">hgnc:20758</a>
+    <a href="https://bioregistry.io/hgnc:20758" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:20758</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ZFYVE19 (hgnc:20758). hgnc:20758 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5061,16 +5342,21 @@ neonatal onset."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bile acid and bile salt transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015721" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015721">GO:0015721</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015721" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0015721</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased bile acid and bile salt transport (GO:0015721). GO:0015721 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5097,19 +5383,25 @@ neonatal onset."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bile canaliculus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001283" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001283">UBERON:0001283</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001283" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0001283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bile canaliculus (UBERON:0001283). UBERON:0001283 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5216,16 +5508,21 @@ mutations in hepatocellular transport-system genes involved in bile formation."<
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5252,15 +5549,22 @@ mutations in hepatocellular transport-system genes involved in bile formation."<
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ATP8B1
 
 
-    <a href="https://bioregistry.io/hgnc:3706" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3706">hgnc:3706</a>
+    <a href="https://bioregistry.io/hgnc:3706" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:3706</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ATP8B1 (hgnc:3706). hgnc:3706 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5288,16 +5592,21 @@ mutations in hepatocellular transport-system genes involved in bile formation."<
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         aminophospholipid translocation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140331" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140331">GO:0140331</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140331" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0140331</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased aminophospholipid translocation (GO:0140331). GO:0140331 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5318,6 +5627,7 @@ mutations in hepatocellular transport-system genes involved in bile formation."<
 
 
                 </div>
+
 
 
 
@@ -5420,16 +5730,21 @@ respectively."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5450,6 +5765,10 @@ respectively."</div>
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -5461,10 +5780,13 @@ respectively."</div>
         ABCB11
 
 
-    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:42">hgnc:42</a>
+    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:42</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCB11 (hgnc:42). hgnc:42 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5491,6 +5813,8 @@ respectively."</div>
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         canalicular bile acid transport
@@ -5498,10 +5822,13 @@ respectively."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015722" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015722">GO:0015722</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015722" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0015722</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased canalicular bile acid transport (GO:0015722). GO:0015722 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5526,16 +5853,21 @@ respectively."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         canalicular bile acid transmembrane transporter activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015126" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015126">GO:0015126</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015126" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0015126</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased canalicular bile acid transmembrane transporter activity (GO:0015126). GO:0015126 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5556,6 +5888,7 @@ respectively."</div>
 
 
                 </div>
+
 
 
 
@@ -5654,16 +5987,21 @@ respectively."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5684,6 +6022,10 @@ respectively."</div>
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -5695,10 +6037,13 @@ respectively."</div>
         ABCB4
 
 
-    <a href="https://bioregistry.io/hgnc:45" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:45">hgnc:45</a>
+    <a href="https://bioregistry.io/hgnc:45" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:45</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ABCB4 (hgnc:45). hgnc:45 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5725,6 +6070,8 @@ respectively."</div>
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         phospholipid translocation
@@ -5732,10 +6079,13 @@ respectively."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045332" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045332">GO:0045332</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045332" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0045332</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased phospholipid translocation (GO:0045332). GO:0045332 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5760,16 +6110,21 @@ respectively."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         phosphatidylcholine floppase activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090554" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090554">GO:0090554</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090554" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0090554</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased phosphatidylcholine floppase activity (GO:0090554). GO:0090554 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5790,6 +6145,7 @@ respectively."</div>
 
 
                 </div>
+
 
 
 
@@ -5890,16 +6246,21 @@ impair biliary phospholipid secretion, resulting in PFIC3."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         intrahepatic cholangiocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002538" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002538">CL:0002538</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002538" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-33">CL:0002538</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves intrahepatic cholangiocyte (CL:0002538). CL:0002538 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5916,6 +6277,7 @@ impair biliary phospholipid secretion, resulting in PFIC3."</div>
 
 
                 </div>
+
 
 
 
@@ -6022,16 +6384,21 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-34">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6058,15 +6425,22 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TJP2
 
 
-    <a href="https://bioregistry.io/hgnc:11828" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11828">hgnc:11828</a>
+    <a href="https://bioregistry.io/hgnc:11828" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:11828</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TJP2 (hgnc:11828). hgnc:11828 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6094,16 +6468,21 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         tight junction assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0120192" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0120192">GO:0120192</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0120192" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0120192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased tight junction assembly (GO:0120192). GO:0120192 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6129,19 +6508,25 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         bicellular tight junction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005923" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005923">GO:0005923</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005923" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0005923</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal bicellular tight junction (GO:0005923). GO:0005923 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6238,16 +6623,21 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-38">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6274,15 +6664,22 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         NR1H4
 
 
-    <a href="https://bioregistry.io/hgnc:7967" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7967">hgnc:7967</a>
+    <a href="https://bioregistry.io/hgnc:7967" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:7967</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NR1H4 (hgnc:7967). hgnc:7967 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6310,16 +6707,21 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         nuclear receptor-mediated bile acid signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038185" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0038185">GO:0038185</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038185" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0038185</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves absent nuclear receptor-mediated bile acid signaling pathway (GO:0038185). GO:0038185 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6339,16 +6741,21 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
 
 
+
+
                     <span class="tag tag-bio">
                         negative regulation of bile acid biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070858" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070858">GO:0070858</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070858" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0070858</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased negative regulation of bile acid biosynthetic process (GO:0070858). GO:0070858 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6369,6 +6776,7 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
 
                 </div>
+
 
 
 
@@ -6469,16 +6877,21 @@ acid metabolism"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-42">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6505,15 +6918,22 @@ acid metabolism"</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MYO5B
 
 
-    <a href="https://bioregistry.io/hgnc:7603" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7603">hgnc:7603</a>
+    <a href="https://bioregistry.io/hgnc:7603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:7603</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYO5B (hgnc:7603). hgnc:7603 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6541,16 +6961,21 @@ acid metabolism"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         establishment of epithelial cell polarity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090162" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090162">GO:0090162</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090162" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-44">GO:0090162</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal establishment of epithelial cell polarity (GO:0090162). GO:0090162 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6576,19 +7001,25 @@ acid metabolism"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         recycling endosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055037" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055037">GO:0055037</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-45">GO:0055037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal recycling endosome (GO:0055037). GO:0055037 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6655,16 +7086,21 @@ acid metabolism"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-46">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6691,16 +7127,21 @@ acid metabolism"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bile acid secretion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032782" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032782">GO:0032782</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032782" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-47">GO:0032782</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased bile acid secretion (GO:0032782). GO:0032782 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6721,6 +7162,7 @@ acid metabolism"</div>
 
 
                 </div>
+
 
 
 
@@ -6845,16 +7287,21 @@ acid metabolism"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         enterocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000584">CL:0000584</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-48">CL:0000584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6879,15 +7326,22 @@ acid metabolism"</div>
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SLC10A2
 
 
-    <a href="https://bioregistry.io/hgnc:10906" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10906">hgnc:10906</a>
+    <a href="https://bioregistry.io/hgnc:10906" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:10906</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SLC10A2 (hgnc:10906). hgnc:10906 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6915,16 +7369,21 @@ acid metabolism"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bile acid and bile salt transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015721" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015721">GO:0015721</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015721" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-50">GO:0015721</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased bile acid and bile salt transport (GO:0015721). GO:0015721 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6951,19 +7410,25 @@ acid metabolism"</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         ileum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002116">UBERON:0002116</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-51">UBERON:0002116</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in ileum (UBERON:0002116). UBERON:0002116 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7066,6 +7531,7 @@ reduce pruritus and slow or reverse the progression to hepatic fibrosis"</div>
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7139,19 +7605,25 @@ resulting in disrupted bile formation, cholestasis, and pruritus."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-52">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7265,16 +7737,21 @@ deficiencies are treated symptomatically."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatic stellate cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000632">CL:0000632</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000632" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-53">CL:0000632</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatic stellate cell (CL:0000632). CL:0000632 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7301,16 +7778,21 @@ deficiencies are treated symptomatically."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-54">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7331,6 +7813,7 @@ deficiencies are treated symptomatically."</div>
 
 
                 </div>
+
 
 
 
@@ -7449,16 +7932,21 @@ disease course."</div>
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-55">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7475,6 +7963,7 @@ disease course."</div>
 
 
                 </div>
+
 
 
 
@@ -7586,6 +8075,7 @@ malignancy versus 10% (11/107) with potentially less severe genotypes"</div>
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7645,6 +8135,7 @@ drug-induced liver injury, transient neonatal cholestasis, adult biliary..."</di
                 <div class="item-name">Extrahepatic FIC1 Deficiency</div>
 
                 <div class="item-desc">ATP8B1 is expressed well beyond the hepatocyte, so PFIC1 alone among the classical subtypes has an extrahepatic disease burden: secretory diarrhoea, exocrine pancreatic insufficiency, elevated sweat chloride, short stature and sensorineural hearing loss. This is clinically decisive because liver transplantation replaces only the hepatic compartment: the diarrhoea persists or worsens after transplant and is associated with allograft steatosis and fibrosis that can require re-transplantation, and audiological surveillance must continue lifelong regardless of hepatic outcome.</div>
+
 
 
 
@@ -7927,14 +8418,21 @@ transplantation."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Splenomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001744">HP:0001744</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001744</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7988,14 +8486,21 @@ transplantation."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Portal hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001409">HP:0001409</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001409" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001409</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Portal hypertension (HP:0001409), qualified as course progressive. HP:0001409 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8076,14 +8581,21 @@ transplantation."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Jaundice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000952">HP:0000952</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000952</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8159,14 +8671,21 @@ transplantation."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatomegaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002240">HP:0002240</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0002240</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8220,14 +8739,21 @@ transplantation."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cirrhosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cirrhosis (HP:0001394), qualified as course progressive. HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8301,14 +8827,21 @@ and early death."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatic failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001399">HP:0001399</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001399" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0001399</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatic failure (HP:0001399). HP:0001399 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8384,14 +8917,21 @@ and early death."</div>
                         Steatorrhea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Steatorrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002570" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002570">HP:0002570</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002570" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002570</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Steatorrhea (HP:0002570). HP:0002570 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8445,14 +8985,21 @@ and early death."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chronic diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002028">HP:0002028</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0002028</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8529,14 +9076,21 @@ transplantation."</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exocrine pancreatic insufficiency
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001738">HP:0001738</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0001738</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exocrine pancreatic insufficiency (HP:0001738). HP:0001738 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8590,14 +9144,21 @@ transplantation."</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hepatocellular carcinoma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001402">HP:0001402</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0001402</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hepatocellular carcinoma (HP:0001402). HP:0001402 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8673,14 +9234,21 @@ nonrelated children studied aged 13-52 months at diagnosis of HCC"</div>
                         Cholelithiasis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cholelithiasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001081" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001081">HP:0001081</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001081" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0001081</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cholelithiasis (HP:0001081). HP:0001081 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8743,14 +9311,21 @@ nonrelated children studied aged 13-52 months at diagnosis of HCC"</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8814,14 +9389,21 @@ phenotypic spectrum."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pruritus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0000989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8905,14 +9487,21 @@ aged 1-17 years with PFIC with persistent pruritus"</div>
                         Elevated circulating alpha-fetoprotein concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated circulating alpha-fetoprotein concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006254" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006254">HP:0006254</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006254" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0006254</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating alpha-fetoprotein concentration (HP:0006254). HP:0006254 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8977,14 +9566,21 @@ bile salt export pump (ABCB11) expression"</div>
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9061,14 +9657,21 @@ growth may require medium-chain triglyceride-based formulas"</div>
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9131,14 +9734,21 @@ growth may require medium-chain triglyceride-based formulas"</div>
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intrahepatic cholestasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001406" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001406">HP:0001406</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001406" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0001406</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intrahepatic cholestasis (HP:0001406), qualified as course progressive. HP:0001406 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9212,14 +9822,21 @@ and present with cholestasis of hepatocellular origin."</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conjugated hyperbilirubinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002908" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002908">HP:0002908</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002908" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0002908</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conjugated hyperbilirubinemia (HP:0002908). HP:0002908 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9296,14 +9913,21 @@ newborn and young infant"</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased serum bile acid concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012202">HP:0012202</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0012202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased serum bile acid concentration (HP:0012202). HP:0012202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9357,14 +9981,23 @@ versus 11 μmol/L (-58 to 80) for placebo"</div>
                         Elevated serum gamma-glutamyltransferase
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Elevated gamma-glutamyltransferase level
+
+                        <span class="phenotype-term-label">Elevated gamma-glutamyltransferase level</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030948" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030948">HP:0030948</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030948" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0030948</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated gamma-glutamyltransferase level (HP:0030948). HP:0030948 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9439,14 +10072,23 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
                         Vitamin K-responsive coagulopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prolonged prothrombin time
+
+                        <span class="phenotype-term-label">Prolonged prothrombin time</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008151" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008151">HP:0008151</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0008151</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9568,13 +10210,18 @@ transferase activity, elevated serum alpha-fetoprotein and undetectable liver...
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP8B1
 
 
-    <a href="https://bioregistry.io/hgnc:3706" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3706">hgnc:3706</a>
+    <a href="https://bioregistry.io/hgnc:3706" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-77">hgnc:3706</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP8B1 (hgnc:3706). hgnc:3706 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9636,13 +10283,18 @@ in BRIC1/ICP residual protein is expressed in the canalicular membrane."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCB11
 
 
-    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:42">hgnc:42</a>
+    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-78">hgnc:42</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCB11 (hgnc:42). hgnc:42 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9703,13 +10355,18 @@ E297G and/or D482G present in 58% of European families (52/89)."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCB4
 
 
-    <a href="https://bioregistry.io/hgnc:45" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:45">hgnc:45</a>
+    <a href="https://bioregistry.io/hgnc:45" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-79">hgnc:45</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCB4 (hgnc:45). hgnc:45 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9769,13 +10426,18 @@ E297G and/or D482G present in 58% of European families (52/89)."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TJP2
 
 
-    <a href="https://bioregistry.io/hgnc:11828" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11828">hgnc:11828</a>
+    <a href="https://bioregistry.io/hgnc:11828" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-80">hgnc:11828</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TJP2 (hgnc:11828). hgnc:11828 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9835,13 +10497,18 @@ E297G and/or D482G present in 58% of European families (52/89)."</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NR1H4
 
 
-    <a href="https://bioregistry.io/hgnc:7967" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7967">hgnc:7967</a>
+    <a href="https://bioregistry.io/hgnc:7967" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-81">hgnc:7967</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NR1H4 (hgnc:7967). hgnc:7967 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9902,13 +10569,18 @@ two unrelated families with neonatal cholestasis and mutations in NR1H4"</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYO5B
 
 
-    <a href="https://bioregistry.io/hgnc:7603" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7603">hgnc:7603</a>
+    <a href="https://bioregistry.io/hgnc:7603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-82">hgnc:7603</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYO5B (hgnc:7603). hgnc:7603 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9971,13 +10643,18 @@ normal serum gamma-glutamyl transferase activity without intestinal disease."</d
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: USP53
 
 
-    <a href="https://bioregistry.io/hgnc:29255" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29255">hgnc:29255</a>
+    <a href="https://bioregistry.io/hgnc:29255" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-83">hgnc:29255</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is USP53 (hgnc:29255). hgnc:29255 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -10037,13 +10714,18 @@ normal serum gamma-glutamyl transferase activity without intestinal disease."</d
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: KIF12
 
 
-    <a href="https://bioregistry.io/hgnc:21495" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21495">hgnc:21495</a>
+    <a href="https://bioregistry.io/hgnc:21495" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-84">hgnc:21495</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is KIF12 (hgnc:21495). hgnc:21495 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -10104,13 +10786,18 @@ normal serum gamma-glutamyl transferase activity without intestinal disease."</d
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZFYVE19
 
 
-    <a href="https://bioregistry.io/hgnc:20758" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20758">hgnc:20758</a>
+    <a href="https://bioregistry.io/hgnc:20758" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-85">hgnc:20758</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZFYVE19 (hgnc:20758). hgnc:20758 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -10183,7 +10870,12 @@ both heterozygous parents."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-86">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-86">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10213,16 +10905,21 @@ both heterozygous parents."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         odevixibat
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C166598" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C166598">NCIT:C166598</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C166598" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-87">NCIT:C166598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses odevixibat (NCIT:C166598). NCIT:C166598 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -10288,17 +10985,24 @@ with PFIC."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-88">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased serum bile acid concentration
@@ -10306,10 +11010,13 @@ with PFIC."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012202">HP:0012202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-89">HP:0012202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Increased serum bile acid concentration (HP:0012202). HP:0012202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10406,7 +11113,12 @@ treatment; both underwent liver transplantation"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-90">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-90">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10436,16 +11148,21 @@ treatment; both underwent liver transplantation"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         maralixibat
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C170148" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C170148">NCIT:C170148</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C170148" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-91">NCIT:C170148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-91">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses maralixibat (NCIT:C170148). NCIT:C170148 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -10511,17 +11228,24 @@ the standard of care in patients with PFIC."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-92">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased serum bile acid concentration
@@ -10529,10 +11253,13 @@ the standard of care in patients with PFIC."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012202">HP:0012202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-93">HP:0012202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Increased serum bile acid concentration (HP:0012202). HP:0012202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10605,7 +11332,12 @@ adverse event was diarrhoea"</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Surgical Procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-94">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-94">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10693,16 +11425,21 @@ reduce pruritus and slow or reverse the progression to hepatic fibrosis"</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-95">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-95">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10775,7 +11512,12 @@ slow disease progression."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-96">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-96">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10805,16 +11547,21 @@ slow disease progression."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ursodeoxycholic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9907" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9907">CHEBI:9907</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9907" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-97">CHEBI:9907</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10916,7 +11663,12 @@ ineffective regardless of disease severity."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-98">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-98">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10946,17 +11698,24 @@ ineffective regardless of disease severity."</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         cholestyramine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C28929" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C28929">NCIT:C28929</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C28929" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-99">NCIT:C28929</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-99">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cholestyramine (NCIT:C28929). NCIT:C28929 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         rifampin
@@ -10964,10 +11723,13 @@ ineffective regardless of disease severity."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C811" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C811">NCIT:C811</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C811" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-100">NCIT:C811</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-100">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rifampin (NCIT:C811). NCIT:C811 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -10981,16 +11743,21 @@ ineffective regardless of disease severity."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-101">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-101">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -11039,7 +11806,12 @@ ineffective regardless of disease severity."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Nutritional Support</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-102">Nutritional Support<span class="pill-tip" role="tooltip" id="pill-tip-102">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11075,16 +11847,21 @@ ineffective regardless of disease severity."</div>
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Failure to thrive
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-103">HP:0001508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-103">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -11157,7 +11934,12 @@ deficiencies are treated symptomatically."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Liver Transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-104">Liver Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-104">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Liver Transplantation (NCIT:C15271). NCIT:C15271 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11282,7 +12064,12 @@ transplantation."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-105">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-105">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -11385,7 +12172,12 @@ not."</div>
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-106">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-106">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -12194,12 +12986,11 @@ cholestasis."</div>
             <div class="item-box differential-box">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Biliary atresia</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Biliary_Atresia.html">Biliary atresia</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0008867" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0008867" target="_blank">
                             MONDO:0008867
                         </a>
                     </span>
@@ -12677,17 +13468,24 @@ cholestasis"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-107">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-107">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased serum bile acid concentration
@@ -12695,10 +13493,13 @@ cholestasis"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012202">HP:0012202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-108">HP:0012202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-108">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased serum bile acid concentration (HP:0012202). HP:0012202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -12757,17 +13558,24 @@ cholestasis"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-109">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-109">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased serum bile acid concentration
@@ -12775,10 +13583,13 @@ cholestasis"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012202">HP:0012202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-110">HP:0012202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-110">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased serum bile acid concentration (HP:0012202). HP:0012202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -12837,17 +13648,24 @@ cholestasis"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-111">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-111">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased serum bile acid concentration
@@ -12855,10 +13673,13 @@ cholestasis"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012202">HP:0012202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-112">HP:0012202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-112">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased serum bile acid concentration (HP:0012202). HP:0012202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -12917,17 +13738,24 @@ cholestasis"</div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Pruritus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-113">HP:0000989</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-113">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Increased serum bile acid concentration
@@ -12935,10 +13763,13 @@ cholestasis"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012202">HP:0012202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-114">HP:0012202</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-114">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Increased serum bile acid concentration (HP:0012202). HP:0012202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -12984,6 +13815,9 @@ cholestasis"</div>
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -17389,5 +18223,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

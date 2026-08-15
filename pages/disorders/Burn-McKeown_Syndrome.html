@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3697,6 +3863,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3782,7 +3950,7 @@
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4167,15 +4335,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TXNL4A
 
 
-    <a href="https://bioregistry.io/hgnc:30551" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30551">hgnc:30551</a>
+    <a href="https://bioregistry.io/hgnc:30551" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:30551</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TXNL4A (hgnc:30551). hgnc:30551 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4195,6 +4370,7 @@
 
 
                 </div>
+
 
 
 
@@ -4314,16 +4490,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         migratory cranial neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000008">CL:0000008</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory cranial neural crest cell (CL:0000008). CL:0000008 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4350,16 +4531,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mRNA splicing, via spliceosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000398">GO:0000398</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000398" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0000398</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased mRNA splicing, via spliceosome (GO:0000398). GO:0000398 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4379,16 +4565,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         spliceosomal snRNP assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000387" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000387">GO:0000387</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000387" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0000387</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased spliceosomal snRNP assembly (GO:0000387). GO:0000387 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4430,6 +4621,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4548,16 +4740,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         migratory cranial neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000008">CL:0000008</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory cranial neural crest cell (CL:0000008). CL:0000008 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4584,16 +4781,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neural crest cell development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014032">GO:0014032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0014032</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural crest cell development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4613,16 +4815,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         epithelial to mesenchymal transition
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001837">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001837</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4664,6 +4871,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4779,16 +4987,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         canonical Wnt signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060070">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0060070</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4830,6 +5043,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4923,16 +5137,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         face morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060325">GO:0060325</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060325" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0060325</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal face morphogenesis (GO:0060325). GO:0060325 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4953,6 +5172,7 @@
 
 
                 </div>
+
 
 
 
@@ -5163,7 +5383,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BMKS patient-derived iPSC induced neural crest cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The principal experimental system for BMKS mechanism. The unaffected mother\u0027s line provides a closely matched (though not isogenic) control. Limitation: the single patient donor is an atypical case, so findings should be replicated in additional lines before being generalised across the BMKS phenotypic spectrum.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory cranial neural crest cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:32735620\"}}, {\"id\": \"Cardiac Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cardiac defects are managed in a routine manner, without disorder-specific modification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Choanal Atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral choanal atresia or stenosis is the cardinal feature and the usual presenting problem, since bilateral atresia causes neonatal airway compromise in an obligate nasal breather.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000453\"}}, {\"id\": \"Cleft Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unilateral cleft lip, with or without cleft palate, occurs in a minority.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000204\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate occurs in a minority. Cleft lip and/or palate is part of the core characterisation of BMKS and is listed by GeneReviews among the craniofacial manifestations requiring multidisciplinary management; the specific variant of median cleft palate with oronasal fistula was reported in a single sibship as an expansion of the phenotypic spectrum.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A conductive component to the hearing loss is described alongside the sensorineural component, consistent with middle-ear involvement of arch-derived structures. No source quantifies the conductive component separately from hearing loss overall, so no frequency band is asserted for it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Craniofacial Neural-Crest-Derived Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level outcome is a distinctive, recognisable craniofacial malformation pattern: bilateral choanal atresia or stenosis, short palpebral fissures with coloboma of the outer third of the lower eyelids, a prominent nasal bridge with widely spaced eyes, a short philtrum, a thin upper lip vermilion, and prominent ears, with cleft lip and/or palate and preauricular tags in a minority. Middle- and inner-ear involvement produces conductive and sensorineural hearing loss. The malar and mandibular hypoplasia that defines mandibulofacial dysostosis is not part of this pattern, and the choanal atresia arises from failure of the bucconasal membrane rather than from an arch derivative.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"face morphogenesis\"]}}, {\"id\": \"Dampened WNT Signalling via TCF7L2 Mis-Splicing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNA-Seq of BMKS patient-derived induced neural crest cells showed widespread mis-splicing in genes relevant to craniofacial and embryonic development, with the dominant signature being a dampened response to WNT signalling - the key pathway activated during induced neural crest differentiation. Mis-splicing of exon 4 of TCF7L2, which encodes a core WNT-pathway transcription factor, was identified as a candidate cause of that reduced WNT response. This node is curated at provisional confidence: the TCF7L2 link is proposed by the authors as a potential cause rather than demonstrated by rescue.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"canonical Wnt signaling pathway\"], \"experimental_models\": [{\"name\": \"BMKS patient-derived iPSC induced neural crest cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"iNCC RNA-Seq shows a dampened WNT response, with TCF7L2 exon 4 mis-splicing proposed as the cause.\"}]}}, {\"id\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cranial neural crest cells are the progenitors of the facial skeleton and are the cell type in which spliceosome dosage matters most. Txnl4a knockdown in Xenopus produces cranial neural crest formation defects, placing TXNL4A alongside Eftud2 and Snrpb in a common craniofacial spliceosomopathy aetiology. In patient-derived cells, BMKS iPSCs proliferate more slowly than control and show defective differentiation into induced neural crest cells, with a specific delay in undergoing the epithelial-to-mesenchymal transition that neural crest cells must complete in order to delaminate and migrate.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"migratory cranial neural crest cell\"], \"biological_processes\": [\"neural crest cell development\", \"epithelial to mesenchymal transition\"], \"experimental_models\": [{\"name\": \"BMKS patient-derived iPSC induced neural crest cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Patient iPSCs differentiate defectively into induced neural crest cells with a delayed epithelial-to-mesenchymal transition.\"}]}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is common and may be conductive, sensorineural or mixed, reflecting both external/middle-ear and inner-ear involvement.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hearing Loss Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treatment of hearing loss is individualised and may involve hearing aids, with audiological monitoring as part of surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widely spaced eyes accompany the prominent nasal bridge.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TXNL4A (Dib1) is a core protein of the U5 small nuclear ribonucleoprotein, which sits at the centre of the catalytic spliceosome and is a component of the U4/U6.U5 tri-snRNP. Reduced TXNL4A dosage therefore degrades general pre-mRNA splicing capacity. Crucially the consequence is not uniform: only a subset of transcripts is affected, and the mis-spliced genes share sequence properties (transcript length, branch-point-to-3\u0027-splice-site distance, splice-site strength) that make them unusually sensitive to reduced TXNL4A. This selectivity is the current explanation for how a ubiquitously expressed housekeeping protein produces a tissue-restricted craniofacial phenotype.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory cranial neural crest cell\"], \"biological_processes\": [\"mRNA splicing, via spliceosome\", \"spliceosomal snRNP assembly\"], \"experimental_models\": [{\"name\": \"BMKS patient-derived iPSC induced neural crest cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"RNA-Seq of patient iPSCs and iNCCs shows altered gene expression and alternative splicing relative to the maternal control.\"}]}}, {\"id\": \"Lower Eyelid Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coloboma of the outer third of the lower eyelid, characteristically with eyelashes present medial to the defect, is a highly distinctive feature and can cause corneal exposure.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000652\"}}, {\"id\": \"Neonatal Airway Management and Choanal Atresia Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bilateral choanal atresia causes airway compromise at delivery because neonates are obligate nasal breathers. Immediate management may require intubation, followed by surgical correction of the choanal stenosis/atresia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ophthalmological Care for Lower Eyelid Defects\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lower eyelid defects can cause corneal exposure. Ophthalmological care is required to reduce the risk of corneal scarring, and monitoring by an ophthalmologist is part of recommended surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Preauricular Skin Tag\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Preauricular tags occur in a minority and are managed as part of the craniofacial care plan.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000384\"}}, {\"id\": \"Prominent Ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent or protruding ears are a consistent external feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000411\"}}, {\"id\": \"Prominent Nasal Bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A prominent nasal bridge with widely spaced eyes is a consistent component of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000426\"}}, {\"id\": \"Reduced TXNL4A Expression from Biallelic Promoter and Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The characteristic BMKS genotype is a 34-bp deletion in the TXNL4A promoter (type 1 or type 2) in trans with a coding or splice loss-of-function variant, or homozygosity for a promoter deletion. The deleted 56-bp promoter region contains a 22-bp repeated motif that is essential for TXNL4A expression, and the splice-site variants at the final intron cause skipping of the final exon. The net effect is a quantitative reduction in TXNL4A protein rather than its complete absence, which is why BMKS behaves as a hypomorphic dosage disorder.\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"TXNL4A\"], \"gene_terms\": [{\"label\": \"TXNL4A\", \"id\": \"hgnc:30551\"}]}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A sensorineural component to the hearing loss is described alongside the conductive component, so audiological assessment must distinguish the two. No source quantifies the sensorineural component separately from hearing loss overall, so no frequency band is asserted for it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Short Palpebral Fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short (narrow) palpebral fissures are part of the recognisable facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012745\"}}, {\"id\": \"Short Philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A short philtrum is part of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000322\"}}, {\"id\": \"Structural Cardiac Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural cardiac abnormalities occur in a minority and are managed in a routine manner. The published sources report only \\\"cardiac defects\\\" or \\\"structural cardiac abnormalities\\\" without specifying the lesion, so no more specific cardiac malformation is asserted here.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"TXNL4A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"TXNL4A\"], \"gene_terms\": [{\"label\": \"TXNL4A\", \"id\": \"hgnc:30551\"}], \"presence\": \"Positive\", \"association\": \"Causal - biallelic loss-of-function and promoter-deletion variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Thin Upper Lip Vermilion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin upper lip vermilion, often with a small mouth, is part of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000219\"}}], \"edges\": [{\"source\": \"Reduced TXNL4A Expression from Biallelic Promoter and Loss-of-Function Variants\", \"target\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced TXNL4A protein lowers the availability of a U5 snRNP core component needed for tri-snRNP assembly and catalytic spliceosome function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"target\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective mis-splicing degrades transcripts required for neural crest specification, EMT and migration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"target\": \"Dampened WNT Signalling via TCF7L2 Mis-Splicing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mis-splicing of TCF7L2 exon 4 is the identified candidate route from splicing failure to reduced WNT responsiveness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"target\": \"Craniofacial Neural-Crest-Derived Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or mis-differentiated cranial neural crest yields hypoplastic and malformed neural-crest-derived facial structures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dampened WNT Signalling via TCF7L2 Mis-Splicing\", \"target\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced WNT responsiveness impairs the neural crest differentiation program that WNT signalling drives.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Choanal Atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the bucconasal membrane to rupture produces bilateral choanal atresia or stenosis, the cardinal feature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Lower Eyelid Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coloboma of the outer third of the lower eyelid.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Middle- and inner-ear involvement produces conductive and sensorineural hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Middle-ear (ossicular/tympanic) involvement of arch-derived structures produces the conductive component of the hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inner-ear involvement produces the sensorineural component of the hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Prominent Ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prominent/protruding ears are part of the facial gestalt.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Short Palpebral Fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short palpebral fissures are part of the periorbital component of the malformation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widely spaced eyes accompany the prominent nasal bridge in the midfacial component of the pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Prominent Nasal Bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A prominent nasal bridge is the midfacial element of the malformation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Short Philtrum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A short philtrum arises from the same disturbance of frontonasal and maxillary prominence fusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Thin Upper Lip Vermilion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A thin upper lip vermilion accompanies the short philtrum in the perioral component of the pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Cleft Lip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of fusion of the medial nasal and maxillary prominences produces cleft lip in a minority.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of palatal shelf elevation and fusion produces cleft palate in a minority.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Preauricular Skin Tag\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Preauricular tags represent supernumerary first/second arch hillock derivatives.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal Airway Management and Choanal Atresia Repair\", \"target\": \"Choanal Atresia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological Care for Lower Eyelid Defects\", \"target\": \"Lower Eyelid Coloboma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing Loss Management\", \"target\": \"Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Management\", \"target\": \"Structural Cardiac Abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BMKS patient-derived iPSC induced neural crest cells\", \"target\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"BMKS patient-derived iPSC induced neural crest cells\", \"target\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"BMKS patient-derived iPSC induced neural crest cells\", \"target\": \"Dampened WNT Signalling via TCF7L2 Mis-Splicing\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"TXNL4A\", \"target\": \"Reduced TXNL4A Expression from Biallelic Promoter and Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BMKS patient-derived iPSC induced neural crest cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The principal experimental system for BMKS mechanism. The unaffected mother\u0027s line provides a closely matched (though not isogenic) control. Limitation: the single patient donor is an atypical case, so findings should be replicated in additional lines before being generalised across the BMKS phenotypic spectrum.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory cranial neural crest cell\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"publication\": \"PMID:32735620\"}}, {\"id\": \"Cardiac Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cardiac defects are managed in a routine manner, without disorder-specific modification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Choanal Atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral choanal atresia or stenosis is the cardinal feature and the usual presenting problem, since bilateral atresia causes neonatal airway compromise in an obligate nasal breather.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000453\"}}, {\"id\": \"Cleft Lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unilateral cleft lip, with or without cleft palate, occurs in a minority.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000204\"}}, {\"id\": \"Cleft Palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate occurs in a minority. Cleft lip and/or palate is part of the core characterisation of BMKS and is listed by GeneReviews among the craniofacial manifestations requiring multidisciplinary management; the specific variant of median cleft palate with oronasal fistula was reported in a single sibship as an expansion of the phenotypic spectrum.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A conductive component to the hearing loss is described alongside the sensorineural component, consistent with middle-ear involvement of arch-derived structures. No source quantifies the conductive component separately from hearing loss overall, so no frequency band is asserted for it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000405\"}}, {\"id\": \"Craniofacial Neural-Crest-Derived Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level outcome is a distinctive, recognisable craniofacial malformation pattern: bilateral choanal atresia or stenosis, short palpebral fissures with coloboma of the outer third of the lower eyelids, a prominent nasal bridge with widely spaced eyes, a short philtrum, a thin upper lip vermilion, and prominent ears, with cleft lip and/or palate and preauricular tags in a minority. Middle- and inner-ear involvement produces conductive and sensorineural hearing loss. The malar and mandibular hypoplasia that defines mandibulofacial dysostosis is not part of this pattern, and the choanal atresia arises from failure of the bucconasal membrane rather than from an arch derivative.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"face morphogenesis\"]}}, {\"id\": \"Dampened WNT Signalling via TCF7L2 Mis-Splicing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RNA-Seq of BMKS patient-derived induced neural crest cells showed widespread mis-splicing in genes relevant to craniofacial and embryonic development, with the dominant signature being a dampened response to WNT signalling - the key pathway activated during induced neural crest differentiation. Mis-splicing of exon 4 of TCF7L2, which encodes a core WNT-pathway transcription factor, was identified as a candidate cause of that reduced WNT response. This node is curated at provisional confidence: the TCF7L2 link is proposed by the authors as a potential cause rather than demonstrated by rescue.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"canonical Wnt signaling pathway\"], \"experimental_models\": [{\"name\": \"BMKS patient-derived iPSC induced neural crest cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"iNCC RNA-Seq shows a dampened WNT response, with TCF7L2 exon 4 mis-splicing proposed as the cause.\"}]}}, {\"id\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cranial neural crest cells are the progenitors of the facial skeleton and are the cell type in which spliceosome dosage matters most. Txnl4a knockdown in Xenopus produces cranial neural crest formation defects, placing TXNL4A alongside Eftud2 and Snrpb in a common craniofacial spliceosomopathy aetiology. In patient-derived cells, BMKS iPSCs proliferate more slowly than control and show defective differentiation into induced neural crest cells, with a specific delay in undergoing the epithelial-to-mesenchymal transition that neural crest cells must complete in order to delaminate and migrate.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"migratory cranial neural crest cell\"], \"biological_processes\": [\"neural crest cell development\", \"epithelial to mesenchymal transition\"], \"experimental_models\": [{\"name\": \"BMKS patient-derived iPSC induced neural crest cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"Patient iPSCs differentiate defectively into induced neural crest cells with a delayed epithelial-to-mesenchymal transition.\"}]}}, {\"id\": \"Hearing Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss is common and may be conductive, sensorineural or mixed, reflecting both external/middle-ear and inner-ear involvement.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hearing Loss Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treatment of hearing loss is individualised and may involve hearing aids, with audiological monitoring as part of surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Widely spaced eyes accompany the prominent nasal bridge.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000316\"}}, {\"id\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TXNL4A (Dib1) is a core protein of the U5 small nuclear ribonucleoprotein, which sits at the centre of the catalytic spliceosome and is a component of the U4/U6.U5 tri-snRNP. Reduced TXNL4A dosage therefore degrades general pre-mRNA splicing capacity. Crucially the consequence is not uniform: only a subset of transcripts is affected, and the mis-spliced genes share sequence properties (transcript length, branch-point-to-3\u0027-splice-site distance, splice-site strength) that make them unusually sensitive to reduced TXNL4A. This selectivity is the current explanation for how a ubiquitously expressed housekeeping protein produces a tissue-restricted craniofacial phenotype.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory cranial neural crest cell\"], \"biological_processes\": [\"mRNA splicing, via spliceosome\", \"spliceosomal snRNP assembly\"], \"experimental_models\": [{\"name\": \"BMKS patient-derived iPSC induced neural crest cells\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"description\": \"RNA-Seq of patient iPSCs and iNCCs shows altered gene expression and alternative splicing relative to the maternal control.\"}]}}, {\"id\": \"Lower Eyelid Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Coloboma of the outer third of the lower eyelid, characteristically with eyelashes present medial to the defect, is a highly distinctive feature and can cause corneal exposure.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000652\"}}, {\"id\": \"Neonatal Airway Management and Choanal Atresia Repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bilateral choanal atresia causes airway compromise at delivery because neonates are obligate nasal breathers. Immediate management may require intubation, followed by surgical correction of the choanal stenosis/atresia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ophthalmological Care for Lower Eyelid Defects\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lower eyelid defects can cause corneal exposure. Ophthalmological care is required to reduce the risk of corneal scarring, and monitoring by an ophthalmologist is part of recommended surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Preauricular Skin Tag\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Preauricular tags occur in a minority and are managed as part of the craniofacial care plan.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000384\"}}, {\"id\": \"Prominent Ears\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent or protruding ears are a consistent external feature.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000411\"}}, {\"id\": \"Prominent Nasal Bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A prominent nasal bridge with widely spaced eyes is a consistent component of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000426\"}}, {\"id\": \"Reduced TXNL4A Expression from Biallelic Promoter and Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The characteristic BMKS genotype is a 34-bp deletion in the TXNL4A promoter (type 1 or type 2) in trans with a coding or splice loss-of-function variant, or homozygosity for a promoter deletion. The deleted 56-bp promoter region contains a 22-bp repeated motif that is essential for TXNL4A expression, and the splice-site variants at the final intron cause skipping of the final exon. The net effect is a quantitative reduction in TXNL4A protein rather than its complete absence, which is why BMKS behaves as a hypomorphic dosage disorder.\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"TXNL4A\"], \"gene_terms\": [{\"label\": \"TXNL4A\", \"id\": \"hgnc:30551\"}]}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A sensorineural component to the hearing loss is described alongside the conductive component, so audiological assessment must distinguish the two. No source quantifies the sensorineural component separately from hearing loss overall, so no frequency band is asserted for it.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}, {\"id\": \"Short Palpebral Fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short (narrow) palpebral fissures are part of the recognisable facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012745\"}}, {\"id\": \"Short Philtrum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A short philtrum is part of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000322\"}}, {\"id\": \"Structural Cardiac Abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural cardiac abnormalities occur in a minority and are managed in a routine manner. The published sources report only \\\"cardiac defects\\\" or \\\"structural cardiac abnormalities\\\" without specifying the lesion, so no more specific cardiac malformation is asserted here.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"TXNL4A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"TXNL4A\"], \"gene_terms\": [{\"label\": \"TXNL4A\", \"id\": \"hgnc:30551\"}], \"presence\": \"Positive\", \"association\": \"Causal - biallelic loss-of-function and promoter-deletion variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Thin Upper Lip Vermilion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin upper lip vermilion, often with a small mouth, is part of the facial gestalt.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000219\"}}], \"edges\": [{\"source\": \"Reduced TXNL4A Expression from Biallelic Promoter and Loss-of-Function Variants\", \"target\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced TXNL4A protein lowers the availability of a U5 snRNP core component needed for tri-snRNP assembly and catalytic spliceosome function.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"target\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selective mis-splicing degrades transcripts required for neural crest specification, EMT and migration.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"target\": \"Dampened WNT Signalling via TCF7L2 Mis-Splicing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mis-splicing of TCF7L2 exon 4 is the identified candidate route from splicing failure to reduced WNT responsiveness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"target\": \"Craniofacial Neural-Crest-Derived Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced or mis-differentiated cranial neural crest yields hypoplastic and malformed neural-crest-derived facial structures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dampened WNT Signalling via TCF7L2 Mis-Splicing\", \"target\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced WNT responsiveness impairs the neural crest differentiation program that WNT signalling drives.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Choanal Atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the bucconasal membrane to rupture produces bilateral choanal atresia or stenosis, the cardinal feature.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Lower Eyelid Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coloboma of the outer third of the lower eyelid.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Middle- and inner-ear involvement produces conductive and sensorineural hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Middle-ear (ossicular/tympanic) involvement of arch-derived structures produces the conductive component of the hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inner-ear involvement produces the sensorineural component of the hearing loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Prominent Ears\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prominent/protruding ears are part of the facial gestalt.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Short Palpebral Fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Short palpebral fissures are part of the periorbital component of the malformation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Widely spaced eyes accompany the prominent nasal bridge in the midfacial component of the pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Prominent Nasal Bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A prominent nasal bridge is the midfacial element of the malformation pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Short Philtrum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A short philtrum arises from the same disturbance of frontonasal and maxillary prominence fusion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Thin Upper Lip Vermilion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A thin upper lip vermilion accompanies the short philtrum in the perioral component of the pattern.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Cleft Lip\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of fusion of the medial nasal and maxillary prominences produces cleft lip in a minority.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Cleft Palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of palatal shelf elevation and fusion produces cleft palate in a minority.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural-Crest-Derived Malformation\", \"target\": \"Preauricular Skin Tag\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Preauricular tags represent supernumerary first/second arch hillock derivatives.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neonatal Airway Management and Choanal Atresia Repair\", \"target\": \"Choanal Atresia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ophthalmological Care for Lower Eyelid Defects\", \"target\": \"Lower Eyelid Coloboma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing Loss Management\", \"target\": \"Hearing Loss\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cardiac Management\", \"target\": \"Structural Cardiac Abnormality\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"BMKS patient-derived iPSC induced neural crest cells\", \"target\": \"Impaired U5 snRNP and Tri-snRNP Spliceosome Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"RNA-Seq of patient iPSCs and iNCCs shows altered gene expression and alternative splicing relative to the maternal control.\"}, {\"source\": \"BMKS patient-derived iPSC induced neural crest cells\", \"target\": \"Defective Cranial Neural Crest Formation and Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Patient iPSCs differentiate defectively into induced neural crest cells with a delayed epithelial-to-mesenchymal transition.\"}, {\"source\": \"BMKS patient-derived iPSC induced neural crest cells\", \"target\": \"Dampened WNT Signalling via TCF7L2 Mis-Splicing\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"iNCC RNA-Seq shows a dampened WNT response, with TCF7L2 exon 4 mis-splicing proposed as the cause.\"}, {\"source\": \"TXNL4A\", \"target\": \"Reduced TXNL4A Expression from Biallelic Promoter and Loss-of-Function Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5214,14 +5434,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
+
+                        <span class="phenotype-term-label">Abnormal heart morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Structural cardiac abnormality, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5306,14 +5535,23 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hearing impairment
+
+                        <span class="phenotype-term-label">Hearing impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5387,14 +5625,21 @@
                         Conductive Hearing Impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conductive hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000405">HP:0000405</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5446,14 +5691,21 @@
                         Sensorineural Hearing Impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5516,14 +5768,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypertelorism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000316">HP:0000316</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000316</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5608,14 +5867,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Choanal atresia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000453">HP:0000453</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000453</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5691,14 +5957,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cleft palate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000175">HP:0000175</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000175</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5805,14 +6078,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5899,14 +6179,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5969,14 +6256,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Lower eyelid coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000652" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000652">HP:0000652</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000652" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000652</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lower eyelid coloboma (HP:0000652). HP:0000652 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6052,14 +6346,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short palpebral fissure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012745" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012745">HP:0012745</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012745" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012745</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short palpebral fissure (HP:0012745). HP:0012745 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6113,14 +6414,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prominent nasal bridge
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000426" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000426">HP:0000426</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000426" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000426</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent nasal bridge (HP:0000426). HP:0000426 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6174,14 +6482,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short philtrum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000322">HP:0000322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short philtrum (HP:0000322). HP:0000322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6235,14 +6550,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thin upper lip vermilion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000219">HP:0000219</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000219</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6296,14 +6618,23 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Protruding ear
+
+                        <span class="phenotype-term-label">Protruding ear</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000411" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000411">HP:0000411</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000411" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000411</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Protruding ear (HP:0000411). HP:0000411 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6379,14 +6710,23 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cleft upper lip
+
+                        <span class="phenotype-term-label">Cleft upper lip</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000204">HP:0000204</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000204</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6462,14 +6802,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Preauricular skin tag
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000384" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000384">HP:0000384</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000384</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Preauricular skin tag (HP:0000384). HP:0000384 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6523,14 +6870,21 @@
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000089">HP:0000089</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000089</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6628,13 +6982,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TXNL4A
 
 
-    <a href="https://bioregistry.io/hgnc:30551" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:30551">hgnc:30551</a>
+    <a href="https://bioregistry.io/hgnc:30551" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:30551</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TXNL4A (hgnc:30551). hgnc:30551 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6751,7 +7110,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -6788,16 +7152,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Choanal atresia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000453">HP:0000453</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000453</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6846,7 +7215,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6883,16 +7257,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Lower eyelid coloboma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000652" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000652">HP:0000652</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000652" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000652</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Lower eyelid coloboma (HP:0000652). HP:0000652 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -6941,7 +7320,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -6978,16 +7362,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7036,7 +7425,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7136,7 +7530,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7173,16 +7572,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Structural cardiac abnormality
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001627</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Structural cardiac abnormality, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7231,7 +7635,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -7484,15 +7893,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         migratory cranial neural crest cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000008">CL:0000008</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000008" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0000008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses migratory cranial neural crest cell (CL:0000008). CL:0000008 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -7529,42 +7943,56 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-impaired-u5-snrnp-and-tri-snrnp-spliceosome-function">Impaired U5 snRNP and Tri-snRNP Spliceosome Function</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">RNA-Seq of patient iPSCs and iNCCs shows altered gene expression and alternative splicing relative to the maternal control.</span>
-
+            <div class="crosslink-item">
+                <a href="#pathophysiology-impaired-u5-snrnp-and-tri-snrnp-spliceosome-function">Impaired U5 snRNP and Tri-snRNP Spliceosome Function</a>
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-defective-cranial-neural-crest-formation-and-differentiation">Defective Cranial Neural Crest Formation and Differentiation</a>
-
-                            <span class="crosslink-desc">Patient iPSCs differentiate defectively into induced neural crest cells with a delayed epithelial-to-mesenchymal transition.</span>
+                <span class="crosslink-desc">RNA-Seq of patient iPSCs and iNCCs shows altered gene expression and alternative splicing relative to the maternal control.</span>
 
 
 
 
-                        </div>
-
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-dampened-wnt-signalling-via-tcf7l2-mis-splicing">Dampened WNT Signalling via TCF7L2 Mis-Splicing</a>
-
-                            <span class="crosslink-desc">iNCC RNA-Seq shows a dampened WNT response, with TCF7L2 exon 4 mis-splicing proposed as the cause.</span>
 
 
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-defective-cranial-neural-crest-formation-and-differentiation">Defective Cranial Neural Crest Formation and Differentiation</a>
 
 
-                        </div>
 
-                    </div>
-                </div>
+                <span class="crosslink-desc">Patient iPSCs differentiate defectively into induced neural crest cells with a delayed epithelial-to-mesenchymal transition.</span>
+
+
+
+
+
+
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-dampened-wnt-signalling-via-tcf7l2-mis-splicing">Dampened WNT Signalling via TCF7L2 Mis-Splicing</a>
+
+
+
+                <span class="crosslink-desc">iNCC RNA-Seq shows a dampened WNT response, with TCF7L2 exon 4 mis-splicing proposed as the cause.</span>
+
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -7624,6 +8052,146 @@
 
 
                 <div class="evidence-explanation">Describes the patient-derived cellular model and its maternal control, the principal experimental system for BMKS mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-txnl4a-morpholino-knockdown-xenopus-laevis" data-dismech-node="Txnl4a morpholino knockdown Xenopus laevis" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Txnl4a morpholino knockdown Xenopus laevis
+
+                </div>
+
+                <div class="item-desc">Knockdown of Txnl4a in Xenopus embryos, assayed across successive stages of neural crest and craniofacial development alongside Eftud2 and Snrpb knockdown, produces cranial neural crest formation defects. The parallel design establishes that the three core splicing factors converge on the same neural crest aetiology.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Defective cranial neural crest formation</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Xenopus laevis</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Txnl4a morpholino knockdown</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TXNL4A
+
+
+    <a href="https://bioregistry.io/hgnc:30551" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:30551</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns TXNL4A (hgnc:30551). hgnc:30551 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35893124" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35893124" target="_blank">PMID:35893124</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we characterize the knockdown phenotype of Eftud2, Snrpb and Txnl4a in Xenopus embryos at different stages of neural crest and craniofacial development."</div>
+
+
+                <div class="evidence-explanation">Describes the Xenopus knockdown model used to establish the neural crest phenotype of Txnl4a loss.</div>
 
 
 
@@ -9901,5 +10469,73 @@ discussions:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

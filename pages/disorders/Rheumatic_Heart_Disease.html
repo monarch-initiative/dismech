@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3672,6 +3838,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4519,6 +4687,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4589,16 +4758,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response to antigenic stimulus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002437" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002437">GO:0002437</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002437" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0002437</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response to antigenic stimulus (GO:0002437). GO:0002437 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4641,6 +4815,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4729,16 +4904,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         valve endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves valve endothelial cell, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4768,19 +4948,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mitral valve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002135">UBERON:0002135</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002135</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:0002135 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4848,16 +5034,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD4-positive T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000624">CL:0000624</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000624</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD4-positive T cell, annotated with CD4-positive, alpha-beta T cell (CL:0000624). CL:0000624 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4884,16 +5075,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T cell mediated immunity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002456" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002456">GO:0002456</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002456" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0002456</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell mediated immunity (GO:0002456). GO:0002456 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4914,6 +5110,7 @@
 
 
                 </div>
+
 
 
 
@@ -4984,16 +5181,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         macrophage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000235">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000235</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5023,16 +5225,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mitral valve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002135">UBERON:0002135</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002135</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:0002135 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5055,6 +5262,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5121,16 +5329,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         valve interstitial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030032" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4030032">CL:4030032</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030032" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:4030032</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves valve interstitial cell (CL:4030032). CL:4030032 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5157,16 +5370,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5193,19 +5411,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         mitral valve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002135">UBERON:0002135</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002135" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002135</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in mitral valve (UBERON:0002135). UBERON:0002135 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5284,6 +5508,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5328,6 +5553,7 @@
 
                 <div class="item-desc">Sustained elevation of left atrial pressure in mitral stenosis is transmitted back through the pulmonary veins, and chronic passive congestion eventually produces reactive remodelling of the pulmonary arterioles. This is post-capillary pulmonary hypertension arising from a mechanical upstream cause, so conformance is declared at the remodelling node only and not at the module&#39;s endothelial and BMPR2 trigger nodes, which model a primary pulmonary arteriopathy. The consequence is right ventricular pressure loading, which is how a left-sided valve lesion ends in right heart failure.
 </div>
+
 
 
 
@@ -5389,6 +5615,7 @@
 
 
 
+
 	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-fibrillation-and-cardioembolic-risk" data-dismech-node="Atrial fibrillation and cardioembolic risk" data-dismech-type="pathophysiology">
@@ -5396,6 +5623,7 @@
 
                 <div class="item-desc">Atrial fibrillation here is structural, arising from left atrial enlargement, and is deliberately not curated as conforming to cardiac_ion_channel_repolarization. That module models a primary channelopathy in a structurally normal heart, which is the opposite of the situation here. The distinction is not academic, because it is why this population needs a vitamin K antagonist rather than a direct oral anticoagulant, a question settled by trial and against expectation.
 </div>
+
 
 
 
@@ -5488,6 +5716,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5548,7 +5777,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute valvulitis with Aschoff body formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histological signature of active carditis, consisting of granulomatous foci of central fibrinoid necrosis ringed by lymphocytes, plasma cells, and macrophages, including the Anitschkow cells whose linear chromatin gives them their caterpillar appearance. The Aschoff body is a pathological structure formed de novo and so is conceptually an Xogenesis lesion, but it is deliberately not curated as conforming to the granuloma_formation module. That module models containment of an indigestible persistent stimulus by macrophage fusion, and here there is no organism in the tissue to contain.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"locations\": [\"mitral valve\"], \"experimental_models\": [{\"name\": \"Lewis rat autoimmune valvulitis model\", \"model_type\": \"OTHER\", \"description\": \"The model develops valvulitis, the acute lesion of this disease.\\n\"}]}}, {\"id\": \"Anti-inflammatory therapy for acute carditis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aspirin or corticosteroids are given for symptomatic relief of the acute episode. They do not protect the valve. This is curated because the negative result matters. The intuitive assumption is that suppressing the inflammation which is destroying the valve should preserve it, and the trial evidence does not support that. The evidence is old and at substantial risk of bias, so this is a failure to demonstrate benefit rather than a demonstration of futility.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"aspirin\"]}}, {\"id\": \"Atrial fibrillation and cardioembolic risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atrial fibrillation here is structural, arising from left atrial enlargement, and is deliberately not curated as conforming to cardiac_ion_channel_repolarization. That module models a primary channelopathy in a structurally normal heart, which is the opposite of the situation here. The distinction is not academic, because it is why this population needs a vitamin K antagonist rather than a direct oral anticoagulant, a question settled by trial and against expectation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Benzathine penicillin G secondary prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cornerstone of management, and the only intervention that alters the natural history. It works by preventing reinfection and therefore recurrence, not by treating the heart at all. It is given as a deep intramuscular injection every three to four weeks for a minimum of five years, often to age 21 or for ten years after the episode. The burden of that regimen, monthly painful injections in adolescents who feel well, is the principal reason real-world adherence is poor, and adherence rather than efficacy is the limiting factor.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CD4-positive T cell infiltration of the valve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD4-positive T lymphocytes showing degenerate, cross-reactive antigen recognition infiltrate valve tissue and myocardium and are considered the prime effectors of valve destruction. Epitope spreading broadens the response with each recurrence, which is the mechanistic reason a second episode of rheumatic fever damages the valve more than the first, and why prophylaxis against reinfection is the whole of secondary prevention.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive T cell\"], \"biological_processes\": [\"T cell mediated immunity\"]}}, {\"id\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leaflet thickening, neovascularisation of a normally avascular tissue, fusion of the commissures, and dystrophic calcification convert inflammation into fixed stenosis, regurgitation, or both. This is the point of no return, since everything upstream is in principle reversible and nothing from here on is. The mitral valve is affected most often and most severely, then the aortic, an asymmetry conventionally attributed to the higher shear stress on left-sided valves.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"valve interstitial cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"mitral valve\"]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequently the presenting feature, since the chronic disease is usually asymptomatic until decompensation.\\n\", \"meta\": {\"term_id\": \"HP:0001635\"}}, {\"id\": \"Cross-reactive antibody binding and valve endothelial activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody binds valve endothelium and upregulates VCAM-1, converting the valve surface from a quiescent lining into an adhesive one. This is the step that recruits the cellular infiltrate; antibody alone does not destroy the valve.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"valve endothelial cell\"], \"locations\": [\"mitral valve\"]}}, {\"id\": \"Group A streptococcal infection in a susceptible host\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pharyngeal infection with Streptococcus pyogenes is the initiating event. Skin infection is an increasingly recognised alternative portal in high-burden tropical settings. Susceptibility is conferred largely by HLA class II genotype, which determines which streptococcal and self peptides are presented to CD4-positive T cells, so the same exposure produces disease in some hosts and not others.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Household crowding and poverty\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The dominant determinant of who develops this disease. Crowding drives streptococcal transmission, and poverty drives both untreated pharyngitis and failure of secondary prophylaxis. The geographic and Indigenous-population disparity in burden is explained by these factors rather than by any biological gradient, which is why this entry treats them as mechanism rather than as background.\\n\"}, {\"id\": \"Lewis rat autoimmune valvulitis model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The principal animal model, produced by immunising Lewis rats with streptococcal M protein or cardiac myosin. It reproduces the valvulitis and the cross-reactive immune response, which is what established molecular mimicry as more than an observation about sequence similarity. It is explicitly the subject of a published discussion of what a robust model of this disease would have to demonstrate, which is a fair signal that the existing models are not considered settled.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:25414841\"}}, {\"id\": \"Low-molecular-weight heparin anticoagulation in pregnancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pregnancy is the period of highest thromboembolic risk in a woman with a prosthetic valve, and it is also when warfarin cannot be used, because it crosses the placenta and is teratogenic in the first trimester. Low-molecular-weight heparin is the usual substitute and remains an off-label indication without an agreed regimen, which is a substantial evidence gap in a disease whose population is overwhelmingly young women. The modality is recorded as OTHER rather than SMALL_MOLECULE, since a low-molecular-weight heparin is a sulfated polysaccharide rather than a small molecule in the usual sense.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Mitral valve repair or replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Required for advanced, calcified, or regurgitant disease. Repair outperforms replacement where anatomically feasible. Mechanical replacement commits a young patient to lifelong anticoagulation, with the accumulating risks of thromboembolism, haemorrhage, perivalvular leak, and prosthetic endocarditis, which is a heavy long-term cost in the adolescents and young adults who make up much of this population.\\n\"}, {\"id\": \"Molecular mimicry and cross-reactive immune priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The group A carbohydrate epitope N-acetylglucosamine and the alpha-helical coiled-coil M protein structurally resemble human cardiac myosin and connective tissue proteins closely enough that antibodies and T cells raised against the organism bind host tissue. Which host protein is struck first is genuinely disputed and is curated as a controversy rather than as settled fact. The long-standing answer is cardiac myosin, but myosin is intracellular and therefore hard to reach, which motivates an alternative in which extracellular proteins are hit first.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response to antigenic stimulus\"], \"experimental_models\": [{\"name\": \"Lewis rat autoimmune valvulitis model\", \"model_type\": \"OTHER\", \"description\": \"Immunisation with M protein or cardiac myosin reproduces the cross-reactive response.\\n\"}]}}, {\"id\": \"Percutaneous balloon mitral valvuloplasty\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical relief of rheumatic mitral stenosis in suitable valves, meaning those that are not calcified and not significantly regurgitant. It is less invasive and cheaper than surgery, which matters disproportionately in the settings where this disease actually occurs.\\n\"}, {\"id\": \"Pulmonary venous congestion and pulmonary hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained elevation of left atrial pressure in mitral stenosis is transmitted back through the pulmonary veins, and chronic passive congestion eventually produces reactive remodelling of the pulmonary arterioles. This is post-capillary pulmonary hypertension arising from a mechanical upstream cause, so conformance is declared at the remodelling node only and not at the module\u0027s endothelial and BMPR2 trigger nodes, which model a primary pulmonary arteriopathy. The consequence is right ventricular pressure loading, which is how a left-sided valve lesion ends in right heart failure.\\n\"}, {\"id\": \"Right heart failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Raised jugular venous pressure, hepatic congestion, ascites, and peripheral oedema, arising from right ventricular pressure loading rather than from any right-sided valve lesion. Curated separately from left-sided congestive failure because the mechanism and the clinical picture differ.\\n\"}, {\"id\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitral regurgitation appears first, mitral stenosis later as leaflets thicken and commissures fuse. The resulting left atrial enlargement, pulmonary venous congestion, and ventricular volume or pressure overload account for essentially all the downstream clinical disease.\\n\"}, {\"id\": \"Vitamin K antagonist anticoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warfarin, with a target INR of 2 to 3, for atrial fibrillation or a mechanical valve. This is one of the few places in modern cardiology where the older drug won a head-to-head trial. Direct oral anticoagulants are standard for nonvalvular atrial fibrillation, and in this population they were worse. That result is the practical payoff of modelling rheumatic atrial fibrillation as a structural rather than an electrical disease.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"warfarin\"]}}], \"edges\": [{\"source\": \"Group A streptococcal infection in a susceptible host\", \"target\": \"Molecular mimicry and cross-reactive immune priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigens of the organism prime an immune response that does not distinguish them from host cardiac and connective tissue proteins.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Cross-reactive antibody binding and valve endothelial activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody binds the valve surface, whichever host protein it recognises first.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cross-reactive antibody binding and valve endothelial activation\", \"target\": \"CD4-positive T cell infiltration of the valve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adhesion molecule upregulation permits lymphocyte recruitment into a normally avascular tissue.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD4-positive T cell infiltration of the valve\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained lymphocytic and macrophage infiltration organises into the characteristic lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute valvulitis with Aschoff body formation\", \"target\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated or persistent inflammation converts reversible valvulitis into fixed scar.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fixed structural valve deformity imposes a pressure or volume load on the chambers upstream.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Atrial fibrillation and cardioembolic risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left atrial enlargement from mitral disease creates the substrate for atrial fibrillation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic volume or pressure overload culminates in ventricular failure.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Pulmonary venous congestion and pulmonary hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitral stenosis raises left atrial pressure, which is transmitted backwards into the pulmonary venous circulation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary venous congestion and pulmonary hypertension\", \"target\": \"Right heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically raised pulmonary vascular resistance loads the right ventricle.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial fibrillation and cardioembolic risk\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of atrial contribution and rate irregularity worsen an already loaded ventricle.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Household crowding and poverty\", \"target\": \"Group A streptococcal infection in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Crowding raises the rate of streptococcal transmission and therefore of the initiating infection.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Benzathine penicillin G secondary prophylaxis\", \"target\": \"Group A streptococcal infection in a susceptible host\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-inflammatory therapy for acute carditis\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin K antagonist anticoagulation\", \"target\": \"Atrial fibrillation and cardioembolic risk\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-molecular-weight heparin anticoagulation in pregnancy\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Percutaneous balloon mitral valvuloplasty\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mitral valve repair or replacement\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lewis rat autoimmune valvulitis model\", \"target\": \"Molecular mimicry and cross-reactive immune priming\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Lewis rat autoimmune valvulitis model\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acute valvulitis with Aschoff body formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The histological signature of active carditis, consisting of granulomatous foci of central fibrinoid necrosis ringed by lymphocytes, plasma cells, and macrophages, including the Anitschkow cells whose linear chromatin gives them their caterpillar appearance. The Aschoff body is a pathological structure formed de novo and so is conceptually an Xogenesis lesion, but it is deliberately not curated as conforming to the granuloma_formation module. That module models containment of an indigestible persistent stimulus by macrophage fusion, and here there is no organism in the tissue to contain.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"locations\": [\"mitral valve\"], \"experimental_models\": [{\"name\": \"Lewis rat autoimmune valvulitis model\", \"model_type\": \"OTHER\", \"description\": \"The model develops valvulitis, the acute lesion of this disease.\\n\"}]}}, {\"id\": \"Anti-inflammatory therapy for acute carditis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Aspirin or corticosteroids are given for symptomatic relief of the acute episode. They do not protect the valve. This is curated because the negative result matters. The intuitive assumption is that suppressing the inflammation which is destroying the valve should preserve it, and the trial evidence does not support that. The evidence is old and at substantial risk of bias, so this is a failure to demonstrate benefit rather than a demonstration of futility.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"aspirin\"]}}, {\"id\": \"Atrial fibrillation and cardioembolic risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Atrial fibrillation here is structural, arising from left atrial enlargement, and is deliberately not curated as conforming to cardiac_ion_channel_repolarization. That module models a primary channelopathy in a structurally normal heart, which is the opposite of the situation here. The distinction is not academic, because it is why this population needs a vitamin K antagonist rather than a direct oral anticoagulant, a question settled by trial and against expectation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Benzathine penicillin G secondary prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cornerstone of management, and the only intervention that alters the natural history. It works by preventing reinfection and therefore recurrence, not by treating the heart at all. It is given as a deep intramuscular injection every three to four weeks for a minimum of five years, often to age 21 or for ten years after the episode. The burden of that regimen, monthly painful injections in adolescents who feel well, is the principal reason real-world adherence is poor, and adherence rather than efficacy is the limiting factor.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CD4-positive T cell infiltration of the valve\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CD4-positive T lymphocytes showing degenerate, cross-reactive antigen recognition infiltrate valve tissue and myocardium and are considered the prime effectors of valve destruction. Epitope spreading broadens the response with each recurrence, which is the mechanistic reason a second episode of rheumatic fever damages the valve more than the first, and why prophylaxis against reinfection is the whole of secondary prevention.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"CD4-positive T cell\"], \"biological_processes\": [\"T cell mediated immunity\"]}}, {\"id\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Leaflet thickening, neovascularisation of a normally avascular tissue, fusion of the commissures, and dystrophic calcification convert inflammation into fixed stenosis, regurgitation, or both. This is the point of no return, since everything upstream is in principle reversible and nothing from here on is. The mitral valve is affected most often and most severely, then the aortic, an asymmetry conventionally attributed to the higher shear stress on left-sided valves.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"valve interstitial cell\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"mitral valve\"]}}, {\"id\": \"Congestive heart failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequently the presenting feature, since the chronic disease is usually asymptomatic until decompensation.\\n\", \"meta\": {\"term_id\": \"HP:0001635\"}}, {\"id\": \"Cross-reactive antibody binding and valve endothelial activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody binds valve endothelium and upregulates VCAM-1, converting the valve surface from a quiescent lining into an adhesive one. This is the step that recruits the cellular infiltrate; antibody alone does not destroy the valve.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"valve endothelial cell\"], \"locations\": [\"mitral valve\"]}}, {\"id\": \"Group A streptococcal infection in a susceptible host\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pharyngeal infection with Streptococcus pyogenes is the initiating event. Skin infection is an increasingly recognised alternative portal in high-burden tropical settings. Susceptibility is conferred largely by HLA class II genotype, which determines which streptococcal and self peptides are presented to CD4-positive T cells, so the same exposure produces disease in some hosts and not others.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Household crowding and poverty\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The dominant determinant of who develops this disease. Crowding drives streptococcal transmission, and poverty drives both untreated pharyngitis and failure of secondary prophylaxis. The geographic and Indigenous-population disparity in burden is explained by these factors rather than by any biological gradient, which is why this entry treats them as mechanism rather than as background.\\n\"}, {\"id\": \"Lewis rat autoimmune valvulitis model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The principal animal model, produced by immunising Lewis rats with streptococcal M protein or cardiac myosin. It reproduces the valvulitis and the cross-reactive immune response, which is what established molecular mimicry as more than an observation about sequence similarity. It is explicitly the subject of a published discussion of what a robust model of this disease would have to demonstrate, which is a fair signal that the existing models are not considered settled.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:25414841\"}}, {\"id\": \"Low-molecular-weight heparin anticoagulation in pregnancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pregnancy is the period of highest thromboembolic risk in a woman with a prosthetic valve, and it is also when warfarin cannot be used, because it crosses the placenta and is teratogenic in the first trimester. Low-molecular-weight heparin is the usual substitute and remains an off-label indication without an agreed regimen, which is a substantial evidence gap in a disease whose population is overwhelmingly young women. The modality is recorded as OTHER rather than SMALL_MOLECULE, since a low-molecular-weight heparin is a sulfated polysaccharide rather than a small molecule in the usual sense.\\n\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Mitral valve repair or replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Required for advanced, calcified, or regurgitant disease. Repair outperforms replacement where anatomically feasible. Mechanical replacement commits a young patient to lifelong anticoagulation, with the accumulating risks of thromboembolism, haemorrhage, perivalvular leak, and prosthetic endocarditis, which is a heavy long-term cost in the adolescents and young adults who make up much of this population.\\n\"}, {\"id\": \"Molecular mimicry and cross-reactive immune priming\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The group A carbohydrate epitope N-acetylglucosamine and the alpha-helical coiled-coil M protein structurally resemble human cardiac myosin and connective tissue proteins closely enough that antibodies and T cells raised against the organism bind host tissue. Which host protein is struck first is genuinely disputed and is curated as a controversy rather than as settled fact. The long-standing answer is cardiac myosin, but myosin is intracellular and therefore hard to reach, which motivates an alternative in which extracellular proteins are hit first.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"inflammatory response to antigenic stimulus\"], \"experimental_models\": [{\"name\": \"Lewis rat autoimmune valvulitis model\", \"model_type\": \"OTHER\", \"description\": \"Immunisation with M protein or cardiac myosin reproduces the cross-reactive response.\\n\"}]}}, {\"id\": \"Percutaneous balloon mitral valvuloplasty\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mechanical relief of rheumatic mitral stenosis in suitable valves, meaning those that are not calcified and not significantly regurgitant. It is less invasive and cheaper than surgery, which matters disproportionately in the settings where this disease actually occurs.\\n\"}, {\"id\": \"Pulmonary venous congestion and pulmonary hypertension\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained elevation of left atrial pressure in mitral stenosis is transmitted back through the pulmonary veins, and chronic passive congestion eventually produces reactive remodelling of the pulmonary arterioles. This is post-capillary pulmonary hypertension arising from a mechanical upstream cause, so conformance is declared at the remodelling node only and not at the module\u0027s endothelial and BMPR2 trigger nodes, which model a primary pulmonary arteriopathy. The consequence is right ventricular pressure loading, which is how a left-sided valve lesion ends in right heart failure.\\n\"}, {\"id\": \"Right heart failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Raised jugular venous pressure, hepatic congestion, ascites, and peripheral oedema, arising from right ventricular pressure loading rather than from any right-sided valve lesion. Curated separately from left-sided congestive failure because the mechanism and the clinical picture differ.\\n\"}, {\"id\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitral regurgitation appears first, mitral stenosis later as leaflets thicken and commissures fuse. The resulting left atrial enlargement, pulmonary venous congestion, and ventricular volume or pressure overload account for essentially all the downstream clinical disease.\\n\"}, {\"id\": \"Vitamin K antagonist anticoagulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warfarin, with a target INR of 2 to 3, for atrial fibrillation or a mechanical valve. This is one of the few places in modern cardiology where the older drug won a head-to-head trial. Direct oral anticoagulants are standard for nonvalvular atrial fibrillation, and in this population they were worse. That result is the practical payoff of modelling rheumatic atrial fibrillation as a structural rather than an electrical disease.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"warfarin\"]}}], \"edges\": [{\"source\": \"Group A streptococcal infection in a susceptible host\", \"target\": \"Molecular mimicry and cross-reactive immune priming\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antigens of the organism prime an immune response that does not distinguish them from host cardiac and connective tissue proteins.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Molecular mimicry and cross-reactive immune priming\", \"target\": \"Cross-reactive antibody binding and valve endothelial activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cross-reactive antibody binds the valve surface, whichever host protein it recognises first.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cross-reactive antibody binding and valve endothelial activation\", \"target\": \"CD4-positive T cell infiltration of the valve\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adhesion molecule upregulation permits lymphocyte recruitment into a normally avascular tissue.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"CD4-positive T cell infiltration of the valve\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained lymphocytic and macrophage infiltration organises into the characteristic lesion.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Acute valvulitis with Aschoff body formation\", \"target\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated or persistent inflammation converts reversible valvulitis into fixed scar.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic valve fibrosis, commissural fusion, and calcification\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fixed structural valve deformity imposes a pressure or volume load on the chambers upstream.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Atrial fibrillation and cardioembolic risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left atrial enlargement from mitral disease creates the substrate for atrial fibrillation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic volume or pressure overload culminates in ventricular failure.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"target\": \"Pulmonary venous congestion and pulmonary hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mitral stenosis raises left atrial pressure, which is transmitted backwards into the pulmonary venous circulation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary venous congestion and pulmonary hypertension\", \"target\": \"Right heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronically raised pulmonary vascular resistance loads the right ventricle.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atrial fibrillation and cardioembolic risk\", \"target\": \"Congestive heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of atrial contribution and rate irregularity worsen an already loaded ventricle.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Household crowding and poverty\", \"target\": \"Group A streptococcal infection in a susceptible host\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Crowding raises the rate of streptococcal transmission and therefore of the initiating infection.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Benzathine penicillin G secondary prophylaxis\", \"target\": \"Group A streptococcal infection in a susceptible host\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-inflammatory therapy for acute carditis\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Vitamin K antagonist anticoagulation\", \"target\": \"Atrial fibrillation and cardioembolic risk\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Low-molecular-weight heparin anticoagulation in pregnancy\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Percutaneous balloon mitral valvuloplasty\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mitral valve repair or replacement\", \"target\": \"Valvular stenosis and regurgitation with hemodynamic overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lewis rat autoimmune valvulitis model\", \"target\": \"Molecular mimicry and cross-reactive immune priming\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Immunisation with M protein or cardiac myosin reproduces the cross-reactive response.\\n\"}, {\"source\": \"Lewis rat autoimmune valvulitis model\", \"target\": \"Acute valvulitis with Aschoff body formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The model develops valvulitis, the acute lesion of this disease.\\n\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5595,14 +5824,21 @@
                         Aortic regurgitation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aortic regurgitation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001659">HP:0001659</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001659</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5622,14 +5858,21 @@
                         Atrial fibrillation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrial fibrillation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005110">HP:0005110</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0005110</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrial fibrillation (HP:0005110). HP:0005110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5681,14 +5924,21 @@
                         Congestive heart failure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5708,14 +5958,21 @@
                         Stroke
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Stroke
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001297">HP:0001297</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001297</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5776,14 +6033,21 @@
                         Subcutaneous nodules
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Subcutaneous nodule
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001482" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001482">HP:0001482</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001482</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Subcutaneous nodule (HP:0001482). HP:0001482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5812,14 +6076,21 @@
                         Fever
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5866,14 +6137,21 @@
                         Migratory polyarthritis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthritis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001369">HP:0001369</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001369</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthritis (HP:0001369), qualified as temporality acute. HP:0001369 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5920,14 +6198,21 @@
                         Sydenham chorea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chorea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002072">HP:0002072</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002072</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5956,14 +6241,21 @@
                         Mitral regurgitation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral regurgitation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001653">HP:0001653</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001653</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6015,14 +6307,21 @@
                         Mitral stenosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral stenosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001718" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001718">HP:0001718</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001718</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral stenosis (HP:0001718). HP:0001718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6042,14 +6341,21 @@
                         Post-capillary pulmonary hypertension
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Post-capillary pulmonary hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033635">HP:0033635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0033635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Post-capillary pulmonary hypertension (HP:0033635). HP:0033635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6113,13 +6419,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DQB1
 
 
-    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4944">hgnc:4944</a>
+    <a href="https://bioregistry.io/hgnc:4944" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:4944</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DQB1 (hgnc:4944). hgnc:4944 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6179,13 +6490,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HLA-DRB1
 
 
-    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4948">hgnc:4948</a>
+    <a href="https://bioregistry.io/hgnc:4948" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:4948</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6256,7 +6572,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6407,7 +6728,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6437,16 +6763,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         aspirin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:15365">CHEBI:15365</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:15365</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). CHEBI:15365 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6575,7 +6906,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6605,16 +6941,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         warfarin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_10033" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:10033">CHEBI:10033</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_10033" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:10033</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses warfarin (CHEBI:10033). CHEBI:10033 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -6721,7 +7062,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6862,7 +7208,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Therapeutic Procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Therapeutic Procedure<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -6927,7 +7278,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Surgical Procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Surgical Procedure<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7000,6 +7356,29 @@
 
             <div class="item-box environmental-box anchor-target" id="environmental-household-crowding-and-poverty" data-dismech-node="Household crowding and poverty" data-dismech-type="environmental">
                 <div class="item-name">Household crowding and poverty</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to adverse socioeconomic factors
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000028" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-32">ECTO:6000028</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to adverse socioeconomic factors, annotated with exposure to socioeconomic factors (ECTO:6000028). ECTO:6000028 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
 
 
                 <div class="item-desc">No ECTO term is bound. The exposure hierarchy has no term for household crowding or for poverty as an exposure, and the available broader terms would either assert a specific chemical exposure or say almost nothing.
@@ -7259,15 +7638,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             Norway rat
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10116" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10116">NCBITaxon:10116</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10116" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-33">NCBITaxon:10116</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-33">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in Norway rat, annotated with Rattus norvegicus (NCBITaxon:10116). NCBITaxon:10116 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7290,34 +7674,44 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-molecular-mimicry-and-cross-reactive-immune-priming">Molecular mimicry and cross-reactive immune priming</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Immunisation with M protein or cardiac myosin reproduces the cross-reactive response.
+            <div class="crosslink-item">
+                <a href="#pathophysiology-molecular-mimicry-and-cross-reactive-immune-priming">Molecular mimicry and cross-reactive immune priming</a>
+
+
+
+                <span class="crosslink-desc">Immunisation with M protein or cardiac myosin reproduces the cross-reactive response.
 </span>
 
 
 
 
-                        </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-acute-valvulitis-with-aschoff-body-formation">Acute valvulitis with Aschoff body formation</a>
 
-                            <span class="crosslink-desc">The model develops valvulitis, the acute lesion of this disease.
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-acute-valvulitis-with-aschoff-body-formation">Acute valvulitis with Aschoff body formation</a>
+
+
+
+                <span class="crosslink-desc">The model develops valvulitis, the acute lesion of this disease.
 </span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -7383,6 +7777,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -7911,6 +8308,11 @@ inheritance:
 
 environmental:
 - name: Household crowding and poverty
+  exposure_term:
+    preferred_term: exposure to adverse socioeconomic factors
+    term:
+      id: ECTO:6000028
+      label: exposure to socioeconomic factors
   description: &gt;
     The dominant determinant of who develops this disease. Crowding drives streptococcal transmission,
     and poverty drives both untreated pharyngitis and failure of secondary prophylaxis. The geographic
@@ -9006,7 +9408,7 @@ notes: &gt;
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Rheumatic Heart Disease", "mondoId": "MONDO:0006955", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rheumatic_Heart_Disease", "yamlRevision": "26e516c5aee7"};
+        const OS_CONFIG = {"diseaseName": "Rheumatic Heart Disease", "mondoId": "MONDO:0006955", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rheumatic_Heart_Disease", "yamlRevision": "5ad0199b3777"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -9425,5 +9827,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
