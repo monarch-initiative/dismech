@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3861,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3534,6 +3933,7 @@
             </a>
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3554,6 +3954,14 @@
 
 
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4340,15 +4748,22 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SPTBN4
 
 
-    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14896">hgnc:14896</a>
+    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:14896</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SPTBN4 (hgnc:14896). hgnc:14896 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4368,6 +4783,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
                 </div>
+
 
 
 
@@ -4495,16 +4911,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         myelinated neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myelinated neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4525,6 +4946,10 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4536,10 +4961,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
         SPTBN4
 
 
-    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14896">hgnc:14896</a>
+    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:14896</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SPTBN4 (hgnc:14896). hgnc:14896 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4566,16 +4994,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-complex">
                         beta-IV spectrin-containing membrane skeleton
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008091" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008091">GO:0008091</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008091" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0008091</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves decreased beta-IV spectrin-containing membrane skeleton, annotated with spectrin (GO:0008091). GO:0008091 is a protein complex from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -4584,16 +5017,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         actin binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003779" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003779">GO:0003779</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003779" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0003779</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased actin binding (GO:0003779). GO:0003779 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4602,6 +5040,8 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4619,10 +5059,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005200">GO:0005200</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005200" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0005200</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased structural constituent of cytoskeleton (GO:0005200). GO:0005200 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4642,16 +5085,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
+
+
                     <span class="tag tag-bio">
                         phosphoinositide binding via the pleckstrin homology domain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035091" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035091">GO:0035091</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035091" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0035091</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased phosphoinositide binding via the pleckstrin homology domain, annotated with phosphatidylinositol binding (GO:0035091). GO:0035091 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4676,17 +5124,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         axon initial segment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043194" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043194">GO:0043194</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043194" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0043194</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves axon initial segment (GO:0043194). GO:0043194 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         node of Ranvier
@@ -4694,11 +5149,16 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033268">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         spectrin-associated cytoskeleton
@@ -4706,13 +5166,17 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014731" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0014731">GO:0014731</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014731" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0014731</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves spectrin-associated cytoskeleton (GO:0014731). GO:0014731 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4833,16 +5297,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         myelinated neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myelinated neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4869,15 +5338,22 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SPTBN4
 
 
-    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14896">hgnc:14896</a>
+    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:14896</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SPTBN4 (hgnc:14896). hgnc:14896 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4906,16 +5382,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ankyrin binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030506" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030506">GO:0030506</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030506" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0030506</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased ankyrin binding (GO:0030506). GO:0030506 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4940,17 +5421,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         axon initial segment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043194" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043194">GO:0043194</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043194" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0043194</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves axon initial segment (GO:0043194). GO:0043194 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         node of Ranvier
@@ -4958,13 +5446,17 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033268">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5085,16 +5577,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         myelinated neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves myelinated neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5122,6 +5619,8 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-component">
                         node of Ranvier
@@ -5129,11 +5628,16 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033268">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         cortical cytoskeleton
@@ -5141,10 +5645,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030863" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030863">GO:0030863</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030863" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0030863</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal cortical cytoskeleton (GO:0030863). GO:0030863 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -5152,19 +5659,25 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         peripheral nervous system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000010" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000010">UBERON:0000010</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000010" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in peripheral nervous system (UBERON:0000010). UBERON:0000010 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5284,17 +5797,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5315,10 +5835,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023111" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4023111">CL:4023111</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023111" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:4023111</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cortical pyramidal neuron, annotated with cerebral cortex pyramidal neuron (CL:4023111). CL:4023111 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5345,16 +5868,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         clustering of voltage-gated sodium channels
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045162" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045162">GO:0045162</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045162" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0045162</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased clustering of voltage-gated sodium channels (GO:0045162). GO:0045162 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5380,17 +5908,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         voltage-gated sodium channel complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001518" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001518">GO:0001518</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001518" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0001518</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal voltage-gated sodium channel complex (GO:0001518). GO:0001518 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         node of Ranvier
@@ -5398,11 +5933,16 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033268">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         axon initial segment
@@ -5410,13 +5950,17 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043194" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043194">GO:0043194</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043194" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0043194</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves axon initial segment (GO:0043194). GO:0043194 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5529,16 +6073,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5565,16 +6114,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         clustering of voltage-gated potassium channels
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045163" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045163">GO:0045163</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045163" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0045163</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased clustering of voltage-gated potassium channels (GO:0045163). GO:0045163 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5600,17 +6154,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         voltage-gated potassium channel complex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008076" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008076">GO:0008076</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008076" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0008076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves decreased voltage-gated potassium channel complex (GO:0008076). GO:0008076 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         node of Ranvier
@@ -5618,13 +6179,17 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0033268">GO:0033268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0033268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0033268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves node of Ranvier (GO:0033268). GO:0033268 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5737,17 +6302,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5768,10 +6340,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023111" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4023111">CL:4023111</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023111" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:4023111</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cortical pyramidal neuron, annotated with cerebral cortex pyramidal neuron (CL:4023111). CL:4023111 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5798,16 +6373,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neuronal action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019228">GO:0019228</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019228" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0019228</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuronal action potential (GO:0019228). GO:0019228 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5816,6 +6396,8 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -5833,10 +6415,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019227" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019227">GO:0019227</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019227" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0019227</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuronal action potential propagation (GO:0019227). GO:0019227 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5856,16 +6441,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
+
+
                     <span class="tag tag-bio">
                         membrane depolarization during action potential
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086010" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086010">GO:0086010</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086010" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0086010</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased membrane depolarization during action potential (GO:0086010). GO:0086010 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5891,19 +6481,25 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         axon
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030424" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030424">GO:0030424</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030424" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-35">GO:0030424</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves axon (GO:0030424). GO:0030424 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6030,17 +6626,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-36">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6061,10 +6664,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023111" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4023111">CL:4023111</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023111" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-37">CL:4023111</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cortical pyramidal neuron, annotated with cerebral cortex pyramidal neuron (CL:4023111). CL:4023111 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6091,16 +6697,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         regulation of monoatomic ion transmembrane transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034765" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034765">GO:0034765</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034765" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0034765</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal regulation of monoatomic ion transmembrane transport (GO:0034765). GO:0034765 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6121,6 +6732,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
                 </div>
+
 
 
 
@@ -6233,17 +6845,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         alpha motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008038" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008038">CL:0008038</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008038" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0008038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves alpha motor neuron (CL:0008038). CL:0008038 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6264,10 +6883,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves denervated skeletal muscle fiber, annotated with skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6294,16 +6916,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         neuronal action potential propagation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019227" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019227">GO:0019227</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019227" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0019227</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neuronal action potential propagation (GO:0019227). GO:0019227 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6330,17 +6957,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         peripheral nerve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001021" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001021">UBERON:0001021</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001021" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0001021</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in peripheral nerve, annotated with nerve (UBERON:0001021). UBERON:0001021 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         skeletal muscle tissue
@@ -6348,13 +6982,17 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-43">UBERON:0001134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6466,16 +7104,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         spiral ganglion neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011113">CL:0011113</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011113" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-44">CL:0011113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves spiral ganglion neuron (CL:0011113). CL:0011113 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6502,16 +7145,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         clustering of voltage-gated sodium channels
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045162" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045162">GO:0045162</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045162" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-45">GO:0045162</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased clustering of voltage-gated sodium channels (GO:0045162). GO:0045162 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6538,17 +7186,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cochlear nerve
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004727" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004727">UBERON:0004727</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004727" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-46">UBERON:0004727</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cochlear nerve (UBERON:0004727). UBERON:0004727 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         auditory brainstem
@@ -6556,13 +7211,17 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002028" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002028">UBERON:0002028</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002028" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-47">UBERON:0002028</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in auditory brainstem, annotated with hindbrain (UBERON:0002028). UBERON:0002028 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6659,16 +7318,21 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cortical pyramidal neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4023111" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:4023111">CL:4023111</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4023111" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-48">CL:4023111</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cortical pyramidal neuron, annotated with cerebral cortex pyramidal neuron (CL:4023111). CL:4023111 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6696,6 +7360,8 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-component">
                         axon initial segment
@@ -6703,10 +7369,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043194" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043194">GO:0043194</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043194" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-49">GO:0043194</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves axon initial segment (GO:0043194). GO:0043194 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -6714,17 +7383,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cerebral cortex
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000956">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-50">UBERON:0000956</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         cerebellum
@@ -6732,13 +7408,17 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002037">UBERON:0002037</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-51">UBERON:0002037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002037 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6833,17 +7513,24 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-52">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6864,10 +7551,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000189" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000189">CL:0000189</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000189" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-53">CL:0000189</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves type 1 (slow) skeletal muscle fiber, annotated with slow muscle cell (CL:0000189). CL:0000189 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6897,19 +7587,25 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skeletal muscle tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-54">UBERON:0001134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7013,15 +7709,22 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         SPTBN4
 
 
-    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14896">hgnc:14896</a>
+    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:14896</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SPTBN4 (hgnc:14896). hgnc:14896 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -7041,6 +7744,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
                 </div>
+
 
 
 
@@ -7168,19 +7872,25 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-56">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7455,19 +8165,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties-and-dysphagia" data-dismech-node="Feeding difficulties and dysphagia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Feeding difficulties and dysphagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7547,19 +8264,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-impairment-auditory-neuropathy" data-dismech-node="Sensorineural hearing impairment (auditory neuropathy)" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensorineural hearing impairment (auditory neuropathy)
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7639,19 +8363,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myopathic-facies" data-dismech-node="Myopathic facies" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myopathic facies
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myopathic facies
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002058" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002058">HP:0002058</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0002058</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myopathic facies (HP:0002058). HP:0002058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7709,19 +8440,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-and-generalized-hypotonia" data-dismech-node="Congenital and generalized hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congenital and generalized hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001290">HP:0001290</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001290</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7792,19 +8530,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-amyotrophy" data-dismech-node="Generalized amyotrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Generalized amyotrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Generalized amyotrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003700" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003700">HP:0003700</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003700" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0003700</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized amyotrophy (HP:0003700). HP:0003700 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7853,19 +8598,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7923,19 +8675,28 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-to-profound-intellectual-disability" data-dismech-node="Severe to profound intellectual disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Severe to profound intellectual disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Severe intellectual disability
+
+                        <span class="phenotype-term-label">Severe intellectual disability</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010864" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010864">HP:0010864</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0010864</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7984,19 +8745,28 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-or-severely-limited-speech" data-dismech-node="Absent or severely limited speech" data-dismech-type="phenotype">
                     <div class="item-name">
                         Absent or severely limited speech
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Absent speech
+
+                        <span class="phenotype-term-label">Absent speech</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001344">HP:0001344</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0001344</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8045,19 +8815,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-gross-motor-development" data-dismech-node="Delayed gross motor development" data-dismech-type="phenotype">
                     <div class="item-name">
                         Delayed gross motor development
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed gross motor development
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002194">HP:0002194</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0002194</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed gross motor development (HP:0002194). HP:0002194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8106,19 +8883,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-areflexia" data-dismech-node="Areflexia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Areflexia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Areflexia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001284">HP:0001284</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0001284</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8167,19 +8951,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8250,19 +9041,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-choreoathetosis" data-dismech-node="Choreoathetosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Choreoathetosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Choreoathetosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001266" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001266">HP:0001266</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001266" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001266</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8311,19 +9109,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ataxia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ataxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001251">HP:0001251</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0001251</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8381,19 +9186,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-poor-head-control" data-dismech-node="Poor head control" data-dismech-type="phenotype">
                     <div class="item-name">
                         Poor head control
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Poor head control
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002421" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002421">HP:0002421</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002421" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0002421</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Poor head control (HP:0002421). HP:0002421 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8410,19 +9222,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-axonal-neuropathy" data-dismech-node="Peripheral axonal neuropathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Peripheral axonal neuropathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral axonal neuropathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003477">HP:0003477</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003477" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-71">HP:0003477</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8493,19 +9312,28 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-brainstem-auditory-evoked-responses" data-dismech-node="Absent brainstem auditory evoked responses" data-dismech-type="phenotype">
                     <div class="item-name">
                         Absent brainstem auditory evoked responses
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Absent brainstem auditory responses
+
+                        <span class="phenotype-term-label">Absent brainstem auditory responses</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004463" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004463">HP:0004463</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0004463</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent brainstem auditory responses (HP:0004463). HP:0004463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8554,19 +9382,28 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-aspiration-and-respiratory-insufficiency" data-dismech-node="Recurrent aspiration and respiratory insufficiency" data-dismech-type="phenotype">
                     <div class="item-name">
                         Recurrent aspiration and respiratory insufficiency
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Recurrent infections due to aspiration
+
+                        <span class="phenotype-term-label">Recurrent infections due to aspiration</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004891" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004891">HP:0004891</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-73">HP:0004891</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent infections due to aspiration (HP:0004891). HP:0004891 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8637,19 +9474,28 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epileptiform-eeg-without-clinical-seizures" data-dismech-node="Epileptiform EEG without clinical seizures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Epileptiform EEG without clinical seizures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Interictal epileptiform activity
+
+                        <span class="phenotype-term-label">Interictal epileptiform activity</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011182">HP:0011182</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011182" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0011182</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Interictal epileptiform activity (HP:0011182). HP:0011182 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8742,19 +9588,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-horizontal-nystagmus" data-dismech-node="Horizontal nystagmus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Horizontal nystagmus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Horizontal nystagmus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000666" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000666">HP:0000666</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000666" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-75">HP:0000666</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Horizontal nystagmus (HP:0000666). HP:0000666 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8803,19 +9656,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-visual-impairment" data-dismech-node="Cerebral visual impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral visual impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100704">HP:0100704</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-76">HP:0100704</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8864,19 +9724,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-type-1-muscle-fiber-atrophy" data-dismech-node="Type 1 muscle fiber atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Type 1 muscle fiber atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Type 1 muscle fiber atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011807" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011807">HP:0011807</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-77">HP:0011807</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Type 1 muscle fiber atrophy (HP:0011807). HP:0011807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8925,19 +9792,26 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-vermis-atrophy" data-dismech-node="Cerebellar vermis atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebellar vermis atrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebellar vermis atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006855" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006855">HP:0006855</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-78">HP:0006855</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebellar vermis atrophy (HP:0006855). HP:0006855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9025,7 +9899,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-sptbn4" data-dismech-node="SPTBN4" data-dismech-type="genetic">
                 <div class="item-name">
                     SPTBN4
 
@@ -9037,13 +9911,18 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SPTBN4
 
 
-    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14896">hgnc:14896</a>
+    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-79">hgnc:14896</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SPTBN4 (hgnc:14896). hgnc:14896 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9134,9 +10013,13 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -9148,7 +10031,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multidisciplinary-supportive-care" data-dismech-node="Multidisciplinary supportive care" data-dismech-type="treatment">
                 <div class="item-name">
                     Multidisciplinary supportive care
                 </div>
@@ -9156,7 +10039,12 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-80">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -9228,7 +10116,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nutritional-management-feeding-therapy-and-gastrostomy" data-dismech-node="Nutritional management (feeding therapy and gastrostomy)" data-dismech-type="treatment">
                 <div class="item-name">
                     Nutritional management (feeding therapy and gastrostomy)
                 </div>
@@ -9236,7 +10124,12 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">enteral nutritional support</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-81">enteral nutritional support<span class="pill-tip" role="tooltip" id="pill-tip-81">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is enteral nutritional support, annotated with Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -9308,7 +10201,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ventilatory-support" data-dismech-node="Ventilatory support" data-dismech-type="treatment">
                 <div class="item-name">
                     Ventilatory support
                 </div>
@@ -9316,7 +10209,12 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">ventilatory support</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-82">ventilatory support<span class="pill-tip" role="tooltip" id="pill-tip-82">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ventilatory support, annotated with Respiratory Therapy (NCIT:C15322). NCIT:C15322 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Respiratory Therapy</span>
 
 
@@ -9388,7 +10286,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-hearing-support-with-amplification" data-dismech-node="Hearing support with amplification" data-dismech-type="treatment">
                 <div class="item-name">
                     Hearing support with amplification
                 </div>
@@ -9396,7 +10294,12 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-83">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-83">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -9468,7 +10371,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-surveillance" data-dismech-node="Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Surveillance
                 </div>
@@ -9476,7 +10379,12 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Screening</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">structured surveillance schedule</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-84">structured surveillance schedule<span class="pill-tip" role="tooltip" id="pill-tip-84">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is structured surveillance schedule, annotated with Disease Screening (NCIT:C15419). NCIT:C15419 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Disease Screening</span>
 
 
@@ -9548,7 +10456,7 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counselling-and-reproductive-options" data-dismech-node="Genetic counselling and reproductive options" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic counselling and reproductive options
                 </div>
@@ -9556,7 +10464,12 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-85">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-85">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -10076,6 +10989,389 @@ Penetrance is left unset rather than asserted. No apparently healthy bi-allelic 
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">2</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-quivering-qv-allelic-series-spontaneous-sptbn4-spnb4-loss-of-function-alleles-including-qv3j-and-qv4j-mus-musculus" data-dismech-node="quivering (qv) allelic series - spontaneous Sptbn4 (Spnb4) loss-of-function alleles including qv3J and qv4J Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    quivering (qv) allelic series - spontaneous Sptbn4 (Spnb4) loss-of-function alleles including qv3J and qv4J Mus musculus
+
+                    <span class="tag tag-exp-model-type">Spontaneous loss-of-function allelic series</span>
+
+                </div>
+
+                <div class="item-desc">The quivering mouse is the reason this gene was ever connected to human disease. It arose spontaneously in 1953 and produces progressive ataxia with hindlimb paralysis, deafness and tremor; when the founding human case was described, the resemblance to quivering is what prompted the authors to examine muscle in both. The allelic series is unusually informative because the alleles truncate the protein at different points: qv3J removes the C-terminal specific and pleckstrin homology domains, qv4J additionally removes the ankyrinG-binding domain and abolishes detectable protein, and the two produce graded severity with central nodes affected before peripheral ones. The series is what established the separability of the mechanical (nodal undercoat) and electrical (channel clustering) arms of beta-IV spectrin function.
+Fidelity is good but not complete, and the mismatches run in both directions. Ataxia and tremor are cardinal in the mouse and were absent from every human report until 2025, when two siblings in one Saudi family were found to have ataxia. Conversely, intellectual disability - the most severe feature in humans - has no straightforward murine readout and the mouse cognitive phenotype has not been characterised. Muscle fibre-type findings differ too - the quivering mouse showed complete type 2 fibre uniformity, whereas human biopsies show only incomplete type 1 hypotrophy.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Progressive ataxia with hindlimb paralysis</span>
+
+                    <span class="tag tag-phenotype">Tremor</span>
+
+                    <span class="tag tag-phenotype">Central (non-cochlear) deafness with abnormal brainstem auditory transmission</span>
+
+                    <span class="tag tag-phenotype">Broadened nodes of Ranvier with vesicle-filled membrane protrusions</span>
+
+                    <span class="tag tag-phenotype">Reduced nodal and AIS sodium channel immunoreactivity</span>
+
+                    <span class="tag tag-phenotype">Absent nodal KCNQ2 aggregates with neuromyotonic and myokymic discharge</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">quivering (qv) allelic series - spontaneous Sptbn4 (Spnb4) loss-of-function alleles including qv3J and qv4J</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SPTBN4
+
+
+    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-86">hgnc:14896</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-86">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns SPTBN4 (hgnc:14896). hgnc:14896 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11528393" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11528393" target="_blank">PMID:11528393</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The autosomal recessive mouse mutation quivering (qv), which arose spontaneously in 1953, produces progressive ataxia with hind limb paralysis, deafness and tremor."</div>
+
+
+                <div class="evidence-explanation">Defines the quivering phenotype, three of whose four components map onto the human disorder.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11528393" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11528393" target="_blank">PMID:11528393</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we report that quivering mice carry loss-of-function mutations in the mouse beta-spectrin 4 gene (Spnb4) that cause alterations in ion channel localization in myelinated nerves; this provides a rationale for the auditory and motor neuropathies of these mice."</div>
+
+
+                <div class="evidence-explanation">Establishes the gene identity of the quivering locus and the ion-channel-localisation mechanism, seventeen years before the human disorder was described.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15317849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15317849" target="_blank">PMID:15317849</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results show that quivering mutations disrupt betaIV spectrin retention and stability at nodes and that distinct protein domains regulate nodal structural integrity and molecular organization."</div>
+
+
+                <div class="evidence-explanation">Establishes the domain-resolved, allele-graded structure of the model that makes the series informative about human truncating variants.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-sptbn4-gene-trap-null-sptbn4geo-and-betaivsigma1-specific-knockout-mus-musculus" data-dismech-node="Sptbn4 gene-trap null (Sptbn4geo) and betaIVSigma1-specific knockout Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Sptbn4 gene-trap null (Sptbn4geo) and betaIVSigma1-specific knockout Mus musculus
+
+                    <span class="tag tag-exp-model-type">Targeted knockout</span>
+
+                </div>
+
+                <div class="item-desc">Engineered nulls complement the spontaneous series. A gene-trap null was the basis for the demonstration that beta-IV spectrin and ankyrin-G stabilise each other reciprocally and that both are required for nodal sodium-channel clustering; the same line was later used to show the auditory heminode defect and the loss of presynaptic spike fidelity. A separate, isoform-specific knockout removing only betaIVSigma1 showed that the actin-binding isoform is the one that builds the nodal undercoat. A third strand of work used timed re-expression of beta-IV spectrin in vivo to show that nodal reorganisation and functional recovery in the CNS are possible only within a critical developmental window - the closest thing to a therapeutic proof of concept that exists for this disorder.
+The re-expression experiment is the reason this entry treats the disorder as potentially tractable rather than as fixed at birth. Two caveats prevent that being read as a therapeutic claim. First, re-expression in the mouse was achieved genetically at chosen developmental time points, not by any deliverable agent, and no gene-therapy or ASO approach to SPTBN4 has been reported. Second, the critical window closed in the CNS, which is where the most disabling component of the human phenotype - intellectual disability - resides, so the arm of the disease most in need of treatment is the arm the mouse says is hardest to rescue.</div>
+
+
+                <div class="tag-list" style="margin-top: 10px;">
+
+                    <span class="tag tag-phenotype">Tremor and hindlimb contraction</span>
+
+                    <span class="tag tag-phenotype">Loss of ankyrinG and sodium channel clustering at AIS and nodes</span>
+
+                    <span class="tag tag-phenotype">Disappearance of the nodal membrane undercoat with widened nodes</span>
+
+                    <span class="tag tag-phenotype">Elevated action potential threshold and high-frequency transmission failure in auditory brainstem</span>
+
+                    <span class="tag tag-phenotype">Absent startle response with normal cochlear function</span>
+
+                </div>
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Sptbn4 gene-trap null (Sptbn4geo) and betaIVSigma1-specific knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SPTBN4
+
+
+    <a href="https://bioregistry.io/hgnc:14896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-87">hgnc:14896</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-87">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns SPTBN4 (hgnc:14896). hgnc:14896 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11807096" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11807096" target="_blank">PMID:11807096</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We have generated mice carrying a null mutation in the betaIV-spectrin gene using gene trapping in embryonic stem cells."</div>
+
+
+                <div class="evidence-explanation">Identifies the gene-trap null line that underpins most of the mechanistic work cited in this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11807096" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11807096" target="_blank">PMID:11807096</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mice homozygous for the mutation exhibit tremors and contraction of hindlimbs."</div>
+
+
+                <div class="evidence-explanation">The organismal phenotype of the engineered null, matching the spontaneous quivering alleles.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29907663" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29907663" target="_blank">PMID:29907663</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the PNS, restoration of nodes occurs within 1 month regardless of the time of βIV spectrin re-expression. In contrast, the CNS nodal reorganization and functional restoration occurs within a critical time window; after that, nodal reorganization diminishes, leading to less efficient motor recovery."</div>
+
+
+                <div class="evidence-explanation">The single most therapeutically relevant animal result in this literature: the lesion is reversible by restoring the protein, but only inside a developmental window in the CNS.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Computational Models -->
@@ -14366,5 +15662,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

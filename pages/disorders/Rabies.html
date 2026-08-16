@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3861,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3518,6 +3917,7 @@
 
 
 
+
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
@@ -3544,6 +3944,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#datasets">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">📊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Datasets</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#trials">
@@ -3998,16 +4406,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4037,19 +4450,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skeletal muscle tissue
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001134">UBERON:0001134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0001134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134). UBERON:0001134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4123,16 +4542,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4159,17 +4583,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         virion attachment to host cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019062" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019062">GO:0019062</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019062" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0019062</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves virion attachment to host cell (GO:0019062). GO:0019062 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4190,10 +4621,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006898">GO:0006898</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006898" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006898</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves receptor-mediated endocytosis (GO:0006898). GO:0006898 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4210,6 +4644,7 @@
 
 
                 </div>
+
 
 
 
@@ -4322,16 +4757,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         motor neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000100">CL:0000100</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4358,16 +4798,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         retrograde axonal transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008090" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008090">GO:0008090</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008090" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008090</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves retrograde axonal transport (GO:0008090). GO:0008090 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4384,6 +4829,7 @@
 
 
                 </div>
+
 
 
 
@@ -4496,16 +4942,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4535,17 +4986,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         central nervous system
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001017">UBERON:0001017</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0001017</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in central nervous system (UBERON:0001017). UBERON:0001017 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         brainstem
@@ -4553,11 +5011,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002298">UBERON:0002298</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002298</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:0002298 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         spinal cord
@@ -4565,13 +5028,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002240">UBERON:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0002240</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:0002240 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4667,17 +5134,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4698,11 +5172,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000598">CL:0000598</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000598</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hippocampal pyramidal neuron, annotated with pyramidal neuron (CL:0000598). CL:0000598 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4723,10 +5202,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000121">CL:0000121</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cerebellar Purkinje cell, annotated with Purkinje cell (CL:0000121). CL:0000121 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4753,17 +5235,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         viral transcription
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019083" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019083">GO:0019083</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019083" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0019083</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral transcription (GO:0019083). GO:0019083 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4784,10 +5273,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019079">GO:0019079</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0019079</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4809,19 +5301,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Negri body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016234" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016234">GO:0016234</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016234" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0016234</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Negri body, annotated with inclusion body (GO:0016234). GO:0016234 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4932,16 +5430,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4968,17 +5471,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000423" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000423">GO:0000423</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000423" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0000423</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves mitophagy (GO:0000423). GO:0000423 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4999,10 +5509,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5019,6 +5532,7 @@
 
 
                 </div>
+
 
 
 
@@ -5087,16 +5601,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         sensory neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000101">CL:0000101</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000101</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves sensory neuron (CL:0000101). CL:0000101 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5126,19 +5645,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         dorsal root ganglion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000044" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000044">UBERON:0000044</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000044" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0000044</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). UBERON:0000044 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5233,16 +5758,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5269,16 +5799,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chemical synaptic transmission
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0007268</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chemical synaptic transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5299,6 +5834,7 @@
 
 
                 </div>
+
 
 
 
@@ -5399,19 +5935,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000955">UBERON:0000955</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0000955</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5502,6 +6044,7 @@
                 <div class="item-name">Divergence into Encephalitic versus Paralytic Clinical Forms</div>
 
                 <div class="item-desc">Rabies presents as either encephalitic (furious) disease, with agitation, hydrophobia, aerophobia, and autonomic instability, or paralytic (dumb) disease, with ascending flaccid weakness and relatively preserved consciousness. In naturally infected dogs, furious disease carries higher brain viral load with only moderate inflammation, whereas paralytic disease shows delayed neuroinvasion with more intense inflammation, suggesting the host inflammatory response shapes which form develops.</div>
+
 
 
 
@@ -5618,17 +6161,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skin of body
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002097">UBERON:0002097</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0002097</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         cornea
@@ -5636,13 +6186,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5916,19 +6470,26 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphagia" data-dismech-node="Dysphagia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysphagia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysphagia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002015">HP:0002015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5984,19 +6545,26 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-excessive-salivation" data-dismech-node="Excessive salivation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Excessive salivation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Excessive salivation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003781">HP:0003781</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003781" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003781</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Excessive salivation (HP:0003781). HP:0003781 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6052,19 +6620,26 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fever" data-dismech-node="Fever" data-dismech-type="phenotype">
                     <div class="item-name">
                         Fever
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fever
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001945">HP:0001945</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001945</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6120,21 +6695,28 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-paresthesias-at-the-wound-site" data-dismech-node="Paresthesias at the wound site" data-dismech-type="phenotype">
                     <div class="item-name">
                         Paresthesias at the wound site
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Paresthesia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003401">HP:0003401</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003401</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6203,19 +6785,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autonomic-instability" data-dismech-node="Autonomic instability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Autonomic instability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal autonomic nervous system physiology
+
+                        <span class="phenotype-term-label">Abnormal autonomic nervous system physiology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012332">HP:0012332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autonomic instability, annotated with Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6308,19 +6899,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-paralysis" data-dismech-node="Paralysis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Paralysis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Paralysis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003470">HP:0003470</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0003470</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paralysis (HP:0003470), qualified as course progressive. HP:0003470 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6385,19 +6983,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myoclonus" data-dismech-node="Myoclonus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Myoclonus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Myoclonus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001336">HP:0001336</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001336</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6444,19 +7049,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-coma" data-dismech-node="Coma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Coma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001259">HP:0001259</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001259</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coma (HP:0001259). HP:0001259 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6503,19 +7115,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-headache" data-dismech-node="Headache" data-dismech-type="phenotype">
                     <div class="item-name">
                         Headache
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Headache
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002315">HP:0002315</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002315</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6562,19 +7181,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-agitation" data-dismech-node="Agitation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Agitation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Agitation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000713" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000713">HP:0000713</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000713" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000713</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Agitation (HP:0000713), qualified as temporality recurrent. HP:0000713 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6670,21 +7296,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-viral-encephalitis" data-dismech-node="Viral encephalitis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Viral encephalitis
 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Viral encephalitis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033993" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033993">HP:0033993</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033993" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0033993</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Viral encephalitis (HP:0033993), qualified as temporality acute; course progressive. HP:0033993 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6751,21 +7384,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hydrophobia" data-dismech-node="Hydrophobia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hydrophobia
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hydrophobia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032505" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032505">HP:0032505</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0032505</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hydrophobia (HP:0032505). HP:0032505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6867,6 +7507,9 @@
         <!-- Genetic Associations -->
 
 
+        <!-- Variants recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6876,13 +7519,18 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-thorough-wound-cleansing" data-dismech-node="Thorough wound cleansing" data-dismech-type="treatment">
                 <div class="item-name">
                     Thorough wound cleansing
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">wound care management</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">wound care management<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is wound care management (NCIT:C116681). NCIT:C116681 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Wound Care Management</span>
 
 
@@ -6972,13 +7620,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rabies-immunoglobulin-administration" data-dismech-node="Rabies immunoglobulin administration" data-dismech-type="treatment">
                 <div class="item-name">
                     Rabies immunoglobulin administration
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunoglobulin therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunoglobulin Therapy</span>
 
 
@@ -7009,16 +7662,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         human rabies immune globulin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80831" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C80831">NCIT:C80831</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80831" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C80831</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses human rabies immune globulin, annotated with Human Rabies Virus Immune Globulin (NCIT:C80831). NCIT:C80831 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7107,13 +7765,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rabies-post-exposure-vaccination" data-dismech-node="Rabies post-exposure vaccination" data-dismech-type="treatment">
                 <div class="item-name">
                     Rabies post-exposure vaccination
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vaccination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
@@ -7144,16 +7807,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rabies vaccine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C198514" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C198514">NCIT:C198514</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C198514" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C198514</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rabies vaccine (NCIT:C198514). NCIT:C198514 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7266,13 +7934,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rabies-pre-exposure-prophylaxis" data-dismech-node="Rabies pre-exposure prophylaxis" data-dismech-type="treatment">
                 <div class="item-name">
                     Rabies pre-exposure prophylaxis
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vaccination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
@@ -7303,16 +7976,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         rabies vaccine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C198514" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C198514">NCIT:C198514</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C198514" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C198514</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses rabies vaccine (NCIT:C198514). NCIT:C198514 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7383,13 +8061,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anti-rabies-monoclonal-antibody" data-dismech-node="Anti-rabies monoclonal antibody" data-dismech-type="treatment">
                 <div class="item-name">
                     Anti-rabies monoclonal antibody
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">immunoglobulin therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">immunoglobulin therapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is immunoglobulin therapy (NCIT:C62710). NCIT:C62710 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Immunoglobulin Therapy</span>
 
 
@@ -7420,16 +8103,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         anti-rabies monoclonal antibody
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C20401">NCIT:C20401</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C20401</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anti-rabies monoclonal antibody, annotated with Monoclonal Antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7518,13 +8206,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-palliative-and-supportive-care" data-dismech-node="Palliative and supportive care" data-dismech-type="treatment">
                 <div class="item-name">
                     Palliative and supportive care
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">palliative care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">palliative care<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is palliative care, annotated with Palliative Care, Other Than Pain and Hospice (NCIT:C15830). NCIT:C15830 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Palliative Care, Other Than Pain and Hospice</span>
 
 
@@ -7596,13 +8289,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-milwaukee-protocol" data-dismech-node="Milwaukee protocol" data-dismech-type="treatment">
                 <div class="item-name">
                     Milwaukee protocol
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7632,17 +8330,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ketamine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6121" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:6121">CHEBI:6121</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6121" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:6121</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ketamine (CHEBI:6121). CHEBI:6121 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ribavirin
@@ -7650,11 +8355,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63580" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:63580">CHEBI:63580</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63580" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:63580</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ribavirin (CHEBI:63580). CHEBI:63580 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         amantadine
@@ -7662,10 +8372,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2618" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2618">CHEBI:2618</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2618" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-53">CHEBI:2618</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses amantadine (CHEBI:2618). CHEBI:2618 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7874,6 +8587,99 @@
 
         <!-- Datasets -->
 
+        <div class="card" id="datasets">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0284c7;">📊</div>
+                <h2 class="card-title">Related Datasets</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Nanostring of 3D hiPSC-derived neurons infected with rabies virus-wild type-thai strain (WT-TH) and rabies virus-challenge virus standard 11 (CVS-11) against uninfected controls at 8 and 24 hours post-infection
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE231664" target="_blank">geo:GSE231664</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">This experiment is part of the project that primarily aims to utilize 3D hydrogel-based hiPSC-derived neuronal model to study rabies virus infection in the central nervous system. Having established the optimal 3D neuronal model, we then investigated the growth kinetics of two strains of rabies virus (TH and CVS-11) and comparatively analyzed the 2D and 3D culture models. We performed a gene expression analysis using NanoString to determine whether changes in gene expression could explain the differences in virus growth kinetics of two strains of rabies virus observed between the 2D and 3D neuronal culture models.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-organism">human</span>
+
+
+                    <span class="tag tag-datatype">MICROARRAY</span>
+
+
+                    <span class="tag tag-dataset">n=36</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/37692167" target="_blank" style="color: var(--secondary);">PMID:37692167</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Rabies (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box dataset-box">
+                <div class="item-name">
+                    Recognition of copy-back defective interfering rabies virus genomes by RIG-I triggers efficient immune response against vaccine strains
+
+                    <span class="dataset-accession">
+                        <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE196051" target="_blank">geo:GSE196051</a>
+                    </span>
+
+                </div>
+
+                <div class="item-desc">Using next-generation sequencing (NGS) combined with bioinformatics tools, we characterized two major 5’copy-back defective interfering (5’cb DI) genomes generated during SAD replication. Furthermore, we identified a specific interaction of 5’cb DI genomes and RIG-I that correlated with a high stimulation of the type I IFN signaling</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-datatype">BULK RNA SEQ</span>
+
+
+                    <span class="tag tag-dataset">n=36</span>
+
+
+                </div>
+
+
+
+
+
+
+
+                <div style="margin-top: 8px; font-size: 0.85rem;">
+                    <a href="http://www.ncbi.nlm.nih.gov/pubmed/38461968" target="_blank" style="color: var(--secondary);">PMID:38461968</a>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px; font-style: italic;">Identified by GEO DataSets index search for Rabies (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Clinical Trials -->
 
@@ -7901,16 +8707,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Viral encephalitis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033993" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033993">HP:0033993</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033993" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0033993</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Viral encephalitis (HP:0033993). HP:0033993 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7969,16 +8780,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Viral encephalitis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033993" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033993">HP:0033993</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033993" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0033993</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Viral encephalitis (HP:0033993). HP:0033993 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8024,6 +8840,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9717,6 +10536,26 @@ references:
       evidence_source: HUMAN_CLINICAL
       snippet: Since the introduction of Pasteur’s rabies vaccine in 1885, rabies prophylaxis and post-exposure prophylaxis (PEP) have been widely administered globally under the recommendation of the World Health Organization (WHO).
       explanation: Deep research cited this publication as relevant literature for Rabies.
+datasets:
+- accession: geo:GSE231664
+  title: Nanostring of 3D hiPSC-derived neurons infected with rabies virus-wild type-thai strain (WT-TH) and rabies virus-challenge virus standard 11 (CVS-11) against uninfected controls at 8 and 24 hours post-infection
+  description: This experiment is part of the project that primarily aims to utilize 3D hydrogel-based hiPSC-derived neuronal model to study rabies virus infection in the central nervous system. Having established the optimal 3D neuronal model, we then investigated the growth kinetics of two strains of rabies virus (TH and CVS-11) and comparatively analyzed the 2D and 3D culture models. We performed a gene expression analysis using NanoString to determine whether changes in gene expression could explain the differences in virus growth kinetics of two strains of rabies virus observed between the 2D and 3D neuronal culture models.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  data_type: MICROARRAY
+  sample_count: 36
+  publication: PMID:37692167
+  notes: Identified by GEO DataSets index search for Rabies (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
+- accession: geo:GSE196051
+  title: Recognition of copy-back defective interfering rabies virus genomes by RIG-I triggers efficient immune response against vaccine strains
+  description: Using next-generation sequencing (NGS) combined with bioinformatics tools, we characterized two major 5’copy-back defective interfering (5’cb DI) genomes generated during SAD replication. Furthermore, we identified a specific interaction of 5’cb DI genomes and RIG-I that correlated with a high stimulation of the type I IFN signaling
+  data_type: BULK_RNA_SEQ
+  sample_count: 36
+  publication: PMID:38461968
+  notes: Identified by GEO DataSets index search for Rabies (scripts/discover_datasets.py); accession and metadata verified against NCBI E-utilities on 2026-08-01. Title, sample count, and organism are GEO&#39;s own values.
 </pre>
             </div>
         </div>
@@ -11298,7 +12137,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Rabies", "mondoId": "MONDO:0019173", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rabies", "yamlRevision": "64032409de18"};
+        const OS_CONFIG = {"diseaseName": "Rabies", "mondoId": "MONDO:0019173", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Rabies", "yamlRevision": "cba6f72e26bb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11717,5 +12556,73 @@ For each section, provide:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

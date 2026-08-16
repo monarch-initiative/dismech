@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3466,6 +3861,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3530,6 +3929,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">5</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -4874,16 +5282,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4904,6 +5317,10 @@
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -4915,10 +5332,13 @@
         TNNC1
 
 
-    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11943">hgnc:11943</a>
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11943</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4945,6 +5365,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         Regulation of cardiac muscle contraction
@@ -4952,10 +5374,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055117" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055117">GO:0055117</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055117" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0055117</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of cardiac muscle contraction (GO:0055117). GO:0055117 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4980,16 +5405,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         calcium ion binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005509" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005509">GO:0005509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal calcium ion binding (GO:0005509). GO:0005509 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4998,6 +5428,8 @@
     <span class="tag tag-modifier">
         ⚠ ABNORMAL
     </span>
+
+
 
 
 
@@ -5015,10 +5447,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031014" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031014">GO:0031014</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031014" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0031014</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal troponin T binding (GO:0031014). GO:0031014 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5044,19 +5479,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002349">UBERON:0002349</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002349</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5222,16 +5663,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5258,16 +5704,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Regulation of cardiac muscle cell contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086004" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086004">GO:0086004</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086004" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0086004</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Regulation of cardiac muscle cell contraction (GO:0086004). GO:0086004 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5287,16 +5738,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Cellular response to calcium ion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071277" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071277">GO:0071277</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071277" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0071277</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Cellular response to calcium ion (GO:0071277). GO:0071277 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5317,6 +5773,7 @@
 
 
                 </div>
+
 
 
 
@@ -5451,16 +5908,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5487,16 +5949,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Adrenergic receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071875" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071875">GO:0071875</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071875" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0071875</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Adrenergic receptor signaling pathway (GO:0071875). GO:0071875 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5516,16 +5983,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Regulation of cardiac muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055117" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055117">GO:0055117</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055117" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0055117</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of cardiac muscle contraction (GO:0055117). GO:0055117 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5550,16 +6022,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         calcium ion binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005509" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005509">GO:0005509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0005509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal calcium ion binding (GO:0005509). GO:0005509 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -5580,6 +6057,7 @@
 
 
                 </div>
+
 
 
 
@@ -5732,16 +6210,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5768,16 +6251,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cardiac muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060048">GO:0060048</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0060048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cardiac muscle contraction (GO:0060048). GO:0060048 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5798,6 +6286,7 @@
 
 
                 </div>
+
 
 
 
@@ -5875,16 +6364,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5911,16 +6405,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cardiac muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060048">GO:0060048</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0060048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cardiac muscle contraction (GO:0060048). GO:0060048 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5947,19 +6446,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Myocardium
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002349">UBERON:0002349</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002349</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002349 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6051,17 +6556,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6082,10 +6594,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0002548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6112,16 +6627,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Adrenergic receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0071875" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0071875">GO:0071875</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0071875" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0071875</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Adrenergic receptor signaling pathway (GO:0071875). GO:0071875 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6142,6 +6662,7 @@
 
 
                 </div>
+
 
 
 
@@ -6230,17 +6751,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -6261,10 +6789,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0002548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6291,16 +6822,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cardiac muscle hypertrophy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003300">GO:0003300</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0003300</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Cardiac muscle hypertrophy (GO:0003300). GO:0003300 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6327,19 +6863,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-25">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Left ventricle, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6432,16 +6974,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Heart contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060047">GO:0060047</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060047" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0060047</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Heart contraction (GO:0060047). GO:0060047 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6468,19 +7015,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Left ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002084">UBERON:0002084</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002084" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0002084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Left ventricle, annotated with heart left ventricle (UBERON:0002084). UBERON:0002084 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6595,16 +7148,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Regulation of heart rate
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002027">GO:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002027" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0002027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of heart rate (GO:0002027). GO:0002027 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6631,19 +7189,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Heart
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000948">UBERON:0000948</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0000948</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Heart (UBERON:0000948). UBERON:0000948 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6766,21 +7330,28 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dilated-cardiomyopathy" data-dismech-node="Dilated Cardiomyopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dilated Cardiomyopathy
 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dilated cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001644</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6849,19 +7420,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-left-ventricular-ejection-fraction" data-dismech-node="Reduced Left Ventricular Ejection Fraction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Reduced Left Ventricular Ejection Fraction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced left ventricular ejection fraction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012664">HP:0012664</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012664</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced left ventricular ejection fraction (HP:0012664). HP:0012664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6908,19 +7486,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-diastolic-dysfunction" data-dismech-node="Left Ventricular Diastolic Dysfunction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Left Ventricular Diastolic Dysfunction
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular diastolic dysfunction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025168" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025168">HP:0025168</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025168" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0025168</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular diastolic dysfunction (HP:0025168). HP:0025168 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6967,19 +7552,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congestive-heart-failure" data-dismech-node="Congestive Heart Failure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congestive Heart Failure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7026,19 +7618,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-arrhythmia" data-dismech-node="Ventricular Arrhythmia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ventricular Arrhythmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ventricular arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004308">HP:0004308</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004308" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0004308</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventricular arrhythmia (HP:0004308). HP:0004308 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7085,19 +7684,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sudden-cardiac-death" data-dismech-node="Sudden Cardiac Death" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sudden Cardiac Death
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sudden cardiac death
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001645">HP:0001645</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001645</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7144,19 +7750,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-and-infantile-lethal-cardiomyopathy" data-dismech-node="Neonatal and Infantile Lethal Cardiomyopathy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Neonatal and Infantile Lethal Cardiomyopathy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dilated cardiomyopathy
+
+                        <span class="phenotype-term-label">Dilated cardiomyopathy</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001644</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644), qualified as severity severe. HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7252,19 +7867,26 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-dilatation" data-dismech-node="Left Ventricular Dilatation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Left Ventricular Dilatation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular dilatation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_4000141" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:4000141">HP:4000141</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_4000141" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:4000141</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular dilatation (HP:4000141). HP:4000141 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7372,7 +7994,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-tnnc1-pathogenic-variants" data-dismech-node="TNNC1 Pathogenic Variants" data-dismech-type="genetic">
                 <div class="item-name">
                     TNNC1 Pathogenic Variants
 
@@ -7384,13 +8006,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNC1
 
 
-    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11943">hgnc:11943</a>
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:11943</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7487,9 +8114,403 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (5)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-tnnc1-gly159asp" data-dismech-node="TNNC1 Gly159Asp" data-dismech-type="genetic">
+
+    <div class="item-name">
+        TNNC1 Gly159Asp
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: TNNC1
+
+
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:11943</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">c.476G&gt;A, p.Gly159Asp. The founding CMD1Z variant, identified in a large kindred with 100% penetrance and severe disease, and by far the most functionally studied TNNC1 allele — characterized in skinned fibres, in reconstituted thin filaments, by NMR, and in explanted patient myocardium. Its functional signature is a blunted response to troponin phosphorylation and a halved activation rate rather than the canonical Ca2+ desensitization.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19808376" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19808376" target="_blank">PMID:19808376</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We studied the Ca(2+)-regulatory properties of myocytes and troponin extracted from the explanted heart of a patient with inherited dilated cardiomyopathy due to the cTnC G159D mutation."</div>
+
+
+                <div class="evidence-explanation">Confirms G159D as an inherited-DCM-causing TNNC1 variant carried by a patient who reached transplantation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-tnnc1-glu135ala" data-dismech-node="TNNC1 Glu135Ala" data-dismech-type="genetic">
+
+    <div class="item-name">
+        TNNC1 Glu135Ala
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: TNNC1
+
+
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:11943</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">c.404A&gt;C, p.Glu135Ala. A variant in the G helix just before the fourth EF hand, at a residue 99% conserved across 230 vertebrate species; segregates with autosomal dominant DCM plus diastolic dysfunction and ventricular arrhythmia across a multigenerational family, and abolishes the myofilament response to PKA phosphorylation in reconstituted human cardiac muscle.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40671656" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40671656" target="_blank">PMID:40671656</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a multigenerational family carrying the TNNC1-c.404A&gt;C variant with autosomal dominant DCM with both systolic and diastolic dysfunctions."</div>
+
+
+                <div class="evidence-explanation">Segregation evidence for the c.404A&gt;C (E135A) variant in a multigenerational DCM pedigree.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-tnnc1-tyr5his-met103ile-asp145glu-and-ile148val" data-dismech-node="TNNC1 Tyr5His, Met103Ile, Asp145Glu and Ile148Val" data-dismech-type="genetic">
+
+    <div class="item-name">
+        TNNC1 Tyr5His, Met103Ile, Asp145Glu and Ile148Val
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: TNNC1
+
+
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:11943</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">Four rare variants identified in DCM probands and characterized together. Y5H and M103I decreased the Ca2+ sensitivity of force development; Y5H and I148V diminished, and M103I abolished, the effect of PKA phosphorylation; all except I148V reduced alpha-helical content by circular dichroism. D145E has also been reported in hypertrophic cardiomyopathy, and in its original DCM proband co-occurred with an MYBPC3 variant, so its assignment to the dilated phenotype is not secure.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21832052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21832052" target="_blank">PMID:21832052</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report the clinical, genetic, and functional characterization of four TNNC1 rare variants (Y5H, M103I, D145E, and I148V), all previously reported by us in association with DCM"</div>
+
+
+                <div class="evidence-explanation">Names the four variants of this group and their reported association with dilated cardiomyopathy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-tnnc1-asp132asn-compound-heterozygous-with-asp145glu" data-dismech-node="TNNC1 Asp132Asn (compound heterozygous with Asp145Glu)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        TNNC1 Asp132Asn (compound heterozygous with Asp145Glu)
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: TNNC1
+
+
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:11943</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">p.Asp132Asn, inherited in trans with p.Asp145Glu in two siblings with severe early-onset DCM — a rare compound-heterozygous rather than classic dominant genotype. In reconstituted cardiac muscle preparations D132N decreased and D145E increased Ca2+ sensitivity, and the two together mirrored wild type, so the biallelic mechanism is not a simple sum of the single-allele effects.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32038292" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32038292" target="_blank">PMID:32038292</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we report the case of two siblings with severe, early onset DCM who were found to have compound heterozygous variants in TNNC1: p.Asp145Glu (D145E) and p.Asp132Asn (D132N), which were inherited from the parents."</div>
+
+
+                <div class="evidence-explanation">Documents the compound-heterozygous D132N/D145E genotype and its severe early-onset phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-tnnc1-gly34arg" data-dismech-node="TNNC1 Gly34Arg" data-dismech-type="genetic">
+
+    <div class="item-name">
+        TNNC1 Gly34Arg
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: TNNC1
+
+
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:11943</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">c.100G&gt;C, p.Gly34Arg. A de novo variant recurring in three siblings — one infant death and two stillbirths — implicating parental germline mosaicism. Marks the lethal perinatal extreme of the TNNC1 phenotype.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36814108" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36814108" target="_blank">PMID:36814108</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we report a de novo variant, c.100G&gt;C (p.Gly34Arg) in the TNNC1 gene identified in three siblings with a diagnosis of severe DCM causing infant death for one of the siblings and stillbirth in the other two pregnancies"</div>
+
+
+                <div class="evidence-explanation">Primary report of the G34R de novo variant and its perinatal-lethal phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7501,13 +8522,18 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-guideline-directed-heart-failure-pharmacotherapy" data-dismech-node="Guideline-Directed Heart Failure Pharmacotherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Guideline-Directed Heart Failure Pharmacotherapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7537,17 +8563,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         angiotensin receptor-neprilysin inhibitor (sacubitril/valsartan)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C190796" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C190796">NCIT:C190796</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C190796" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C190796</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses angiotensin receptor-neprilysin inhibitor (sacubitril/valsartan), annotated with Angiotensin Receptor-Neprilysin Inhibitor (NCIT:C190796). NCIT:C190796 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ACE inhibitor (alternative to ARNI)
@@ -7555,11 +8588,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C247">NCIT:C247</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C247</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ACE inhibitor (alternative to ARNI), annotated with ACE Inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         beta-blocker
@@ -7567,11 +8605,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C29576">NCIT:C29576</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C29576" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-47">NCIT:C29576</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses beta-blocker, annotated with Beta-Adrenergic Antagonist (NCIT:C29576). NCIT:C29576 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         mineralocorticoid receptor antagonist (spironolactone as the class exemplar)
@@ -7579,11 +8622,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C840" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C840">NCIT:C840</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C840" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-48">NCIT:C840</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses mineralocorticoid receptor antagonist (spironolactone as the class exemplar), annotated with Spironolactone (NCIT:C840). NCIT:C840 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         SGLT2 inhibitor
@@ -7591,10 +8639,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C98083" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C98083">NCIT:C98083</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C98083" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C98083</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses SGLT2 inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7683,13 +8734,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-implantable-cardioverter-defibrillator" data-dismech-node="Implantable Cardioverter Defibrillator" data-dismech-type="treatment">
                 <div class="item-name">
                     Implantable Cardioverter Defibrillator
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">implantable cardioverter-defibrillator placement</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">implantable cardioverter-defibrillator placement<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement (NCIT:C80435). NCIT:C80435 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Implantable Cardioverter-Defibrillator Placement</span>
 
 
@@ -7783,13 +8839,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cardiac-resynchronization-therapy" data-dismech-node="Cardiac Resynchronization Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Cardiac Resynchronization Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cardiac resynchronization therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">cardiac resynchronization therapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cardiac resynchronization therapy (NCIT:C80436). NCIT:C80436 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cardiac Resynchronization Therapy</span>
 
 
@@ -7861,13 +8922,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-mechanical-circulatory-support" data-dismech-node="Mechanical Circulatory Support" data-dismech-type="treatment">
                 <div class="item-name">
                     Mechanical Circulatory Support
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">left ventricular assist device insertion</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">left ventricular assist device insertion<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is left ventricular assist device insertion (NCIT:C172327). NCIT:C172327 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Left Ventricular Assist Device Insertion</span>
 
 
@@ -7939,13 +9005,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cascade-genetic-testing-and-counseling" data-dismech-node="Cascade Genetic Testing and Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Cascade Genetic Testing and Counseling
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">Genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -8061,13 +9132,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-heart-transplantation" data-dismech-node="Heart Transplantation" data-dismech-type="treatment">
                 <div class="item-name">
                     Heart Transplantation
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Organ transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -8421,7 +9497,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-ctnc-d73n-knock-in-mouse">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-ctnc-d73n-knock-in-mouse" data-dismech-node="cTnC D73N knock-in mouse" data-dismech-type="experimental_model">
                 <div class="item-name">
                     cTnC D73N knock-in mouse
 
@@ -8436,15 +9512,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Cardiomyocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-55">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8454,15 +9535,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-56">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-56">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8483,6 +9569,8 @@
                     </div>
 
                 </div>
+
+
 
 
 
@@ -8526,7 +9614,7 @@
 
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-ctnc-depleted-human-donor-cardiac-muscle-preparations-reconstituted-with-recombinant-mutant-ctnc">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-ctnc-depleted-human-donor-cardiac-muscle-preparations-reconstituted-with-recombinant-mutant-ctnc" data-dismech-node="cTnC-depleted human donor cardiac muscle preparations reconstituted with recombinant mutant cTnC" data-dismech-type="experimental_model">
                 <div class="item-name">
                     cTnC-depleted human donor cardiac muscle preparations reconstituted with recombinant mutant cTnC
 
@@ -8541,15 +9629,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Cardiomyocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-57">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8559,15 +9652,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-58">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-58">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8593,6 +9691,8 @@
                     </div>
 
                 </div>
+
+
 
 
 
@@ -8636,7 +9736,7 @@
 
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-explanted-cmd1z-g159d-human-myocardium">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-explanted-cmd1z-g159d-human-myocardium" data-dismech-node="Explanted CMD1Z (G159D) human myocardium" data-dismech-type="experimental_model">
                 <div class="item-name">
                     Explanted CMD1Z (G159D) human myocardium
 
@@ -8651,15 +9751,20 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         Cardiomyocyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-59">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses Cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -8669,15 +9774,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-60">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-60">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8703,6 +9813,8 @@
                     </div>
 
                 </div>
+
+
 
 
 
@@ -8746,7 +9858,7 @@
 
             </div>
 
-            <div class="item-box exp-model-box anchor-target" id="experimental-model-xenopus-tropicalis-tnnc1-crispr-cas9-knockout">
+            <div class="item-box exp-model-box anchor-target" id="experimental-model-xenopus-tropicalis-tnnc1-crispr-cas9-knockout" data-dismech-node="Xenopus tropicalis TNNC1 CRISPR/Cas9 knockout" data-dismech-type="experimental_model">
                 <div class="item-name">
                     Xenopus tropicalis TNNC1 CRISPR/Cas9 knockout
 
@@ -8764,15 +9876,20 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             western clawed frog
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_8364" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:8364">NCBITaxon:8364</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_8364" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-61">NCBITaxon:8364</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-61">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in western clawed frog, annotated with Xenopus tropicalis (NCBITaxon:8364). NCBITaxon:8364 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -8793,6 +9910,8 @@
                     </div>
 
                 </div>
+
+
 
 
 
@@ -8837,6 +9956,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -12034,5 +13156,73 @@ notes: &gt;-
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

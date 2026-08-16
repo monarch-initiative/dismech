@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3467,6 +3862,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3503,7 +3902,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3525,6 +3924,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -5997,7 +6397,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_ad_amyloid_tau_glia_mitochondria_ordering_resilience">
@@ -6075,10 +6475,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         longitudinal multimodal cohort study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type longitudinal multimodal cohort study.</span>
     </span>
 
 
@@ -6119,10 +6525,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-2">
 
         amyloid positron emission tomography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">Relation: this experiment uses this assay
+This experiment uses amyloid positron emission tomography.</span>
     </span>
 
 
@@ -6146,10 +6558,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-3">
 
         tau positron emission tomography
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this experiment uses this assay
+This experiment uses tau positron emission tomography.</span>
     </span>
 
 
@@ -6173,10 +6591,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-4">
 
         cerebrospinal fluid biomarker profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Relation: this experiment uses this assay
+This experiment uses cerebrospinal fluid biomarker profiling.</span>
     </span>
 
 
@@ -6200,10 +6624,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-5">
 
         plasma biomarker profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Relation: this experiment uses this assay
+This experiment uses plasma biomarker profiling.</span>
     </span>
 
 
@@ -6227,10 +6657,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         neuropsychological assessment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this experiment uses this assay
+This experiment uses neuropsychological assessment.</span>
     </span>
 
 
@@ -6286,10 +6722,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         plasma GFAP measurement
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by plasma GFAP measurement.</span>
     </span>
 
 
@@ -6313,10 +6755,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-8">
 
         CSF soluble TREM2 measurement
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this readout is measured by this assay
+This readout is measured by CSF soluble TREM2 measurement.</span>
     </span>
 
 
@@ -6340,10 +6788,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-9">
 
         complement biomarker profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">Relation: this readout is measured by this assay
+This readout is measured by complement biomarker profiling.</span>
     </span>
 
 
@@ -6402,15 +6856,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         Mitophagy
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000422">GO:0000422</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0000422</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on Mitophagy, annotated with autophagy of mitochondrion (GO:0000422). GO:0000422 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -6475,10 +6936,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-11">
 
         neuropsychological assessment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">Relation: this readout is measured by this assay
+This readout is measured by neuropsychological assessment.</span>
     </span>
 
 
@@ -6502,10 +6969,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-12">
 
         functional connectivity imaging
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">Relation: this readout is measured by this assay
+This readout is measured by functional connectivity imaging.</span>
     </span>
 
 
@@ -6808,10 +7281,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-13">
 
         controlled perturbation experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">Relation: this experiment is of type this experiment type
+This experiment is of type controlled perturbation experiment.</span>
     </span>
 
 
@@ -6865,15 +7344,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-14">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -6902,16 +7388,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         RORB+ glutamatergic neuron
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000679">CL:0000679</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000679</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses RORB+ glutamatergic neuron, annotated with glutamatergic neuron (CL:0000679). CL:0000679 is a cell type from the Cell Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -6939,10 +7436,13 @@
         microglial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000129</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -7009,15 +7509,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         viral process
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016032">GO:0016032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0016032</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this perturbation acts on this biological process
+This perturbation acts on viral process (GO:0016032). GO:0016032 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -7082,10 +7589,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-18">
 
         single-cell transcriptomic profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">Relation: this readout is measured by this assay
+This readout is measured by single-cell transcriptomic profiling.</span>
     </span>
 
 
@@ -7109,10 +7622,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-19">
 
         high-content imaging
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">Relation: this readout is measured by this assay
+This readout is measured by high-content imaging.</span>
     </span>
 
 
@@ -7172,15 +7691,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-bio">
 
         inflammatory response
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0006954</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
+Relation: this readout reports on this biological process
+This readout reports on inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
     </span>
 
 
@@ -7211,10 +7737,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-21">
 
         multiplex cytokine profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">Relation: this readout is measured by this assay
+This readout is measured by multiplex cytokine profiling.</span>
     </span>
 
 
@@ -7238,10 +7770,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-22">
 
         single-cell transcriptomic profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">Relation: this readout is measured by this assay
+This readout is measured by single-cell transcriptomic profiling.</span>
     </span>
 
 
@@ -7489,10 +8027,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-23">
 
         antigen-specificity T cell reactivity screen
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">Relation: this experiment is of type this experiment type
+This experiment is of type antigen-specificity T cell reactivity screen.</span>
     </span>
 
 
@@ -7533,10 +8077,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-24">
 
         single-cell T cell receptor sequencing
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">Relation: this experiment uses this assay
+This experiment uses single-cell T cell receptor sequencing.</span>
     </span>
 
 
@@ -7560,10 +8110,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-25">
 
         peptide-MHC tetramer binding assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">Relation: this experiment uses this assay
+This experiment uses peptide-MHC tetramer binding assay.</span>
     </span>
 
 
@@ -7718,10 +8274,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-26">
 
         comparative conditional-knockout intervention study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">Relation: this experiment is of type this experiment type
+This experiment is of type comparative conditional-knockout intervention study.</span>
     </span>
 
 
@@ -7762,10 +8324,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-27">
 
         conditional gene knockout
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">Relation: this experiment uses this assay
+This experiment uses conditional gene knockout.</span>
     </span>
 
 
@@ -7789,10 +8357,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-28">
 
         neuropsychological assessment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">Relation: this experiment uses this assay
+This experiment uses neuropsychological assessment.</span>
     </span>
 
 
@@ -7940,10 +8514,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-29">
 
         GWAS-QTL colocalization analysis
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">Relation: this experiment is of type this experiment type
+This experiment is of type GWAS-QTL colocalization analysis.</span>
     </span>
 
 
@@ -7984,10 +8564,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-30">
 
         expression quantitative trait locus colocalization
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">Relation: this experiment uses this assay
+This experiment uses expression quantitative trait locus colocalization.</span>
     </span>
 
 
@@ -8011,10 +8597,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-31">
 
         chromatin accessibility quantitative trait locus mapping
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">Relation: this experiment uses this assay
+This experiment uses chromatin accessibility quantitative trait locus mapping.</span>
     </span>
 
 
@@ -8105,10 +8697,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-32">
 
         gene-set enrichment analysis
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">Relation: this experiment is of type this experiment type
+This experiment is of type gene-set enrichment analysis.</span>
     </span>
 
 
@@ -8149,10 +8747,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-33">
 
         genome-wide association study
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">Relation: this experiment uses this assay
+This experiment uses genome-wide association study.</span>
     </span>
 
 
@@ -8253,6 +8857,711 @@
 
             </div>
 
+            <div class="item-box discussion-box anchor-target" id="mismatch_ad_ldir_dose_regimen_translation">
+                <div class="item-name">Do preclinical reports that low-dose ionizing radiation below 100 mSv, at selected doses and regimens, reduce Alzheimer-relevant amyloid burden and neuroinflammation or improve cognition in humans without delayed harm, and where does the response change from potentially protective to neurotoxic?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">mismatch_ad_ldir_dose_regimen_translation</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-amyloid-plaque-formation">pathophysiology#Amyloid Plaque Formation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-neuroinflammation">pathophysiology#Neuroinflammation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-synaptic-dysfunction">pathophysiology#Synaptic Dysfunction</a>
+
+
+
+
+
+
+    <span class="entity-ref-chip">phenotype#Memory Loss</span>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">A 2026 review describes potentially protective effects only at specific low-dose regimens and explicitly reports no consensus on the dual mechanisms, safety threshold, or long-term outcomes because of small samples, ethical constraints, and inter-model variability. The abstract synthesizes preclinical evidence and prospective applications rather than establishing a reproducible human Alzheimer disease response. This entry therefore does not assert a protective environmental edge or add low-dose-radiation mechanism nodes. A single descriptor modifier would also be misleading: modifiers encode one biological state, not a dose- and regimen-conditioned reversal of effect. If the response is later established, detrimental and protective arms should be represented separately with explicit exposure context and arm-specific evidence. The question is kept at entry level because the reported reduction in amyloid-beta deposition maps directly to the existing Alzheimer pathograph; a reusable hormesis module would require a conserved causal chain, a key conformance target, and validated recurrence across at least two disorders, none of which this single review establishes.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Harmonized low-dose ionizing-radiation dose-response study</div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-34">
+
+        harmonized cross-model dose-response study
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">Relation: this experiment is of type this experiment type
+This experiment is of type harmonized cross-model dose-response study.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+            </div>
+
+            <div class="experiment-id">exp_ad_ldir_dose_regimen_translation</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Apply a harmonized absorbed-dose, dose-rate, radiation-quality, and fractionation matrix across human iPSC-derived hippocampal neuron-astrocyte-microglia cultures and an Alzheimer-relevant in vivo model, then compare the prespecified biomarker directions with longitudinal data from consented cohorts receiving clinically indicated imaging or occupational monitoring. Report absorbed dose in mGy for experimental systems and effective dose in mSv for human cohorts rather than treating the units as interchangeable. No participant should receive radiation solely for this study. Follow-up must be long enough to detect delayed neurocognitive or genotoxic harm rather than stopping at an acute adaptive response.</div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Perturbations</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Low-dose ionizing-radiation dose and regimen matrix</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-amyloid-plaque-formation">pathophysiology#Amyloid Plaque Formation</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Compare sham exposure with prespecified single and fractionated doses spanning an absorbed-dose range chosen to correspond to the review&#39;s below-100-mSv human exposure definition while holding radiation quality and dosimetry constant; include a higher-dose positive-control arm only in non-participant experimental systems, never in observational cohorts.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-env">
+
+        exposure to ionizing radiation
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000047" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-35">ECTO:7000047</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this perturbation applies this exposure
+This perturbation applies exposure to ionizing radiation (ECTO:7000047). ECTO:7000047 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Amyloid-beta deposition response</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-amyloid-plaque-formation">pathophysiology#Amyloid Plaque Formation</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Quantify soluble and deposited amyloid-beta across dose, dose-rate, and fractionation conditions and in longitudinal human biomarkers.</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-36">
+
+        amyloid-beta quantification
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">Relation: this readout is measured by this assay
+This readout is measured by amyloid-beta quantification.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+        <div class="mapping-notes">Interpretation: A replicated decrease confined to a defined low-dose window would support the proposed protective amyloid arm; a monotonic increase or failure to replicate would not.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Microglial inflammatory-state response</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-neuroinflammation">pathophysiology#Neuroinflammation</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Measure microglial inflammatory-state markers, cytokines, and phagocytic function across the harmonized exposure matrix.</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-37">
+
+        single-cell transcriptomic profiling
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">Relation: this readout is measured by this assay
+This readout is measured by single-cell transcriptomic profiling.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-38">
+
+        cytokine profiling
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">Relation: this readout is measured by this assay
+This readout is measured by cytokine profiling.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+        <div class="mapping-notes">Interpretation: Reduced inflammatory signaling together with preserved phagocytic function would support an anti-inflammatory arm; a transient marker shift without functional benefit would not.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Synaptic and cognitive outcome</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-synaptic-dysfunction">pathophysiology#Synaptic Dysfunction</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Measure synaptic plasticity and network activity in experimental systems and longitudinal cognitive change in the observational human cohorts.</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-39">
+
+        electrophysiological recording
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">Relation: this readout is measured by this assay
+This readout is measured by electrophysiological recording.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-40">
+
+        neuropsychological assessment
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">Relation: this readout is measured by this assay
+This readout is measured by neuropsychological assessment.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: NEGATIVE</div>
+
+
+        <div class="mapping-notes">Interpretation: Molecular changes count as neuroprotective only if they accompany improved or preserved synaptic function and a concordant human cognitive direction.</div>
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Delayed oxidative and genotoxic injury</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-oxidative-stress">pathophysiology#Oxidative Stress</a>
+
+    </div>
+
+
+        <div style="margin-top: 6px;">Measure persistent oxidative stress, DNA damage, and delayed neuronal or cognitive injury after the acute response window.</div>
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-41">
+
+        DNA damage assay
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">Relation: this readout is measured by this assay
+This readout is measured by DNA damage assay.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-42">
+
+        oxidative stress biomarker profiling
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">Relation: this readout is measured by this assay
+This readout is measured by oxidative stress biomarker profiling.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+        <div class="mapping-notes">Direction: POSITIVE</div>
+
+
+        <div class="mapping-notes">Interpretation: Delayed injury at a nominally protective dose would refute a net-benefit interpretation even if acute amyloid or inflammatory markers improve.</div>
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Controls</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Sham-exposed matched controls</div>
+
+        <div>Isogenic cultures and matched animals handled identically without ionizing-radiation exposure, plus unexposed comparison participants for the observational cohorts.</div>
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Dosimetry and regimen controls</div>
+
+        <div>Match radiation quality, absorbed dose, dose rate, fractionation, age, and disease stage as closely as each system permits, and publish the conversion assumptions, so a unit or regimen difference is not misread as a species effect.</div>
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Decision criterion</div>
+            <div class="experiment-decision">Promote an Alzheimer-specific protective arm only if a preregistered non-monotonic dose-response is independently replicated, improves amyloid, inflammatory, and synaptic outcomes without delayed harm, and shows a directionally concordant human signal. Define separate harmful and protective exposure-mechanism links only after their dose and regimen boundaries are supported; do not infer a clinical safety threshold from model-system data alone.</div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-meta">
+
+
+                    <span class="tag tag-discussion-status">Posed 2026-08-08T00:00:00Z</span>
+
+
+                </div>
+
+
+
+                <div class="mapping-notes">Scope resolution for GitHub issue 8135: entry-level structured uncertainty was chosen over asserted mechanism nodes or a cross-disease hormesis module.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42551708" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42551708" target="_blank">PMID:42551708</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nevertheless, emerging evidence indicates that LDIR administered at specific doses and regimens may exert neuroprotective effects via hormesis: it reduces Aβ deposition, promotes anti-inflammatory microglial polarization, and enhances hippocampal neurogenesis, thereby ameliorating cognitive impairment."</div>
+
+
+                <div class="evidence-explanation">The review motivates the protective arm of the question but limits it to selected doses and regimens; it does not establish a human Alzheimer disease mechanism or a safe intervention threshold.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42551708" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42551708" target="_blank">PMID:42551708</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Constrained by ethical considerations, sample size limitations, and inter-model variability, no consensus has been reached regarding its dual mechanisms, safety thresholds, and long-term outcomes."</div>
+
+
+                <div class="evidence-explanation">Directly supports retaining this as an open model-to-human mismatch rather than asserting either a protective pathograph or a general hormesis module.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
         </div>
 
 
@@ -8306,17 +9615,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neurons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neurons, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8337,11 +9653,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-44">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8362,10 +9683,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-45">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocytes, annotated with astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8392,16 +9716,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         APP
 
 
-    <a href="https://bioregistry.io/hgnc:620" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:620">hgnc:620</a>
+    <a href="https://bioregistry.io/hgnc:620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-46">hgnc:620</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves APP (hgnc:620). hgnc:620 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -8429,11 +9764,18 @@
         PSEN1
 
 
-    <a href="https://bioregistry.io/hgnc:9508" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9508">hgnc:9508</a>
+    <a href="https://bioregistry.io/hgnc:9508" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-47">hgnc:9508</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-47">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PSEN1 (hgnc:9508). hgnc:9508 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -8461,10 +9803,13 @@
         PSEN2
 
 
-    <a href="https://bioregistry.io/hgnc:9509" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9509">hgnc:9509</a>
+    <a href="https://bioregistry.io/hgnc:9509" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-48">hgnc:9509</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-48">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PSEN2 (hgnc:9509). hgnc:9509 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8492,16 +9837,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Protein misfolding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006457">GO:0006457</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006457" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-49">GO:0006457</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Protein misfolding, annotated with protein folding (GO:0006457). GO:0006457 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8521,17 +9871,24 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Aggregation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0034205" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0034205">GO:0034205</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0034205" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-50">GO:0034205</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Aggregation, annotated with amyloid-beta formation (GO:0034205). GO:0034205 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -8552,10 +9909,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0150076">GO:0150076</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-51">GO:0150076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Neuroinflammation, annotated with neuroinflammatory response (GO:0150076). GO:0150076 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8578,22 +9938,35 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-52">
                         Cerebral Cortex
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Cerebral Cortex.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-53">
                         Hippocampus
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Hippocampus.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-54">
                         Subcortical Regions
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Subcortical Regions.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -8794,16 +10167,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neurons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-55">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neurons, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -8830,15 +10208,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         MAPT
 
 
-    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6893">hgnc:6893</a>
+    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:6893</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MAPT (hgnc:6893). hgnc:6893 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -8866,16 +10251,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Protein hyperphosphorylation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006468">GO:0006468</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-57">GO:0006468</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Protein hyperphosphorylation, annotated with protein phosphorylation (GO:0006468). GO:0006468 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8895,16 +10285,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Microtubule destabilization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007019" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007019">GO:0007019</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007019" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-58">GO:0007019</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Microtubule destabilization, annotated with microtubule depolymerization (GO:0007019). GO:0007019 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -8927,22 +10322,35 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-59">
                         Entorhinal Cortex
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Entorhinal Cortex.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-60">
                         Hippocampus
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Hippocampus.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-61">
                         Neocortex
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Neocortex.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -9103,16 +10511,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neurons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-62">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neurons, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -9139,16 +10552,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Neurotransmitter release
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007269" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007269">GO:0007269</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007269" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-63">GO:0007269</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Neurotransmitter release, annotated with neurotransmitter secretion (GO:0007269). GO:0007269 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9157,6 +10575,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -9174,10 +10594,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048167">GO:0048167</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048167" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-64">GO:0048167</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Synaptic plasticity, annotated with regulation of synaptic plasticity (GO:0048167). GO:0048167 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9204,17 +10627,26 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-65">
                         Synapses
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Synapses.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-66">
                         Neuronal dendrites
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Neuronal dendrites.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -9363,17 +10795,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Microglia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-67">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -9394,10 +10833,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-68">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocytes, annotated with astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -9424,16 +10866,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Immune activation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002253" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002253">GO:0002253</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002253" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-69">GO:0002253</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Immune activation, annotated with activation of immune response (GO:0002253). GO:0002253 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9442,6 +10889,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -9459,10 +10908,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001816">GO:0001816</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-70">GO:0001816</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Cytokine production (GO:0001816). GO:0001816 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9482,16 +10934,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Phagocytosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006909">GO:0006909</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-71">GO:0006909</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Phagocytosis (GO:0006909). GO:0006909 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9508,6 +10965,7 @@
 
 
                 </div>
+
 
 
 
@@ -9723,16 +11181,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Free radical production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1903409" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1903409">GO:1903409</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1903409" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-72">GO:1903409</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Free radical production, annotated with reactive oxygen species biosynthetic process (GO:1903409). GO:1903409 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9752,16 +11215,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Antioxidant defense
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-73">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Antioxidant defense, annotated with response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -9787,17 +11255,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Mitochondria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-74">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Mitochondria, annotated with mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-component">
                         Cell membranes
@@ -9805,13 +11280,17 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005886">GO:0005886</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-75">GO:0005886</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Cell membranes, annotated with plasma membrane (GO:0005886). GO:0005886 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -9968,17 +11447,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neurons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-76">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neurons, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -9999,10 +11485,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-77">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -10029,16 +11518,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Mitophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000422">GO:0000422</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-78">GO:0000422</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Mitophagy, annotated with autophagy of mitochondrion (GO:0000422). GO:0000422 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -10064,16 +11558,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Mitochondria
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-79">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Mitochondria, annotated with mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -10081,17 +11580,26 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-80">
                         Hippocampus
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Hippocampus.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-81">
                         Cerebral Cortex
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Cerebral Cortex.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -10281,17 +11789,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Endothelial cells
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-82">CL:0000115</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Endothelial cells, annotated with endothelial cell (CL:0000115). CL:0000115 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -10312,10 +11827,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000669">CL:0000669</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-83">CL:0000669</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Pericytes, annotated with pericyte (CL:0000669). CL:0000669 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -10342,15 +11860,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         LRP1
 
 
-    <a href="https://bioregistry.io/hgnc:6692" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6692">hgnc:6692</a>
+    <a href="https://bioregistry.io/hgnc:6692" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-84">hgnc:6692</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-84">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LRP1 (hgnc:6692). hgnc:6692 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -10378,16 +11903,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Blood-brain barrier regulation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1905603" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1905603">GO:1905603</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1905603" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-85">GO:1905603</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated Blood-brain barrier regulation, annotated with regulation of blood-brain barrier permeability (GO:1905603). GO:1905603 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -10407,16 +11937,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Cerebral blood flow
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0120275" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0120275">GO:0120275</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0120275" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-86">GO:0120275</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cerebral blood flow, annotated with cerebral blood circulation (GO:0120275). GO:0120275 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -10443,17 +11978,26 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-87">
                         Cerebral blood vessels
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Cerebral blood vessels.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-88">
                         Blood-brain barrier
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Blood-brain barrier.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -10621,16 +12165,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Astrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000127">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-89">CL:0000127</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -10657,16 +12206,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Amyloid-beta clearance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097242" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097242">GO:0097242</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097242" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-90">GO:0097242</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Amyloid-beta clearance (GO:0097242). GO:0097242 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -10675,6 +12229,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -10692,10 +12248,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0090660" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0090660">GO:0090660</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0090660" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-91">GO:0090660</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-91">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Cerebrospinal fluid circulation (GO:0090660). GO:0090660 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -10721,16 +12280,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Astrocyte end-foot
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097450" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097450">GO:0097450</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097450" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-92">GO:0097450</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Astrocyte end-foot (GO:0097450). GO:0097450 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -10738,19 +12302,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Perivascular space
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0014930" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0014930">UBERON:0014930</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0014930" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-93">UBERON:0014930</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Perivascular space (UBERON:0014930). UBERON:0014930 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -10903,16 +12473,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neurons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-94">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-94">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neurons, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -10939,16 +12514,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Autophagy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006914">GO:0006914</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-95">GO:0006914</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-95">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006914 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -10957,6 +12537,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -10974,10 +12556,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007041" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007041">GO:0007041</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007041" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-96">GO:0007041</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-96">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Lysosomal degradation, annotated with lysosomal transport (GO:0007041). GO:0007041 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -10997,16 +12582,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Protein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030163" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030163">GO:0030163</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030163" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-97">GO:0030163</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased Protein catabolic process (GO:0030163). GO:0030163 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -11033,17 +12623,26 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-98">
                         Hippocampus
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-98">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Hippocampus.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-99">
                         Cerebral Cortex
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-99">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Cerebral Cortex.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -11193,16 +12792,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         RORB+ glutamatergic neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000679">CL:0000679</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-100">CL:0000679</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-100">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves RORB+ glutamatergic neuron, annotated with glutamatergic neuron (CL:0000679). CL:0000679 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -11229,16 +12833,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         HSV-1 release from latency
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019046" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019046">GO:0019046</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019046" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-101">GO:0019046</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-101">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased HSV-1 release from latency, annotated with release from viral latency (GO:0019046). GO:0019046 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -11247,6 +12856,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -11264,10 +12875,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019079">GO:0019079</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-102">GO:0019079</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-102">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased HSV-1 genome replication, annotated with viral genome replication (GO:0019079). GO:0019079 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -11294,12 +12908,17 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-103">
                         Cerebral Cortex
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-103">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Cerebral Cortex.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -11423,17 +13042,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neurons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-104">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-104">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neurons, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -11454,10 +13080,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-105">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-105">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -11484,16 +13113,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ARC
 
 
-    <a href="https://bioregistry.io/hgnc:648" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:648">hgnc:648</a>
+    <a href="https://bioregistry.io/hgnc:648" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-106">hgnc:648</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-106">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ARC (hgnc:648). hgnc:648 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -11521,11 +13161,18 @@
         MAPT
 
 
-    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6893">hgnc:6893</a>
+    <a href="https://bioregistry.io/hgnc:6893" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-107">hgnc:6893</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-107">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MAPT (hgnc:6893). hgnc:6893 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -11553,10 +13200,13 @@
         BAIAP2 (IRSp53)
 
 
-    <a href="https://bioregistry.io/hgnc:947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:947">hgnc:947</a>
+    <a href="https://bioregistry.io/hgnc:947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-108">hgnc:947</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-108">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BAIAP2 (IRSp53), annotated with BAIAP2 (hgnc:947). hgnc:947 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -11584,16 +13234,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Extracellular vesicle biogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0140112" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0140112">GO:0140112</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0140112" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-109">GO:0140112</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-109">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Extracellular vesicle biogenesis (GO:0140112). GO:0140112 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -11602,6 +13257,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -11619,10 +13276,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009306">GO:0009306</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009306" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-110">GO:0009306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-110">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Tau release in extracellular vesicles, annotated with protein secretion (GO:0009306). GO:0009306 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -11642,16 +13302,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Tau seeding of aggregation in recipient neurons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_1990000" target="_blank" class="curie-chip curie-chip-go" title="Open GO:1990000">GO:1990000</a>
+    <a href="http://purl.obolibrary.org/obo/GO_1990000" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-111">GO:1990000</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-111">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Tau seeding of aggregation in recipient neurons, annotated with amyloid fibril formation (GO:1990000). GO:1990000 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -11678,27 +13343,44 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-112">
                         Neuronal dendrites
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-112">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Neuronal dendrites.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-113">
                         Synapses
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-113">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Synapses.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-114">
                         Hippocampus
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-114">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Hippocampus.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-115">
                         Entorhinal Cortex
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-115">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Entorhinal Cortex.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -11846,17 +13528,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neurons
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-116">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-116">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neurons, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -11877,10 +13566,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-117">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-117">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -11907,16 +13599,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PARP1
 
 
-    <a href="https://bioregistry.io/hgnc:270" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:270">hgnc:270</a>
+    <a href="https://bioregistry.io/hgnc:270" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-118">hgnc:270</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-118">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PARP1 (hgnc:270). hgnc:270 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -11944,10 +13647,13 @@
         SIRT1
 
 
-    <a href="https://bioregistry.io/hgnc:14929" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14929">hgnc:14929</a>
+    <a href="https://bioregistry.io/hgnc:14929" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-119">hgnc:14929</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-119">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SIRT1 (hgnc:14929). hgnc:14929 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -11975,16 +13681,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA damage response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006974">GO:0006974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-120">GO:0006974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-120">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal DNA damage response (GO:0006974). GO:0006974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -12004,16 +13715,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Neuroinflammation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0150076">GO:0150076</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0150076" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-121">GO:0150076</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-121">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Neuroinflammation, annotated with neuroinflammatory response (GO:0150076). GO:0150076 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -12034,6 +13750,7 @@
 
 
                 </div>
+
 
 
 
@@ -12169,17 +13886,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         CD8+ cytotoxic T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000625">CL:0000625</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-122">CL:0000625</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-122">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves CD8+ cytotoxic T cell, annotated with CD8-positive, alpha-beta T cell (CL:0000625). CL:0000625 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -12200,10 +13924,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000129">CL:0000129</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-123">CL:0000129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-123">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Microglia, annotated with microglial cell (CL:0000129). CL:0000129 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -12230,16 +13957,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         T cell chemotaxis into the brain
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010818" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0010818">GO:0010818</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010818" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-124">GO:0010818</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-124">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell chemotaxis into the brain, annotated with T cell chemotaxis (GO:0010818). GO:0010818 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -12248,6 +13980,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -12265,10 +13999,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001913">GO:0001913</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-125">GO:0001913</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-125">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased T cell mediated cytotoxicity (GO:0001913). GO:0001913 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -12288,16 +14025,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         Interferon-gamma (type II interferon) production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0032609">GO:0032609</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-126">GO:0032609</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-126">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Interferon-gamma (type II interferon) production, annotated with type II interferon production (GO:0032609). GO:0032609 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -12324,17 +14066,26 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-127">
                         Hippocampus
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-127">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Hippocampus.</span>
                     </span>
 
-                    <span class="tag tag-location">
+
+
+                    <span class="tag tag-location" tabindex="0" aria-describedby="pill-tip-128">
                         Entorhinal Cortex
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-128">Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Entorhinal Cortex.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -12514,21 +14265,30 @@
                     <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-memory-loss" data-dismech-node="Memory Loss" data-dismech-type="phenotype">
                     <div class="item-name">
                         Memory Loss
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Memory impairment
+
+                        <span class="phenotype-term-label">Memory impairment</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002354">HP:0002354</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-129">HP:0002354</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-129">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12575,21 +14335,30 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-behavioral-changes" data-dismech-node="Behavioral Changes" data-dismech-type="phenotype">
                     <div class="item-name">
                         Behavioral Changes
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atypical behavior
+
+                        <span class="phenotype-term-label">Atypical behavior</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000708">HP:0000708</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-130">HP:0000708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-130">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Behavioral abnormality, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12656,21 +14425,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aphasia" data-dismech-node="Aphasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Aphasia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aphasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002381">HP:0002381</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-131">HP:0002381</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-131">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12717,21 +14493,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-apraxia" data-dismech-node="Apraxia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Apraxia
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Apraxia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002186" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002186">HP:0002186</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002186" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-132">HP:0002186</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-132">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Apraxia (HP:0002186). HP:0002186 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12787,21 +14570,30 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-executive-dysfunction" data-dismech-node="Executive Dysfunction" data-dismech-type="phenotype">
                     <div class="item-name">
                         Executive Dysfunction
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Impaired executive functioning
+
+                        <span class="phenotype-term-label">Impaired executive functioning</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033051">HP:0033051</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-133">HP:0033051</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-133">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12848,21 +14640,30 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-agnosia" data-dismech-node="Agnosia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Agnosia
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Disturbed sensory perception
+
+                        <span class="phenotype-term-label">Disturbed sensory perception</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010524" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010524">HP:0010524</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010524" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-134">HP:0010524</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-134">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Agnosia, annotated with Disturbed sensory perception (HP:0010524). HP:0010524 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -12950,7 +14751,7 @@
                 <span class="card-count">9</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-app" data-dismech-node="APP" data-dismech-type="genetic">
                 <div class="item-name">
                     APP
 
@@ -12962,13 +14763,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: APP
 
 
-    <a href="https://bioregistry.io/hgnc:620" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:620">hgnc:620</a>
+    <a href="https://bioregistry.io/hgnc:620" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-135">hgnc:620</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-135">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is APP (hgnc:620). hgnc:620 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -13051,9 +14857,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-psen1" data-dismech-node="PSEN1" data-dismech-type="genetic">
                 <div class="item-name">
                     PSEN1
 
@@ -13065,13 +14872,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PSEN1
 
 
-    <a href="https://bioregistry.io/hgnc:9508" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9508">hgnc:9508</a>
+    <a href="https://bioregistry.io/hgnc:9508" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-136">hgnc:9508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-136">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PSEN1 (hgnc:9508). hgnc:9508 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -13154,9 +14966,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-psen2" data-dismech-node="PSEN2" data-dismech-type="genetic">
                 <div class="item-name">
                     PSEN2
 
@@ -13168,13 +14981,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PSEN2
 
 
-    <a href="https://bioregistry.io/hgnc:9509" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9509">hgnc:9509</a>
+    <a href="https://bioregistry.io/hgnc:9509" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-137">hgnc:9509</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-137">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PSEN2 (hgnc:9509). hgnc:9509 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -13255,9 +15073,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-apoe" data-dismech-node="APOE" data-dismech-type="genetic">
                 <div class="item-name">
                     APOE
 
@@ -13269,13 +15088,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: APOE
 
 
-    <a href="https://bioregistry.io/hgnc:613" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:613">hgnc:613</a>
+    <a href="https://bioregistry.io/hgnc:613" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-138">hgnc:613</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-138">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -13364,9 +15188,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-bin1" data-dismech-node="BIN1" data-dismech-type="genetic">
                 <div class="item-name">
                     BIN1
 
@@ -13378,13 +15203,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BIN1
 
 
-    <a href="https://bioregistry.io/hgnc:1052" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1052">hgnc:1052</a>
+    <a href="https://bioregistry.io/hgnc:1052" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-139">hgnc:1052</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-139">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BIN1 (hgnc:1052). hgnc:1052 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -13473,9 +15303,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-trem2" data-dismech-node="TREM2" data-dismech-type="genetic">
                 <div class="item-name">
                     TREM2
 
@@ -13487,13 +15318,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TREM2
 
 
-    <a href="https://bioregistry.io/hgnc:17761" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:17761">hgnc:17761</a>
+    <a href="https://bioregistry.io/hgnc:17761" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-140">hgnc:17761</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-140">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TREM2 (hgnc:17761). hgnc:17761 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -13504,9 +15340,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-nlrp3" data-dismech-node="NLRP3" data-dismech-type="genetic">
                 <div class="item-name">
                     NLRP3
 
@@ -13518,13 +15355,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NLRP3
 
 
-    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16400">hgnc:16400</a>
+    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-141">hgnc:16400</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-141">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NLRP3 (hgnc:16400). hgnc:16400 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -13535,9 +15377,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-pycard" data-dismech-node="PYCARD" data-dismech-type="genetic">
                 <div class="item-name">
                     PYCARD
 
@@ -13549,13 +15392,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PYCARD
 
 
-    <a href="https://bioregistry.io/hgnc:16608" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16608">hgnc:16608</a>
+    <a href="https://bioregistry.io/hgnc:16608" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-142">hgnc:16608</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-142">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PYCARD (hgnc:16608). hgnc:16608 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -13566,9 +15414,10 @@
 
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-lrp1" data-dismech-node="LRP1" data-dismech-type="genetic">
                 <div class="item-name">
                     LRP1
 
@@ -13580,13 +15429,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LRP1
 
 
-    <a href="https://bioregistry.io/hgnc:6692" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6692">hgnc:6692</a>
+    <a href="https://bioregistry.io/hgnc:6692" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-143">hgnc:6692</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-143">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LRP1 (hgnc:6692). hgnc:6692 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -13597,9 +15451,13 @@
 
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -13611,13 +15469,18 @@
                 <span class="card-count">7</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cholinesterase-inhibitors" data-dismech-node="Cholinesterase Inhibitors" data-dismech-type="treatment">
                 <div class="item-name">
                     Cholinesterase Inhibitors
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cholinesterase inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-144">cholinesterase inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-144">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cholinesterase inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -13729,13 +15592,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anti-amyloid-monoclonal-antibody-therapy" data-dismech-node="Anti-Amyloid Monoclonal Antibody Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Anti-Amyloid Monoclonal Antibody Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-145">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-145">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -13765,17 +15633,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         lecanemab
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C175105" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C175105">NCIT:C175105</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C175105" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-146">NCIT:C175105</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-146">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses lecanemab (NCIT:C175105). NCIT:C175105 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         donanemab
@@ -13783,11 +15658,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C166484" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C166484">NCIT:C166484</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C166484" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-147">NCIT:C166484</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-147">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses donanemab (NCIT:C166484). NCIT:C166484 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         monoclonal antibody
@@ -13795,10 +15675,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C20401">NCIT:C20401</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20401" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-148">NCIT:C20401</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-148">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -13893,13 +15776,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-tau-directed-antisense-oligonucleotide-therapy" data-dismech-node="Tau-Directed Antisense Oligonucleotide Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Tau-Directed Antisense Oligonucleotide Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-149">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-149">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -13929,16 +15817,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         diranersen
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1291" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1291">NCIT:C1291</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1291" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-150">NCIT:C1291</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-150">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses diranersen, annotated with Antisense Oligonucleotides (NCIT:C1291). NCIT:C1291 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -14049,13 +15942,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-nmda-receptor-antagonist" data-dismech-node="NMDA Receptor Antagonist" data-dismech-type="treatment">
                 <div class="item-name">
                     NMDA Receptor Antagonist
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-151">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-151">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -14164,13 +16062,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-cognitive-therapy" data-dismech-node="Cognitive Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Cognitive Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">behavioral counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-152">behavioral counseling<span class="pill-tip" role="tooltip" id="pill-tip-152">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is behavioral counseling (NCIT:C181743). NCIT:C181743 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Behavioral Counseling</span>
 
 
@@ -14282,13 +16185,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-supportive-care" data-dismech-node="Supportive Care" data-dismech-type="treatment">
                 <div class="item-name">
                     Supportive Care
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Supportive Care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-153">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-153">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -14399,13 +16307,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-lifestyle-modifications" data-dismech-node="Lifestyle Modifications" data-dismech-type="treatment">
                 <div class="item-name">
                     Lifestyle Modifications
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Lifestyle Therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-154">Lifestyle Therapy<span class="pill-tip" role="tooltip" id="pill-tip-154">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -14531,7 +16444,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-amyloid-beta-a-42" data-dismech-node="Amyloid Beta (Aβ42)" data-dismech-type="biochemical">
                 <div class="item-name">
                     Amyloid Beta (Aβ42)
 
@@ -14655,17 +16568,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dementia
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000726">HP:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-155">HP:0000726</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-155">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Dementia (HP:0000726). HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Memory impairment
@@ -14673,10 +16593,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002354">HP:0002354</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-156">HP:0002354</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-156">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Memory impairment (HP:0002354). HP:0002354 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -14744,6 +16667,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -18017,6 +19943,160 @@ discussions:
     curation. Query: disease(efoId -&gt;MONDO_0004975) associatedTargets
     orderByScore:&#34;genetic_association&#34;, top 200 with score &gt; 0; background 20,000
     protein-coding genes; one-sided Fisher exact per gene set.
+- discussion_id: mismatch_ad_ldir_dose_regimen_translation
+  prompt: &gt;-
+    Do preclinical reports that low-dose ionizing radiation below 100 mSv, at
+    selected doses and regimens, reduce Alzheimer-relevant amyloid burden and
+    neuroinflammation or improve cognition in humans without delayed harm, and
+    where does the response change from potentially protective to neurotoxic?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Amyloid Plaque Formation
+  - pathophysiology#Neuroinflammation
+  - pathophysiology#Synaptic Dysfunction
+  - phenotype#Memory Loss
+  rationale: &gt;-
+    A 2026 review describes potentially protective effects only at specific
+    low-dose regimens and explicitly reports no consensus on the dual mechanisms,
+    safety threshold, or long-term outcomes because of small samples, ethical
+    constraints, and inter-model variability. The abstract synthesizes
+    preclinical evidence and prospective applications rather than establishing a
+    reproducible human Alzheimer disease response. This entry therefore does not
+    assert a protective environmental edge or add low-dose-radiation mechanism
+    nodes. A single descriptor modifier would also be misleading: modifiers encode
+    one biological state, not a dose- and regimen-conditioned reversal of effect.
+    If the response is later established, detrimental and protective arms should
+    be represented separately with explicit exposure context and arm-specific
+    evidence. The question is kept at entry level because the reported reduction
+    in amyloid-beta deposition maps directly to the existing Alzheimer pathograph;
+    a reusable hormesis module would require a conserved causal chain, a key
+    conformance target, and validated recurrence across at least two disorders,
+    none of which this single review establishes.
+  evidence:
+  - reference: PMID:42551708
+    reference_title: &#34;Low-dose ionizing radiation and cognitive function: evidence, mechanisms, and controversies.&#34;
+    supports: PARTIAL
+    evidence_source: OTHER
+    snippet: &gt;-
+      Nevertheless, emerging evidence indicates that LDIR administered at specific doses and regimens may exert neuroprotective effects via hormesis: it reduces Aβ deposition, promotes anti-inflammatory microglial polarization, and enhances hippocampal neurogenesis, thereby ameliorating cognitive impairment.
+    explanation: &gt;-
+      The review motivates the protective arm of the question but limits it to
+      selected doses and regimens; it does not establish a human Alzheimer disease
+      mechanism or a safe intervention threshold.
+  - reference: PMID:42551708
+    reference_title: &#34;Low-dose ionizing radiation and cognitive function: evidence, mechanisms, and controversies.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Constrained by ethical considerations, sample size limitations, and inter-model variability, no consensus has been reached regarding its dual mechanisms, safety thresholds, and long-term outcomes.
+    explanation: &gt;-
+      Directly supports retaining this as an open model-to-human mismatch rather
+      than asserting either a protective pathograph or a general hormesis module.
+  proposed_experiments:
+  - experiment_id: exp_ad_ldir_dose_regimen_translation
+    name: Harmonized low-dose ionizing-radiation dose-response study
+    description: &gt;-
+      Apply a harmonized absorbed-dose, dose-rate, radiation-quality, and
+      fractionation matrix across human iPSC-derived hippocampal
+      neuron-astrocyte-microglia cultures and an Alzheimer-relevant in vivo model,
+      then compare the prespecified biomarker directions with longitudinal data
+      from consented cohorts receiving clinically indicated imaging or occupational
+      monitoring. Report absorbed dose in mGy for experimental systems and
+      effective dose in mSv for human cohorts rather than treating the units as
+      interchangeable. No participant should receive radiation solely for this study.
+      Follow-up must be long enough to detect delayed neurocognitive or genotoxic
+      harm rather than stopping at an acute adaptive response.
+    experiment_type:
+      preferred_term: harmonized cross-model dose-response study
+    perturbations:
+    - name: Low-dose ionizing-radiation dose and regimen matrix
+      target: pathophysiology#Amyloid Plaque Formation
+      exposure_term:
+        preferred_term: exposure to ionizing radiation
+        term:
+          id: ECTO:7000047
+          label: exposure to ionizing radiation
+      description: &gt;-
+        Compare sham exposure with prespecified single and fractionated doses
+        spanning an absorbed-dose range chosen to correspond to the review&#39;s
+        below-100-mSv human exposure definition while holding radiation quality
+        and dosimetry constant; include a higher-dose positive-control arm only in
+        non-participant experimental systems, never in observational cohorts.
+    readouts:
+    - name: Amyloid-beta deposition response
+      target: pathophysiology#Amyloid Plaque Formation
+      description: &gt;-
+        Quantify soluble and deposited amyloid-beta across dose, dose-rate, and
+        fractionation conditions and in longitudinal human biomarkers.
+      assays:
+      - preferred_term: amyloid-beta quantification
+      direction: NEGATIVE
+      interpretation: &gt;-
+        A replicated decrease confined to a defined low-dose window would support
+        the proposed protective amyloid arm; a monotonic increase or failure to
+        replicate would not.
+    - name: Microglial inflammatory-state response
+      target: pathophysiology#Neuroinflammation
+      description: &gt;-
+        Measure microglial inflammatory-state markers, cytokines, and phagocytic
+        function across the harmonized exposure matrix.
+      assays:
+      - preferred_term: single-cell transcriptomic profiling
+      - preferred_term: cytokine profiling
+      direction: NEGATIVE
+      interpretation: &gt;-
+        Reduced inflammatory signaling together with preserved phagocytic
+        function would support an anti-inflammatory arm; a transient marker shift
+        without functional benefit would not.
+    - name: Synaptic and cognitive outcome
+      target: pathophysiology#Synaptic Dysfunction
+      description: &gt;-
+        Measure synaptic plasticity and network activity in experimental systems
+        and longitudinal cognitive change in the observational human cohorts.
+      assays:
+      - preferred_term: electrophysiological recording
+      - preferred_term: neuropsychological assessment
+      direction: NEGATIVE
+      interpretation: &gt;-
+        Molecular changes count as neuroprotective only if they accompany improved
+        or preserved synaptic function and a concordant human cognitive direction.
+    - name: Delayed oxidative and genotoxic injury
+      target: pathophysiology#Oxidative Stress
+      description: &gt;-
+        Measure persistent oxidative stress, DNA damage, and delayed neuronal or
+        cognitive injury after the acute response window.
+      assays:
+      - preferred_term: DNA damage assay
+      - preferred_term: oxidative stress biomarker profiling
+      direction: POSITIVE
+      interpretation: &gt;-
+        Delayed injury at a nominally protective dose would refute a net-benefit
+        interpretation even if acute amyloid or inflammatory markers improve.
+    controls:
+    - name: Sham-exposed matched controls
+      description: &gt;-
+        Isogenic cultures and matched animals handled identically without
+        ionizing-radiation exposure, plus unexposed comparison participants for
+        the observational cohorts.
+    - name: Dosimetry and regimen controls
+      description: &gt;-
+        Match radiation quality, absorbed dose, dose rate, fractionation, age, and
+        disease stage as closely as each system permits, and publish the conversion
+        assumptions, so a unit or regimen difference is not misread as a species
+        effect.
+    decision_criterion: &gt;-
+      Promote an Alzheimer-specific protective arm only if a preregistered
+      non-monotonic dose-response is independently replicated, improves amyloid,
+      inflammatory, and synaptic outcomes without delayed harm, and shows a
+      directionally concordant human signal. Define separate harmful and
+      protective exposure-mechanism links only after their dose and regimen
+      boundaries are supported; do not infer a clinical safety threshold from
+      model-system data alone.
+  posed_date: &#34;2026-08-08T00:00:00Z&#34;
+  notes: &gt;-
+    Scope resolution for GitHub issue 8135: entry-level structured uncertainty was
+    chosen over asserted mechanism nodes or a cross-disease hormesis module.
 tracked_issues:
 - url: https://github.com/monarch-initiative/dismech/issues/2617
   title: &#34;Add explicit representation of knowledge gaps&#34;
@@ -19213,7 +21293,7 @@ These findings support a multi-cell-type mechanistic model in which glial activa
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Alzheimer Disease", "mondoId": "MONDO:0004975", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alzheimer_Disease", "yamlRevision": "b515cd145bad"};
+        const OS_CONFIG = {"diseaseName": "Alzheimer Disease", "mondoId": "MONDO:0004975", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Alzheimer_Disease", "yamlRevision": "fa410261e23c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -19632,5 +21712,73 @@ These findings support a multi-cell-type mechanistic model in which glial activa
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

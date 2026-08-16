@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3680,16 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3337,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 21</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 25</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Keratoconus"
@@ -3467,6 +3862,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3501,7 +3900,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3520,7 +3919,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">21</div>
+                <div class="stat-value">25</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3533,6 +3932,7 @@
                 <div class="stat-label">Genes</div>
             </div>
             </a>
+
 
 
             <a class="stat-link" href="#treatments">
@@ -4419,16 +4819,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         collagen fibril organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030199">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0030199</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4448,16 +4853,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4484,19 +4894,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         corneal stroma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001777">UBERON:0001777</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0001777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal stroma, annotated with substantia propria of cornea (UBERON:0001777). UBERON:0001777 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4596,19 +5012,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4676,16 +5098,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         corneal epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000575">CL:0000575</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000575</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves corneal epithelial cell (CL:0000575). CL:0000575 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4712,16 +5139,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4742,6 +5174,7 @@
 
 
                 </div>
+
 
 
 
@@ -4834,16 +5267,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002363" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002363">CL:0002363</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002363" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0002363</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratocyte (CL:0002363). CL:0002363 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4870,16 +5308,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         response to oxidative stress
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006979">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006979</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4906,19 +5349,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4986,16 +5435,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002363" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002363">CL:0002363</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002363" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0002363</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratocyte (CL:0002363). CL:0002363 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5022,16 +5476,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5058,19 +5517,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         corneal stroma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001777">UBERON:0001777</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal stroma, annotated with substantia propria of cornea (UBERON:0001777). UBERON:0001777 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5138,16 +5603,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002363" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002363">CL:0002363</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002363" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002363</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratocyte (CL:0002363). CL:0002363 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5174,16 +5644,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         collagen catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030574">GO:0030574</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0030574</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased collagen catabolic process (GO:0030574). GO:0030574 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5192,6 +5667,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5209,10 +5686,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0022617">GO:0022617</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0022617" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0022617</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased extracellular matrix disassembly (GO:0022617). GO:0022617 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5239,19 +5719,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         corneal stroma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001777">UBERON:0001777</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0001777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal stroma, annotated with substantia propria of cornea (UBERON:0001777). UBERON:0001777 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5338,19 +5824,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         corneal stroma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001777">UBERON:0001777</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-17">UBERON:0001777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal stroma, annotated with substantia propria of cornea (UBERON:0001777). UBERON:0001777 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5450,19 +5942,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         anterior limiting lamina of cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004370" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004370">UBERON:0004370</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004370" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0004370</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in anterior limiting lamina of cornea (UBERON:0004370). UBERON:0004370 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5562,19 +6060,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5674,19 +6178,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         cornea
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000964">UBERON:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0000964</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5776,6 +6286,7 @@
 
 
 
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5831,19 +6342,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Descemet&#39;s membrane
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004367" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004367">UBERON:0004367</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004367" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0004367</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Descemet&#39;s membrane (UBERON:0004367). UBERON:0004367 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5921,19 +6438,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         corneal stroma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001777">UBERON:0001777</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0001777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal stroma, annotated with substantia propria of cornea (UBERON:0001777). UBERON:0001777 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6033,19 +6556,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         corneal stroma
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001777">UBERON:0001777</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001777" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0001777</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in corneal stroma, annotated with substantia propria of cornea (UBERON:0001777). UBERON:0001777 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6259,7 +6788,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anterior Limiting Membrane Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Breaks in the anterior limiting membrane (Bowman\u0027s layer), the acellular collagenous lamina between the corneal epithelial basement membrane and the stroma. This is a distinct lesion from stromal thinning - a different anatomical substrate - and is reported alongside it as a classic histopathological feature.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"anterior limiting lamina of cornea\"]}}, {\"id\": \"Chronic Mechanical Eye Rubbing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Habitual, often vigorous eye rubbing - frequently driven by the itch of atopic conjunctivitis or allergy - is the best-replicated modifiable risk exposure for keratoconus, carrying roughly a three-fold increase in odds. It delivers repetitive mechanical trauma to the corneal surface.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cornea\"]}}, {\"id\": \"Corneal Ectasia and Conical Protrusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Forward bulging (ectasia) of the central/paracentral cornea into the characteristic cone, producing progressive steepening. This is the defining structural lesion of keratoconus and the substrate for its optical consequences and for acute hydrops.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cornea\"]}}, {\"id\": \"Corneal Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The keratoconic cornea sits under increased oxidative stress, and that oxidative burden activates the collagenase and gelatinase enzymes that degrade stromal collagen. This is the redox arm of the protease drive modelled downstream, distinct from the cytokine arm supplied by the ocular surface.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratocyte\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"cornea\"]}}, {\"id\": \"Corneal Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vision-impairing corneal stromal scarring, characteristically following resolution of acute corneal hydrops, and a principal indication for keratoplasty. Corresponds to the \\\"Corneal Stromal Scarring\\\" pathophysiology node.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000559\"}}, {\"id\": \"Corneal Stromal Extracellular Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An imbalance between degradative enzymes and their proteinase inhibitors in the corneal stroma produces net loss of collagen and proteoglycan matrix. This protease/anti-protease imbalance, together with a possible role for the interleukin-1 system, is the long-standing laboratory candidate for the tissue loss that defines keratoconus.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratocyte\"], \"biological_processes\": [\"collagen catabolic process\", \"extracellular matrix disassembly\"], \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Corneal Stromal Scarring\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Permanent stromal scarring - most characteristically as the sequel of resolved acute hydrops - causes irreversible visual impairment and is the common final indication for corneal transplantation.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Corneal Transplantation (Keratoplasty)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corneal transplantation is reserved for advanced disease, contact-lens failure, or scarring (notably post-hydrops scarring). Keratoconus is the single most common indication for keratoplasty in the developed world.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Descemet Membrane Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A break in Descemet membrane, the posterior basement membrane of the cornea. This is the initiating lesion of acute corneal hydrops: it breaches the barrier that normally keeps aqueous humour out of the stroma.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"Descemet\u0027s membrane\"]}}, {\"id\": \"Irregular Astigmatism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irregular astigmatism arising from the conical, optically irregular corneal surface; poorly correctable with spectacles. Corresponds to the \\\"Irregular Astigmatism and Optical Degradation\\\" pathophysiology node.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031792\"}}, {\"id\": \"Irregular Astigmatism and Optical Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The irregular conical corneal surface produces irregular astigmatism and higher-order aberration, which spectacles correct poorly and which manifests clinically as progressively blurred, distorted vision.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Keratoconus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining phenotype: bilateral, typically asymmetric conical ectasia of the cornea with progressive thinning and steepening. Corresponds to the \\\"Corneal Ectasia and Conical Protrusion\\\" pathophysiology node.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000563\"}}, {\"id\": \"Keratocyte Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased apoptotic death of keratocytes, the resident stromal cells that synthesise and maintain corneal collagen and proteoglycan, is reported in keratoconus alongside the elevated proinflammatory cytokine profile.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratocyte\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Loss of Corneal Biomechanical Rigidity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The thinned, matrix-depleted cornea has reduced rigidity, so normal intraocular pressure produces progressive distortion and focal thinning. This biomechanical failure is the step targeted by collagen cross-linking.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cornea\"]}}, {\"id\": \"Ocular Surface Inflammatory Mediator Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite the traditional \\\"non-inflammatory\\\" label, tears from keratoconus patients consistently show elevated IL-6, TNF-alpha, and MMP-9, and eye rubbing acutely raises MMP-13, IL-6, and TNF-alpha. These mediators supply the proteolytic and cytokine drive for stromal matrix breakdown.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"corneal epithelial cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Polygenic Corneal Matrix Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common form of keratoconus has a polygenic architecture. The first large-scale multi-ethnic GWAS identified 36 genome-wide significant loci and implicated dysregulation of corneal collagen matrix integrity and of cell differentiation pathways as primary disease-causing mechanisms, with common variants explaining 12.5% of the genetic variance. Candidate-gene studies have additionally nominated a heterogeneous set of loci (VSX1, LOX, ZEB1, COL5A1, HGF, ZNF469 and others) whose individual causal validity remains unsettled.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Progressive Stromal Thinning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of thickness of the central/paracentral corneal stroma, the most consistently reported histopathological finding in keratoconus and the lesion that pentacam/tomographic pachymetry maps clinically.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Reduced Visual Acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive blurring and decrease of visual acuity, the dominant symptomatic burden of keratoconus and the reason it is a leading cause of keratoplasty in young adults.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007663\"}}, {\"id\": \"Riboflavin/UV-A Corneal Collagen Cross-Linking\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corneal collagen cross-linking (CXL) is the established disease-modifying treatment for progressive keratoconus. UV-A photo-activation of riboflavin drives photochemistry that forms covalent cross-links within stromal proteins, reorganising the stroma ultrastructurally and stiffening it, which arrests ectatic progression. In the randomised US multicentre trial maximum keratometry fell by 1.6 D at one year while controls progressed. Protocols have expanded from the original epithelium-off technique to transepithelial approaches.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"riboflavin\"]}}, {\"id\": \"Rigid and Scleral Contact Lenses\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Optical rehabilitation with rigid gas-permeable or scleral contact lenses masks the irregular corneal surface with a regular refracting interface and remains the mainstay of visual correction in moderate disease. Mild cases may be managed with spectacles alone; failure of scleral lenses is a trigger for surgical management.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Stromal Imbibition and Acute Corneal Oedema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aqueous humour entering the stroma and epithelium through the Descemet break produces the marked corneal oedema that constitutes clinical acute corneal hydrops. It is usually self-limiting, with the oedema resolving over about three months.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"corneal stroma\"]}}], \"edges\": [{\"source\": \"Polygenic Corneal Matrix Susceptibility\", \"target\": \"Corneal Stromal Extracellular Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetically encoded weakness of collagen matrix integrity lowers the threshold at which matrix turnover becomes net-catabolic.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic Mechanical Eye Rubbing\", \"target\": \"Ocular Surface Inflammatory Mediator Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rubbing acutely raises tear levels of MMP-13, IL-6, and TNF-alpha.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Surface Inflammatory Mediator Release\", \"target\": \"Corneal Stromal Extracellular Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine and matrix-metalloproteinase excess shifts stromal turnover toward net matrix loss.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Oxidative Stress\", \"target\": \"Corneal Stromal Extracellular Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress activates collagenase and gelatinase enzymes, supplying the proteolytic activity that degrades stromal collagen.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratocyte Apoptosis\", \"target\": \"Progressive Stromal Thinning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depletion of the keratocyte population that synthesises and maintains stromal matrix contributes to net loss of stromal substance. The cited review reports the apoptosis as an observed feature of the disease and does not itself demonstrate this route, hence the indirect typing.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Corneal Stromal Extracellular Matrix Degradation\", \"target\": \"Progressive Stromal Thinning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained net matrix catabolism depletes stromal collagen and reduces corneal thickness.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Stromal Extracellular Matrix Degradation\", \"target\": \"Anterior Limiting Membrane Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained net matrix catabolism breaches Bowman\u0027s layer.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Stromal Thinning\", \"target\": \"Loss of Corneal Biomechanical Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced stromal thickness reduces the cornea\u0027s resistance to intraocular pressure.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anterior Limiting Membrane Rupture\", \"target\": \"Loss of Corneal Biomechanical Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the Bowman\u0027s-layer boundary removes a stiff anterior lamina that may contribute to the cornea\u0027s resistance to intraocular pressure. The cited sources establish the lesion, not the biomechanical consequence.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Corneal Biomechanical Rigidity\", \"target\": \"Corneal Ectasia and Conical Protrusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cornea that cannot resist intraocular pressure bulges forward into a cone.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Ectasia and Conical Protrusion\", \"target\": \"Irregular Astigmatism and Optical Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An irregular conical surface refracts light irregularly.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Ectasia and Conical Protrusion\", \"target\": \"Descemet Membrane Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive ectatic stretching predisposes to a break in Descemet membrane.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Descemet Membrane Rupture\", \"target\": \"Stromal Imbibition and Acute Corneal Oedema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the Descemet barrier allows aqueous humour to enter the corneal stroma and epithelium.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stromal Imbibition and Acute Corneal Oedema\", \"target\": \"Corneal Stromal Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resolution of the oedema characteristically leaves a vision-impairing scar.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Riboflavin/UV-A Corneal Collagen Cross-Linking\", \"target\": \"Loss of Corneal Biomechanical Rigidity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Riboflavin/UV-A Corneal Collagen Cross-Linking\", \"target\": \"Keratoconus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rigid and Scleral Contact Lenses\", \"target\": \"Irregular Astigmatism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rigid and Scleral Contact Lenses\", \"target\": \"Reduced Visual Acuity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Corneal Transplantation (Keratoplasty)\", \"target\": \"Corneal Stromal Scarring\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corneal Transplantation (Keratoplasty)\", \"target\": \"Corneal Scarring\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anterior Limiting Membrane Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Breaks in the anterior limiting membrane (Bowman\u0027s layer), the acellular collagenous lamina between the corneal epithelial basement membrane and the stroma. This is a distinct lesion from stromal thinning - a different anatomical substrate - and is reported alongside it as a classic histopathological feature.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"anterior limiting lamina of cornea\"]}}, {\"id\": \"Atopic diathesis (allergy, asthma, eczema)\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Atopic disease raises keratoconus risk (allergy OR 1.42, asthma OR 1.94, eczema OR 2.95), plausibly at least partly through the itch-driven eye rubbing it provokes and through ocular surface inflammation.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Mechanical Eye Rubbing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Habitual, often vigorous eye rubbing - frequently driven by the itch of atopic conjunctivitis or allergy - is the best-replicated modifiable risk exposure for keratoconus, carrying roughly a three-fold increase in odds. It delivers repetitive mechanical trauma to the corneal surface.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cornea\"]}}, {\"id\": \"Contact lens wear\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Contact lens wear is named in the disease primer as an environmental factor associated with keratoconus progression. Note the confounding: rigid and scleral lenses are also the mainstay of visual rehabilitation in this entry\u0027s treatment section, so lens wear is both an exposure and a consequence of established disease, and the primer does not separate the two.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Corneal Ectasia and Conical Protrusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Forward bulging (ectasia) of the central/paracentral cornea into the characteristic cone, producing progressive steepening. This is the defining structural lesion of keratoconus and the substrate for its optical consequences and for acute hydrops.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cornea\"]}}, {\"id\": \"Corneal Oxidative Stress\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The keratoconic cornea sits under increased oxidative stress, and that oxidative burden activates the collagenase and gelatinase enzymes that degrade stromal collagen. This is the redox arm of the protease drive modelled downstream, distinct from the cytokine arm supplied by the ocular surface.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratocyte\"], \"biological_processes\": [\"response to oxidative stress\"], \"locations\": [\"cornea\"]}}, {\"id\": \"Corneal Scarring\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vision-impairing corneal stromal scarring, characteristically following resolution of acute corneal hydrops, and a principal indication for keratoplasty. Corresponds to the \\\"Corneal Stromal Scarring\\\" pathophysiology node.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000559\"}}, {\"id\": \"Corneal Stromal Extracellular Matrix Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An imbalance between degradative enzymes and their proteinase inhibitors in the corneal stroma produces net loss of collagen and proteoglycan matrix. This protease/anti-protease imbalance, together with a possible role for the interleukin-1 system, is the long-standing laboratory candidate for the tissue loss that defines keratoconus.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratocyte\"], \"biological_processes\": [\"collagen catabolic process\", \"extracellular matrix disassembly\"], \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Corneal Stromal Scarring\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Permanent stromal scarring - most characteristically as the sequel of resolved acute hydrops - causes irreversible visual impairment and is the common final indication for corneal transplantation.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Corneal Transplantation (Keratoplasty)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corneal transplantation is reserved for advanced disease, contact-lens failure, or scarring (notably post-hydrops scarring). Keratoconus is the single most common indication for keratoplasty in the developed world.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Descemet Membrane Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A break in Descemet membrane, the posterior basement membrane of the cornea. This is the initiating lesion of acute corneal hydrops: it breaches the barrier that normally keeps aqueous humour out of the stroma.\\n\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"Descemet\u0027s membrane\"]}}, {\"id\": \"Eye rubbing\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Habitual mechanical eye rubbing is the best-replicated modifiable environmental risk factor for keratoconus (OR 3.09) and is a target of patient counselling.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Irregular Astigmatism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Irregular astigmatism arising from the conical, optically irregular corneal surface; poorly correctable with spectacles. Corresponds to the \\\"Irregular Astigmatism and Optical Degradation\\\" pathophysiology node.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031792\"}}, {\"id\": \"Irregular Astigmatism and Optical Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The irregular conical corneal surface produces irregular astigmatism and higher-order aberration, which spectacles correct poorly and which manifests clinically as progressively blurred, distorted vision.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Keratoconus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining phenotype: bilateral, typically asymmetric conical ectasia of the cornea with progressive thinning and steepening. Corresponds to the \\\"Corneal Ectasia and Conical Protrusion\\\" pathophysiology node.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000563\"}}, {\"id\": \"Keratocyte Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased apoptotic death of keratocytes, the resident stromal cells that synthesise and maintain corneal collagen and proteoglycan, is reported in keratoconus alongside the elevated proinflammatory cytokine profile.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratocyte\"], \"biological_processes\": [\"apoptotic process\"], \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Loss of Corneal Biomechanical Rigidity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The thinned, matrix-depleted cornea has reduced rigidity, so normal intraocular pressure produces progressive distortion and focal thinning. This biomechanical failure is the step targeted by collagen cross-linking.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cornea\"]}}, {\"id\": \"Ocular Surface Inflammatory Mediator Release\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Despite the traditional \\\"non-inflammatory\\\" label, tears from keratoconus patients consistently show elevated IL-6, TNF-alpha, and MMP-9, and eye rubbing acutely raises MMP-13, IL-6, and TNF-alpha. These mediators supply the proteolytic and cytokine drive for stromal matrix breakdown.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"corneal epithelial cell\"], \"biological_processes\": [\"inflammatory response\"]}}, {\"id\": \"Polygenic Corneal Matrix Susceptibility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common form of keratoconus has a polygenic architecture. The first large-scale multi-ethnic GWAS identified 36 genome-wide significant loci and implicated dysregulation of corneal collagen matrix integrity and of cell differentiation pathways as primary disease-causing mechanisms, with common variants explaining 12.5% of the genetic variance. Candidate-gene studies have additionally nominated a heterogeneous set of loci (VSX1, LOX, ZEB1, COL5A1, HGF, ZNF469 and others) whose individual causal validity remains unsettled.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Progressive Stromal Thinning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss of thickness of the central/paracentral corneal stroma, the most consistently reported histopathological finding in keratoconus and the lesion that pentacam/tomographic pachymetry maps clinically.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Reduced Visual Acuity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive blurring and decrease of visual acuity, the dominant symptomatic burden of keratoconus and the reason it is a leading cause of keratoplasty in young adults.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007663\"}}, {\"id\": \"Riboflavin/UV-A Corneal Collagen Cross-Linking\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Corneal collagen cross-linking (CXL) is the established disease-modifying treatment for progressive keratoconus. UV-A photo-activation of riboflavin drives photochemistry that forms covalent cross-links within stromal proteins, reorganising the stroma ultrastructurally and stiffening it, which arrests ectatic progression. In the randomised US multicentre trial maximum keratometry fell by 1.6 D at one year while controls progressed. Protocols have expanded from the original epithelium-off technique to transepithelial approaches.\\n\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"riboflavin\"]}}, {\"id\": \"Rigid and Scleral Contact Lenses\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Optical rehabilitation with rigid gas-permeable or scleral contact lenses masks the irregular corneal surface with a regular refracting interface and remains the mainstay of visual correction in moderate disease. Mild cases may be managed with spectacles alone; failure of scleral lenses is a trigger for surgical management.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Stromal Imbibition and Acute Corneal Oedema\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aqueous humour entering the stroma and epithelium through the Descemet break produces the marked corneal oedema that constitutes clinical acute corneal hydrops. It is usually self-limiting, with the oedema resolving over about three months.\\n\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"corneal stroma\"]}}, {\"id\": \"Ultraviolet light exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Ultraviolet light exposure is named in the authoritative disease primer, alongside eye rubbing and contact lens wear, as an environmental factor associated with keratoconus progression. The primer states the association with progression; it does not quantify an effect size, and no causal mechanism is asserted here.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Polygenic Corneal Matrix Susceptibility\", \"target\": \"Corneal Stromal Extracellular Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Genetically encoded weakness of collagen matrix integrity lowers the threshold at which matrix turnover becomes net-catabolic.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Chronic Mechanical Eye Rubbing\", \"target\": \"Ocular Surface Inflammatory Mediator Release\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rubbing acutely raises tear levels of MMP-13, IL-6, and TNF-alpha.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ocular Surface Inflammatory Mediator Release\", \"target\": \"Corneal Stromal Extracellular Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine and matrix-metalloproteinase excess shifts stromal turnover toward net matrix loss.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Oxidative Stress\", \"target\": \"Corneal Stromal Extracellular Matrix Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidative stress activates collagenase and gelatinase enzymes, supplying the proteolytic activity that degrades stromal collagen.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Keratocyte Apoptosis\", \"target\": \"Progressive Stromal Thinning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depletion of the keratocyte population that synthesises and maintains stromal matrix contributes to net loss of stromal substance. The cited review reports the apoptosis as an observed feature of the disease and does not itself demonstrate this route, hence the indirect typing.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Corneal Stromal Extracellular Matrix Degradation\", \"target\": \"Progressive Stromal Thinning\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained net matrix catabolism depletes stromal collagen and reduces corneal thickness.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Stromal Extracellular Matrix Degradation\", \"target\": \"Anterior Limiting Membrane Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained net matrix catabolism breaches Bowman\u0027s layer.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Stromal Thinning\", \"target\": \"Loss of Corneal Biomechanical Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced stromal thickness reduces the cornea\u0027s resistance to intraocular pressure.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anterior Limiting Membrane Rupture\", \"target\": \"Loss of Corneal Biomechanical Rigidity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the Bowman\u0027s-layer boundary removes a stiff anterior lamina that may contribute to the cornea\u0027s resistance to intraocular pressure. The cited sources establish the lesion, not the biomechanical consequence.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Corneal Biomechanical Rigidity\", \"target\": \"Corneal Ectasia and Conical Protrusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A cornea that cannot resist intraocular pressure bulges forward into a cone.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Ectasia and Conical Protrusion\", \"target\": \"Irregular Astigmatism and Optical Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An irregular conical surface refracts light irregularly.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corneal Ectasia and Conical Protrusion\", \"target\": \"Descemet Membrane Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive ectatic stretching predisposes to a break in Descemet membrane.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Descemet Membrane Rupture\", \"target\": \"Stromal Imbibition and Acute Corneal Oedema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the Descemet barrier allows aqueous humour to enter the corneal stroma and epithelium.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stromal Imbibition and Acute Corneal Oedema\", \"target\": \"Corneal Stromal Scarring\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Resolution of the oedema characteristically leaves a vision-impairing scar.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Eye rubbing\", \"target\": \"Chronic Mechanical Eye Rubbing\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The entry models the exposure itself as a node, so this link is an identity rather than a causal step: habitual rubbing and chronic mechanical loading of the cornea are the same thing. Rubbing carries the largest modifiable effect in this disease, which is why counselling to stop is the first intervention.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Atopic diathesis (allergy, asthma, eczema)\", \"target\": \"Chronic Mechanical Eye Rubbing\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Atopy acts largely through itch: allergic conjunctivitis provokes the rubbing that damages the cornea. Targeting the rubbing node rather than a corneal node records that indirection, which is why treating the allergy is a way of treating the keratoconus risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Ultraviolet light exposure\", \"target\": \"Corneal Oxidative Stress\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Ultraviolet exposure is associated with progression and plausibly acts through oxidative damage to the stroma, but the direction is complicated: ultraviolet A with riboflavin is the basis of corneal cross-linking, the standard treatment that halts progression. Dose and cofactors decide which effect dominates.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Contact lens wear\", \"target\": \"Chronic Mechanical Eye Rubbing\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Lens wear reaches this node through the same named intermediate as atopy, irritation provoking rubbing, so it carries the same link type. What is uncertain here is not the intermediate but the direction: lenses are also the commonest treatment for the refractive error keratoconus produces, so wearers are enriched for existing disease. That confounding is why the effect is graded PREDISPOSES rather than anything stronger.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Riboflavin/UV-A Corneal Collagen Cross-Linking\", \"target\": \"Loss of Corneal Biomechanical Rigidity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Riboflavin/UV-A Corneal Collagen Cross-Linking\", \"target\": \"Keratoconus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rigid and Scleral Contact Lenses\", \"target\": \"Irregular Astigmatism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Rigid and Scleral Contact Lenses\", \"target\": \"Reduced Visual Acuity\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Corneal Transplantation (Keratoplasty)\", \"target\": \"Corneal Stromal Scarring\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corneal Transplantation (Keratoplasty)\", \"target\": \"Corneal Scarring\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6272,7 +6801,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
 
@@ -6280,7 +6809,7 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6293,21 +6822,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-keratoconus" data-dismech-node="Keratoconus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Keratoconus
 
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Keratoconus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000563">HP:0000563</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000563</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Keratoconus (HP:0000563), qualified as course progressive. HP:0000563 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6372,19 +6908,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-visual-acuity" data-dismech-node="Reduced Visual Acuity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Reduced Visual Acuity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced visual acuity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0007663</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced visual acuity (HP:0007663), qualified as course progressive. HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6457,22 +7000,29 @@
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-irregular-astigmatism" data-dismech-node="Irregular Astigmatism" data-dismech-type="phenotype">
                     <div class="item-name">
                         Irregular Astigmatism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Irregular astigmatism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031792" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031792">HP:0031792</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0031792</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Irregular astigmatism (HP:0031792). HP:0031792 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6521,19 +7071,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-scarring" data-dismech-node="Corneal Scarring" data-dismech-type="phenotype">
                     <div class="item-name">
                         Corneal Scarring
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Corneal scarring
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000559" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000559">HP:0000559</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000559" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000559</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal scarring (HP:0000559). HP:0000559 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6580,19 +7137,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-stromal-oedema" data-dismech-node="Corneal Stromal Oedema" data-dismech-type="phenotype">
                     <div class="item-name">
                         Corneal Stromal Oedema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Corneal stromal edema
+
+                        <span class="phenotype-term-label">Corneal stromal edema</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012040" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012040">HP:0012040</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012040" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012040</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal stromal oedema, annotated with Corneal stromal edema (HP:0012040), qualified as temporality acute. HP:0012040 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6659,19 +7225,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corneal-iron-line-fleischer-ring" data-dismech-node="Corneal Iron Line (Fleischer Ring)" data-dismech-type="phenotype">
                     <div class="item-name">
                         Corneal Iron Line (Fleischer Ring)
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Corneal iron line
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6001232" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:6001232">HP:6001232</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_6001232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6001232</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fleischer ring, annotated with Corneal iron line (HP:6001232). HP:6001232 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6705,6 +7278,57 @@
 
 
                 <div class="evidence-explanation">Documents epithelial basement-membrane iron deposition as a classic feature of keratoconus.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vogt-striae" data-dismech-node="Vogt striae" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Vogt striae
+
+
+                    </div>
+
+
+                    <div class="item-desc">No phenotype term is bound because the current local HPO cache has no specific Vogt-striae term. No frequency band is asserted by this source.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20537579" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20537579" target="_blank">PMID:20537579</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vogt&#39;s striaes, which are fine vertical lines produced by Descemet&#39;s membrane compression, is another characteristic sign."</div>
+
+
+                <div class="evidence-explanation">The review directly defines Vogt striae and identifies them as a characteristic keratoconus sign.</div>
 
 
 
@@ -6759,7 +7383,7 @@
                 <span class="card-count">10</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-polygenic-susceptibility-architecture" data-dismech-node="Polygenic susceptibility architecture" data-dismech-type="genetic">
                 <div class="item-name">
                     Polygenic susceptibility architecture
 
@@ -6853,9 +7477,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-col5a1" data-dismech-node="COL5A1" data-dismech-type="genetic">
                 <div class="item-name">
                     COL5A1
 
@@ -6865,13 +7490,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL5A1
 
 
-    <a href="https://bioregistry.io/hgnc:2209" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2209">hgnc:2209</a>
+    <a href="https://bioregistry.io/hgnc:2209" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:2209</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL5A1 (hgnc:2209). hgnc:2209 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6938,9 +7568,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-hgf" data-dismech-node="HGF" data-dismech-type="genetic">
                 <div class="item-name">
                     HGF
 
@@ -6950,13 +7581,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HGF
 
 
-    <a href="https://bioregistry.io/hgnc:4893" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4893">hgnc:4893</a>
+    <a href="https://bioregistry.io/hgnc:4893" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:4893</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HGF (hgnc:4893). hgnc:4893 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7001,9 +7637,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-vsx1" data-dismech-node="VSX1" data-dismech-type="genetic">
                 <div class="item-name">
                     VSX1
 
@@ -7013,13 +7650,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VSX1
 
 
-    <a href="https://bioregistry.io/hgnc:12723" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12723">hgnc:12723</a>
+    <a href="https://bioregistry.io/hgnc:12723" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:12723</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VSX1 (hgnc:12723). hgnc:12723 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7086,9 +7728,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-lox" data-dismech-node="LOX" data-dismech-type="genetic">
                 <div class="item-name">
                     LOX
 
@@ -7098,13 +7741,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LOX
 
 
-    <a href="https://bioregistry.io/hgnc:6664" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6664">hgnc:6664</a>
+    <a href="https://bioregistry.io/hgnc:6664" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:6664</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LOX (hgnc:6664). hgnc:6664 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7171,9 +7819,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-col12a1" data-dismech-node="COL12A1" data-dismech-type="genetic">
                 <div class="item-name">
                     COL12A1
 
@@ -7183,13 +7832,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: COL12A1
 
 
-    <a href="https://bioregistry.io/hgnc:2188" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2188">hgnc:2188</a>
+    <a href="https://bioregistry.io/hgnc:2188" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:2188</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is COL12A1 (hgnc:2188). hgnc:2188 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7234,9 +7888,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-fndc3b" data-dismech-node="FNDC3B" data-dismech-type="genetic">
                 <div class="item-name">
                     FNDC3B
 
@@ -7246,13 +7901,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FNDC3B
 
 
-    <a href="https://bioregistry.io/hgnc:24670" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24670">hgnc:24670</a>
+    <a href="https://bioregistry.io/hgnc:24670" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:24670</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FNDC3B (hgnc:24670). hgnc:24670 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7297,9 +7957,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-znf469" data-dismech-node="ZNF469" data-dismech-type="genetic">
                 <div class="item-name">
                     ZNF469
 
@@ -7309,13 +7970,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZNF469
 
 
-    <a href="https://bioregistry.io/hgnc:23216" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23216">hgnc:23216</a>
+    <a href="https://bioregistry.io/hgnc:23216" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:23216</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZNF469 (hgnc:23216). hgnc:23216 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7382,9 +8048,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-aldh3a1" data-dismech-node="ALDH3A1" data-dismech-type="genetic">
                 <div class="item-name">
                     ALDH3A1
 
@@ -7394,13 +8061,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ALDH3A1
 
 
-    <a href="https://bioregistry.io/hgnc:405" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:405">hgnc:405</a>
+    <a href="https://bioregistry.io/hgnc:405" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:405</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ALDH3A1 (hgnc:405). hgnc:405 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7445,9 +8117,10 @@
     </details>
 
 
+
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-itga2" data-dismech-node="ITGA2" data-dismech-type="genetic">
                 <div class="item-name">
                     ITGA2
 
@@ -7457,13 +8130,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ITGA2
 
 
-    <a href="https://bioregistry.io/hgnc:6137" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6137">hgnc:6137</a>
+    <a href="https://bioregistry.io/hgnc:6137" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:6137</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ITGA2 (hgnc:6137). hgnc:6137 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7508,9 +8186,13 @@
     </details>
 
 
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7522,13 +8204,18 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-riboflavin-uv-a-corneal-collagen-cross-linking" data-dismech-node="Riboflavin/UV-A Corneal Collagen Cross-Linking" data-dismech-type="treatment">
                 <div class="item-name">
                     Riboflavin/UV-A Corneal Collagen Cross-Linking
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">corneal collagen cross-linking (riboflavin/UV-A phototherapy)</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">corneal collagen cross-linking (riboflavin/UV-A phototherapy)<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is corneal collagen cross-linking (riboflavin/UV-A phototherapy), annotated with Phototherapy (NCIT:C15301). NCIT:C15301 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Phototherapy</span>
 
 
@@ -7559,16 +8246,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         riboflavin
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_17015" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:17015">CHEBI:17015</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17015" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:17015</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses riboflavin (CHEBI:17015). CHEBI:17015 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7602,16 +8294,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Keratoconus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000563">HP:0000563</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000563</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Keratoconus (HP:0000563). HP:0000563 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7698,7 +8395,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-rigid-and-scleral-contact-lenses" data-dismech-node="Rigid and Scleral Contact Lenses" data-dismech-type="treatment">
                 <div class="item-name">
                     Rigid and Scleral Contact Lenses
                 </div>
@@ -7715,17 +8412,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Irregular astigmatism
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031792" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0031792">HP:0031792</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031792" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0031792</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Irregular astigmatism (HP:0031792). HP:0031792 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Reduced visual acuity
@@ -7733,10 +8437,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007663">HP:0007663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0007663</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Reduced visual acuity (HP:0007663). HP:0007663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7801,13 +8508,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-corneal-transplantation-keratoplasty" data-dismech-node="Corneal Transplantation (Keratoplasty)" data-dismech-type="treatment">
                 <div class="item-name">
                     Corneal Transplantation (Keratoplasty)
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">corneal transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">corneal transplantation<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is corneal transplantation (NCIT:C210959). NCIT:C210959 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Corneal Transplantation</span>
 
 
@@ -7864,16 +8576,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Corneal scarring
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000559" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000559">HP:0000559</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000559" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000559</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Corneal scarring (HP:0000559). HP:0000559 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7950,7 +8667,7 @@
                 <span class="card-count">4</span>
             </div>
 
-            <div class="item-box environmental-box">
+            <div class="item-box environmental-box anchor-target" id="environmental-eye-rubbing" data-dismech-node="Eye rubbing" data-dismech-type="environmental">
                 <div class="item-name">Eye rubbing</div>
 
 
@@ -7993,9 +8710,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Mechanical Eye Rubbing</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The entry models the exposure itself as a node, so this link is an identity rather than a causal step: habitual rubbing and chronic mechanical loading of the cornea are the same thing. Rubbing carries the largest modifiable effect in this disease, which is why counselling to stop is the first intervention.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31498247" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31498247" target="_blank">PMID:31498247</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"eye rubbing, family history of keratoconus, allergy, asthma, and eczema were the most important risk factors for keratoconus according to the available evidence"</div>
+
+
+                <div class="evidence-explanation">Names eye rubbing first among the most important risk factors for keratoconus, the mechanical exposure this node represents.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-atopic-diathesis-allergy-asthma-eczema" data-dismech-node="Atopic diathesis (allergy, asthma, eczema)" data-dismech-type="environmental">
                 <div class="item-name">Atopic diathesis (allergy, asthma, eczema)</div>
 
 
@@ -8038,10 +8808,86 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Mechanical Eye Rubbing</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Atopy acts largely through itch: allergic conjunctivitis provokes the rubbing that damages the cornea. Targeting the rubbing node rather than a corneal node records that indirection, which is why treating the allergy is a way of treating the keratoconus risk.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31498247" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31498247" target="_blank">PMID:31498247</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The odds ratio of eye rubbing, family history of keratoconus, allergy, asthma, and eczema was 3.09 (95% CI: 2.17-4.00), 6.42 (95% CI: 2.59-10.24), 1.42 (95% CI: 1.06-1.79), 1.94 (95% CI: 1.30-2.58), and 2.95 (95% CI: 1.30-4.59), respectively."</div>
+
+
+                <div class="evidence-explanation">Gives odds ratios for allergy, asthma and eczema alongside eye rubbing, the atopic conditions that provoke rubbing behaviour.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-ultraviolet-light-exposure" data-dismech-node="Ultraviolet light exposure" data-dismech-type="environmental">
                 <div class="item-name">Ultraviolet light exposure</div>
+
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to ultraviolet radiation
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_0000006" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-46">ECTO:0000006</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to ultraviolet radiation (ECTO:0000006). ECTO:0000006 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
 
 
 
@@ -8083,9 +8929,62 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Corneal Oxidative Stress</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Ultraviolet exposure is associated with progression and plausibly acts through oxidative damage to the stroma, but the direction is complicated: ultraviolet A with riboflavin is the basis of corneal cross-linking, the standard treatment that halts progression. Dose and cofactors decide which effect dominates.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39448666" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39448666" target="_blank">PMID:39448666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Environmental factors, such as eye rubbing, UV light exposure and contact lens wearing, are associated with disease progression."</div>
+
+
+                <div class="evidence-explanation">Names ultraviolet light exposure among the environmental factors associated with disease progression, an association without an identified mediating step.</div>
+
+
+
             </div>
 
-            <div class="item-box environmental-box">
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-contact-lens-wear" data-dismech-node="Contact lens wear" data-dismech-type="environmental">
                 <div class="item-name">Contact lens wear</div>
 
 
@@ -8128,6 +9027,59 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            PREDISPOSES
+                        </span>
+
+                        <strong style="color: #115e59;">Chronic Mechanical Eye Rubbing</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Lens wear reaches this node through the same named intermediate as atopy, irritation provoking rubbing, so it carries the same link type. What is uncertain here is not the intermediate but the direction: lenses are also the commonest treatment for the refractive error keratoconus produces, so wearers are enriched for existing disease. That confounding is why the effect is graded PREDISPOSES rather than anything stronger.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39448666" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39448666" target="_blank">PMID:39448666</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Environmental factors, such as eye rubbing, UV light exposure and contact lens wearing, are associated with disease progression."</div>
+
+
+                <div class="evidence-explanation">Names contact lens wearing among the environmental factors associated with disease progression, without separating cause from consequence of the disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
             </div>
 
         </div>
@@ -8146,6 +9098,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -8957,6 +9912,24 @@ phenotypes:
     explanation: &gt;-
       Documents epithelial basement-membrane iron deposition as a classic
       feature of keratoconus.
+- name: Vogt striae
+  category: Eye
+  description: &gt;
+    Fine vertical stress lines in the posterior cornea caused by compression of
+    Descemet membrane; a characteristic slit-lamp sign of clinically manifest
+    keratoconus.
+  notes: &gt;-
+    No phenotype term is bound because the current local HPO cache has no
+    specific Vogt-striae term. No frequency band is asserted by this source.
+  evidence:
+  - reference: PMID:20537579
+    reference_title: &#34;Keratoconus: a review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Vogt&#39;s striaes, which are fine vertical lines produced by Descemet&#39;s membrane compression, is another characteristic sign.&#34;
+    explanation: &gt;-
+      The review directly defines Vogt striae and identifies them as a
+      characteristic keratoconus sign.
 histopathology:
 - name: Stromal Thinning
   description: &gt;
@@ -9350,6 +10323,25 @@ inheritance:
       Corroborates a substantial genetic contribution to keratoconus aetiology.
 environmental:
 - name: Eye rubbing
+  influences_mechanisms:
+  - target: Chronic Mechanical Eye Rubbing
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      The entry models the exposure itself as a node, so this link is an
+      identity rather than a causal step: habitual rubbing and chronic
+      mechanical loading of the cornea are the same thing. Rubbing carries the
+      largest modifiable effect in this disease, which is why counselling to
+      stop is the first intervention.
+    evidence:
+    - reference: PMID:31498247
+      reference_title: &#34;The Prevalence and Risk Factors for Keratoconus: A Systematic Review and Meta-Analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;eye rubbing, family history of keratoconus, allergy, asthma, and eczema were the most important risk factors for keratoconus according to the available evidence&#34;
+      explanation: &gt;-
+        Names eye rubbing first among the most important risk factors for
+        keratoconus, the mechanical exposure this node represents.
   description: &gt;
     Habitual mechanical eye rubbing is the best-replicated modifiable
     environmental risk factor for keratoconus (OR 3.09) and is a target of
@@ -9368,6 +10360,24 @@ environmental:
       Identifies eye rubbing as among the most important risk factors in the
       most comprehensive meta-analysis to date.
 - name: Atopic diathesis (allergy, asthma, eczema)
+  influences_mechanisms:
+  - target: Chronic Mechanical Eye Rubbing
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Atopy acts largely through itch: allergic conjunctivitis provokes the
+      rubbing that damages the cornea. Targeting the rubbing node rather than
+      a corneal node records that indirection, which is why treating the
+      allergy is a way of treating the keratoconus risk.
+    evidence:
+    - reference: PMID:31498247
+      reference_title: &#34;The Prevalence and Risk Factors for Keratoconus: A Systematic Review and Meta-Analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The odds ratio of eye rubbing, family history of keratoconus, allergy, asthma, and eczema was 3.09 (95% CI: 2.17-4.00), 6.42 (95% CI: 2.59-10.24), 1.42 (95% CI: 1.06-1.79), 1.94 (95% CI: 1.30-2.58), and 2.95 (95% CI: 1.30-4.59), respectively.&#34;
+      explanation: &gt;-
+        Gives odds ratios for allergy, asthma and eczema alongside eye
+        rubbing, the atopic conditions that provoke rubbing behaviour.
   description: &gt;
     Atopic disease raises keratoconus risk (allergy OR 1.42, asthma OR 1.94,
     eczema OR 2.95), plausibly at least partly through the itch-driven eye
@@ -9386,6 +10396,31 @@ environmental:
     explanation: &gt;-
       Quantifies the atopy-associated odds ratios for keratoconus.
 - name: Ultraviolet light exposure
+  exposure_term:
+    preferred_term: exposure to ultraviolet radiation
+    term:
+      id: ECTO:0000006
+      label: exposure to ultraviolet radiation
+  influences_mechanisms:
+  - target: Corneal Oxidative Stress
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Ultraviolet exposure is associated with progression and plausibly acts
+      through oxidative damage to the stroma, but the direction is
+      complicated: ultraviolet A with riboflavin is the basis of corneal
+      cross-linking, the standard treatment that halts progression. Dose and
+      cofactors decide which effect dominates.
+    evidence:
+    - reference: PMID:39448666
+      reference_title: &#34;Keratoconus.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Environmental factors, such as eye rubbing, UV light exposure and contact lens wearing, are associated with disease progression.&#34;
+      explanation: &gt;-
+        Names ultraviolet light exposure among the environmental factors
+        associated with disease progression, an association without an
+        identified mediating step.
   description: &gt;
     Ultraviolet light exposure is named in the authoritative disease primer,
     alongside eye rubbing and contact lens wear, as an environmental factor
@@ -9405,6 +10440,27 @@ environmental:
       The Nature Reviews Disease Primers article names UV light exposure as an
       environmental factor associated with disease progression.
 - name: Contact lens wear
+  influences_mechanisms:
+  - target: Chronic Mechanical Eye Rubbing
+    environmental_effect: PREDISPOSES
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: &gt;-
+      Lens wear reaches this node through the same named intermediate as atopy,
+      irritation provoking rubbing, so it carries the same link type. What is
+      uncertain here is not the intermediate but the direction: lenses are also
+      the commonest treatment for the refractive error keratoconus produces, so
+      wearers are enriched for existing disease. That confounding is why the
+      effect is graded PREDISPOSES rather than anything stronger.
+    evidence:
+    - reference: PMID:39448666
+      reference_title: &#34;Keratoconus.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Environmental factors, such as eye rubbing, UV light exposure and contact lens wearing, are associated with disease progression.&#34;
+      explanation: &gt;-
+        Names contact lens wearing among the environmental factors associated
+        with disease progression, without separating cause from consequence of
+        the disease.
   description: &gt;
     Contact lens wear is named in the disease primer as an environmental factor
     associated with keratoconus progression. Note the confounding: rigid and
@@ -10647,7 +11703,7 @@ inducing ectasia.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Keratoconus", "mondoId": "MONDO:0015486", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Keratoconus", "yamlRevision": "ce4f33332d0c"};
+        const OS_CONFIG = {"diseaseName": "Keratoconus", "mondoId": "MONDO:0015486", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Keratoconus", "yamlRevision": "d4253ffafc7f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11066,5 +12122,73 @@ inducing ectasia.</p>
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
