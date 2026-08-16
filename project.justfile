@@ -646,7 +646,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -900,6 +900,19 @@ list-title-snippets:
 [group('QC')]
 update-title-snippet-baseline:
     uv run python scripts/check_title_snippets.py --update-baseline
+
+# Guard against evidence items with an empty/whitespace-only `snippet`, which
+# pass `linkml-reference-validator`/`count-verified-snippets` vacuously
+# (#8550). `supports: NO_EVIDENCE` items are exempt (checked, not relevant --
+# no baseline needed today, since the repo-wide backlog is zero).
+[group('QC')]
+check-empty-snippets:
+    uv run python scripts/check_empty_snippets.py
+
+# List every empty snippet, including NO_EVIDENCE-exempt ones (triage view).
+[group('QC')]
+list-empty-snippets:
+    uv run python scripts/check_empty_snippets.py --all
 
 # Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
