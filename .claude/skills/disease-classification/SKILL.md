@@ -125,6 +125,77 @@ enum.
   disorders, skeletal malformation/reduction syndromes). Multivalued in
   the schema, but a single ISDS-listed disorder takes exactly one group.
   See the dedicated section below.
+- **`ilo_occupational_category`** — item(s) of the ILO List of Occupational
+  Diseases (revised 2010). Apply to any disease with a recognised
+  occupational form. Multivalued, and genuinely so — see below.
+- **`eu_occupational_category`** — item(s) of the European schedule of
+  occupational diseases (Rec. 2003/670/EC as amended). Multivalued.
+  See the dedicated section below.
+
+## Occupational disease (`ilo_occupational_category`, `eu_occupational_category`)
+
+Two sanctioned occupational nosologies, plus six **agent-level** exposure axes
+that do NOT go in this block. Full guidance:
+[`docs/occupational-environmental-classifications.md`](../../../docs/occupational-environmental-classifications.md).
+
+**First, the split that matters.** `classifications:` classifies the *disease*.
+Facts about the *agent* — IARC carcinogen group, GHS hazard class, route,
+duration, hazard type, exposome domain — belong on the `environmental:` entry
+under `exposure_classifications:`, never here. "Benzene is IARC Group 1" is a
+statement about benzene, not about any disease it causes.
+
+```yaml
+classifications:
+  harrisons_chapter:
+  - classification_value: RESPIRATORY
+  ilo_occupational_category:
+  - classification_value: pneumoconiosis_from_fibrogenic_mineral_dust
+    notes: 'ILO List of Occupational Diseases (revised 2010), item 2.1.1.'
+  eu_occupational_category:
+  - classification_value: silicosis
+    notes: 'European schedule Annex I item 301.11 "Silicosis".'
+
+environmental:
+- name: Occupational Respirable Crystalline Silica Exposure
+  exposure_classifications:          # <- agent-level, NOT in classifications:
+    hazard_agent_type:
+    - classification_value: CHEMICAL
+    exposure_route:
+    - classification_value: INHALATION
+    iarc_carcinogen_group:
+      classification_value: GROUP_1
+```
+
+**Assign both nosologies when both apply** — they are separate instruments, not
+substitutes, and neither implies the other. The EU schedule is finer-grained
+(separate items for silicosis 301.11 / asbestosis 301.21 / mesothelioma 301.22
+where ILO has one item 2.1.1 plus a cancer item 3.1.1) and uniquely carries
+COVID-19 (408) and the 2025 asbestos additions (311–314).
+
+**`ilo_occupational_category` really is multivalued.** ILO section 1 (by
+causative agent) and section 2 (by target organ system) are orthogonal axes over
+the same diseases, so occupational asthma from isocyanates is both `isocyanates`
+(1.1.35) and `occupational_asthma` (2.1.7). Do NOT carry the ISDS "exactly one
+group" rule over to this enum.
+
+**Assign only when an occupational form is recognised.** An exposure existing is
+not enough — lead poisoning from contaminated water is not ILO 1.1.8; lead
+poisoning in a smelter worker is. A disease with both occupational and
+non-occupational forms (asthma, COPD, mesothelioma, hearing loss) still takes the
+item; the assignment records that an occupational form is recognised, not that
+every case is occupational. Say which in `notes`.
+
+**Annex II is "suspected", not recognised.** EU keys prefixed `suspected_` come
+from Annex II — the additional list of diseases *suspected* of being
+occupational. Never report one as a recognised occupational disease; say so in
+`notes`.
+
+Record provenance in `notes` (revision, item number, annex). As with ICIMD and
+ISDS this is a definitional taxonomy mapping, not an empirical disease claim, so
+prefer `notes` over a manufactured evidence `snippet`.
+
+Worked examples: `Silicosis`, `Asbestosis`, `Malignant_Mesothelioma`,
+`Noise_Induced_Hearing_Loss`.
 
 ## ICIMD (`icimd_category`) — inherited metabolic disorders
 

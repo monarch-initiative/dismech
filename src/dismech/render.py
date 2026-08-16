@@ -4081,7 +4081,10 @@ def render_all_groupings(
 _PROJECT_ENTITY_KINDS = ("diseases", "modules", "groupings", "drugs", "phenotypes")
 
 _NIH_TOPICS_ENUM_PATH = (
-    Path(__file__).parent / "schema" / "classifications" / "nih_research_priorities.yaml"
+    Path(__file__).parent
+    / "schema"
+    / "classifications"
+    / "nih_research_priorities.yaml"
 )
 
 
@@ -4097,12 +4100,9 @@ def _nih_topic_display() -> dict[str, dict]:
         return {}
     with _NIH_TOPICS_ENUM_PATH.open(encoding="utf-8") as fh:
         doc = safe_load(fh) or {}
-    pvs = (
-        (doc.get("enums") or {})
-        .get("NIHResearchPriorityEnum", {})
-        .get("permissible_values")
-        or {}
-    )
+    pvs = (doc.get("enums") or {}).get("NIHResearchPriorityEnum", {}).get(
+        "permissible_values"
+    ) or {}
     out: dict[str, dict] = {}
     for key, meta in pvs.items():
         desc = (meta or {}).get("description", "") if isinstance(meta, dict) else ""
@@ -4655,6 +4655,27 @@ def _load_classification_enums() -> dict:
     return enums
 
 
+def _collect_exposure_classifications(disorder: dict) -> dict[str, list]:
+    """Flatten ``environmental[].exposure_classifications`` into one dict.
+
+    Exposure/agent classifications (IARC group, GHS class, route, …) hang off
+    each ``environmental`` entry rather than off the disease, so they need
+    gathering before they can go through the same slot-to-enum lookup as the
+    disease-level ``classifications`` block. Several environmental entries on
+    one disorder may carry the same slot, so values accumulate into a list.
+    """
+    collected: dict[str, list] = {}
+    for entry in disorder.get("environmental") or []:
+        if not isinstance(entry, dict):
+            continue
+        for slot_name, value in (entry.get("exposure_classifications") or {}).items():
+            if value is None:
+                continue
+            items = value if isinstance(value, list) else [value]
+            collected.setdefault(slot_name, []).extend(items)
+    return collected
+
+
 def _assignment_class_to_enum(schema: dict) -> dict[str, str]:
     mapping: dict[str, str] = {}
     classes = schema.get("classes") or {}
@@ -4782,6 +4803,7 @@ def render_classification_pages(
                 "name": name,
                 "slug": slugify(name),
                 "classifications": disorder.get("classifications") or {},
+                "exposure_classifications": _collect_exposure_classifications(disorder),
             }
         )
 
@@ -4789,7 +4811,10 @@ def render_classification_pages(
         name: {} for name in enums
     }
     for disorder in disorders:
-        classifications = disorder.get("classifications") or {}
+        classifications = {
+            **(disorder.get("classifications") or {}),
+            **(disorder.get("exposure_classifications") or {}),
+        }
         for slot_name, entry in classifications.items():
             if entry is None:
                 continue
