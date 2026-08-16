@@ -2177,7 +2177,7 @@ entry merge without a git conflict. Both PRs are green against their own base,
 and only the post-merge push build on `main` goes red.
 
 ```bash
-just check-duplicate-keys                              # whole KB (~8s, offline)
+just check-duplicate-keys                              # kb/ + schema + conf (~12s, offline)
 just check-duplicate-keys kb/disorders/Asthma.yaml     # specific files
 ```
 
