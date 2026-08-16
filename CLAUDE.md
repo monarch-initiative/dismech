@@ -726,6 +726,42 @@ environmental:
 Worked example: `Arsenic_Poisoning` (acute and chronic exposure routes both
 linked to "Systemic inorganic arsenic exposure").
 
+#### Auditing `exposure_term` coverage
+
+Once an exposure is pathograph-linked it renders as a node on the disorder page,
+so an unbound one shows as free text in an otherwise ontology-grounded graph.
+`just environmental-term-audit` counts that gap:
+
+```bash
+just environmental-term-audit                        # census + recurring concepts
+just environmental-term-audit --format tsv --out /tmp/env.tsv
+just environmental-term-audit --linked-only --unbound-only --format list
+just environmental-term-audit --strict               # exit 1 on any linked+unbound
+```
+
+It classifies each `environmental[]` entry `BOUND` / `PARTIAL` / `UNBOUND`, where
+**`PARTIAL` means an `exposure_term` block carrying only a free-text
+`preferred_term` with no `term:`** — an entry that looks grounded in the YAML
+without being grounded in an ontology. It also reports **reuse candidates**: when
+the same exposure concept is already bound elsewhere in the KB, the CURIE is
+already in `cache/ecto/terms.csv` and the `exposureterm` enum cache, so binding
+it needs no ontology research and validates offline.
+
+Two things the audit deliberately does not decide:
+
+- **A reuse suggestion is advisory.** It matches curator-written names, not
+  meanings. `.claude/skills/dismech-terms`' rule still governs — *no term beats
+  a bad one*. Some exposures (microgravity, emotional stress) are correctly left
+  unbound with a `notes:` line recording that ECTO was searched, and the audit
+  cannot tell that apart from an un-researched entry.
+- **A "conflict" is not necessarily an error.** The audit reports normalized
+  names bound to more than one CURIE (e.g. tobacco vs. cigarette smoking); the
+  same words can name genuinely different exposures, so it surfaces them for a
+  curator rather than resolving them.
+
+Run it before proposing an exposure-binding tranche — issue #8430 was opened
+against an assumed gap whose lead example turned out to be bound already.
+
 ### Digenic / Oligogenic Inheritance (Multi-Locus)
 
 Some disorders require variants at **two loci (digenic)** or a **few loci
@@ -1547,8 +1583,8 @@ Clinical trials can be added to disease entries with evidence validated against 
 ```yaml
 clinical_trials:
 - name: NCT05813288
-  phase: Phase III
-  status: Completed
+  phase: PHASE_III
+  status: COMPLETED
   description: Brief description of the trial's objective and approach
   target_phenotypes:
     - preferred_term: Wheezing
@@ -1573,10 +1609,20 @@ just fetch-reference NCT05813288  # Caches trial data from ClinicalTrials.gov AP
 
 **Key fields:**
 - `name`: NCT identifier (e.g., NCT05813288)
-- `phase`: Trial phase (Phase I, II, III, IV)
-- `status`: Recruitment status (Recruiting, Completed, Terminated, Active not recruiting)
+- `phase` (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or
+  `NOT_APPLICABLE` (observational or device studies that do not follow the standard FDA
+  phase classification)
+- `status` (`ClinicalTrialStatusEnum`): `RECRUITING`, `NOT_RECRUITING`,
+  `ACTIVE_NOT_RECRUITING`, `COMPLETED`, `ENROLLING_BY_INVITATION`, `SUSPENDED`,
+  `TERMINATED`, `WITHDRAWN`, or `UNKNOWN`
 - `target_phenotypes`: Phenotypes addressed by the trial (with HP ontology terms)
 - `evidence`: Evidence items validated against ClinicalTrials.gov
+
+**These are enum values, not free text.** Write `phase: PHASE_III`, not `Phase III`, and
+`status: COMPLETED`, not `Completed` — the schema binds both slots to enums via
+`ClinicalTrial` `slot_usage`, so the prose spellings fail `just validate`. Note the enum
+*descriptions* in the schema render as "Phase III - Efficacy confirmation…", which is what
+makes the free-text form look plausible; the permissible value is the upper-snake-case key.
 
 ### MorPhiC Cellular Phenotypes
 

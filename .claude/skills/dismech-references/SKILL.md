@@ -298,8 +298,12 @@ EvidenceItem:
 
 The `ClinicalTrial` class in the schema supports:
 - **name**: NCT identifier or trial name
-- **phase**: Trial phase (Phase I, II, III, IV)
-- **status**: Recruitment/trial status (Recruiting, Completed, Terminated, etc.)
+- **phase** (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or
+  `NOT_APPLICABLE` (observational or device studies that do not follow the standard FDA
+  phase classification)
+- **status** (`ClinicalTrialStatusEnum`): `RECRUITING`, `NOT_RECRUITING`, `ACTIVE_NOT_RECRUITING`,
+  `COMPLETED`, `ENROLLING_BY_INVITATION`, `SUSPENDED`, `TERMINATED`, `WITHDRAWN`, or `UNKNOWN`.
+  Both slots are enum-bound — the free-text spellings (`Phase III`, `Completed`) fail `just validate`.
 - **description**: Summary of the trial
 - **target_phenotypes**: Phenotypes the trial addresses (as PhenotypeDescriptor objects with HP ontology terms)
 - **evidence**: Evidence items validated against ClinicalTrials.gov
@@ -308,8 +312,8 @@ Example clinical trial entry with ontology-linked phenotypes:
 ```yaml
 clinical_trials:
 - name: NCT05813288
-  phase: Phase III
-  status: Completed
+  phase: PHASE_III
+  status: COMPLETED
   description: Study of dexpramipexole in severe eosinophilic asthma
   target_phenotypes:
     - preferred_term: Wheezing

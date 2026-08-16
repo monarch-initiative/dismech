@@ -99,6 +99,42 @@ validate file:
     just normalize-cache
     echo "✓ All validations passed for {{file}}"
 
+# Fast, non-mutating validation of a single disorder file, for the pre-edit hook
+# (.claude/hooks/validate_disorder_hook.py). This runs on EVERY Edit/Write to
+# kb/disorders, so it differs from `validate` in two deliberate ways (#8542):
+#
+# 1. It does not rewrite the caches. No `fix-references-cache`, no
+#    `normalize-cache`, and `--no-full-text` so reference validation neither
+#    downloads PDFs nor writes `full_text_attempted` back into cached records.
+#    Cache normalization is a curator/CI step; an editor keystroke should not
+#    leave the curator's worktree dirty. Measured on kb/disorders/Asthma.yaml
+#    (193 snippets): `validate` takes ~8m25s and leaves 106 modified
+#    references_cache/ files behind; this takes ~22s and leaves none. Keep it
+#    that way — a step added here must not modify tracked files. (Validating a
+#    newly cited reference still *creates* its cache record, which is wanted:
+#    that is a new untracked file the curator should commit, not churn.)
+#
+# 2. Only schema and term validation are blocking. Those are deterministic and
+#    offline, and cover what the hook exists to stop: malformed structure and
+#    hallucinated ontology IDs. Snippet verification depends on what the cache
+#    happens to hold — a quote from a paywalled paper's body is reported as
+#    unverified, not wrong — so failing an in-progress edit on it strands the
+#    curator mid-file. It is reported here as advisory and enforced for real by
+#    `just validate`, `just qc`, and CI before anything merges.
+[group('QC')]
+validate-pre-edit file:
+    #!/usr/bin/env bash
+    set -e
+    echo "Schema validation..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    echo "Term validation..."
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+    echo "Reference validation (advisory, cache-bound)..."
+    if ! {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text; then
+        echo "⚠ Reference validation reported issues (advisory here; run \`just validate\` before committing)"
+    fi
+    echo "✓ Pre-edit validation passed for {{file}}"
+
 # Full validation of one or more disorder files, batched by validator phase.
 # This is intended for CI changed-file validation, where a PR may touch hundreds
 # of disorder YAMLs but still should avoid full-corpus validation. Reference
@@ -610,7 +646,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -626,6 +662,14 @@ qc-deep-research-strict:
       --fail-on-missing-reference \
       --fail-on-unresolved-cache \
       --fail-on-holder-bucket
+
+# Census of ECTO/XCO exposure_term coverage on environmental[] entries, with the
+# pathograph-linked ones (influences_mechanisms) called out as the priority gap.
+# Advisory by default; --strict exits non-zero on any linked-but-unbound entry.
+# --format tsv writes a per-entry table carrying reuse candidates. See #8430.
+[group('QC')]
+environmental-term-audit *args="":
+    uv run python scripts/environmental_exposure_term_audit.py {{args}}
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -818,6 +862,26 @@ list-short-snippets:
 [group('QC')]
 update-snippet-length-baseline:
     uv run python scripts/check_snippet_length.py --update-baseline
+
+# Guard against NEW evidence-free `environmental:` exposures in kb/ --
+# an entry with no `evidence:` block is an uncited causation claim that
+# `just validate`/`validate-terms`/`count-verified-snippets` cannot see, since
+# `evidence` is optional on the class (#8296). The pre-existing backlog is
+# grandfathered against origin/main (like CI), so this fails only on new ones.
+[group('QC')]
+check-environmental-evidence:
+    uv run python scripts/check_environmental_evidence.py --against-ref origin/main
+
+# List every evidence-free `environmental:` exposure, baselined or not (triage view).
+[group('QC')]
+list-environmental-evidence-gaps:
+    uv run python scripts/check_environmental_evidence.py --all
+
+# Regenerate the environmental-evidence baseline after intentionally changing
+# the backlog (e.g. citing exposures in a curation tranche). Review the diff.
+[group('QC')]
+update-environmental-evidence-baseline:
+    uv run python scripts/check_environmental_evidence.py --update-baseline
 
 # Guard against evidence snippets that merely quote the cited paper's title,
 # which records that a question was examined rather than what was found (#8374).
