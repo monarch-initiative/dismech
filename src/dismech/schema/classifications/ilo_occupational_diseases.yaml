@@ -19,23 +19,49 @@ description: >-
   and a disease is established well enough to be recognised, which is exactly
   the claim dismech wants to record when it classifies an entry as occupational.
 
-  Structure. The list has two orthogonal organising principles, which is why the
-  enum is hierarchical rather than flat:
+  **The list is biaxial, and dismech models that as two enums.** The instrument
+  has four sections built on two different organising principles:
 
-  - **Section 1** classifies by *causative agent* (chemical, physical,
-    biological), and its items name the agent, not the disease — "Diseases
-    caused by benzene or its homologues".
-  - **Section 2** classifies by *target organ system* (respiratory, skin,
-    musculoskeletal, mental and behavioural), and its items name the disease.
-  - **Section 3** is occupational cancer, again by agent.
-  - **Section 4** is a residual section.
+  - Section 1 ("caused by exposure to agents arising from work activities") and
+    section 3.1 ("Cancer caused by the following agents") index by **causative
+    agent** — the item names the agent, e.g. "Diseases caused by benzene or its
+    homologues".
+  - Section 2 ("by target organ systems") and section 4 ("Other diseases") index
+    by **the disease itself** — the item names a clinical entity, e.g. "Asthma
+    caused by recognized sensitizing agents", "Miners' nystagmus".
 
-  Because the axes are orthogonal, one disease legitimately takes items from
-  more than one section — occupational asthma from isocyanates is both 1.1.35
-  (agent) and 2.1.7 (organ system). The slot is multivalued for exactly this
-  reason. This is the opposite of the ISDS nosology's rule, where a disorder is
-  listed once by construction; do not carry the ISDS "assign exactly one" habit
-  over to this enum.
+  Because the axes are orthogonal, one disease legitimately takes an item from
+  each: occupational asthma from isocyanates is both 1.1.35 (agent) and 2.1.7
+  (disease). Collapsing both axes into one enum would make it impossible for the
+  schema to say which axis a value belongs to, so the values are split into
+  ``ILOCausativeAgentEnum`` (sections 1 and 3) and ``ILODiseaseCategoryEnum``
+  (sections 2 and 4), reached by two distinct slots that share a presentational
+  ``slot_group``. This is the opposite of the ISDS nosology's rule, where a
+  disorder is listed once by construction; do not carry the ISDS "assign exactly
+  one" habit over to this instrument.
+
+  Two consequences of the split a curator should know:
+
+  - **The ILO's contiguous item numbering is spread across two enums.** Items
+    1.x and 3.x live in ``ILOCausativeAgentEnum``; items 2.x and 4.x live in
+    ``ILODiseaseCategoryEnum``. Each value records its item number verbatim at
+    the head of its ``description``, so a number lookup still works, but you
+    cannot assume one enum holds the whole list.
+  - **Placing sections 3 and 4 is dismech's reading, not the ILO's.** The
+    instrument presents four sections, not two axes. Section 3.1 is put on the
+    agent axis because its own title indexes by agent; section 4 is put on the
+    disease axis because its one named item is a clinical entity. If that
+    reading is ever revised, the affected values move between enums.
+
+  Two wrinkles in the instrument itself, reproduced rather than tidied:
+
+  - **Section 1.3 names diseases, not agents.** Its title, "Biological agents
+    and infectious or parasitic diseases", acknowledges the hybrid, and its
+    items are Brucellosis, Tetanus, Tuberculosis and so on. It stays on the
+    agent axis because the ILO places it under section 1.
+  - **Both slots stay multivalued**, because more than one item from a single
+    axis is normal: silicosis takes both 2.1.1 (pneumoconiosis) and 2.1.2
+    (silicotuberculosis).
 
   Open items. Every subsection ends with an "open item" (1.1.41, 1.2.7, 1.3.9,
   2.1.12, 2.2.4, 2.3.8, 2.4.2, 3.1.21, 4.2) permitting recognition of a disease
@@ -67,15 +93,14 @@ description: >-
     ``POISONING_ENVENOMATION``, or the relevant organ-system Part.
 
   Item numbers here ARE stable within the 2010 revision and are what national
-  law and statistical reporting cite, so each number is recorded verbatim at the
-  head of its ``description``. They are NOT stable across revisions (the 2002
-  list numbered differently), which is why, following the repo convention
+  law and statistical reporting cite. They are NOT stable across revisions (the
+  2002 list numbered differently), which is why, following the repo convention
   established by ``ISDSNosologyGroupEnum``, numbers are not part of any
   permissible-value key.
 
-  Source: ILO List of Occupational Diseases (revised 2010), Geneva:
-  International Labour Office, 2010. ISBN 978-92-2-123795-2.
-  https://www.ilo.org/publications/ilo-list-occupational-diseases-revised-2010
+source: https://www.ilo.org/publications/ilo-list-occupational-diseases-revised-2010
+see_also:
+  - https://normlex.ilo.org/dyn/nrmlx_en/f?p=NORMLEXPUB:12100:0::NO::P12100_INSTRUMENT_ID:312532
 
 imports:
   - linkml:types
@@ -86,15 +111,33 @@ prefixes:
 
 default_prefix: dismech
 
-enums:
-  ILOOccupationalDiseaseEnum:
+subsets:
+  ilo_causative_agent_axis:
     description: >-
-      Sections, subsections and items of the ILO List of Occupational Diseases
-      (revised 2010). Items point to their subsection, and subsections to their
-      section, via ``is_a``. Assign the most specific applicable item; the
-      section and subsection are derivable through the hierarchy. Multivalued
-      by design — section 1 (by agent) and section 2 (by target organ system)
-      are orthogonal axes over the same diseases.
+      ILO items that index by the causative agent arising from work activities
+      (sections 1 and 3). The item names the agent, not the resulting disease.
+  ilo_disease_category_axis:
+    description: >-
+      ILO items that index by the disease itself — target organ system
+      (section 2) or the residual "other diseases" section (section 4). The item
+      names a clinical entity, not the agent.
+
+enums:
+  ILOCausativeAgentEnum:
+    description: >-
+      The **causative-agent axis** of the ILO List of Occupational Diseases
+      (revised 2010): section 1 (diseases caused by chemical, physical and
+      biological agents arising from work activities) and section 3
+      (occupational cancer, itself titled "Cancer caused by the following
+      agents"). Items point to their subsection, and subsections to their
+      section, via ``is_a``; assign the most specific applicable item.
+
+      Orthogonal to ``ILODiseaseCategoryEnum`` — a disease commonly takes an
+      item from both, and this slot is multivalued because more than one agent
+      item can apply.
+    source: https://www.ilo.org/publications/ilo-list-occupational-diseases-revised-2010
+    in_subset:
+      - ilo_causative_agent_axis
     permissible_values:
 
       # ===================================================================
@@ -343,6 +386,121 @@ enums:
         is_a: biological_agents_and_infectious_or_parasitic_diseases
 
       # ===================================================================
+      # 3. Occupational cancer
+      # ===================================================================
+
+      occupational_cancer:
+        description: >-
+          ILO section 3: Occupational cancer. Its single subsection lists the
+          agents whose causal link to cancer is recognised; the item names the
+          agent, not the tumour type.
+
+      cancer_caused_by_agents:
+        description: "ILO section 3.1: Cancer caused by the following agents."
+        is_a: occupational_cancer
+
+      cancer_asbestos:
+        description: "ILO item 3.1.1: Cancer caused by asbestos."
+        is_a: cancer_caused_by_agents
+      cancer_benzidine_and_salts:
+        description: "ILO item 3.1.2: Cancer caused by benzidine and its salts."
+        is_a: cancer_caused_by_agents
+      cancer_bis_chloromethyl_ether:
+        description: >-
+          ILO item 3.1.3: Cancer caused by bis-chloromethyl ether (BCME).
+        is_a: cancer_caused_by_agents
+      cancer_chromium_vi_compounds:
+        description: "ILO item 3.1.4: Cancer caused by chromium VI compounds."
+        is_a: cancer_caused_by_agents
+      cancer_coal_tars_pitches_or_soots:
+        description: >-
+          ILO item 3.1.5: Cancer caused by coal tars, coal tar pitches or
+          soots.
+        is_a: cancer_caused_by_agents
+      cancer_beta_naphthylamine:
+        description: "ILO item 3.1.6: Cancer caused by beta-naphthylamine."
+        is_a: cancer_caused_by_agents
+      cancer_vinyl_chloride:
+        description: "ILO item 3.1.7: Cancer caused by vinyl chloride."
+        is_a: cancer_caused_by_agents
+      cancer_benzene:
+        description: "ILO item 3.1.8: Cancer caused by benzene."
+        is_a: cancer_caused_by_agents
+      cancer_nitro_and_amino_derivatives_of_benzene:
+        description: >-
+          ILO item 3.1.9: Cancer caused by toxic nitro- and amino-derivatives
+          of benzene or its homologues.
+        is_a: cancer_caused_by_agents
+      cancer_ionizing_radiation:
+        description: "ILO item 3.1.10: Cancer caused by ionizing radiations."
+        is_a: cancer_caused_by_agents
+      cancer_tar_pitch_bitumen_mineral_oil_anthracene:
+        description: >-
+          ILO item 3.1.11: Cancer caused by tar, pitch, bitumen, mineral oil,
+          anthracene, or the compounds, products or residues of these
+          substances.
+        is_a: cancer_caused_by_agents
+      cancer_coke_oven_emissions:
+        description: "ILO item 3.1.12: Cancer caused by coke oven emissions."
+        is_a: cancer_caused_by_agents
+      cancer_nickel_compounds:
+        description: "ILO item 3.1.13: Cancer caused by nickel compounds."
+        is_a: cancer_caused_by_agents
+      cancer_wood_dust:
+        description: "ILO item 3.1.14: Cancer caused by wood dust."
+        is_a: cancer_caused_by_agents
+      cancer_arsenic:
+        description: "ILO item 3.1.15: Cancer caused by arsenic and its compounds."
+        is_a: cancer_caused_by_agents
+      cancer_beryllium:
+        description: "ILO item 3.1.16: Cancer caused by beryllium and its compounds."
+        is_a: cancer_caused_by_agents
+      cancer_cadmium:
+        description: "ILO item 3.1.17: Cancer caused by cadmium and its compounds."
+        is_a: cancer_caused_by_agents
+      cancer_erionite:
+        description: "ILO item 3.1.18: Cancer caused by erionite."
+        is_a: cancer_caused_by_agents
+      cancer_ethylene_oxide:
+        description: "ILO item 3.1.19: Cancer caused by ethylene oxide."
+        is_a: cancer_caused_by_agents
+      cancer_hepatitis_b_and_c_viruses:
+        description: >-
+          ILO item 3.1.20: Cancer caused by hepatitis B virus (HBV) and
+          hepatitis C virus (HCV).
+        is_a: cancer_caused_by_agents
+      cancer_other_agents:
+        description: >-
+          ILO item 3.1.21 (open item): Cancers caused by other agents at work
+          not mentioned in the preceding items where a direct link is
+          established scientifically, or determined by methods appropriate to
+          national conditions and practice, between the exposure to these
+          agents arising from work activities and the cancer(s) contracted by
+          the worker. Name the actual agent in ``notes``.
+        is_a: cancer_caused_by_agents
+
+
+  ILODiseaseCategoryEnum:
+    description: >-
+      The **disease-category axis** of the ILO List of Occupational Diseases
+      (revised 2010): section 2 (occupational diseases by target organ systems —
+      respiratory, skin, musculoskeletal, mental and behavioural) and section 4
+      ("Other diseases", the residual section). Items here name a clinical
+      entity rather than an agent.
+
+      Orthogonal to ``ILOCausativeAgentEnum``. Multivalued, because more than
+      one disease item from this axis can apply to one entry — silicosis takes
+      both 2.1.1 and 2.1.2.
+
+      Note that section 4 is placed on this axis by dismech's reading of the
+      instrument (its named item, miners' nystagmus, is a clinical entity), not
+      by an explicit ILO statement; see the schema-level description.
+    source: https://www.ilo.org/publications/ilo-list-occupational-diseases-revised-2010
+    in_subset:
+      - ilo_disease_category_axis
+    permissible_values:
+
+      # ===================================================================
       # 2. Occupational diseases by target organ systems
       # ===================================================================
 
@@ -523,100 +681,6 @@ enums:
           from work activities and the mental and behavioural disorder(s)
           contracted by the worker.
         is_a: mental_and_behavioural_disorders
-
-      # ===================================================================
-      # 3. Occupational cancer
-      # ===================================================================
-
-      occupational_cancer:
-        description: >-
-          ILO section 3: Occupational cancer. Its single subsection lists the
-          agents whose causal link to cancer is recognised; the item names the
-          agent, not the tumour type.
-
-      cancer_caused_by_agents:
-        description: "ILO section 3.1: Cancer caused by the following agents."
-        is_a: occupational_cancer
-
-      cancer_asbestos:
-        description: "ILO item 3.1.1: Cancer caused by asbestos."
-        is_a: cancer_caused_by_agents
-      cancer_benzidine_and_salts:
-        description: "ILO item 3.1.2: Cancer caused by benzidine and its salts."
-        is_a: cancer_caused_by_agents
-      cancer_bis_chloromethyl_ether:
-        description: >-
-          ILO item 3.1.3: Cancer caused by bis-chloromethyl ether (BCME).
-        is_a: cancer_caused_by_agents
-      cancer_chromium_vi_compounds:
-        description: "ILO item 3.1.4: Cancer caused by chromium VI compounds."
-        is_a: cancer_caused_by_agents
-      cancer_coal_tars_pitches_or_soots:
-        description: >-
-          ILO item 3.1.5: Cancer caused by coal tars, coal tar pitches or
-          soots.
-        is_a: cancer_caused_by_agents
-      cancer_beta_naphthylamine:
-        description: "ILO item 3.1.6: Cancer caused by beta-naphthylamine."
-        is_a: cancer_caused_by_agents
-      cancer_vinyl_chloride:
-        description: "ILO item 3.1.7: Cancer caused by vinyl chloride."
-        is_a: cancer_caused_by_agents
-      cancer_benzene:
-        description: "ILO item 3.1.8: Cancer caused by benzene."
-        is_a: cancer_caused_by_agents
-      cancer_nitro_and_amino_derivatives_of_benzene:
-        description: >-
-          ILO item 3.1.9: Cancer caused by toxic nitro- and amino-derivatives
-          of benzene or its homologues.
-        is_a: cancer_caused_by_agents
-      cancer_ionizing_radiation:
-        description: "ILO item 3.1.10: Cancer caused by ionizing radiations."
-        is_a: cancer_caused_by_agents
-      cancer_tar_pitch_bitumen_mineral_oil_anthracene:
-        description: >-
-          ILO item 3.1.11: Cancer caused by tar, pitch, bitumen, mineral oil,
-          anthracene, or the compounds, products or residues of these
-          substances.
-        is_a: cancer_caused_by_agents
-      cancer_coke_oven_emissions:
-        description: "ILO item 3.1.12: Cancer caused by coke oven emissions."
-        is_a: cancer_caused_by_agents
-      cancer_nickel_compounds:
-        description: "ILO item 3.1.13: Cancer caused by nickel compounds."
-        is_a: cancer_caused_by_agents
-      cancer_wood_dust:
-        description: "ILO item 3.1.14: Cancer caused by wood dust."
-        is_a: cancer_caused_by_agents
-      cancer_arsenic:
-        description: "ILO item 3.1.15: Cancer caused by arsenic and its compounds."
-        is_a: cancer_caused_by_agents
-      cancer_beryllium:
-        description: "ILO item 3.1.16: Cancer caused by beryllium and its compounds."
-        is_a: cancer_caused_by_agents
-      cancer_cadmium:
-        description: "ILO item 3.1.17: Cancer caused by cadmium and its compounds."
-        is_a: cancer_caused_by_agents
-      cancer_erionite:
-        description: "ILO item 3.1.18: Cancer caused by erionite."
-        is_a: cancer_caused_by_agents
-      cancer_ethylene_oxide:
-        description: "ILO item 3.1.19: Cancer caused by ethylene oxide."
-        is_a: cancer_caused_by_agents
-      cancer_hepatitis_b_and_c_viruses:
-        description: >-
-          ILO item 3.1.20: Cancer caused by hepatitis B virus (HBV) and
-          hepatitis C virus (HCV).
-        is_a: cancer_caused_by_agents
-      cancer_other_agents:
-        description: >-
-          ILO item 3.1.21 (open item): Cancers caused by other agents at work
-          not mentioned in the preceding items where a direct link is
-          established scientifically, or determined by methods appropriate to
-          national conditions and practice, between the exposure to these
-          agents arising from work activities and the cancer(s) contracted by
-          the worker. Name the actual agent in ``notes``.
-        is_a: cancer_caused_by_agents
 
       # ===================================================================
       # 4. Other diseases

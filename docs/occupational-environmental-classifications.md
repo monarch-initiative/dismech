@@ -11,7 +11,7 @@ There are two families here, and they attach to different places in the schema.
 
 | | Classifies | Lives on | Examples |
 |---|---|---|---|
-| **Disease-level** | the disease entry | `Disease.classifications` | ILO list, European schedule |
+| **Disease-level** | the disease entry | `Disease.classifications` | ILO list (two axes), European schedule |
 | **Agent/exposure-level** | the agent or the exposure event | `Environmental.exposure_classifications` | IARC group, GHS class, route, duration, hazard type, exposome domain |
 
 "Benzene is an IARC Group 1 carcinogen" is a statement about **benzene**, not
@@ -27,7 +27,7 @@ The same disorder normally carries both families:
 classifications:
   harrisons_chapter:
   - classification_value: RESPIRATORY
-  ilo_occupational_category:
+  ilo_disease_category:            # section 2 -> disease-category axis
   - classification_value: pneumoconiosis_from_fibrogenic_mineral_dust
     notes: 'ILO List of Occupational Diseases (revised 2010), item 2.1.1.'
   eu_occupational_category:
@@ -60,9 +60,9 @@ toxicological facts queryable without parsing a term label.
 
 ## Disease-level: the two occupational nosologies
 
-### ILO List of Occupational Diseases (`ilo_occupational_category`)
+### ILO List of Occupational Diseases (`ilo_agent_category`, `ilo_disease_category`)
 
-`ILOOccupationalDiseaseEnum`, from the **List of occupational diseases (revised
+From the **List of occupational diseases (revised
 2010)** annexed to the ILO's List of Occupational Diseases Recommendation, 2002
 (No. 194). Approved by the ILO Governing Body on 25 March 2010 (307th Session)
 after two tripartite Meetings of Experts. This is the closest thing to a globally
@@ -72,29 +72,51 @@ diseases, so it is the common denominator across national lists.
 
 118 values — 4 sections, 8 subsections, 106 items — hierarchical via `is_a`.
 
-**Its two axes are orthogonal, and that is why the slot is multivalued.**
+**The list is biaxial, so it is two enums reached by two slots.**
 
-- Section 1 classifies by **causative agent** (1.1 chemical, 1.2 physical, 1.3
-  biological). Items name the *agent*: "Diseases caused by benzene or its
-  homologues".
-- Section 2 classifies by **target organ system** (2.1 respiratory, 2.2 skin,
-  2.3 musculoskeletal, 2.4 mental and behavioural). Items name the *disease*.
-- Section 3 is occupational cancer, again by agent.
-- Section 4 is residual.
+| Axis | Sections | Slot | Enum | Items name |
+|---|---|---|---|---|
+| causative agent | 1 (chemical/physical/biological), 3 (cancer) | `ilo_agent_category` | `ILOCausativeAgentEnum` (84 values) | the *agent* — "Diseases caused by benzene or its homologues" |
+| disease category | 2 (by target organ system), 4 (other) | `ilo_disease_category` | `ILODiseaseCategoryEnum` (34 values) | the *disease* — "Asthma caused by recognized sensitizing agents" |
 
 So occupational asthma from isocyanates is legitimately both `isocyanates`
-(1.1.35) and `occupational_asthma` (2.1.7). **Do not carry the ISDS "assign
-exactly one group" habit over to this enum** — ISDS lists each disorder once by
-construction; the ILO list does not.
+(1.1.35, agent slot) and `occupational_asthma` (2.1.7, disease slot). **Do not
+carry the ISDS "assign exactly one group" habit over to this instrument** — ISDS
+lists each disorder once by construction; the ILO list does not, and both slots
+stay multivalued because more than one item from a single axis is normal
+(silicosis takes 2.1.1 *and* 2.1.2).
+
+**Why two enums rather than two slots over one enum.** Two slots sharing one
+enum would be enforcement theatre: nothing would stop a section-2 value being
+put in the agent slot. Separate enums are what actually make the axis binding.
+The two slots additionally share a LinkML `slot_group`
+(`occupational_classification`), but that is **presentational only** — the spec
+is explicit that "slot groups do not change the semantics of a model" — so it
+groups the slots for display and enforces nothing. Each axis enum also declares
+`in_subset` (`ilo_causative_agent_axis` / `ilo_disease_category_axis`) so the
+axis is machine-readable rather than inferred from the enum name.
+
+**Two caveats the split creates**, both recorded in the module description:
+
+- The ILO's contiguous numbering is now spread across two enums (1.x and 3.x in
+  one, 2.x and 4.x in the other). Every value still carries its item number
+  verbatim at the head of its `description`, so number lookup works.
+- Placing sections 3 and 4 on an axis is **dismech's reading, not the ILO's**.
+  The instrument presents four sections, not two axes. Section 3.1 goes on the
+  agent axis because its own title is "Cancer caused by the following agents";
+  section 4 goes on the disease axis because its one named item (miners'
+  nystagmus) is a clinical entity. Section 1.3 is a further wrinkle — its items
+  are disease names (Brucellosis, Tetanus) despite sitting under section 1 — and
+  it stays on the agent axis because that is where the ILO puts it.
 
 Worked examples in the KB:
 
-| Entry | ILO items | What it demonstrates |
-|---|---|---|
-| `Silicosis` | 2.1.1 + 2.1.2 | Two organ-system items (pneumoconiosis, silicotuberculosis) |
-| `Asbestosis` | 2.1.1 | Organ-system route for the non-malignant outcome |
-| `Malignant_Mesothelioma` | 3.1.1 | Cancer section, *same exposure* as Asbestosis, different section |
-| `Noise_Induced_Hearing_Loss` | 1.2.1 | Agent-only: no hearing organ-system subsection exists |
+| Entry | ILO items | Slot | What it demonstrates |
+|---|---|---|---|
+| `Silicosis` | 2.1.1 + 2.1.2 | `ilo_disease_category` | Two items from one axis |
+| `Asbestosis` | 2.1.1 | `ilo_disease_category` | Disease axis for the non-malignant outcome |
+| `Malignant_Mesothelioma` | 3.1.1 | `ilo_agent_category` | Agent axis, *same exposure* as Asbestosis |
+| `Noise_Induced_Hearing_Loss` | 1.2.1 | `ilo_agent_category` | Agent-only: no hearing organ-system subsection exists |
 
 **Open items.** Every subsection ends in one (1.1.41, 1.2.7, 1.3.9, 2.1.12,
 2.2.4, 2.3.8, 2.4.2, 3.1.21, 4.2) permitting recognition of a disease the list
@@ -104,6 +126,10 @@ disease actually was. COVID-19 in health workers falls under 1.3.9, the list
 predating the pandemic.
 
 ### European schedule of occupational diseases (`eu_occupational_category`)
+
+The European schedule is **not** biaxial — it indexes by agent or route through
+all five chapters — so it stays one enum on one slot, and joins the ILO slots in
+the `occupational_classification` display group.
 
 `EUOccupationalScheduleEnum`, from **Commission Recommendation 2003/670/EC**, in
 its current consolidated form. Two amendments have changed it:
@@ -150,7 +176,12 @@ matter in practice:
 
 Item numbers are stable *within* a revision and are what national law and
 statistical reporting cite, so every number is recorded verbatim at the head of
-its `description`. They are **not** stable across revisions (the 2002 ILO list
+its `description`. Provenance identifiers, though, live in LinkML metaslots
+rather than prose: each module and enum carries `source:` (and `see_also:`), and
+the eight European-schedule items introduced by the 2022 and 2025 amendments
+carry their **own** per-value `source:` pointing at the amending recommendation
+— so a per-value `source` is itself the signal that an item is a recent
+addition, while everything else inherits the enum-level consolidated source. They are **not** stable across revisions (the 2002 ILO list
 numbered differently), so — following the convention set by
 `ISDSNosologyGroupEnum` — numbers are not part of any permissible-value key. A
 future renumbering therefore cannot invalidate stored assignments.
@@ -269,8 +300,25 @@ To list values:
 uv run python -c "
 from linkml_runtime.utils.schemaview import SchemaView
 sv = SchemaView('src/dismech/schema/dismech.yaml')
-for k, pv in sv.get_enum('ILOOccupationalDiseaseEnum').permissible_values.items():
-    print(('  ' if pv.is_a else '') + k)
+for enum_name in ('ILOCausativeAgentEnum', 'ILODiseaseCategoryEnum'):
+    e = sv.get_enum(enum_name)
+    print(f'{enum_name}  (axis subset: {list(e.in_subset)}, source: {e.source})')
+    for k, pv in e.permissible_values.items():
+        print(('  ' if pv.is_a else '') + k)
+"
+```
+
+Each value's own provenance, where it has one, is in its `source` metaslot
+rather than its description — for the European schedule that is how you tell an
+amendment addition from a 2003 base item:
+
+```bash
+uv run python -c "
+from linkml_runtime.utils.schemaview import SchemaView
+sv = SchemaView('src/dismech/schema/dismech.yaml')
+for k, pv in sv.get_enum('EUOccupationalScheduleEnum').permissible_values.items():
+    if pv.source:
+        print(k, '->', pv.source)
 "
 ```
 

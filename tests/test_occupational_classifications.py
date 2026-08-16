@@ -20,8 +20,22 @@ SCHEMA_PATH = Path("src/dismech/schema/dismech.yaml")
 CLASSIFICATIONS_DIR = Path("src/dismech/schema/classifications")
 
 DISEASE_LEVEL_ENUMS = {
-    "ILOOccupationalDiseaseEnum": "ilo_occupational_category",
+    "ILOCausativeAgentEnum": "ilo_agent_category",
+    "ILODiseaseCategoryEnum": "ilo_disease_category",
     "EUOccupationalScheduleEnum": "eu_occupational_category",
+}
+
+# The ILO list is biaxial; each axis gets its own enum so that a slot cannot
+# accept a value from the other axis. These are the section roots per axis.
+ILO_AXES = {
+    "ILOCausativeAgentEnum": {
+        "subset": "ilo_causative_agent_axis",
+        "roots": {"caused_by_agents_arising_from_work", "occupational_cancer"},
+    },
+    "ILODiseaseCategoryEnum": {
+        "subset": "ilo_disease_category_axis",
+        "roots": {"by_target_organ_system", "other_diseases"},
+    },
 }
 
 EXPOSURE_LEVEL_ENUMS = {
@@ -110,22 +124,111 @@ def test_no_dangling_is_a_and_every_value_documented(
 
 
 def test_ilo_hierarchy_matches_the_published_list() -> None:
-    """The 2010 revision has 4 sections, 8 subsections and 106 items."""
-    enum_def = _load_enum("ilo_occupational_diseases", "ILOOccupationalDiseaseEnum")
-    values = enum_def["permissible_values"]
-    roots = [k for k, v in values.items() if not (v or {}).get("is_a")]
+    """Across both axis enums: 4 sections, 8 subsections, 106 items."""
+    all_values: dict = {}
+    for enum_name, axis in ILO_AXES.items():
+        values = _load_enum("ilo_occupational_diseases", enum_name)[
+            "permissible_values"
+        ]
+        roots = {k for k, v in values.items() if not (v or {}).get("is_a")}
+        assert roots == axis["roots"], (
+            f"{enum_name} should be rooted at {axis['roots']}, got {roots}"
+        )
+        overlap = set(values) & set(all_values)
+        assert not overlap, (
+            f"{enum_name} shares permissible values with the other ILO axis: "
+            f"{overlap}. Each item belongs to exactly one axis."
+        )
+        all_values.update(values)
+
+    parents = {(v or {}).get("is_a") for v in all_values.values()}
+    roots = {k for k, v in all_values.items() if not (v or {}).get("is_a")}
     assert len(roots) == 4, f"expected the 4 ILO sections as roots, got {roots}"
-
-    parents = {(v or {}).get("is_a") for v in values.values()}
-    subsections = [k for k, v in values.items() if (v or {}).get("is_a") in roots]
     # Section 4 carries its two items directly, with no intervening subsection,
-    # so "children of a root" is subsections plus those two items.
-    assert len(subsections) == 10
-    assert len(values) == 118, "4 sections + 8 subsections + 106 items"
+    # so "children of a root" is the 8 subsections plus those two items.
+    assert (
+        len([k for k, v in all_values.items() if (v or {}).get("is_a") in roots]) == 10
+    )
+    assert len(all_values) == 118, "4 sections + 8 subsections + 106 items"
+    assert len([k for k in all_values if k not in parents]) == 106
 
-    # Every leaf must be reachable from a section.
-    leaves = [k for k in values if k not in parents]
-    assert len(leaves) == 106
+
+@pytest.mark.parametrize("enum_name", list(ILO_AXES))
+def test_ilo_axis_enums_declare_their_subset(
+    schema_view: SchemaView, enum_name: str
+) -> None:
+    """The axis must be machine-readable, not just implied by the enum name."""
+    enum_def = schema_view.get_enum(enum_name)
+    assert list(enum_def.in_subset) == [ILO_AXES[enum_name]["subset"]]
+    assert ILO_AXES[enum_name]["subset"] in schema_view.all_subsets()
+
+
+def test_ilo_slots_share_a_presentational_slot_group(schema_view: SchemaView) -> None:
+    """slot_group is non-semantic in LinkML, so it must not be the only thing
+    separating the axes - the separate enum ranges are what enforce that."""
+    grouping = schema_view.get_slot("occupational_classification")
+    assert grouping is not None
+    assert grouping.is_grouping_slot is True
+
+    members = ["ilo_agent_category", "ilo_disease_category", "eu_occupational_category"]
+    for slot_name in members:
+        assert (
+            schema_view.get_slot(slot_name).slot_group == "occupational_classification"
+        )
+
+    # The real guard: the two ILO slots range over DIFFERENT enums.
+    ranges = {
+        schema_view.get_class(schema_view.get_slot(s).range)
+        .slot_usage["classification_value"]
+        .range
+        for s in ("ilo_agent_category", "ilo_disease_category")
+    }
+    assert ranges == {"ILOCausativeAgentEnum", "ILODiseaseCategoryEnum"}
+
+
+@pytest.mark.parametrize(
+    "enum_name,expected_source",
+    [
+        ("EUOccupationalScheduleEnum", "http://data.europa.eu/eli/reco/2025/2609/oj"),
+        ("ExposomeDomainEnum", "PMID:22296988"),
+        (
+            "IARCCarcinogenGroupEnum",
+            "https://monographs.iarc.who.int/iarc-monographs-preamble-preamble-to-the-iarc-monographs/",
+        ),
+    ],
+)
+def test_provenance_lives_in_source_not_only_prose(
+    schema_view: SchemaView, enum_name: str, expected_source: str
+) -> None:
+    """Citations belong in the ``source`` metaslot, not buried in description text."""
+    assert schema_view.get_enum(enum_name).source == expected_source
+
+
+def test_eu_amendment_items_carry_their_own_source() -> None:
+    """Per-value ``source`` marks items added after the 2003 base schedule.
+
+    A value having its own source is the signal that it is an amendment
+    addition; everything else inherits the enum-level consolidated source.
+    """
+    values = _load_enum("eu_occupational_schedule", "EUOccupationalScheduleEnum")[
+        "permissible_values"
+    ]
+    sourced = {
+        k: (v or {})["source"] for k, v in values.items() if (v or {}).get("source")
+    }
+
+    covid = "http://data.europa.eu/eli/reco/2022/2337/oj"
+    asbestos = "http://data.europa.eu/eli/reco/2025/2609/oj"
+    assert sourced == {
+        "covid_19": covid,
+        "laryngeal_cancer_from_asbestos": asbestos,
+        "ovarian_cancer_from_asbestos": asbestos,
+        "asbestos_pleural_plaques_with_impairment": asbestos,
+        "asbestos_non_malignant_pleural_effusion": asbestos,
+        "suspected_colon_cancer_from_asbestos": asbestos,
+        "suspected_rectal_cancer_from_asbestos": asbestos,
+        "suspected_stomach_cancer_from_asbestos": asbestos,
+    }
 
 
 def test_eu_schedule_has_two_annexes_and_flags_suspected_values() -> None:
@@ -180,7 +283,8 @@ def test_eu_schedule_excludes_the_deleted_annex_ii_laryngeal_cancer() -> None:
 @pytest.mark.parametrize(
     "module_stem,enum_name,prefix",
     [
-        ("ilo_occupational_diseases", "ILOOccupationalDiseaseEnum", "ILO item "),
+        ("ilo_occupational_diseases", "ILOCausativeAgentEnum", "ILO item "),
+        ("ilo_occupational_diseases", "ILODiseaseCategoryEnum", "ILO item "),
         ("eu_occupational_schedule", "EUOccupationalScheduleEnum", "EU schedule item "),
     ],
 )
@@ -215,10 +319,17 @@ def test_no_heading_bleed_in_item_descriptions(
 
 
 def test_ilo_item_numbering_is_complete_and_gapless() -> None:
-    """The ILO list is numbered contiguously; a gap means a dropped item."""
-    values = _load_enum("ilo_occupational_diseases", "ILOOccupationalDiseaseEnum")[
-        "permissible_values"
-    ]
+    """The ILO list is numbered contiguously; a gap means a dropped item.
+
+    Numbering is checked across BOTH axis enums together, because the split puts
+    items 1.x/3.x in one enum and 2.x/4.x in the other — a gap would otherwise
+    hide as "that item lives in the other enum".
+    """
+    values: dict = {}
+    for enum_name in ILO_AXES:
+        values.update(
+            _load_enum("ilo_occupational_diseases", enum_name)["permissible_values"]
+        )
 
     numbers: list[str] = []
     for value in values.values():
@@ -271,7 +382,9 @@ def test_worked_examples_carry_both_classification_families() -> None:
     silicosis = yaml.safe_load(Path("kb/disorders/Silicosis.yaml").read_text())
 
     classifications = silicosis["classifications"]
-    assert classifications["ilo_occupational_category"]
+    # Both silicosis items are section 2, i.e. the disease-category axis.
+    assert classifications["ilo_disease_category"]
+    assert "ilo_agent_category" not in classifications
     assert classifications["eu_occupational_category"]
 
     exposure = silicosis["environmental"][0]["exposure_classifications"]
@@ -292,18 +405,22 @@ def test_asbestos_exemplars_use_orthogonal_ilo_sections() -> None:
         Path("kb/disorders/Malignant_Mesothelioma.yaml").read_text()
     )
 
+    # Asbestosis sits on the disease-category axis (section 2); mesothelioma from
+    # the same exposure sits on the causative-agent axis (section 3). The split
+    # slots make that orthogonality visible in the data, not just in prose.
     asbestosis_items = {
         item["classification_value"]
-        for item in asbestosis["classifications"]["ilo_occupational_category"]
+        for item in asbestosis["classifications"]["ilo_disease_category"]
     }
     mesothelioma_items = {
         item["classification_value"]
-        for item in mesothelioma["classifications"]["ilo_occupational_category"]
+        for item in mesothelioma["classifications"]["ilo_agent_category"]
     }
 
     assert asbestosis_items == {"pneumoconiosis_from_fibrogenic_mineral_dust"}
     assert mesothelioma_items == {"cancer_asbestos"}
-    assert not asbestosis_items & mesothelioma_items
+    assert "ilo_agent_category" not in asbestosis["classifications"]
+    assert "ilo_disease_category" not in mesothelioma["classifications"]
 
 
 def test_exposure_classifications_reach_the_rendered_enum_pages(
