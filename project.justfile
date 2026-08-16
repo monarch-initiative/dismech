@@ -646,7 +646,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -828,6 +828,16 @@ check-reference-cache-frontmatter:
 check-term-cache-integrity:
     uv run python -m dismech.term_cache_integrity cache
 
+# Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
+# the last value silently, so a duplicate is invisible to every test and
+# renderer here, while the ruamel-based reference validator rejects the file
+# outright. Duplicates arrive by MERGE -- two concurrent curation PRs adding the
+# same block at different points in one file merge without a git conflict -- so
+# this sweeps the whole KB rather than only the files a PR changed.
+[group('QC')]
+check-duplicate-keys *files:
+    uv run python scripts/check_duplicate_yaml_keys.py "$@"
+
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
 # A baseline grandfathers the pre-existing backlog; this fails only on new ones.
@@ -900,6 +910,19 @@ list-title-snippets:
 [group('QC')]
 update-title-snippet-baseline:
     uv run python scripts/check_title_snippets.py --update-baseline
+
+# Guard against evidence items with an empty/whitespace-only `snippet`, which
+# pass `linkml-reference-validator`/`count-verified-snippets` vacuously
+# (#8550). `supports: NO_EVIDENCE` items are exempt (checked, not relevant --
+# no baseline needed today, since the repo-wide backlog is zero).
+[group('QC')]
+check-empty-snippets:
+    uv run python scripts/check_empty_snippets.py
+
+# List every empty snippet, including NO_EVIDENCE-exempt ones (triage view).
+[group('QC')]
+list-empty-snippets:
+    uv run python scripts/check_empty_snippets.py --all
 
 # Validate ALL snippet/reference pairs across all disorder files.
 # Warning: First run may take a while if references are not already cached.
