@@ -3,6 +3,11 @@
 Correctness review of 10 haematology entries in `kb/disorders/`, focused on whether
 each asserted claim is actually carried by the evidence attached to it.
 
+> **State this report describes:** rebased onto `main` at `e85b40a8`. Findings were
+> re-verified against that tree. One finding (#1, ITP) had been fixed upstream in the
+> interim and is marked RESOLVED; the other fourteen still reproduce. All 358
+> reference/snippet pairs re-validate at this commit.
+
 ## Entries reviewed
 
 | Entry | Lines |
@@ -46,7 +51,7 @@ contradicts something else in the same file.
 | Hemophilia_B | 0/2 | 0 | 0/4 | 0/1 | 0/1 |
 | Hereditary_von_Willebrand_Disease | 0/3 | 0 | 0/2 | 0/1 | — |
 | Hereditary_Spherocytosis | 0/28 | 0 | 3/4 | 0/3 | 0/5 |
-| Immune_Thrombocytopenia | 3/4 | 3 | 5/5 | 0/4 | — |
+| Immune_Thrombocytopenia | ~~3/4~~ → 0/4 | ~~3~~ → 0 | ~~5/5~~ → 0/6 | 0/4 | — |
 | Polycythemia_Vera | 0/26 | 0 | 5/5 | 3/4 | 3/3 |
 | Diamond-Blackfan_Anemia | 0/8 | 0 | 2/6 | 0/3 | 10/10 |
 
@@ -58,6 +63,16 @@ phenotype, treatment, and pathophysiology node is evidenced.
 ## High-severity findings
 
 ### 1. `Immune_Thrombocytopenia` — the defining mechanism is marked `NO_EVIDENCE` but the explanation claims confirmation
+
+> **RESOLVED UPSTREAM — fixed on `main` before this report merged.** The contradictory
+> explanation is gone, replaced by an honest one stating the snippet enumerates therapies
+> "rather than directly evidencing autoantibody-mediated platelet destruction; retained for
+> context". A proper supporting item was added: PMID:30801909, a meta-analysis naming
+> "anti-glycoprotein IIbIIIa or anti-glycoprotein IbIX" — exactly the two glycoproteins in
+> the node description. The rest of the entry was filled in too: all 4 phenotypes and all 6
+> treatments now carry evidence (was 3/4 and 5/5 unevidenced). Recorded for the pattern, not
+> as outstanding work.
+
 
 `pathophysiology[0] "Antiplatelet Antibody Production"` (the anti-GPIIb/IIIa →
 splenic Fc-mediated clearance mechanism, i.e. what makes ITP ITP) carries a single
@@ -446,8 +461,8 @@ by that paper. Worth a lint rule: flag snippets that match only inside a referen
 
 ## Suggested priority
 
-1. Fix the `NO_EVIDENCE`/explanation contradiction on the ITP antibody node (#1).
-   Source still abstract-only; needs a different paper.
+1. ~~Fix the `NO_EVIDENCE`/explanation contradiction on the ITP antibody node (#1).~~
+   **Done upstream** — resolved on `main` with PMID:30801909 before this report merged.
 2. Re-band or `subtype:`-scope the Alpha_Thalassemia phenotypes (#3).
 3. **Cheap and mechanical, now that full text is cached:** attach the
    Polycythemia_Vera treatment/JAK2 snippets and the Beta_Thalassemia phenotype
