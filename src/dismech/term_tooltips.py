@@ -135,6 +135,13 @@ TERM_ROLES: dict[str, TermRole] = {
     "model.tissue_term": TermRole("This experimental model", "uses", "anatomical location"),
     "model.cell_types": TermRole("This experimental model", "uses", "cell type"),
     "model.genes": TermRole("This experimental model", "concerns", "gene"),
+    # Animal models. The phrasing keeps the observation in the animal: this is an
+    # MP phenotype seen in the model, not a claim about the human disease (that
+    # claim lives in modeled_mechanisms, with its fidelity grade and limitations).
+    "model.species_term": TermRole("This animal model", "is built in", "organism"),
+    "model.associated_phenotype_terms": TermRole(
+        "This animal model", "displays", "model-organism phenotype"
+    ),
     # Perturbations applied within an experimental model
     "perturbation.gene": TermRole("This perturbation", "targets", "gene"),
     "perturbation.chemical_entities": TermRole("This perturbation", "uses", "chemical entity"),

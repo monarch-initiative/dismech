@@ -671,6 +671,19 @@ qc-deep-research-strict:
 environmental-term-audit *args="":
     uv run python scripts/environmental_exposure_term_audit.py {{args}}
 
+# Bind AnimalModel free text to ontologies: species -> NCBITaxon (species_term),
+# associated_phenotypes -> MP (associated_phenotype_terms). MP is the vocabulary
+# MGI/IMPC/RGD assert against, so this is what makes a dismech animal model
+# joinable to a model organism database record.
+#
+# Dry run by default; --apply writes. Exact-match only and biased toward
+# refusing to guess — ambiguous, conflicting, and multi-species strings are
+# reported for a curator rather than bound. The free text is never deleted.
+# --report <tsv> writes the per-string resolution table.
+[group('QC')]
+backfill-animal-model-terms *args="":
+    uv run python scripts/backfill_animal_model_terms.py {{args}}
+
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
 compliance-all:

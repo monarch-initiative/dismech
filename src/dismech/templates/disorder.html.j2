@@ -6573,16 +6573,31 @@
                 {% if model.description %}
                 <div class="item-desc">{{ model.description }}</div>
                 {% endif %}
-                {% if model.associated_phenotypes %}
+                {# MP-bound phenotypes render as linked tags. Binding is partial by
+                   design — only 129 of 725 free-text strings had an exact MP match —
+                   so also render any free-text phenotype that has NOT been bound.
+                   Matching on preferred_term (which the backfill sets to the original
+                   string) is what keeps a bound phenotype from appearing twice. #}
+                {% set bound_names = (model.associated_phenotype_terms or []) | map(attribute='preferred_term') | select | list %}
+                {% set unbound = (model.associated_phenotypes or []) | reject('in', bound_names) | list %}
+                {% if model.associated_phenotype_terms %}
+                {{ render_descriptor_tags(model.associated_phenotype_terms, "tag-phenotype", true, "model.associated_phenotype_terms") }}
+                {% endif %}
+                {% if unbound %}
                 <div class="tag-list" style="margin-top: 10px;">
-                    {% for phenotype in model.associated_phenotypes %}
+                    {% for phenotype in unbound %}
                     <span class="tag tag-phenotype">{{ phenotype }}</span>
                     {% endfor %}
                 </div>
                 {% endif %}
-                {% if model.species or model.genotype or model.background or model.alleles or model.genes or model.publication %}
+                {% if model.species or model.species_term or model.genotype or model.background or model.alleles or model.genes or model.publication %}
                 <div class="model-detail-list">
-                    {% if model.species %}
+                    {% if model.species_term %}
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">{{ render_descriptor_tag(model.species_term, "tag-organism", true, "model.species_term") }}</div>
+                    </div>
+                    {% elif model.species %}
                     <div class="model-detail-row">
                         <div class="model-detail-label">Species</div>
                         <div class="model-detail-value">{{ model.species }}</div>

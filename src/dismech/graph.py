@@ -1113,6 +1113,26 @@ def _collect_experimental_model_links(
     return links_by_target
 
 
+def animal_model_species(model: dict[str, Any]) -> str | None:
+    """Return the canonical species name for an animal model.
+
+    Prefers the NCBITaxon label from `species_term`, falling back to the
+    deprecated free-text `species`. The KB carries one taxon under four
+    spellings ("Mouse", "Mus musculus", "mouse", "Mouse (Mus musculus)"), so
+    reading the bound label is what keeps pathograph metadata consistent
+    between two models of the same organism.
+    """
+    term = model.get("species_term")
+    if isinstance(term, dict):
+        inner = term.get("term")
+        if isinstance(inner, dict) and inner.get("label"):
+            return str(inner["label"])
+        if term.get("preferred_term"):
+            return str(term["preferred_term"])
+    species = model.get("species")
+    return str(species) if species else None
+
+
 def animal_model_label(model: dict[str, Any]) -> str | None:
     """Return a display label for an animal model.
 
@@ -1155,7 +1175,10 @@ def _collect_animal_model_links(
                 continue
 
             link_data: dict[str, Any] = {"name": model_name}
-            for model_key in ("species", "genotype", "background", "category"):
+            species = animal_model_species(model)
+            if species:
+                link_data["species"] = species
+            for model_key in ("genotype", "background", "category"):
                 if model.get(model_key):
                     link_data[model_key] = model[model_key]
             for link_key in ("relationship", "fidelity", "description"):

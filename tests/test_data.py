@@ -1926,3 +1926,165 @@ def test_dataset_accession_prefix_and_shape(filepath):
     assert not errors, f"{Path(filepath).name} has malformed dataset accessions:\n" + "\n".join(
         f"  - {e}" for e in errors
     )
+
+
+# ---------------------------------------------------------------------------
+# AnimalModel ontology bindings (species_term -> NCBITaxon,
+# associated_phenotype_terms -> MP)
+# ---------------------------------------------------------------------------
+
+
+def test_animal_model_binding_slots_are_wired():
+    """The NCBITaxon/MP binding slots exist and are wired into AnimalModel.
+
+    `AnimalModel` was the least grounded class in the model stack: the *non-animal*
+    `ExperimentalModel` carried an NCBITaxon-bound `organism`, while an animal
+    model's species was a plain string written four different ways for the same
+    taxon. These slots close that gap and are the join key to MGI/IMPC/ZFIN/RGD,
+    so a silent removal or range change should fail loudly.
+    """
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    sv = SchemaView(str(SCHEMA_PATH))
+
+    species_term = sv.get_slot("species_term")
+    assert species_term is not None, "species_term slot missing from schema"
+    assert species_term.range == "OrganismDescriptor", (
+        f"species_term range should be OrganismDescriptor, got {species_term.range}"
+    )
+
+    pheno_terms = sv.get_slot("associated_phenotype_terms")
+    assert pheno_terms is not None, "associated_phenotype_terms slot missing from schema"
+    assert pheno_terms.range == "ModelPhenotypeDescriptor", (
+        f"associated_phenotype_terms range should be ModelPhenotypeDescriptor, "
+        f"got {pheno_terms.range}"
+    )
+    assert pheno_terms.multivalued, "associated_phenotype_terms should be multivalued"
+
+    animal_slots = sv.class_slots("AnimalModel")
+    for slot in ("species_term", "associated_phenotype_terms"):
+        assert slot in animal_slots, f"{slot} not wired into AnimalModel"
+
+    # The deprecated free-text predecessors are retained on purpose: they hold the
+    # verbatim source wording, and 725 phenotype strings predate the bindings.
+    for slot in ("species", "associated_phenotypes"):
+        assert slot in animal_slots, f"{slot} was removed from AnimalModel; it is "
+        "deprecated but must be retained for back-compatibility"
+        assert sv.get_slot(slot).deprecated, f"{slot} should be marked deprecated"
+
+
+def test_model_phenotype_term_enum_is_mp_scoped():
+    """ModelPhenotypeTerm binds MP, deliberately not HP.
+
+    Asserting an HP term of a mouse silently equates model and human phenotype —
+    the exact cross-species inference the schema records HUMAN_MODEL_MISMATCH
+    discussions to avoid. Widening this enum to HP would erase that boundary;
+    widening it to ZP/uPheno (to cover the zebrafish, Xenopus, chicken and
+    Drosophila models in the KB) is an expected future change.
+    """
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    sv = SchemaView(str(SCHEMA_PATH))
+    enum = sv.get_enum("ModelPhenotypeTerm")
+    assert enum is not None, "ModelPhenotypeTerm enum missing from schema"
+
+    source_nodes = list(enum.reachable_from.source_nodes)
+    assert "MP:0000001" in source_nodes, (
+        f"ModelPhenotypeTerm should be reachable from MP:0000001, got {source_nodes}"
+    )
+    assert not any(str(n).startswith("HP:") for n in source_nodes), (
+        "ModelPhenotypeTerm must not admit HP terms — model-organism phenotypes "
+        "stay in the model organism's vocabulary; the translational claim belongs "
+        "in modeled_mechanisms with its fidelity grade and limitations"
+    )
+
+
+def test_animal_model_binding_slots_validate(validator):
+    """An AnimalModel carrying both bindings validates against the schema."""
+    data = {
+        "name": "Test Disease",
+        "animal_models": [
+            {
+                "name": "Test knockout mouse",
+                "species": "Mouse (Mus musculus)",
+                "species_term": {
+                    "preferred_term": "Mouse (Mus musculus)",
+                    "term": {"id": "NCBITaxon:10090", "label": "Mus musculus"},
+                },
+                "associated_phenotypes": ["Preweaning lethality, complete penetrance"],
+                "associated_phenotype_terms": [
+                    {
+                        "preferred_term": "Preweaning lethality, complete penetrance",
+                        "term": {
+                            "id": "MP:0011100",
+                            "label": "preweaning lethality, complete penetrance",
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+    report = validator.validate(data, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+    assert not errors, f"Validation errors: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_animal_model_species_term_prefix(filepath):
+    """A bound species_term must carry an NCBITaxon CURIE, and must not be human.
+
+    `AnimalModel` is documented as a whole-organism *animal* model; a human entry
+    belongs in `experimental_models`. The backfill script reports these as
+    MISFILED_HUMAN rather than binding them, so one reaching the KB means it was
+    hand-added.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = []
+    for i, model in enumerate(data.get("animal_models") or []):
+        if not isinstance(model, dict):
+            continue
+        term = (model.get("species_term") or {}).get("term") or {}
+        curie = term.get("id")
+        if not curie:
+            continue
+        if not str(curie).startswith("NCBITaxon:"):
+            errors.append(f"animal_models[{i}].species_term.term.id={curie!r} is not NCBITaxon")
+        elif str(curie) == "NCBITaxon:9606":
+            errors.append(
+                f"animal_models[{i}] is bound to Homo sapiens; a human model belongs "
+                "in experimental_models, not animal_models"
+            )
+
+    assert not errors, f"{Path(filepath).name}:\n" + "\n".join(f"  - {e}" for e in errors)
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODEL_BEARING_FILES)
+def test_animal_model_phenotype_terms_are_mp(filepath):
+    """associated_phenotype_terms must carry MP CURIEs, not HP.
+
+    An HP term here would assert a *human* phenotypic abnormality of an animal.
+    That is the one substitution this slot exists to prevent, and it is an easy
+    one to make by copying from the entry's own `phenotypes` block.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    errors = []
+    for i, model in enumerate(data.get("animal_models") or []):
+        if not isinstance(model, dict):
+            continue
+        for j, descriptor in enumerate(model.get("associated_phenotype_terms") or []):
+            if not isinstance(descriptor, dict):
+                continue
+            curie = (descriptor.get("term") or {}).get("id")
+            if curie and not str(curie).startswith("MP:"):
+                errors.append(
+                    f"animal_models[{i}].associated_phenotype_terms[{j}].term.id="
+                    f"{curie!r} is not an MP term"
+                )
+
+    assert not errors, f"{Path(filepath).name}:\n" + "\n".join(f"  - {e}" for e in errors)

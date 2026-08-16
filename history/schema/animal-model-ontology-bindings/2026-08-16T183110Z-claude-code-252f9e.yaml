@@ -1,0 +1,37 @@
+history_version: 1
+target:
+  kind: schema
+  slug: animal-model-ontology-bindings
+  path: src/dismech/schema/dismech.yaml
+session:
+  id: 2026-08-16T183110Z-claude-code-252f9e
+  timestamp: '2026-08-16T18:31:10Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: needs_followup
+  sections:
+  - animal_models
+  - schema
+  - cache
+  summary: Bind AnimalModel species to NCBITaxon and associated_phenotypes to MP
+  details: |
+    Added species_term (OrganismDescriptor/NCBITaxon) and associated_phenotype_terms (new ModelPhenotypeDescriptor bound to a new MP-scoped ModelPhenotypeTerm enum) to AnimalModel; deprecated the free-text species and associated_phenotypes slots without removing them. Registered MP: ols:mp in conf/oak_config.yaml after confirming the OLS MP subClassOf closure reaches MP:0000001.
+
+    Backfilled the KB with scripts/backfill_animal_model_terms.py (new; also exposed as just backfill-animal-model-terms). Exact-match only, biased toward refusing to guess. Result over 258 files: 482 of 487 species assertions bound (99.0 percent), 129 of 725 phenotype strings bound (17.8 percent). Refusals were left for a curator and are all genuine: 1 CONFLICT (Vervet monkey / Chlorocebus sabaeus resolve to sibling species), 2 MISFILED_HUMAN (Human (patient-derived) entries that belong in experimental_models), 2 MULTI_SPECIES (Mouse and rat; Drosophila melanogaster and Xenopus laevis), 3 AMBIGUOUS phenotypes (Embryonic lethality matches two MP classes), 593 NO_MATCH phenotypes.
+
+    The low phenotype yield is a finding, not a shortfall. Spot checks confirm the refusals are correct: 'ER stress' has both increased and decreased MP classes and the free text carries no direction; 'Growth retardation' splits into prenatal, fetal and postnatal MP classes; 'Impaired learning and memory' has only the broader directionless MP:0002063 abnormal learning/memory/conditioning. The strings are curator prose requiring per-item judgment, not degraded MP terms.
+
+    Writer notes: an initial ruamel round-trip implementation produced 6342 lines of pure re-wrapping churn, so the script writes by line-anchored text insertion instead and then proves the result semantically identical apart from the added keys (verify_only_additions). Final KB diff is 3027 insertions and 0 deletions with 0 collateral lines. The scanner measures the sequence indent rather than assuming it, since both flush and indented animal_models list styles occur in the KB.
+
+    Validation: linkml-validate passes; term validation passes on the 56-file covering set that populated cache/mp/terms.csv and cache/enums/modelphenotypeterm_79c98046a511.csv (both written by linkml-term-validator, never by hand); check-term-cache-integrity passes; caches normalized (pure additions, no reordering). Reference validation was not run and is not implicated - no evidence items were touched.
+
+    Follow-up: ModelPhenotypeTerm is MP-scoped, so the KB's zebrafish, Xenopus, chicken and Drosophila models are not yet bindable and need ZP/FBcv/uPheno added to source_nodes. AnimalModel.genes remains HGNC-bound (the human ortholog); a model-organism gene identifier slot (MGI/ZFIN/RGD/FlyBase/WormBase) is still a gap.

@@ -22,6 +22,7 @@ from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
     animal_model_label,
+    animal_model_species,
     build_causal_graph,
     generate_mermaid,
     graph_to_json,
@@ -664,7 +665,7 @@ def _annotate_model_links(disorder: dict) -> None:
                         "description": link.get("description"),
                         "relationship": link.get("relationship"),
                         "fidelity": link.get("fidelity"),
-                        "species": model.get("species"),
+                        "species": animal_model_species(model),
                         "genotype": model.get("genotype"),
                     }
                 )

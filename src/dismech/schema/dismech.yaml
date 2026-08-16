@@ -1314,6 +1314,32 @@ enums:
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
+  ModelPhenotypeTerm:
+    description: >-
+      A phenotype observed in a model organism, expressed in that organism's own
+      phenotype vocabulary rather than in HPO. Bound to the Mammalian Phenotype
+      ontology (MP), which is what MGI, IMPC, and RGD actually assert, so an
+      annotation here joins directly to a MOD genotype-phenotype record.
+    comments:
+      - >-
+        Deliberately NOT PhenotypeTerm (HP/MONDO). An HP term asserts a human
+        phenotypic abnormality; asserting one of a mouse silently equates the
+        two, which is precisely the cross-species inference this schema records
+        HUMAN_MODEL_MISMATCH discussions to avoid. Keep the observation in the
+        model organism's vocabulary and let `modeled_mechanisms` carry the
+        translational claim, with its own fidelity grade and limitations.
+      - >-
+        Scoped to MP, so only mammalian models (mouse, rat, dog, rabbit, pig,
+        ferret, non-human primate) are bindable today. Non-mammalian models in
+        the KB — zebrafish, Xenopus, chicken, Drosophila — need ZP/FBcv/uPheno
+        added to `source_nodes`. The enum and its descriptor are named
+        generically so that is a source_nodes edit, not a rename.
+    reachable_from:
+      source_nodes:
+        - MP:0000001  ## mammalian phenotype
+      is_direct: false
+      relationship_types:
+        - rdfs:subClassOf
   OnsetEnum:
     description: Age of onset categories from HPO
     permissible_values:
@@ -3274,6 +3300,19 @@ slots:
     examples:
       - value: Human
     range: string
+    deprecated: >-
+      Use `species_term` (NCBITaxon-bound). Free text does not join to any model
+      organism database and is not consistently spelled: the KB carries "Mouse",
+      "Mus musculus", "mouse", and "Mouse (Mus musculus)" as four distinct
+      values of the same taxon. Retained for back-compatibility and as the
+      verbatim source wording.
+  species_term:
+    description: >-
+      The model organism's species, bound to NCBITaxon. This is the join key to
+      MGI/ZFIN/RGD/FlyBase/WormBase and to `datasets[].organism`, which already
+      uses NCBITaxon for the same species.
+    range: OrganismDescriptor
+    inlined: true
   effect:
     examples:
       - value: Potential trigger for flare-ups
@@ -3477,6 +3516,29 @@ slots:
       - value: '[''Celiac Disease'', ''Type 1 Diabetes'', ''Autoimmune Thyroid Disease'']'
     multivalued: true
     range: string
+    deprecated: >-
+      Use `associated_phenotype_terms` (MP-bound). Free text discards grounding
+      that the source usually already has — IMPC and MGI publish MP terms, and
+      curators have been flattening them to strings on ingest.
+  associated_phenotype_terms:
+    description: >-
+      Phenotypes observed in the model organism, bound to MP. Distinct from the
+      disease entry's own `phenotypes`, which are human and HP-bound: this slot
+      records what was seen in the animal, in the animal's vocabulary.
+    comments:
+      - >-
+        An entry here is an observation about the model, not a claim about the
+        human disease. The translational claim belongs in `modeled_mechanisms`,
+        where it carries a relationship, a fidelity grade, and limitations.
+      - >-
+        Keep the verbatim source wording in each descriptor's `preferred_term`
+        even when a `term` is bound; MOD phenotype calls carry penetrance and
+        zygosity qualifiers ("preweaning lethality, complete penetrance") that
+        no single MP class captures.
+    multivalued: true
+    range: ModelPhenotypeDescriptor
+    inlined: true
+    inlined_as_list: true
   minimum_value:
     range: float
   maximum_value:
@@ -4974,6 +5036,26 @@ classes:
             range: OrganismTerm
             obligation_level: REQUIRED
 
+  ModelPhenotypeDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a phenotype observed in a model organism, bound to that
+      organism's own phenotype vocabulary (MP) rather than to HPO.
+    comments:
+      - >-
+        Use `preferred_term` for the phenotype exactly as the source reports it
+        (an IMPC parameter name, a paper's wording); use `term` for the MP class.
+        The two differ far more often than they do for human phenotypes, because
+        MOD phenotype calls are assay-shaped ("preweaning lethality, complete
+        penetrance") while MP classes are not.
+    slot_usage:
+      term:
+        description: MP term reference
+        bindings:
+          - binds_value_of: id
+            range: ModelPhenotypeTerm
+            obligation_level: REQUIRED
+
   HostDescriptor:
     is_a: OrganismDescriptor
     description: A descriptor for hosts in an infectious agent life cycle
@@ -6319,8 +6401,19 @@ classes:
       - >-
         Animal-model evidence should carry `evidence_source: MODEL_ORGANISM` and
         should not be the sole support for a human phenotype.
+      - >-
+        Prefer the ontology-bound slots over their free-text predecessors:
+        `species_term` (NCBITaxon) over `species`, and
+        `associated_phenotype_terms` (MP) over `associated_phenotypes`. The
+        free-text slots are deprecated but retained, and keeping the original
+        wording alongside a binding is expected rather than redundant.
+      - >-
+        `genes` is bound to HGNC, i.e. to the HUMAN ortholog of the gene the
+        model carries, not to the model organism's own gene. A model-organism
+        gene identifier slot (MGI/ZFIN/RGD/FlyBase/WormBase) is a known gap.
     slots:
       - species
+      - species_term
       - genotype
       - background
       - genes
@@ -6329,6 +6422,7 @@ classes:
       - description
       - publication
       - associated_phenotypes
+      - associated_phenotype_terms
       - modeled_mechanisms
       - evidence
       - notes

@@ -670,6 +670,72 @@ model, which is `PARTIALLY_RECAPITULATES` against `Motor Neuron Degeneration`
 while `RECAPITULATES` `Oxidative Stress`, with a `RESTORED` readout for the
 vitamin-E rescue arm.
 
+#### Grounding an animal model: `species_term` and `associated_phenotype_terms`
+
+An animal model carries **two** ontology-bound slots that supersede free-text
+predecessors. Use them on every new model:
+
+| Use | Not | Bound to |
+|---|---|---|
+| `species_term` | ~~`species`~~ | NCBITaxon (`OrganismDescriptor`) |
+| `associated_phenotype_terms` | ~~`associated_phenotypes`~~ | **MP** (`ModelPhenotypeDescriptor`) |
+
+```yaml
+animal_models:
+- name: Snf8 knockout mouse (IMPC)
+  species: Mouse (Mus musculus)          # deprecated; keep as verbatim wording
+  species_term:
+    preferred_term: Mouse (Mus musculus)
+    term: {id: NCBITaxon:10090, label: Mus musculus}
+  associated_phenotypes:                  # deprecated; keep as verbatim wording
+  - Preweaning lethality, complete penetrance (homozygote)
+  associated_phenotype_terms:
+  - preferred_term: Preweaning lethality, complete penetrance (homozygote)
+    term: {id: MP:0011100, label: preweaning lethality, complete penetrance}
+```
+
+**MP, not HP — this is the point of the slot.** An HP term asserts a *human*
+phenotypic abnormality. Putting one on a mouse silently equates model and human
+phenotype, which is exactly the cross-species inference the `HUMAN_MODEL_MISMATCH`
+discussion kind exists to keep explicit. Keep the observation in the model
+organism's vocabulary and let `modeled_mechanisms` carry the translational claim,
+where it has a `relationship`, a `fidelity` grade, and `limitations`. A test
+(`test_animal_model_phenotype_terms_are_mp`) rejects HP CURIEs here.
+
+MP is also what MGI, IMPC, and RGD actually assert, so a bound phenotype joins
+straight to a model organism database record — the grounding is usually already
+in the source and was being discarded on ingest.
+
+**Keep the free text.** Both deprecated slots are retained and should keep the
+original wording, which is also what goes in each descriptor's `preferred_term`.
+MOD phenotype calls are assay-shaped and carry penetrance/zygosity qualifiers
+("preweaning lethality, complete penetrance (homozygote)") that no single MP
+class captures, so the string is not redundant with the binding.
+
+**Scope.** `ModelPhenotypeTerm` is MP-only, so only mammalian models are bindable
+today; the KB's zebrafish, Xenopus, chicken, and Drosophila models need ZP/FBcv/
+uPheno added to the enum's `source_nodes`. The enum and descriptor are named
+generically so that is a `source_nodes` edit, not a rename.
+
+**Do not hand-write a `species_term` for a human "model."** `AnimalModel` is for
+whole-organism *animal* models; a human entry belongs in `experimental_models`.
+`test_animal_model_species_term_prefix` rejects `NCBITaxon:9606`.
+
+Backfill and audit existing entries with:
+
+```bash
+just backfill-animal-model-terms                       # dry run + resolution summary
+just backfill-animal-model-terms --report /tmp/r.tsv   # per-string verdicts
+just backfill-animal-model-terms --apply
+```
+
+It is exact-match only and refuses to guess: ambiguous strings (`Fruit fly`
+exact-matches *Tephritidae* ahead of *Drosophila*), conflicting parentheticals,
+and multi-species strings (`Mouse and rat`) are reported for a curator rather
+than bound. `genes` on an animal model stays HGNC-bound — that is the **human**
+ortholog; a model-organism gene identifier slot (MGI/ZFIN/RGD/FlyBase/WormBase)
+is a known gap.
+
 ### Linking Environmental Factors into the Pathograph
 
 An `environmental:` entry only appears in the pathograph if it declares which
