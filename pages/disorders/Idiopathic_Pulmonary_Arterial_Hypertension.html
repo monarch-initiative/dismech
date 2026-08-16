@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 20</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Idiopathic%20Pulmonary%20Arterial%20Hypertension"
@@ -3695,6 +3861,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3748,7 +3916,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">18</div>
+                <div class="stat-value">20</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4478,19 +4646,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002012">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-1">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4573,6 +4747,7 @@
                 <div class="item-name">Occult Rare Variant Burden and Reclassification to Heritable PAH</div>
 
                 <div class="item-desc">A substantial minority of patients who satisfy IPAH criteria are subsequently found on comprehensive PAH gene-panel or genome sequencing to carry a rare pathogenic or likely pathogenic germline variant - most often a loss-of-function BMPR2 allele, and less often variants in TBX4, ATP13A3, SOX17, GDF2, AQP1 or other curated PAH genes. Because incomplete, age- and sex-dependent penetrance means many carriers have no affected relative, absence of family history does not exclude a germline cause. Detecting such a variant reclassifies the patient as heritable PAH and opens cascade screening of relatives. This node is the explicit mechanistic boundary between this entry and Heritable Pulmonary Arterial Hypertension: it is not a separate remodeling mechanism but a statement that a fraction of the IPAH population is misclassified heritable disease.</div>
+
 
 
 
@@ -4694,16 +4869,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pulmonary artery endothelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1001568" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1001568">CL:1001568</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1001568" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:1001568</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary artery endothelial cell (CL:1001568). CL:1001568 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4730,16 +4910,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         BMP signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030509">GO:0030509</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030509" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030509</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased BMP signaling pathway (GO:0030509). GO:0030509 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4748,6 +4933,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4765,10 +4952,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006809">GO:0006809</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006809</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased nitric oxide biosynthetic process (GO:0006809). GO:0006809 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4788,16 +4978,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         endothelin receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0086100" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0086100">GO:0086100</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0086100" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0086100</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased endothelin receptor signaling pathway (GO:0086100). GO:0086100 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4824,19 +5019,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002012">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4932,17 +5133,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         T cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000084">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000084</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4963,10 +5171,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000623">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000623</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4993,16 +5204,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         inflammatory response
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006954">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006954</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5029,19 +5245,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002012">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5129,16 +5351,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pulmonary artery smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002591" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002591">CL:0002591</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002591" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0002591</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary artery smooth muscle cell, annotated with smooth muscle cell of the pulmonary artery (CL:0002591). CL:0002591 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5165,16 +5392,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         smooth muscle cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048659" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048659">GO:0048659</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048659" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0048659</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased smooth muscle cell proliferation (GO:0048659). GO:0048659 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5183,6 +5415,8 @@
     <span class="tag tag-modifier">
         ↑ INCREASED
     </span>
+
+
 
 
 
@@ -5200,10 +5434,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043066" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043066">GO:0043066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0043066</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased resistance to apoptosis, annotated with negative regulation of apoptotic process (GO:0043066). GO:0043066 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5223,16 +5460,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         vasoconstriction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042310">GO:0042310</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0042310</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased vasoconstriction (GO:0042310). GO:0042310 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5259,19 +5501,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002012">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-15">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5359,17 +5607,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         pulmonary artery smooth muscle cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002591" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002591">CL:0002591</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002591" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0002591</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves pulmonary artery smooth muscle cell, annotated with smooth muscle cell of the pulmonary artery (CL:0002591). CL:0002591 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5390,10 +5645,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5420,16 +5678,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         blood vessel remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001974">GO:0001974</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001974" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0001974</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves dysregulated blood vessel remodeling (GO:0001974). GO:0001974 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5449,16 +5712,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5485,19 +5753,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002012">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5592,16 +5866,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         vasoconstriction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042310">GO:0042310</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042310" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0042310</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased vasoconstriction (GO:0042310). GO:0042310 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5622,6 +5901,7 @@
 
 
                 </div>
+
 
 
 
@@ -5697,16 +5977,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         right ventricular hypertrophy
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003300">GO:0003300</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003300" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0003300</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased right ventricular hypertrophy, annotated with cardiac muscle hypertrophy (GO:0003300). GO:0003300 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5733,19 +6018,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         heart right ventricle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002080">UBERON:0002080</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002080" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0002080</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in heart right ventricle (UBERON:0002080). UBERON:0002080 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5927,7 +6218,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Calcium channel blocker therapy in acute vasoresponders\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose amlodipine, nifedipine or diltiazem is reserved for the small IPAH subgroup with a positive acute vasodilator test, with close reassessment because only a minority of acute responders sustain long-term benefit. Empiric calcium channel blockade without a positive vasoreactivity test is unsafe in PAH. This is the clearest example of IPAH-specific, mechanism-stratified therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"calcium channel blocker\", \"nifedipine\", \"amlodipine\", \"diltiazem\"]}}, {\"id\": \"Endothelin receptor antagonist therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ambrisentan, bosentan or macitentan block endothelin-1 signalling on the pulmonary vascular wall. An endothelin receptor antagonist combined with a PDE5 inhibitor is the usual initial oral dual therapy for low- and intermediate-risk IPAH without major cardiopulmonary comorbidity.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"endothelin receptor antagonist\", \"macitentan\", \"ambrisentan\", \"bosentan\"]}}, {\"id\": \"Exertional dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive breathlessness on exertion is the usual presenting symptom and is nonspecific, contributing to diagnostic delay.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002875\"}}, {\"id\": \"Exertional syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syncope on exertion signals inability to augment cardiac output and marks advanced disease with adverse prognosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001279\"}}, {\"id\": \"Increased Pulmonary Vascular Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of fixed structural obstruction and sustained vasoconstriction raises pulmonary vascular resistance and reduces pulmonary arterial compliance, while pulmonary arterial wedge pressure remains normal - the pre-capillary haemodynamic signature confirmed at right-heart catheterisation that defines PAH and separates it from Group 2 pulmonary hypertension due to left heart disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"vasoconstriction\"], \"role\": \"effector\"}}, {\"id\": \"Lung transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bilateral lung or heart-lung transplantation is considered for selected patients with an inadequate response to maximal medical therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nitric oxide-cGMP pathway therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phosphodiesterase-5 inhibitors (sildenafil, tadalafil) potentiate cGMP signalling downstream of nitric oxide; riociguat instead stimulates soluble guanylate cyclase directly. Riociguat must not be combined with a PDE5 inhibitor because of the risk of hypotension.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sildenafil\", \"tadalafil\", \"riociguat\"]}}, {\"id\": \"Obstructive Pulmonary Vascular Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained smooth muscle proliferation, adventitial fibroblast activation, matrix deposition and neointima formation remodel the wall of small pulmonary arteries, producing medial hypertrophy, eccentric and concentric intimal fibrosis, in-situ thrombosis and plexiform lesions that obliterate the lumen. This structural obstruction is the central effector shared with heritable, associated and drug- or toxin-induced PAH, and it is largely irreversible once established.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary artery smooth muscle cell\", \"fibroblast\"], \"biological_processes\": [\"blood vessel remodeling\", \"extracellular matrix organization\"], \"role\": \"central_effector\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Occult Rare Variant Burden and Reclassification to Heritable PAH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial minority of patients who satisfy IPAH criteria are subsequently found on comprehensive PAH gene-panel or genome sequencing to carry a rare pathogenic or likely pathogenic germline variant - most often a loss-of-function BMPR2 allele, and less often variants in TBX4, ATP13A3, SOX17, GDF2, AQP1 or other curated PAH genes. Because incomplete, age- and sex-dependent penetrance means many carriers have no affected relative, absence of family history does not exclude a germline cause. Detecting such a variant reclassifies the patient as heritable PAH and opens cascade screening of relatives. This node is the explicit mechanistic boundary between this entry and Heritable Pulmonary Arterial Hypertension: it is not a separate remodeling mechanism but a statement that a fraction of the IPAH population is misclassified heritable disease.\", \"meta\": {\"evidence_count\": 3, \"role\": \"modifier\"}}, {\"id\": \"Peripheral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral oedema reflects systemic venous congestion in advanced right heart failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012398\"}}, {\"id\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained elevation of pulmonary arterial pressure imposes chronic pressure overload on the right ventricle. Hypertrophy compensates initially, but ischaemia, fibrosis, dilation and tricuspid regurgitation eventually reduce right ventricular output, producing systemic venous congestion, exertional syncope and death from right heart failure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"right ventricular hypertrophy\"], \"role\": \"consequence\", \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Prostacyclin pathway therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epoprostenol, treprostinil, iloprost and the oral prostacyclin receptor agonist selexipag restore prostacyclin signalling. Parenteral prostacyclin, especially intravenous epoprostenol, is added for high-risk disease, and efficacy is greater with parenteral than with non-parenteral therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"epoprostenol\", \"treprostinil\", \"selexipag\"]}}, {\"id\": \"Pulmonary Arterial Endothelial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary arterial endothelial cells lose homeostatic function: BMP receptor signalling is reduced (by germline lesion in the occult-variant fraction, and by acquired suppression otherwise), nitric-oxide and prostacyclin production fall while endothelin-1 rises, barrier integrity is lost, and an apoptosis-prone population is replaced by apoptosis-resistant, hyperproliferative cells. This is the conserved entry point into the shared pulmonary vascular remodeling module; IPAH substitutes an unidentified or occult-genetic insult for the germline BMPR2 lesion of heritable PAH.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary artery endothelial cell\"], \"biological_processes\": [\"BMP signaling pathway\", \"nitric oxide biosynthetic process\", \"endothelin receptor signaling pathway\"], \"role\": \"trigger\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Paracrine signals from the dysfunctional endothelium, compounded by inflammatory input, drive a proliferative, migratory and apoptosis-resistant phenotype in pulmonary artery smooth muscle cells, together with sustained vasoconstriction. In the small acutely vasoreactive IPAH subgroup, the vasoconstrictive component still dominates over fixed remodeling, which is why those patients respond durably to calcium-channel blockade.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary artery smooth muscle cell\"], \"biological_processes\": [\"smooth muscle cell proliferation\", \"resistance to apoptosis\", \"vasoconstriction\"], \"role\": \"amplifier\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Right ventricular failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right ventricular failure is the usual mode of death in untreated or refractory IPAH.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001708\"}}, {\"id\": \"Sotatercept\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An ActRIIA-Fc ligand trap that sequesters activin-family ligands and rebalances activin/BMP signalling. It is the first approved PAH therapy directed at the TGF-beta-superfamily imbalance underlying vascular remodeling rather than at vascular tone alone, and is added when low-risk status is not achieved on background therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sotatercept\"]}}, {\"id\": \"T and NK Cell CCL5-Mediated Immune-Vascular Crosstalk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Integrated analysis of IPAH lung transcriptomes, histopathology scoring and single-cell RNA sequencing identifies CXCL9, CCL5, GZMA and GZMK as inflammation-associated hub genes distinguishing IPAH lungs from controls, with CCL5 and GZMA expressed predominantly by T and NK cells. CCL5 mediates interaction of these lymphoid populations with pulmonary endothelial cells, smooth muscle cells and fibroblasts through multiple receptors, defining an adaptive immune-vascular amplification arm of IPAH remodeling. This is an IPAH-specific refinement of the generic perivascular-inflammation theme; it is discovery-stage and not a validated clinical target.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"natural killer cell\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"amplifier\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining feature of IPAH is that no associated condition, drug or toxin exposure, or family history explains the disease after a complete evaluation. This is an epistemic rather than a biological null: IPAH is best modelled as a threshold disorder in which incompletely characterised genetic susceptibility, epigenetic dysregulation, sex-hormone biology and acquired vascular stresses combine to cross a disease threshold, with no single trigger identifiable in the individual patient. This node substitutes for the disorder-specific trigger that heritable PAH (a germline BMPR2-pathway lesion) and drug- or toxin-induced PAH (a culprit exposure) each supply, and it is the reason IPAH is a diagnosis of exclusion.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"locations\": [\"pulmonary artery\"]}}], \"edges\": [{\"source\": \"Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whatever the unresolved initiating insult, the earliest identifiable lesion in IPAH is dysfunction of the pulmonary arterial endothelium.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Occult Rare Variant Burden and Reclassification to Heritable PAH\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the variant-positive fraction, reduced BMP receptor signalling is the identifiable molecular cause of the endothelial lesion, as in heritable PAH.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Arterial Endothelial Dysfunction\", \"target\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of endothelium-derived vasodilator and antiproliferative signalling releases the medial smooth muscle compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Arterial Endothelial Dysfunction\", \"target\": \"T and NK Cell CCL5-Mediated Immune-Vascular Crosstalk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injured endothelium participates in chemokine-mediated recruitment of lymphoid cells to the pulmonary vascular wall.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"T and NK Cell CCL5-Mediated Immune-Vascular Crosstalk\", \"target\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chemokine-mediated immune-vascular crosstalk amplifies the proliferative response of the medial smooth muscle compartment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"target\": \"Obstructive Pulmonary Vascular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Medial expansion and muscularisation of peripheral arterioles narrow the pulmonary vascular lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obstructive Pulmonary Vascular Remodeling\", \"target\": \"Increased Pulmonary Vascular Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fixed luminal obstruction, added to dynamic vasoconstriction, raises resistance across the pulmonary bed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Pulmonary Vascular Resistance\", \"target\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated resistance imposes a chronic pressure load on the right ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"target\": \"Exertional dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cardiac output reserve produces exertional breathlessness.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced cardiac output reserve\"]}, {\"source\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"target\": \"Exertional syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inability to raise cardiac output during exertion causes syncope.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired cardiac output reserve\"]}, {\"source\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"target\": \"Right ventricular failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maladaptive right ventricular remodeling culminates in overt failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"target\": \"Peripheral edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right-heart congestion raises systemic venous pressure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"systemic venous congestion\"]}, {\"source\": \"Endothelin receptor antagonist therapy\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitric oxide-cGMP pathway therapy\", \"target\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prostacyclin pathway therapy\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sotatercept\", \"target\": \"Obstructive Pulmonary Vascular Remodeling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sotatercept\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcium channel blocker therapy in acute vasoresponders\", \"target\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung transplantation\", \"target\": \"Obstructive Pulmonary Vascular Remodeling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absence of a recognised drug, toxin or associated-disease exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"IPAH requires that recognised PAH-associated exposures - anorexigens, methamphetamine, dasatinib and other implicated drugs - and associated conditions such as connective tissue disease, congenital heart disease, HIV and portal hypertension be excluded. Identifying such an exposure moves the case to Drug- or Toxin-Induced PAH or to the relevant associated-PAH entity.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Negative\"}}, {\"id\": \"Calcium channel blocker therapy in acute vasoresponders\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"High-dose amlodipine, nifedipine or diltiazem is reserved for the small IPAH subgroup with a positive acute vasodilator test, with close reassessment because only a minority of acute responders sustain long-term benefit. Empiric calcium channel blockade without a positive vasoreactivity test is unsafe in PAH. This is the clearest example of IPAH-specific, mechanism-stratified therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"calcium channel blocker\", \"nifedipine\", \"amlodipine\", \"diltiazem\"]}}, {\"id\": \"Endothelin receptor antagonist therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ambrisentan, bosentan or macitentan block endothelin-1 signalling on the pulmonary vascular wall. An endothelin receptor antagonist combined with a PDE5 inhibitor is the usual initial oral dual therapy for low- and intermediate-risk IPAH without major cardiopulmonary comorbidity.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"endothelin receptor antagonist\", \"macitentan\", \"ambrisentan\", \"bosentan\"]}}, {\"id\": \"Exertional dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive breathlessness on exertion is the usual presenting symptom and is nonspecific, contributing to diagnostic delay.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002875\"}}, {\"id\": \"Exertional syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Syncope on exertion signals inability to augment cardiac output and marks advanced disease with adverse prognosis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001279\"}}, {\"id\": \"Increased Pulmonary Vascular Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The combination of fixed structural obstruction and sustained vasoconstriction raises pulmonary vascular resistance and reduces pulmonary arterial compliance, while pulmonary arterial wedge pressure remains normal - the pre-capillary haemodynamic signature confirmed at right-heart catheterisation that defines PAH and separates it from Group 2 pulmonary hypertension due to left heart disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"vasoconstriction\"], \"role\": \"effector\"}}, {\"id\": \"Lung transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Bilateral lung or heart-lung transplantation is considered for selected patients with an inadequate response to maximal medical therapy.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nitric oxide-cGMP pathway therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phosphodiesterase-5 inhibitors (sildenafil, tadalafil) potentiate cGMP signalling downstream of nitric oxide; riociguat instead stimulates soluble guanylate cyclase directly. Riociguat must not be combined with a PDE5 inhibitor because of the risk of hypotension.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sildenafil\", \"tadalafil\", \"riociguat\"]}}, {\"id\": \"Obstructive Pulmonary Vascular Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained smooth muscle proliferation, adventitial fibroblast activation, matrix deposition and neointima formation remodel the wall of small pulmonary arteries, producing medial hypertrophy, eccentric and concentric intimal fibrosis, in-situ thrombosis and plexiform lesions that obliterate the lumen. This structural obstruction is the central effector shared with heritable, associated and drug- or toxin-induced PAH, and it is largely irreversible once established.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary artery smooth muscle cell\", \"fibroblast\"], \"biological_processes\": [\"blood vessel remodeling\", \"extracellular matrix organization\"], \"role\": \"central_effector\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Occult Rare Variant Burden and Reclassification to Heritable PAH\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial minority of patients who satisfy IPAH criteria are subsequently found on comprehensive PAH gene-panel or genome sequencing to carry a rare pathogenic or likely pathogenic germline variant - most often a loss-of-function BMPR2 allele, and less often variants in TBX4, ATP13A3, SOX17, GDF2, AQP1 or other curated PAH genes. Because incomplete, age- and sex-dependent penetrance means many carriers have no affected relative, absence of family history does not exclude a germline cause. Detecting such a variant reclassifies the patient as heritable PAH and opens cascade screening of relatives. This node is the explicit mechanistic boundary between this entry and Heritable Pulmonary Arterial Hypertension: it is not a separate remodeling mechanism but a statement that a fraction of the IPAH population is misclassified heritable disease.\", \"meta\": {\"evidence_count\": 3, \"role\": \"modifier\"}}, {\"id\": \"Peripheral edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Peripheral oedema reflects systemic venous congestion in advanced right heart failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012398\"}}, {\"id\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained elevation of pulmonary arterial pressure imposes chronic pressure overload on the right ventricle. Hypertrophy compensates initially, but ischaemia, fibrosis, dilation and tricuspid regurgitation eventually reduce right ventricular output, producing systemic venous congestion, exertional syncope and death from right heart failure.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"right ventricular hypertrophy\"], \"role\": \"consequence\", \"locations\": [\"heart right ventricle\"]}}, {\"id\": \"Prostacyclin pathway therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Epoprostenol, treprostinil, iloprost and the oral prostacyclin receptor agonist selexipag restore prostacyclin signalling. Parenteral prostacyclin, especially intravenous epoprostenol, is added for high-risk disease, and efficacy is greater with parenteral than with non-parenteral therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"epoprostenol\", \"treprostinil\", \"selexipag\"]}}, {\"id\": \"Pulmonary Arterial Endothelial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary arterial endothelial cells lose homeostatic function: BMP receptor signalling is reduced (by germline lesion in the occult-variant fraction, and by acquired suppression otherwise), nitric-oxide and prostacyclin production fall while endothelin-1 rises, barrier integrity is lost, and an apoptosis-prone population is replaced by apoptosis-resistant, hyperproliferative cells. This is the conserved entry point into the shared pulmonary vascular remodeling module; IPAH substitutes an unidentified or occult-genetic insult for the germline BMPR2 lesion of heritable PAH.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary artery endothelial cell\"], \"biological_processes\": [\"BMP signaling pathway\", \"nitric oxide biosynthetic process\", \"endothelin receptor signaling pathway\"], \"role\": \"trigger\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Paracrine signals from the dysfunctional endothelium, compounded by inflammatory input, drive a proliferative, migratory and apoptosis-resistant phenotype in pulmonary artery smooth muscle cells, together with sustained vasoconstriction. In the small acutely vasoreactive IPAH subgroup, the vasoconstrictive component still dominates over fixed remodeling, which is why those patients respond durably to calcium-channel blockade.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pulmonary artery smooth muscle cell\"], \"biological_processes\": [\"smooth muscle cell proliferation\", \"resistance to apoptosis\", \"vasoconstriction\"], \"role\": \"amplifier\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Right ventricular failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right ventricular failure is the usual mode of death in untreated or refractory IPAH.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001708\"}}, {\"id\": \"Smoking history in the IPAH lung phenotype\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A smoking history, together with a severely reduced DLCO, defines the IPAH lung phenotype. Smoking is not a validated cause of classical IPAH; in this subgroup it marks a presumably smoking-related form of pulmonary vascular disease that behaves more like Group 3 pulmonary hypertension.\", \"meta\": {\"evidence_count\": 1, \"presence\": \"Positive\"}}, {\"id\": \"Sotatercept\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An ActRIIA-Fc ligand trap that sequesters activin-family ligands and rebalances activin/BMP signalling. It is the first approved PAH therapy directed at the TGF-beta-superfamily imbalance underlying vascular remodeling rather than at vascular tone alone, and is added when low-risk status is not achieved on background therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"sotatercept\"]}}, {\"id\": \"T and NK Cell CCL5-Mediated Immune-Vascular Crosstalk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Integrated analysis of IPAH lung transcriptomes, histopathology scoring and single-cell RNA sequencing identifies CXCL9, CCL5, GZMA and GZMK as inflammation-associated hub genes distinguishing IPAH lungs from controls, with CCL5 and GZMA expressed predominantly by T and NK cells. CCL5 mediates interaction of these lymphoid populations with pulmonary endothelial cells, smooth muscle cells and fibroblasts through multiple receptors, defining an adaptive immune-vascular amplification arm of IPAH remodeling. This is an IPAH-specific refinement of the generic perivascular-inflammation theme; it is discovery-stage and not a validated clinical target.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"T cell\", \"natural killer cell\"], \"biological_processes\": [\"inflammatory response\"], \"role\": \"amplifier\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining feature of IPAH is that no associated condition, drug or toxin exposure, or family history explains the disease after a complete evaluation. This is an epistemic rather than a biological null: IPAH is best modelled as a threshold disorder in which incompletely characterised genetic susceptibility, epigenetic dysregulation, sex-hormone biology and acquired vascular stresses combine to cross a disease threshold, with no single trigger identifiable in the individual patient. This node substitutes for the disorder-specific trigger that heritable PAH (a germline BMPR2-pathway lesion) and drug- or toxin-induced PAH (a culprit exposure) each supply, and it is the reason IPAH is a diagnosis of exclusion.\", \"meta\": {\"evidence_count\": 2, \"role\": \"trigger\", \"locations\": [\"pulmonary artery\"]}}], \"edges\": [{\"source\": \"Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Whatever the unresolved initiating insult, the earliest identifiable lesion in IPAH is dysfunction of the pulmonary arterial endothelium.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Occult Rare Variant Burden and Reclassification to Heritable PAH\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the variant-positive fraction, reduced BMP receptor signalling is the identifiable molecular cause of the endothelial lesion, as in heritable PAH.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Arterial Endothelial Dysfunction\", \"target\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of endothelium-derived vasodilator and antiproliferative signalling releases the medial smooth muscle compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary Arterial Endothelial Dysfunction\", \"target\": \"T and NK Cell CCL5-Mediated Immune-Vascular Crosstalk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Injured endothelium participates in chemokine-mediated recruitment of lymphoid cells to the pulmonary vascular wall.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"T and NK Cell CCL5-Mediated Immune-Vascular Crosstalk\", \"target\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chemokine-mediated immune-vascular crosstalk amplifies the proliferative response of the medial smooth muscle compartment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"target\": \"Obstructive Pulmonary Vascular Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Medial expansion and muscularisation of peripheral arterioles narrow the pulmonary vascular lumen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obstructive Pulmonary Vascular Remodeling\", \"target\": \"Increased Pulmonary Vascular Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fixed luminal obstruction, added to dynamic vasoconstriction, raises resistance across the pulmonary bed.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Pulmonary Vascular Resistance\", \"target\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated resistance imposes a chronic pressure load on the right ventricle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"target\": \"Exertional dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced cardiac output reserve produces exertional breathlessness.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced cardiac output reserve\"]}, {\"source\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"target\": \"Exertional syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inability to raise cardiac output during exertion causes syncope.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired cardiac output reserve\"]}, {\"source\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"target\": \"Right ventricular failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Maladaptive right ventricular remodeling culminates in overt failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Precapillary Pulmonary Arterial Hypertension with Right Ventricular Failure\", \"target\": \"Peripheral edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Right-heart congestion raises systemic venous pressure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"systemic venous congestion\"]}, {\"source\": \"Smoking history in the IPAH lung phenotype\", \"target\": \"Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"Also modulating rather than predisposing, and for a reason the entry states itself: smoking is not a validated cause of classical disease here, and in this subgroup it marks a presumably smoking-related pulmonary vascular disease that behaves more like pulmonary hypertension due to lung disease. What the exposure modifies is which entity the patient has rather than the mechanism within it, which is the same kind of claim as the absence link above and is why both point at the same node.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Absence of a recognised drug, toxin or associated-disease exposure\", \"target\": \"Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature\", \"predicate\": \"modulates\", \"is_orphan\": false, \"description\": \"The strangest link in this backfill and worth stating plainly: this records a classification criterion, not a mechanism. The exposure is an absence, so it cannot act on anything, and the node it targets is described by this entry as epistemic rather than biological, holding the fact that no cause has been found. Absence and node are therefore the same statement, which is why the link is direct, and modulating is used because no other value in the enum is honest for something that decides which entity you are looking at rather than what happens inside it. Identifying such an exposure moves the case out of this entry entirely.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endothelin receptor antagonist therapy\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nitric oxide-cGMP pathway therapy\", \"target\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Prostacyclin pathway therapy\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sotatercept\", \"target\": \"Obstructive Pulmonary Vascular Remodeling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sotatercept\", \"target\": \"Pulmonary Arterial Endothelial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Calcium channel blocker therapy in acute vasoresponders\", \"target\": \"Pulmonary Artery Smooth Muscle Cell Proliferation and Vasoconstriction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lung transplantation\", \"target\": \"Obstructive Pulmonary Vascular Remodeling\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5970,14 +6261,21 @@
                         Pulmonary arterial hypertension
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary arterial hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002092">HP:0002092</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002092</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6029,14 +6327,21 @@
                         Exertional syncope
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Syncope
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001279">HP:0001279</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001279" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001279</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6097,14 +6402,21 @@
                         Peripheral edema
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012398">HP:0012398</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012398</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral edema (HP:0012398). HP:0012398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6165,14 +6477,21 @@
                         Fatigue
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6224,14 +6543,21 @@
                         Exercise intolerance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exercise intolerance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003546</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6292,14 +6618,21 @@
                         Increased pulmonary vascular resistance
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased pulmonary vascular resistance
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005317" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005317">HP:0005317</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005317" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0005317</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased pulmonary vascular resistance (HP:0005317), qualified as course progressive. HP:0005317 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6369,14 +6702,21 @@
                         Exertional dyspnea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Exertional dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002875">HP:0002875</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002875</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exertional dyspnea (HP:0002875), qualified as course progressive. HP:0002875 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6446,14 +6786,21 @@
                         Right ventricular hypertrophy
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Right ventricular hypertrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001667" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001667">HP:0001667</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001667</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right ventricular hypertrophy (HP:0001667). HP:0001667 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6505,14 +6852,21 @@
                         Right ventricular failure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Right ventricular failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001708" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001708">HP:0001708</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right ventricular failure (HP:0001708). HP:0001708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6564,14 +6918,21 @@
                         Decreased DLCO
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Decreased DLCO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045051" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0045051">HP:0045051</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0045051</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Decreased DLCO (HP:0045051). HP:0045051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6669,13 +7030,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BMPR2
 
 
-    <a href="https://bioregistry.io/hgnc:1078" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1078">hgnc:1078</a>
+    <a href="https://bioregistry.io/hgnc:1078" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:1078</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BMPR2 (hgnc:1078). hgnc:1078 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6737,13 +7103,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TBX4
 
 
-    <a href="https://bioregistry.io/hgnc:11603" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11603">hgnc:11603</a>
+    <a href="https://bioregistry.io/hgnc:11603" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:11603</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBX4 (hgnc:11603). hgnc:11603 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6805,13 +7176,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ATP13A3
 
 
-    <a href="https://bioregistry.io/hgnc:24113" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:24113">hgnc:24113</a>
+    <a href="https://bioregistry.io/hgnc:24113" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:24113</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ATP13A3 (hgnc:24113). hgnc:24113 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6873,13 +7249,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SOX17
 
 
-    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18122">hgnc:18122</a>
+    <a href="https://bioregistry.io/hgnc:18122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:18122</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SOX17 (hgnc:18122). hgnc:18122 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6941,13 +7322,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GDF2
 
 
-    <a href="https://bioregistry.io/hgnc:4217" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4217">hgnc:4217</a>
+    <a href="https://bioregistry.io/hgnc:4217" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:4217</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GDF2 (hgnc:4217). hgnc:4217 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7018,7 +7404,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7048,17 +7439,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         endothelin receptor antagonist
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C28313" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C28313">NCIT:C28313</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C28313" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C28313</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses endothelin receptor antagonist (NCIT:C28313). NCIT:C28313 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         macitentan
@@ -7066,11 +7464,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_76607" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:76607">CHEBI:76607</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_76607" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-41">CHEBI:76607</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses macitentan (CHEBI:76607). CHEBI:76607 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         ambrisentan
@@ -7078,11 +7481,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_135949" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:135949">CHEBI:135949</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_135949" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:135949</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ambrisentan (CHEBI:135949). CHEBI:135949 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         bosentan
@@ -7090,10 +7498,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_51450" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:51450">CHEBI:51450</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_51450" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-43">CHEBI:51450</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses bosentan (CHEBI:51450). CHEBI:51450 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7166,7 +7577,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7196,17 +7612,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         sildenafil
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9139" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9139">CHEBI:9139</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9139" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:9139</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sildenafil (CHEBI:9139). CHEBI:9139 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         tadalafil
@@ -7214,11 +7637,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71940" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:71940">CHEBI:71940</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71940" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:71940</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses tadalafil (CHEBI:71940). CHEBI:71940 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         riociguat
@@ -7226,10 +7654,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_76018" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:76018">CHEBI:76018</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_76018" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-47">CHEBI:76018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses riociguat (CHEBI:76018). CHEBI:76018 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7302,7 +7733,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7332,17 +7768,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         epoprostenol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C61748" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C61748">NCIT:C61748</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C61748" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C61748</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses epoprostenol (NCIT:C61748). NCIT:C61748 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         treprostinil
@@ -7350,11 +7793,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50861" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:50861">CHEBI:50861</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50861" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:50861</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses treprostinil (CHEBI:50861). CHEBI:50861 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         selexipag
@@ -7362,10 +7810,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_90844" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:90844">CHEBI:90844</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_90844" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-51">CHEBI:90844</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses selexipag (CHEBI:90844). CHEBI:90844 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7438,7 +7889,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">targeted therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Targeted Therapy</span>
 
 
@@ -7469,16 +7925,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         sotatercept
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80038" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C80038">NCIT:C80038</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80038" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-53">NCIT:C80038</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses sotatercept (NCIT:C80038). NCIT:C80038 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7586,7 +8047,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7616,17 +8082,24 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         calcium channel blocker
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C333" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C333">NCIT:C333</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C333" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-55">NCIT:C333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses calcium channel blocker (NCIT:C333). NCIT:C333 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         nifedipine
@@ -7634,11 +8107,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:7565">CHEBI:7565</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-56">CHEBI:7565</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         amlodipine
@@ -7646,11 +8124,16 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_2668" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:2668">CHEBI:2668</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2668" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-57">CHEBI:2668</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses amlodipine (CHEBI:2668). CHEBI:2668 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
+
+
 
                     <span class="tag tag-treatment">
                         diltiazem
@@ -7658,10 +8141,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_101278" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:101278">CHEBI:101278</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_101278" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-58">CHEBI:101278</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses diltiazem (CHEBI:101278). CHEBI:101278 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -7756,7 +8242,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">organ transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-59">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -7861,6 +8352,29 @@
             <div class="item-box environmental-box anchor-target" id="environmental-smoking-history-in-the-ipah-lung-phenotype" data-dismech-node="Smoking history in the IPAH lung phenotype" data-dismech-type="environmental">
                 <div class="item-name">Smoking history in the IPAH lung phenotype</div>
 
+                <div class="tag-list" style="margin: 10px 0 8px 0;">
+
+
+
+                    <span class="tag tag-env">
+                        exposure to tobacco smoking
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-60">ECTO:6000029</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
+                    </span>
+
+
+
+                </div>
+
 
 
                 <div class="item-desc">A smoking history, together with a severely reduced DLCO, defines the IPAH lung phenotype. Smoking is not a validated cause of classical IPAH; in this subgroup it marks a presumably smoking-related form of pulmonary vascular disease that behaves more like Group 3 pulmonary hypertension.</div>
@@ -7900,6 +8414,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+
+                        <strong style="color: #115e59;">Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Also modulating rather than predisposing, and for a reason the entry states itself: smoking is not a validated cause of classical disease here, and in this subgroup it marks a presumably smoking-related pulmonary vascular disease that behaves more like pulmonary hypertension due to lung disease. What the exposure modifies is which entity the patient has rather than the mechanism within it, which is the same kind of claim as the absence link above and is why both point at the same node.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35777416" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35777416" target="_blank">PMID:35777416</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A cohort of patients meeting diagnostic criteria for IPAH with a distinct, presumably smoking-related form of pulmonary hypertension accompanied by a low DLCO, resemble patients with pulmonary hypertension due to lung disease rather than classical IPAH."</div>
+
+
+                <div class="evidence-explanation">Registry analysis identifying patients who meet the diagnostic criteria but have a presumably smoking-related form with low diffusing capacity, resembling pulmonary hypertension due to lung disease rather than the classical entity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7945,6 +8511,58 @@
     </details>
 
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            MODULATES
+                        </span>
+
+                        <strong style="color: #115e59;">Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature</strong>
+
+                        <span style="color: #0d9488;"> &mdash; The strangest link in this backfill and worth stating plainly: this records a classification criterion, not a mechanism. The exposure is an absence, so it cannot act on anything, and the node it targets is described by this entry as epistemic rather than biological, holding the fact that no cause has been found. Absence and node are therefore the same statement, which is why the link is direct, and modulating is used because no other value in the enum is honest for something that decides which entity you are looking at rather than what happens inside it. Identifying such an exposure moves the case out of this entry entirely.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/biomedicines13071773" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/biomedicines13071773" target="_blank">DOI:10.3390/biomedicines13071773</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The majority of PAH cases are idiopathic; other common etiologies include connective tissue disease-associated PAH, congenital heart disease, and portopulmonary hypertension."</div>
+
+
+                <div class="evidence-explanation">Names the associated aetiologies whose absence defines the idiopathic designation, recording that most cases are idiopathic while connective tissue disease, congenital heart disease and portopulmonary hypertension account for others. It supplies the exclusion list rather than any effect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -8313,16 +8931,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Exercise intolerance
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003546">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0003546</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical trial targets this phenotype
+This clinical trial targets Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -8368,6 +8991,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -9441,6 +10067,35 @@ genetic:
       idiopathic cases.
 environmental:
 - name: Smoking history in the IPAH lung phenotype
+  exposure_term:
+    preferred_term: exposure to tobacco smoking
+    term:
+      id: ECTO:6000029
+      label: exposure to tobacco smoking
+  influences_mechanisms:
+  - target: Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature
+    environmental_effect: MODULATES
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    description: &gt;-
+      Also modulating rather than predisposing, and for a reason the entry
+      states itself: smoking is not a validated cause of classical disease
+      here, and in this subgroup it marks a presumably smoking-related
+      pulmonary vascular disease that behaves more like pulmonary hypertension
+      due to lung disease. What the exposure modifies is which entity the
+      patient has rather than the mechanism within it, which is the same kind
+      of claim as the absence link above and is why both point at the same
+      node.
+    evidence:
+    - reference: PMID:35777416
+      reference_title: &#34;Phenotyping of idiopathic pulmonary arterial hypertension: a registry analysis.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;A cohort of patients meeting diagnostic criteria for IPAH with a distinct, presumably smoking-related form of pulmonary hypertension accompanied by a low DLCO, resemble patients with pulmonary hypertension due to lung disease rather than classical IPAH.&#34;
+      explanation: &gt;-
+        Registry analysis identifying patients who meet the diagnostic
+        criteria but have a presumably smoking-related form with low diffusing
+        capacity, resembling pulmonary hypertension due to lung disease rather
+        than the classical entity.
   presence: Positive
   description: &gt;-
     A smoking history, together with a severely reduced DLCO, defines the IPAH lung
@@ -9458,6 +10113,32 @@ environmental:
       Directly links smoking history to the distinct low-DLCO IPAH subgroup while separating
       it from classical IPAH.
 - name: Absence of a recognised drug, toxin or associated-disease exposure
+  influences_mechanisms:
+  - target: Unidentified Initiating Insult in a Susceptible Pulmonary Vasculature
+    environmental_effect: MODULATES
+    causal_link_type: DIRECT
+    description: &gt;-
+      The strangest link in this backfill and worth stating plainly: this
+      records a classification criterion, not a mechanism. The exposure is an
+      absence, so it cannot act on anything, and the node it targets is
+      described by this entry as epistemic rather than biological, holding the
+      fact that no cause has been found. Absence and node are therefore the
+      same statement, which is why the link is direct, and modulating is used
+      because no other value in the enum is honest for something that decides
+      which entity you are looking at rather than what happens inside it.
+      Identifying such an exposure moves the case out of this entry entirely.
+    evidence:
+    - reference: DOI:10.3390/biomedicines13071773
+      reference_title: &#34;State of the Art in Pulmonary Arterial Hypertension: Molecular Basis, Imaging Modalities, and Right Heart Failure Treatment&#34;
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The majority of PAH cases are idiopathic; other common etiologies include connective tissue disease-associated PAH, congenital heart disease, and portopulmonary hypertension.&#34;
+      explanation: &gt;-
+        Names the associated aetiologies whose absence defines the idiopathic
+        designation, recording that most cases are idiopathic while connective
+        tissue disease, congenital heart disease and portopulmonary
+        hypertension account for others. It supplies the exclusion list rather
+        than any effect.
   presence: Negative
   description: &gt;-
     IPAH requires that recognised PAH-associated exposures - anorexigens,
@@ -10843,7 +11524,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Idiopathic Pulmonary Arterial Hypertension", "mondoId": "MONDO:0001999", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Idiopathic_Pulmonary_Arterial_Hypertension", "yamlRevision": "ca7f9c71c948"};
+        const OS_CONFIG = {"diseaseName": "Idiopathic Pulmonary Arterial Hypertension", "mondoId": "MONDO:0001999", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Idiopathic_Pulmonary_Arterial_Hypertension", "yamlRevision": "92c552e1e838"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -11262,5 +11943,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

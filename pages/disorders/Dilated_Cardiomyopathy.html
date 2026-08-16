@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3837,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4187,16 +4355,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4223,16 +4396,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:12403</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4260,11 +4444,18 @@
         LMNA
 
 
-    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6636">hgnc:6636</a>
+    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6636</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LMNA (hgnc:6636). hgnc:6636 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4292,11 +4483,18 @@
         MYH7
 
 
-    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7577">hgnc:7577</a>
+    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:7577</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYH7 (hgnc:7577). hgnc:7577 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4324,11 +4522,18 @@
         MYH6
 
 
-    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7576">hgnc:7576</a>
+    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:7576</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4356,11 +4561,18 @@
         MYBPC3
 
 
-    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7551">hgnc:7551</a>
+    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7551</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4388,11 +4600,18 @@
         ACTC1
 
 
-    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:143">hgnc:143</a>
+    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:143</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4420,11 +4639,18 @@
         TPM1
 
 
-    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12010">hgnc:12010</a>
+    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:12010</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TPM1 (hgnc:12010). hgnc:12010 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4452,11 +4678,18 @@
         TNNT2
 
 
-    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11949">hgnc:11949</a>
+    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:11949</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNT2 (hgnc:11949). hgnc:11949 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4484,11 +4717,18 @@
         TNNC1
 
 
-    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11943">hgnc:11943</a>
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11943</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4516,11 +4756,18 @@
         TNNI3
 
 
-    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11947">hgnc:11947</a>
+    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11947</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNNI3 (hgnc:11947). hgnc:11947 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4548,11 +4795,18 @@
         MYL2
 
 
-    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7583">hgnc:7583</a>
+    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:7583</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYL2 (hgnc:7583). hgnc:7583 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4580,11 +4834,18 @@
         MYLK3
 
 
-    <a href="https://bioregistry.io/hgnc:29826" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29826">hgnc:29826</a>
+    <a href="https://bioregistry.io/hgnc:29826" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:29826</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYLK3 (hgnc:29826). hgnc:29826 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4612,11 +4873,18 @@
         DES
 
 
-    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2770">hgnc:2770</a>
+    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:2770</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DES (hgnc:2770). hgnc:2770 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4644,11 +4912,18 @@
         FLNC
 
 
-    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3756">hgnc:3756</a>
+    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:3756</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FLNC (hgnc:3756). hgnc:3756 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4676,11 +4951,18 @@
         VCL
 
 
-    <a href="https://bioregistry.io/hgnc:12665" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12665">hgnc:12665</a>
+    <a href="https://bioregistry.io/hgnc:12665" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:12665</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves VCL (hgnc:12665). hgnc:12665 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4708,11 +4990,18 @@
         LDB3
 
 
-    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15710">hgnc:15710</a>
+    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:15710</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LDB3 (hgnc:15710). hgnc:15710 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4740,11 +5029,18 @@
         TCAP
 
 
-    <a href="https://bioregistry.io/hgnc:11610" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11610">hgnc:11610</a>
+    <a href="https://bioregistry.io/hgnc:11610" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:11610</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TCAP (hgnc:11610). hgnc:11610 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4772,11 +5068,18 @@
         MYPN
 
 
-    <a href="https://bioregistry.io/hgnc:23246" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23246">hgnc:23246</a>
+    <a href="https://bioregistry.io/hgnc:23246" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:23246</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYPN (hgnc:23246). hgnc:23246 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4804,11 +5107,18 @@
         ANKRD1
 
 
-    <a href="https://bioregistry.io/hgnc:15819" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15819">hgnc:15819</a>
+    <a href="https://bioregistry.io/hgnc:15819" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:15819</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ANKRD1 (hgnc:15819). hgnc:15819 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4836,11 +5146,18 @@
         NEXN
 
 
-    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29557">hgnc:29557</a>
+    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:29557</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NEXN (hgnc:29557). hgnc:29557 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4868,11 +5185,18 @@
         NEBL
 
 
-    <a href="https://bioregistry.io/hgnc:16932" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16932">hgnc:16932</a>
+    <a href="https://bioregistry.io/hgnc:16932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:16932</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NEBL (hgnc:16932). hgnc:16932 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4900,11 +5224,18 @@
         NRAP
 
 
-    <a href="https://bioregistry.io/hgnc:7988" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7988">hgnc:7988</a>
+    <a href="https://bioregistry.io/hgnc:7988" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:7988</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NRAP (hgnc:7988). hgnc:7988 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4932,11 +5263,18 @@
         OBSCN
 
 
-    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15719">hgnc:15719</a>
+    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:15719</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves OBSCN (hgnc:15719). hgnc:15719 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4964,11 +5302,18 @@
         LMOD2
 
 
-    <a href="https://bioregistry.io/hgnc:6648" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6648">hgnc:6648</a>
+    <a href="https://bioregistry.io/hgnc:6648" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:6648</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LMOD2 (hgnc:6648). hgnc:6648 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -4996,11 +5341,18 @@
         TMOD1
 
 
-    <a href="https://bioregistry.io/hgnc:11871" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11871">hgnc:11871</a>
+    <a href="https://bioregistry.io/hgnc:11871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:11871</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TMOD1 (hgnc:11871). hgnc:11871 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5028,11 +5380,18 @@
         LAMA4
 
 
-    <a href="https://bioregistry.io/hgnc:6484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6484">hgnc:6484</a>
+    <a href="https://bioregistry.io/hgnc:6484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:6484</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves LAMA4 (hgnc:6484). hgnc:6484 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5060,11 +5419,18 @@
         CDH2
 
 
-    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1759">hgnc:1759</a>
+    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:1759</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDH2 (hgnc:1759). hgnc:1759 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5092,11 +5458,18 @@
         DSG2
 
 
-    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3049">hgnc:3049</a>
+    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:3049</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves DSG2 (hgnc:3049). hgnc:3049 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5124,11 +5497,18 @@
         MYZAP
 
 
-    <a href="https://bioregistry.io/hgnc:43444" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:43444">hgnc:43444</a>
+    <a href="https://bioregistry.io/hgnc:43444" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:43444</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves MYZAP (hgnc:43444). hgnc:43444 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5156,11 +5536,18 @@
         BAG3
 
 
-    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:939">hgnc:939</a>
+    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:939</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves BAG3 (hgnc:939). hgnc:939 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -5188,10 +5575,13 @@
         FLII
 
 
-    <a href="https://bioregistry.io/hgnc:3750" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3750">hgnc:3750</a>
+    <a href="https://bioregistry.io/hgnc:3750" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:3750</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FLII (hgnc:3750). hgnc:3750 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5219,16 +5609,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cardiac muscle contraction
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0060048">GO:0060048</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060048" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0060048</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves cardiac muscle contraction (GO:0060048). GO:0060048 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5245,6 +5640,7 @@
 
 
                 </div>
+
 
 
 
@@ -5352,16 +5748,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         renin-angiotensin regulation of aldosterone production
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002018" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002018">GO:0002018</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002018" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0002018</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves renin-angiotensin regulation of aldosterone production (GO:0002018). GO:0002018 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5378,6 +5779,7 @@
 
 
                 </div>
+
 
 
 
@@ -5454,16 +5856,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiac fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002548">CL:0002548</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002548" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-35">CL:0002548</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiac fibroblast, annotated with fibroblast of cardiac tissue (CL:0002548). CL:0002548 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5490,16 +5897,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5516,6 +5928,7 @@
 
 
                 </div>
+
 
 
 
@@ -5570,16 +5983,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-37">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5606,15 +6024,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RBM20
 
 
-    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27424">hgnc:27424</a>
+    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:27424</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RBM20 (hgnc:27424). hgnc:27424 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5634,6 +6059,7 @@
 
 
                 </div>
+
 
 
 
@@ -5693,16 +6119,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5719,6 +6150,7 @@
 
 
                 </div>
+
 
 
 
@@ -5775,6 +6207,7 @@
 
                 <div class="item-desc">Large-scale genome-wide association studies have identified dozens of loci associated with DCM, highlighting the role of common genetic variation in disease susceptibility. Enrichment analyses confirm the central role of the cardiomyocyte and contractile apparatus.
 </div>
+
 
 
 
@@ -5860,16 +6293,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cardiomyocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000746">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000746</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cardiomyocyte, annotated with cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5896,15 +6334,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PPA2
 
 
-    <a href="https://bioregistry.io/hgnc:28883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28883">hgnc:28883</a>
+    <a href="https://bioregistry.io/hgnc:28883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:28883</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PPA2 (hgnc:28883). hgnc:28883 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5932,16 +6377,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         mitochondrion organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007005">GO:0007005</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007005" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-42">GO:0007005</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves mitochondrion organization (GO:0007005). GO:0007005 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5958,6 +6408,7 @@
 
 
                 </div>
+
 
 
 
@@ -6072,14 +6523,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dilated cardiomyopathy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001644">HP:0001644</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001644</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6133,14 +6591,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6216,14 +6681,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Left ventricular systolic dysfunction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025169" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0025169">HP:0025169</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0025169" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0025169</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Left ventricular systolic dysfunction (HP:0025169). HP:0025169 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6299,14 +6771,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Palpitations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001962">HP:0001962</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001962</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6328,14 +6807,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arrhythmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011675">HP:0011675</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011675" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0011675</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6420,14 +6906,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peripheral edema
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012398">HP:0012398</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0012398</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral edema (HP:0012398). HP:0012398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6458,14 +6951,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dyspnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002094">HP:0002094</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002094</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6496,14 +6996,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Fatigue
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012378">HP:0012378</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0012378</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6569,13 +7076,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TTN
 
 
-    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12403">hgnc:12403</a>
+    <a href="https://bioregistry.io/hgnc:12403" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:12403</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6661,13 +7173,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LMNA
 
 
-    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6636">hgnc:6636</a>
+    <a href="https://bioregistry.io/hgnc:6636" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-52">hgnc:6636</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6753,13 +7270,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYH7
 
 
-    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7577">hgnc:7577</a>
+    <a href="https://bioregistry.io/hgnc:7577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:7577</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6845,13 +7367,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RBM20
 
 
-    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:27424">hgnc:27424</a>
+    <a href="https://bioregistry.io/hgnc:27424" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:27424</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RBM20 (hgnc:27424). hgnc:27424 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6937,13 +7464,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ABCC9
 
 
-    <a href="https://bioregistry.io/hgnc:60" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:60">hgnc:60</a>
+    <a href="https://bioregistry.io/hgnc:60" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:60</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ABCC9 (hgnc:60). hgnc:60 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7001,13 +7533,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ACTC1
 
 
-    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:143">hgnc:143</a>
+    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:143</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7065,13 +7602,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ANKRD1
 
 
-    <a href="https://bioregistry.io/hgnc:15819" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15819">hgnc:15819</a>
+    <a href="https://bioregistry.io/hgnc:15819" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:15819</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ANKRD1 (hgnc:15819). hgnc:15819 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7129,13 +7671,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BAG3
 
 
-    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:939">hgnc:939</a>
+    <a href="https://bioregistry.io/hgnc:939" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:939</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BAG3 (hgnc:939). hgnc:939 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7193,13 +7740,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: BAG5
 
 
-    <a href="https://bioregistry.io/hgnc:941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:941">hgnc:941</a>
+    <a href="https://bioregistry.io/hgnc:941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:941</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is BAG5 (hgnc:941). hgnc:941 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7257,13 +7809,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDH2
 
 
-    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1759">hgnc:1759</a>
+    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:1759</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7321,13 +7878,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CTF1
 
 
-    <a href="https://bioregistry.io/hgnc:2499" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2499">hgnc:2499</a>
+    <a href="https://bioregistry.io/hgnc:2499" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-61">hgnc:2499</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CTF1 (hgnc:2499). hgnc:2499 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7385,13 +7947,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DES
 
 
-    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:2770">hgnc:2770</a>
+    <a href="https://bioregistry.io/hgnc:2770" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-62">hgnc:2770</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DES (hgnc:2770). hgnc:2770 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7449,13 +8016,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: DSG2
 
 
-    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3049">hgnc:3049</a>
+    <a href="https://bioregistry.io/hgnc:3049" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-63">hgnc:3049</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is DSG2 (hgnc:3049). hgnc:3049 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7513,13 +8085,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FBXO32
 
 
-    <a href="https://bioregistry.io/hgnc:16731" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16731">hgnc:16731</a>
+    <a href="https://bioregistry.io/hgnc:16731" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-64">hgnc:16731</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FBXO32 (hgnc:16731). hgnc:16731 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7577,13 +8154,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLII
 
 
-    <a href="https://bioregistry.io/hgnc:3750" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3750">hgnc:3750</a>
+    <a href="https://bioregistry.io/hgnc:3750" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-65">hgnc:3750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLII (hgnc:3750). hgnc:3750 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7641,13 +8223,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FLNC
 
 
-    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3756">hgnc:3756</a>
+    <a href="https://bioregistry.io/hgnc:3756" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-66">hgnc:3756</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FLNC (hgnc:3756). hgnc:3756 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7705,13 +8292,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GATAD1
 
 
-    <a href="https://bioregistry.io/hgnc:29941" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29941">hgnc:29941</a>
+    <a href="https://bioregistry.io/hgnc:29941" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-67">hgnc:29941</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATAD1 (hgnc:29941). hgnc:29941 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7769,13 +8361,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GET3
 
 
-    <a href="https://bioregistry.io/hgnc:752" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:752">hgnc:752</a>
+    <a href="https://bioregistry.io/hgnc:752" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-68">hgnc:752</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GET3 (hgnc:752). hgnc:752 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7833,13 +8430,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: JPH2
 
 
-    <a href="https://bioregistry.io/hgnc:14202" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14202">hgnc:14202</a>
+    <a href="https://bioregistry.io/hgnc:14202" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-69">hgnc:14202</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is JPH2 (hgnc:14202). hgnc:14202 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7919,13 +8521,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LAMA4
 
 
-    <a href="https://bioregistry.io/hgnc:6484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6484">hgnc:6484</a>
+    <a href="https://bioregistry.io/hgnc:6484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-70">hgnc:6484</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7983,13 +8590,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LDB3
 
 
-    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15710">hgnc:15710</a>
+    <a href="https://bioregistry.io/hgnc:15710" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-71">hgnc:15710</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LDB3 (hgnc:15710). hgnc:15710 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8069,13 +8681,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: LMOD2
 
 
-    <a href="https://bioregistry.io/hgnc:6648" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:6648">hgnc:6648</a>
+    <a href="https://bioregistry.io/hgnc:6648" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-72">hgnc:6648</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is LMOD2 (hgnc:6648). hgnc:6648 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8133,13 +8750,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MIB1
 
 
-    <a href="https://bioregistry.io/hgnc:21086" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:21086">hgnc:21086</a>
+    <a href="https://bioregistry.io/hgnc:21086" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-73">hgnc:21086</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MIB1 (hgnc:21086). hgnc:21086 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8197,13 +8819,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYBPC3
 
 
-    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7551">hgnc:7551</a>
+    <a href="https://bioregistry.io/hgnc:7551" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-74">hgnc:7551</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8283,13 +8910,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYH6
 
 
-    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7576">hgnc:7576</a>
+    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-75">hgnc:7576</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8347,13 +8979,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYL2
 
 
-    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7583">hgnc:7583</a>
+    <a href="https://bioregistry.io/hgnc:7583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-76">hgnc:7583</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-76">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYL2 (hgnc:7583). hgnc:7583 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8411,13 +9048,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYLK3
 
 
-    <a href="https://bioregistry.io/hgnc:29826" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29826">hgnc:29826</a>
+    <a href="https://bioregistry.io/hgnc:29826" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-77">hgnc:29826</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-77">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYLK3 (hgnc:29826). hgnc:29826 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8475,13 +9117,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYPN
 
 
-    <a href="https://bioregistry.io/hgnc:23246" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:23246">hgnc:23246</a>
+    <a href="https://bioregistry.io/hgnc:23246" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-78">hgnc:23246</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-78">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYPN (hgnc:23246). hgnc:23246 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8539,13 +9186,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: MYZAP
 
 
-    <a href="https://bioregistry.io/hgnc:43444" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:43444">hgnc:43444</a>
+    <a href="https://bioregistry.io/hgnc:43444" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-79">hgnc:43444</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is MYZAP (hgnc:43444). hgnc:43444 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8603,13 +9255,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NEBL
 
 
-    <a href="https://bioregistry.io/hgnc:16932" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:16932">hgnc:16932</a>
+    <a href="https://bioregistry.io/hgnc:16932" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-80">hgnc:16932</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-80">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEBL (hgnc:16932). hgnc:16932 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8667,13 +9324,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NEXN
 
 
-    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29557">hgnc:29557</a>
+    <a href="https://bioregistry.io/hgnc:29557" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-81">hgnc:29557</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-81">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8731,13 +9393,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NRAP
 
 
-    <a href="https://bioregistry.io/hgnc:7988" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7988">hgnc:7988</a>
+    <a href="https://bioregistry.io/hgnc:7988" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-82">hgnc:7988</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NRAP (hgnc:7988). hgnc:7988 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8795,13 +9462,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: OBSCN
 
 
-    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:15719">hgnc:15719</a>
+    <a href="https://bioregistry.io/hgnc:15719" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-83">hgnc:15719</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-83">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is OBSCN (hgnc:15719). hgnc:15719 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8859,13 +9531,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PLEKHM2
 
 
-    <a href="https://bioregistry.io/hgnc:29131" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:29131">hgnc:29131</a>
+    <a href="https://bioregistry.io/hgnc:29131" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-84">hgnc:29131</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PLEKHM2 (hgnc:29131). hgnc:29131 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8923,13 +9600,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PPA2
 
 
-    <a href="https://bioregistry.io/hgnc:28883" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:28883">hgnc:28883</a>
+    <a href="https://bioregistry.io/hgnc:28883" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-85">hgnc:28883</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PPA2 (hgnc:28883). hgnc:28883 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8987,13 +9669,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PRDM16
 
 
-    <a href="https://bioregistry.io/hgnc:14000" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:14000">hgnc:14000</a>
+    <a href="https://bioregistry.io/hgnc:14000" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-86">hgnc:14000</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PRDM16 (hgnc:14000). hgnc:14000 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9051,13 +9738,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RPL3L
 
 
-    <a href="https://bioregistry.io/hgnc:10351" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10351">hgnc:10351</a>
+    <a href="https://bioregistry.io/hgnc:10351" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-87">hgnc:10351</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RPL3L (hgnc:10351). hgnc:10351 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9115,13 +9807,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RYR2
 
 
-    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10484">hgnc:10484</a>
+    <a href="https://bioregistry.io/hgnc:10484" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-88">hgnc:10484</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-88">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9179,13 +9876,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: SCN5A
 
 
-    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:10593">hgnc:10593</a>
+    <a href="https://bioregistry.io/hgnc:10593" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-89">hgnc:10593</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-89">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9243,13 +9945,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TBX20
 
 
-    <a href="https://bioregistry.io/hgnc:11598" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11598">hgnc:11598</a>
+    <a href="https://bioregistry.io/hgnc:11598" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-90">hgnc:11598</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-90">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBX20 (hgnc:11598). hgnc:11598 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9307,13 +10014,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TCAP
 
 
-    <a href="https://bioregistry.io/hgnc:11610" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11610">hgnc:11610</a>
+    <a href="https://bioregistry.io/hgnc:11610" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-91">hgnc:11610</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-91">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TCAP (hgnc:11610). hgnc:11610 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9371,13 +10083,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMOD1
 
 
-    <a href="https://bioregistry.io/hgnc:11871" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11871">hgnc:11871</a>
+    <a href="https://bioregistry.io/hgnc:11871" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-92">hgnc:11871</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-92">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMOD1 (hgnc:11871). hgnc:11871 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9435,13 +10152,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNC1
 
 
-    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11943">hgnc:11943</a>
+    <a href="https://bioregistry.io/hgnc:11943" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-93">hgnc:11943</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-93">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNC1 (hgnc:11943). hgnc:11943 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9499,13 +10221,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNI3
 
 
-    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11947">hgnc:11947</a>
+    <a href="https://bioregistry.io/hgnc:11947" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-94">hgnc:11947</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-94">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNI3 (hgnc:11947). hgnc:11947 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9585,13 +10312,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNI3K
 
 
-    <a href="https://bioregistry.io/hgnc:19661" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19661">hgnc:19661</a>
+    <a href="https://bioregistry.io/hgnc:19661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-95">hgnc:19661</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-95">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNI3K (hgnc:19661). hgnc:19661 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9649,13 +10381,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TNNT2
 
 
-    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11949">hgnc:11949</a>
+    <a href="https://bioregistry.io/hgnc:11949" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-96">hgnc:11949</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-96">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9713,13 +10450,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TPM1
 
 
-    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12010">hgnc:12010</a>
+    <a href="https://bioregistry.io/hgnc:12010" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-97">hgnc:12010</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-97">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TPM1 (hgnc:12010). hgnc:12010 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9777,13 +10519,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VCL
 
 
-    <a href="https://bioregistry.io/hgnc:12665" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12665">hgnc:12665</a>
+    <a href="https://bioregistry.io/hgnc:12665" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-98">hgnc:12665</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-98">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VCL (hgnc:12665). hgnc:12665 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -9850,7 +10597,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">ACE inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-99">ACE inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-99">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is ACE inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -9881,16 +10633,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ACE inhibitor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C247">NCIT:C247</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C247" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-100">NCIT:C247</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-100">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -9931,7 +10688,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">beta-blocker therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-101">beta-blocker therapy<span class="pill-tip" role="tooltip" id="pill-tip-101">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is beta-blocker therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -9995,7 +10757,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">SGLT2 inhibitor therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-102">SGLT2 inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-102">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is SGLT2 inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Pharmacotherapy</span>
 
 
@@ -10059,7 +10826,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cardiac resynchronization therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-103">cardiac resynchronization therapy<span class="pill-tip" role="tooltip" id="pill-tip-103">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cardiac resynchronization therapy, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10123,7 +10895,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">heart transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-104">heart transplantation<span class="pill-tip" role="tooltip" id="pill-tip-104">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is heart transplantation, annotated with Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -10169,7 +10946,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">implantable cardioverter-defibrillator placement</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-105">implantable cardioverter-defibrillator placement<span class="pill-tip" role="tooltip" id="pill-tip-105">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is implantable cardioverter-defibrillator placement, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -10215,7 +10997,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-106">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-106">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10671,6 +11458,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -13114,5 +13904,73 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

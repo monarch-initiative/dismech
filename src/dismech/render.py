@@ -29,6 +29,8 @@ from dismech.graph import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.term_labels import label_restates_title
+from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.yaml_io import safe_load, safe_load_path
 
 # Module-local alias kept so existing call sites read unchanged. The
@@ -48,11 +50,21 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     templates never change mid-build. Per-page filters are (re)assigned by each
     caller before rendering, which is safe because rendering is sequential.
     """
-    return Environment(
+    env = Environment(
         loader=FileSystemLoader(template_dir_str),
         autoescape=select_autoescape(["html", "j2"]),
         auto_reload=False,
     )
+    # Ontology-pill hover text (issue #8310). A global rather than a per-page
+    # filter: it depends only on the descriptor and its slot, never on which
+    # page is being rendered.
+    env.globals["term_tooltip"] = term_tooltip
+    env.globals["sample_type_descriptor"] = sample_type_descriptor
+    # Whether a bound term's label restates the card title it sits beside
+    # (issue #8402). A global for the same reason: it depends only on the two
+    # strings, never on which page is being rendered.
+    env.globals["label_restates_title"] = label_restates_title
+    return env
 
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")

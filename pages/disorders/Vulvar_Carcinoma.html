@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3667,6 +3833,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4295,10 +4463,16 @@
 
 
 
-    <span class="tag tag-discussion-kind">
+
+
+
+
+    <span class="tag tag-discussion-kind" tabindex="0" aria-describedby="pill-tip-1">
 
         patient-derived tumor organoid coculture perturbation experiment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">Relation: this experiment is of type this experiment type
+This experiment is of type patient-derived tumor organoid coculture perturbation experiment.</span>
     </span>
 
 
@@ -4348,15 +4522,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-organism">
 
         human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-2">NCBITaxon:9606</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
     </span>
 
 
@@ -4381,15 +4562,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-location">
 
         vulva
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0000997</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
     </span>
 
 
@@ -4417,16 +4605,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-cell">
 
         vulvar squamous carcinoma cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000312</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
     </span>
+
+
+
+
 
 
 
@@ -4454,10 +4653,13 @@
         cancer-associated fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000057</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
     </span>
 
 
@@ -4596,10 +4798,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-6">
 
         three-dimensional invasion assay
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">Relation: this readout is measured by this assay
+This readout is measured by three-dimensional invasion assay.</span>
     </span>
 
 
@@ -4659,10 +4867,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-7">
 
         histopathologic assessment
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">Relation: this readout is measured by this assay
+This readout is measured by histopathologic assessment.</span>
     </span>
 
 
@@ -4686,10 +4900,16 @@
 
 
 
-    <span class="tag tag-dataset">
+
+
+
+
+    <span class="tag tag-dataset" tabindex="0" aria-describedby="pill-tip-8">
 
         single-cell transcriptomic profiling
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">Relation: this readout is measured by this assay
+This readout is measured by single-cell transcriptomic profiling.</span>
     </span>
 
 
@@ -4891,16 +5111,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4926,6 +5151,8 @@
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         response to virus
@@ -4933,10 +5160,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0009615">GO:0009615</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009615" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0009615</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves response to virus (GO:0009615). GO:0009615 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4959,19 +5189,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5053,16 +5289,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5089,15 +5330,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5125,16 +5373,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         proteasome-mediated ubiquitin-dependent protein catabolic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0043161">GO:0043161</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0043161</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased proteasome-mediated ubiquitin-dependent protein catabolic process (GO:0043161). GO:0043161 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5155,6 +5408,7 @@
 
 
                 </div>
+
 
 
 
@@ -5245,16 +5499,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5281,15 +5540,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RB1
 
 
-    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9884">hgnc:9884</a>
+    <a href="https://bioregistry.io/hgnc:9884" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:9884</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RB1 (hgnc:9884). hgnc:9884 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5317,16 +5583,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         G1/S transition of mitotic cell cycle
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000082" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000082">GO:0000082</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000082" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0000082</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased G1/S transition of mitotic cell cycle (GO:0000082). GO:0000082 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5347,6 +5618,7 @@
 
 
                 </div>
+
 
 
 
@@ -5459,16 +5731,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5495,16 +5772,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5531,19 +5813,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5655,16 +5943,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5691,16 +5984,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         epithelial cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050673">GO:0050673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0050673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5727,19 +6025,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-23">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5827,16 +6131,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5863,16 +6172,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         epithelial cell proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050673">GO:0050673</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050673" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0050673</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased epithelial cell proliferation (GO:0050673). GO:0050673 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5899,19 +6213,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-26">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6021,16 +6341,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-27">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6057,16 +6382,27 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11998</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6094,11 +6430,18 @@
         TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11730">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:11730</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6126,11 +6469,18 @@
         CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1787">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:1787</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6158,11 +6508,18 @@
         NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7881">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:7881</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
+
+
+
+
 
 
 
@@ -6190,10 +6547,13 @@
         FAT1
 
 
-    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3595">hgnc:3595</a>
+    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:3595</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FAT1 (hgnc:3595). hgnc:3595 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6221,16 +6581,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         apoptotic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006915">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0006915</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6250,16 +6615,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6280,6 +6650,7 @@
 
 
                 </div>
+
 
 
 
@@ -6385,15 +6756,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8975">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:8975</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6421,16 +6799,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6451,6 +6834,7 @@
 
 
                 </div>
+
 
 
 
@@ -6526,15 +6910,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         HRAS
 
 
-    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5173">hgnc:5173</a>
+    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:5173</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves HRAS (hgnc:5173). hgnc:5173 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -6562,16 +6953,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         MAPK cascade
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000165">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0000165</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6591,16 +6987,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-39">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6621,6 +7022,7 @@
 
 
                 </div>
+
 
 
 
@@ -6689,16 +7091,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vulvar keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-40">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar keratinocyte, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6725,16 +7132,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell population proliferation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008283">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-41">GO:0008283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6761,19 +7173,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6807,16 +7225,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         vulvar squamous carcinoma cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-43">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6846,19 +7269,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         vulva
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-44">UBERON:0000997</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6982,19 +7411,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         inguinal lymph node
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001542" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001542">UBERON:0001542</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001542" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-45">UBERON:0001542</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in inguinal lymph node (UBERON:0001542). UBERON:0001542 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7067,17 +7502,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         cancer-associated fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-46">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7098,10 +7540,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-47">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7128,16 +7573,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cell migration
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016477">GO:0016477</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016477" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-48">GO:0016477</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased cell migration (GO:0016477). GO:0016477 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7179,6 +7629,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -7454,7 +7905,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjuvant Radiotherapy for Resected Node-Positive Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"After surgery for inguinofemoral node-positive vulvar cancer, adjuvant radiotherapy may reduce groin recurrence. The systematic-review evidence is explicitly very low certainty, so this entry does not claim a definitive overall-survival benefit or universal indication.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biopsy-Requiring Vulvar Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A persistent or suspicious vulvar lesion requires biopsy to establish or exclude vulvar carcinoma.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011355\"}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}], \"association\": \"Somatic Alteration\"}}, {\"id\": \"Cigarette Smoking Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cigarette smoking is an epidemiologic risk factor for vulvar cancer. The evidence supports a predisposing association, while the intermediate vulvar-carcinogenesis mechanism remains unspecified.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Clonal Squamous Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-driven cell-cycle deregulation or HPV-independent somatic driver accumulation leads to clonal proliferation and invasive squamous carcinoma in the vulvar epithelium.\", \"meta\": {\"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Concurrent Chemoradiotherapy for Advanced Tumors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Concurrent chemoradiotherapy is an effective alternative to surgery for advanced vulvar tumors, particularly when curative resection would be infeasible or excessively morbid.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Differentiated VIN is an HPV-independent precursor that occurs in older women and can arise in a lichen-sclerosus context. It has no expected spontaneous regression, progresses more rapidly than HPV-associated VIN, and is allocated to the more aggressive keratinizing squamous carcinoma pathway.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"preferred_term\": \"HPV-independent vulvar intraepithelial neoplasia\", \"term_id\": \"NCIT:C37272\", \"term_label\": \"Vulvar Intraepithelial Neoplasia, HPV-Independent\"}]}}, {\"id\": \"FAT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FAT1\"], \"gene_terms\": [{\"label\": \"FAT1\", \"id\": \"hgnc:3595\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"Fibroblast-Supported Tumor Invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblasts support invasion and tumor formation by a lichen-sclerosus-associated VSCC cell line in organotypic culture and xenograft models, implicating stromal support in local progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cancer-associated fibroblast\", \"vulvar squamous carcinoma cell\"], \"biological_processes\": [\"cell migration\"], \"experimental_models\": [{\"name\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"model_type\": \"CELL_LINE\", \"description\": \"Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.\"}]}}, {\"id\": \"First-Line Platinum-Based Chemotherapy Context in Advanced or Recurrent VSCC\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An ongoing maintenance trial enrolls patients after four to six cycles of first-line platinum-based chemotherapy for advanced or recurrent VSCC not amenable to curative surgery. This establishes a trial-treatment context, not comparative efficacy or a universal standard-of-care recommendation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"platinum compound\"]}}, {\"id\": \"HPV E6-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The high-risk HPV E6 oncoprotein binds p53 and stimulates its degradation through the ubiquitin-dependent protease system, weakening a central tumor-suppressor checkpoint in infected vulvar keratinocytes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}, {\"id\": \"HPV E7-Mediated pRB Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The high-risk HPV16 E7 oncoprotein binds the retinoblastoma protein pRB, disrupting RB-pathway control and enabling inappropriate cell-cycle entry in infected vulvar keratinocytes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"G1/S transition of mitotic cell cycle\"], \"genes\": [\"RB1\"], \"gene_terms\": [{\"label\": \"RB1\", \"id\": \"hgnc:9884\"}]}}, {\"id\": \"HPV Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prophylactic HPV vaccination is a prevention strategy intended to reduce the future burden of HPV-related cancers, including HPV-associated vulvar cancer.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"human papillomavirus vaccine\"]}}, {\"id\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-associated high-grade squamous intraepithelial lesion, historically usual-type VIN (uVIN or VIN 2/3), is the HPV-associated vulvar precursor. Compared with dVIN it generally has slower progression, and spontaneous regression can occur in the HPV-associated VIN spectrum.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"preferred_term\": \"high-grade vulvar squamous intraepithelial lesion\", \"term_id\": \"NCIT:C4761\", \"term_label\": \"High Grade Vulvar Squamous Intraepithelial Lesion\"}]}}, {\"id\": \"HPV-Independent Somatic Driver Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-independent VSCC is enriched for TERT promoter, TP53, CDKN2A, NOTCH1, and FAT1 alterations, supporting a tumor-suppressor and differentiation failure pathway distinct from HPV-driven tumors.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\"], \"genes\": [\"TP53\", \"TERT\", \"CDKN2A\", \"NOTCH1\", \"FAT1\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}, {\"label\": \"TERT\", \"id\": \"hgnc:11730\"}, {\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}, {\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}, {\"label\": \"FAT1\", \"id\": \"hgnc:3595\"}]}}, {\"id\": \"HRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HRAS\"], \"gene_terms\": [{\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"HRAS/RAS-MAPK Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HRAS mutations occur in a subset of VSCC and implicate RAS/MAPK signaling as an additional proliferation pathway in vulvar squamous carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"cell population proliferation\"], \"genes\": [\"HRAS\"], \"gene_terms\": [{\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}]}}, {\"id\": \"High-Risk HPV Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-risk HPV infection defines one major etiologic pathway of vulvar squamous cell carcinoma and precedes viral-oncoprotein disruption of host tumor-suppressor control.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"response to virus\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Inguinofemoral Nodal Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regional spread to inguinofemoral lymph nodes is a major adverse prognostic event in vulvar cancer and defines the target of groin-directed treatment.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"inguinal lymph node\"]}}, {\"id\": \"Inguinofemoral Radiotherapy for Sentinel-Node Micrometastases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In patients with sentinel-node micrometastases, inguinofemoral radiotherapy is a groin-treatment alternative to inguinofemoral lymphadenectomy with comparable efficacy and lower treatment-related morbidity. This evidence does not support a blanket definitive or adjuvant radiotherapy claim.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lichen sclerosus creates chronic vulvar inflammation, tissue remodeling, oxidative stress, scarring, and symptoms that can precede or accompany HPV-independent vulvar squamous carcinogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Lichen Sclerosus Maintenance Therapy and Lifelong Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In vulvar lichen sclerosus, regular topical corticosteroid maintenance and long-term follow-up support symptom control, detection of premalignant lesions, and risk management in the HPV-independent pathway. This is prevention and surveillance of a risk condition, not treatment of invasive VSCC.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Local Excision With Sentinel Node Biopsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early-stage vulvar cancer is treated by local excision of the primary tumor with sentinel node biopsy when nodal assessment is indicated, reducing morbidity compared with inguinofemoral lymphadenectomy in appropriate patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NOTCH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NOTCH1\"], \"gene_terms\": [{\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"PIK3CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"association\": \"Somatic Activating Mutation\"}}, {\"id\": \"PIK3CA-Activated HPV-Associated Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-associated vulvovaginal squamous carcinomas are enriched for PIK3CA activating mutations, implicating PI3K pathway activation in a subset of HPV-driven tumors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}]}}, {\"id\": \"Squamous Cell Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Invasive squamous carcinoma is the dominant malignant histology of vulvar carcinoma and produces the local lesion phenotypes through tumor growth and tissue destruction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar squamous carcinoma cell\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"Squamous Cell Carcinoma\", \"preferred_term\": \"Squamous Cell Carcinoma\", \"term_id\": \"NCIT:C2929\", \"term_label\": \"Squamous Cell Carcinoma\"}]}}, {\"id\": \"TERT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"association\": \"Somatic Promoter Alteration\"}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"VCC1 is a spontaneously immortalized human vulvar squamous carcinoma cell line derived from lichen-sclerosus-associated VSCC. Three-dimensional organotypic cultures and xenografts make it useful for studying tumor-stroma dependence, invasion, and drug response.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar squamous carcinoma cell\", \"cancer-associated fibroblast\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:31654625\"}}, {\"id\": \"Vulvar Lump or Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients with vulvar cancer may notice a vulvar lump or mass as part of the presenting lesion complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030416\"}}, {\"id\": \"Vulvar Pain or Soreness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vulvar pain is a common presenting symptom of vulvar cancer and may also occur in associated vulvar dermatoses.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030943\"}}, {\"id\": \"Vulvar Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vulvar pruritus is a common presenting symptom of vulvar cancer and can also occur in lichen sclerosus associated with the HPV-independent pathway.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032004\"}}, {\"id\": \"Vulvar Ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ulceration can be part of the presenting vulvar lesion complex in vulvar cancer.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200042\"}}, {\"id\": \"p16 Immunohistochemistry\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"readouts\": [{\"target\": \"High-Risk HPV Infection\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Block-type p16 staining is a reliable but imperfect surrogate readout of HPV association and does not itself identify an HPV genotype.\"}]}}, {\"id\": \"p53 Immunohistochemistry\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"readouts\": [{\"target\": \"HPV-Independent Somatic Driver Accumulation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"An aberrant p53 staining pattern supports the TP53-altered HPV-independent pathway but is not represented as a direct sequencing measurement of every somatic driver in this node.\"}]}}], \"edges\": [{\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV E6-Mediated p53 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic HPV infection permits expression of E6, which targets p53.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV E7-Mediated pRB Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic HPV infection permits expression of E7, which binds pRB.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent high-risk HPV infection defines the HPV-associated high-grade vulvar precursor pathway.\"}, {\"source\": \"HPV E6-Mediated p53 Degradation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of p53-mediated restraint permits survival and expansion of damaged keratinocytes.\"}, {\"source\": \"HPV E7-Mediated pRB Binding\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"E7-associated loss of RB restraint promotes transformed keratinocyte proliferation.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammatory and oxidative injury can create a permissive context for somatic driver selection.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Vulvar Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus commonly produces vulvar itching.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Vulvar Pain or Soreness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus commonly produces vulvar soreness and pain.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus can provide a clinical context for the HPV-independent differentiated precursor pathway.\"}, {\"source\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HPV-associated HSIL/uVIN can progress through further clonal expansion toward invasive carcinoma.\"}, {\"source\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"dVIN can progress through clonal expansion toward keratinizing invasive carcinoma.\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early HPV-independent somatic drivers can be selected within the differentiated precursor pathway.\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic driver alterations support malignant clonal expansion in vulvar keratinocytes.\"}, {\"source\": \"PIK3CA-Activated HPV-Associated Signaling\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K pathway activation supports tumor cell growth and survival.\"}, {\"source\": \"HRAS/RAS-MAPK Signaling Activation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HRAS-driven MAPK signaling can promote transformed keratinocyte proliferation.\"}, {\"source\": \"Clonal Squamous Cell Proliferation\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malignant clonal expansion produces invasive squamous carcinoma histology.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Biopsy-Requiring Vulvar Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive growth produces a persistent or suspicious lesion requiring biopsy.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Lump or Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanding tumor can present clinically as a vulvar lump or mass.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local tumor growth and tissue destruction can present as ulceration.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vulvar squamous carcinoma commonly presents with vulvar pruritus.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Pain or Soreness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vulvar squamous carcinoma commonly presents with vulvar pain.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive vulvar squamous carcinoma can spread to inguinofemoral lymph nodes.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Fibroblast-Supported Tumor Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established tumor cells interact with cancer-associated fibroblasts during invasion.\"}, {\"source\": \"Cigarette Smoking Exposure\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking increases vulvar-cancer risk through incompletely resolved intermediates and is therefore modeled as predisposing rather than as a direct tumor-triggering event.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Local Excision With Sentinel Node Biopsy\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inguinofemoral Radiotherapy for Sentinel-Node Micrometastases\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant Radiotherapy for Resected Node-Positive Disease\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Concurrent Chemoradiotherapy for Advanced Tumors\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"First-Line Platinum-Based Chemotherapy Context in Advanced or Recurrent VSCC\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HPV Vaccination\", \"target\": \"High-Risk HPV Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lichen Sclerosus Maintenance Therapy and Lifelong Surveillance\", \"target\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"target\": \"Fibroblast-Supported Tumor Invasion\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"p16 Immunohistochemistry\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Block-type p16 staining is a reliable but imperfect surrogate readout of HPV association and does not itself identify an HPV genotype.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"p53 Immunohistochemistry\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"An aberrant p53 staining pattern supports the TP53-altered HPV-independent pathway but is not represented as a direct sequencing measurement of every somatic driver in this node.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"TP53\", \"target\": \"HPV E6-Mediated p53 Degradation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PIK3CA\", \"target\": \"PIK3CA-Activated HPV-Associated Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TERT\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOTCH1\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FAT1\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HRAS\", \"target\": \"HRAS/RAS-MAPK Signaling Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adjuvant Radiotherapy for Resected Node-Positive Disease\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"After surgery for inguinofemoral node-positive vulvar cancer, adjuvant radiotherapy may reduce groin recurrence. The systematic-review evidence is explicitly very low certainty, so this entry does not claim a definitive overall-survival benefit or universal indication.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biopsy-Requiring Vulvar Lesion\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A persistent or suspicious vulvar lesion requires biopsy to establish or exclude vulvar carcinoma.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011355\"}}, {\"id\": \"CDKN2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDKN2A\"], \"gene_terms\": [{\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}], \"association\": \"Somatic Alteration\"}}, {\"id\": \"Cigarette Smoking Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Cigarette smoking is an epidemiologic risk factor for vulvar cancer. The evidence supports a predisposing association, while the intermediate vulvar-carcinogenesis mechanism remains unspecified.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Clonal Squamous Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-driven cell-cycle deregulation or HPV-independent somatic driver accumulation leads to clonal proliferation and invasive squamous carcinoma in the vulvar epithelium.\", \"meta\": {\"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Concurrent Chemoradiotherapy for Advanced Tumors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Concurrent chemoradiotherapy is an effective alternative to surgery for advanced vulvar tumors, particularly when curative resection would be infeasible or excessively morbid.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Differentiated VIN is an HPV-independent precursor that occurs in older women and can arise in a lichen-sclerosus context. It has no expected spontaneous regression, progresses more rapidly than HPV-associated VIN, and is allocated to the more aggressive keratinizing squamous carcinoma pathway.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"preferred_term\": \"HPV-independent vulvar intraepithelial neoplasia\", \"term_id\": \"NCIT:C37272\", \"term_label\": \"Vulvar Intraepithelial Neoplasia, HPV-Independent\"}]}}, {\"id\": \"FAT1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FAT1\"], \"gene_terms\": [{\"label\": \"FAT1\", \"id\": \"hgnc:3595\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"Fibroblast-Supported Tumor Invasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cancer-associated fibroblasts support invasion and tumor formation by a lichen-sclerosus-associated VSCC cell line in organotypic culture and xenograft models, implicating stromal support in local progression.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cancer-associated fibroblast\", \"vulvar squamous carcinoma cell\"], \"biological_processes\": [\"cell migration\"], \"experimental_models\": [{\"name\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"model_type\": \"CELL_LINE\", \"description\": \"Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.\"}]}}, {\"id\": \"First-Line Platinum-Based Chemotherapy Context in Advanced or Recurrent VSCC\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An ongoing maintenance trial enrolls patients after four to six cycles of first-line platinum-based chemotherapy for advanced or recurrent VSCC not amenable to curative surgery. This establishes a trial-treatment context, not comparative efficacy or a universal standard-of-care recommendation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"platinum compound\"]}}, {\"id\": \"HPV E6-Mediated p53 Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The high-risk HPV E6 oncoprotein binds p53 and stimulates its degradation through the ubiquitin-dependent protease system, weakening a central tumor-suppressor checkpoint in infected vulvar keratinocytes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"proteasome-mediated ubiquitin-dependent protein catabolic process\"], \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}]}}, {\"id\": \"HPV E7-Mediated pRB Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The high-risk HPV16 E7 oncoprotein binds the retinoblastoma protein pRB, disrupting RB-pathway control and enabling inappropriate cell-cycle entry in infected vulvar keratinocytes.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"G1/S transition of mitotic cell cycle\"], \"genes\": [\"RB1\"], \"gene_terms\": [{\"label\": \"RB1\", \"id\": \"hgnc:9884\"}]}}, {\"id\": \"HPV Vaccination\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prophylactic HPV vaccination is a prevention strategy intended to reduce the future burden of HPV-related cancers, including HPV-associated vulvar cancer.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"human papillomavirus vaccine\"]}}, {\"id\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-associated high-grade squamous intraepithelial lesion, historically usual-type VIN (uVIN or VIN 2/3), is the HPV-associated vulvar precursor. Compared with dVIN it generally has slower progression, and spontaneous regression can occur in the HPV-associated VIN spectrum.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"epithelial cell proliferation\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"preferred_term\": \"high-grade vulvar squamous intraepithelial lesion\", \"term_id\": \"NCIT:C4761\", \"term_label\": \"High Grade Vulvar Squamous Intraepithelial Lesion\"}]}}, {\"id\": \"HPV-Independent Somatic Driver Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-independent VSCC is enriched for TERT promoter, TP53, CDKN2A, NOTCH1, and FAT1 alterations, supporting a tumor-suppressor and differentiation failure pathway distinct from HPV-driven tumors.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\"], \"genes\": [\"TP53\", \"TERT\", \"CDKN2A\", \"NOTCH1\", \"FAT1\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}, {\"label\": \"TERT\", \"id\": \"hgnc:11730\"}, {\"label\": \"CDKN2A\", \"id\": \"hgnc:1787\"}, {\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}, {\"label\": \"FAT1\", \"id\": \"hgnc:3595\"}]}}, {\"id\": \"HRAS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"HRAS\"], \"gene_terms\": [{\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"HRAS/RAS-MAPK Signaling Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HRAS mutations occur in a subset of VSCC and implicate RAS/MAPK signaling as an additional proliferation pathway in vulvar squamous carcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"MAPK cascade\", \"cell population proliferation\"], \"genes\": [\"HRAS\"], \"gene_terms\": [{\"label\": \"HRAS\", \"id\": \"hgnc:5173\"}]}}, {\"id\": \"High-Risk HPV Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-risk HPV infection defines one major etiologic pathway of vulvar squamous cell carcinoma and precedes viral-oncoprotein disruption of host tumor-suppressor control.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"response to virus\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Inguinofemoral Nodal Metastasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regional spread to inguinofemoral lymph nodes is a major adverse prognostic event in vulvar cancer and defines the target of groin-directed treatment.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"inguinal lymph node\"]}}, {\"id\": \"Inguinofemoral Radiotherapy for Sentinel-Node Micrometastases\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In patients with sentinel-node micrometastases, inguinofemoral radiotherapy is a groin-treatment alternative to inguinofemoral lymphadenectomy with comparable efficacy and lower treatment-related morbidity. This evidence does not support a blanket definitive or adjuvant radiotherapy claim.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lichen sclerosus creates chronic vulvar inflammation, tissue remodeling, oxidative stress, scarring, and symptoms that can precede or accompany HPV-independent vulvar squamous carcinogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar keratinocyte\"], \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"vulva\"]}}, {\"id\": \"Lichen Sclerosus Maintenance Therapy and Lifelong Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In vulvar lichen sclerosus, regular topical corticosteroid maintenance and long-term follow-up support symptom control, detection of premalignant lesions, and risk management in the HPV-independent pathway. This is prevention and surveillance of a risk condition, not treatment of invasive VSCC.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Local Excision With Sentinel Node Biopsy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early-stage vulvar cancer is treated by local excision of the primary tumor with sentinel node biopsy when nodal assessment is indicated, reducing morbidity compared with inguinofemoral lymphadenectomy in appropriate patients.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"NOTCH1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NOTCH1\"], \"gene_terms\": [{\"label\": \"NOTCH1\", \"id\": \"hgnc:7881\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"PIK3CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"association\": \"Somatic Activating Mutation\"}}, {\"id\": \"PIK3CA-Activated HPV-Associated Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"HPV-associated vulvovaginal squamous carcinomas are enriched for PIK3CA activating mutations, implicating PI3K pathway activation in a subset of HPV-driven tumors.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"], \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}]}}, {\"id\": \"Squamous Cell Carcinoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Invasive squamous carcinoma is the dominant malignant histology of vulvar carcinoma and produces the local lesion phenotypes through tumor growth and tissue destruction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vulvar squamous carcinoma cell\"], \"locations\": [\"vulva\"], \"histopathology_terms\": [{\"name\": \"Squamous Cell Carcinoma\", \"preferred_term\": \"Squamous Cell Carcinoma\", \"term_id\": \"NCIT:C2929\", \"term_label\": \"Squamous Cell Carcinoma\"}]}}, {\"id\": \"TERT\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TERT\"], \"gene_terms\": [{\"label\": \"TERT\", \"id\": \"hgnc:11730\"}], \"association\": \"Somatic Promoter Alteration\"}}, {\"id\": \"TP53\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TP53\"], \"gene_terms\": [{\"label\": \"TP53\", \"id\": \"hgnc:11998\"}], \"association\": \"Somatic Mutation\"}}, {\"id\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"VCC1 is a spontaneously immortalized human vulvar squamous carcinoma cell line derived from lichen-sclerosus-associated VSCC. Three-dimensional organotypic cultures and xenografts make it useful for studying tumor-stroma dependence, invasion, and drug response.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"vulvar squamous carcinoma cell\", \"cancer-associated fibroblast\"], \"model_type\": \"CELL_LINE\", \"publication\": \"PMID:31654625\"}}, {\"id\": \"Vulvar Lump or Mass\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patients with vulvar cancer may notice a vulvar lump or mass as part of the presenting lesion complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030416\"}}, {\"id\": \"Vulvar Pain or Soreness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vulvar pain is a common presenting symptom of vulvar cancer and may also occur in associated vulvar dermatoses.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030943\"}}, {\"id\": \"Vulvar Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vulvar pruritus is a common presenting symptom of vulvar cancer and can also occur in lichen sclerosus associated with the HPV-independent pathway.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0032004\"}}, {\"id\": \"Vulvar Ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ulceration can be part of the presenting vulvar lesion complex in vulvar cancer.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200042\"}}, {\"id\": \"p16 Immunohistochemistry\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"readouts\": [{\"target\": \"High-Risk HPV Infection\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Block-type p16 staining is a reliable but imperfect surrogate readout of HPV association and does not itself identify an HPV genotype.\"}]}}, {\"id\": \"p53 Immunohistochemistry\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"readouts\": [{\"target\": \"HPV-Independent Somatic Driver Accumulation\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"An aberrant p53 staining pattern supports the TP53-altered HPV-independent pathway but is not represented as a direct sequencing measurement of every somatic driver in this node.\"}]}}], \"edges\": [{\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV E6-Mediated p53 Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic HPV infection permits expression of E6, which targets p53.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV E7-Mediated pRB Binding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oncogenic HPV infection permits expression of E7, which binds pRB.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent high-risk HPV infection defines the HPV-associated high-grade vulvar precursor pathway.\"}, {\"source\": \"HPV E6-Mediated p53 Degradation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of p53-mediated restraint permits survival and expansion of damaged keratinocytes.\"}, {\"source\": \"HPV E7-Mediated pRB Binding\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"E7-associated loss of RB restraint promotes transformed keratinocyte proliferation.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammatory and oxidative injury can create a permissive context for somatic driver selection.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Vulvar Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus commonly produces vulvar itching.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Vulvar Pain or Soreness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus commonly produces vulvar soreness and pain.\"}, {\"source\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"target\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Lichen sclerosus can provide a clinical context for the HPV-independent differentiated precursor pathway.\"}, {\"source\": \"HPV-Associated High-Grade Squamous Intraepithelial Lesion (HSIL/uVIN)\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HPV-associated HSIL/uVIN can progress through further clonal expansion toward invasive carcinoma.\"}, {\"source\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"dVIN can progress through clonal expansion toward keratinizing invasive carcinoma.\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"Differentiated Vulvar Intraepithelial Neoplasia (dVIN)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Early HPV-independent somatic drivers can be selected within the differentiated precursor pathway.\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic driver alterations support malignant clonal expansion in vulvar keratinocytes.\"}, {\"source\": \"PIK3CA-Activated HPV-Associated Signaling\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PI3K pathway activation supports tumor cell growth and survival.\"}, {\"source\": \"HRAS/RAS-MAPK Signaling Activation\", \"target\": \"Clonal Squamous Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"HRAS-driven MAPK signaling can promote transformed keratinocyte proliferation.\"}, {\"source\": \"Clonal Squamous Cell Proliferation\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Malignant clonal expansion produces invasive squamous carcinoma histology.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Biopsy-Requiring Vulvar Lesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive growth produces a persistent or suspicious lesion requiring biopsy.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Lump or Mass\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expanding tumor can present clinically as a vulvar lump or mass.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local tumor growth and tissue destruction can present as ulceration.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vulvar squamous carcinoma commonly presents with vulvar pruritus.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Vulvar Pain or Soreness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vulvar squamous carcinoma commonly presents with vulvar pain.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasive vulvar squamous carcinoma can spread to inguinofemoral lymph nodes.\"}, {\"source\": \"Squamous Cell Carcinoma\", \"target\": \"Fibroblast-Supported Tumor Invasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Established tumor cells interact with cancer-associated fibroblasts during invasion.\"}, {\"source\": \"Cigarette Smoking Exposure\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Smoking increases vulvar-cancer risk through incompletely resolved intermediates and is therefore modeled as predisposing rather than as a direct tumor-triggering event.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Local Excision With Sentinel Node Biopsy\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inguinofemoral Radiotherapy for Sentinel-Node Micrometastases\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Adjuvant Radiotherapy for Resected Node-Positive Disease\", \"target\": \"Inguinofemoral Nodal Metastasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Concurrent Chemoradiotherapy for Advanced Tumors\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"First-Line Platinum-Based Chemotherapy Context in Advanced or Recurrent VSCC\", \"target\": \"Squamous Cell Carcinoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"HPV Vaccination\", \"target\": \"High-Risk HPV Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lichen Sclerosus Maintenance Therapy and Lifelong Surveillance\", \"target\": \"Lichen Sclerosus Inflammatory Microenvironment\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"VCC1 Lichen-Sclerosus-Associated VSCC Cell Line\", \"target\": \"Fibroblast-Supported Tumor Invasion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.\"}, {\"source\": \"High-Risk HPV Infection\", \"target\": \"p16 Immunohistochemistry\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Block-type p16 staining is a reliable but imperfect surrogate readout of HPV association and does not itself identify an HPV genotype.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"HPV-Independent Somatic Driver Accumulation\", \"target\": \"p53 Immunohistochemistry\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"An aberrant p53 staining pattern supports the TP53-altered HPV-independent pathway but is not represented as a direct sequencing measurement of every somatic driver in this node.\", \"relationship\": \"CORRELATES_WITH\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"TP53\", \"target\": \"HPV E6-Mediated p53 Degradation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TP53\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PIK3CA\", \"target\": \"PIK3CA-Activated HPV-Associated Signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TERT\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDKN2A\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NOTCH1\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FAT1\", \"target\": \"HPV-Independent Somatic Driver Accumulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"HRAS\", \"target\": \"HRAS/RAS-MAPK Signaling Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7493,14 +7944,23 @@
                         Biopsy-Requiring Vulvar Lesion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Localized skin lesion
+
+                        <span class="phenotype-term-label">Localized skin lesion</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011355" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011355">HP:0011355</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011355" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0011355</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is vulvar lesion, annotated with Localized skin lesion (HP:0011355). HP:0011355 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7552,14 +8012,23 @@
                         Vulvar Ulcer
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Skin ulcer
+
+                        <span class="phenotype-term-label">Skin ulcer</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0200042">HP:0200042</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0200042</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is vulvar ulcer, annotated with Skin ulcer (HP:0200042). HP:0200042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7620,14 +8089,23 @@
                         Vulvar Lump or Mass
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vulvar neoplasm
+
+                        <span class="phenotype-term-label">Vulvar neoplasm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030416" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030416">HP:0030416</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030416" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0030416</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is vulvar neoplasm (HP:0030416). HP:0030416 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7679,14 +8157,23 @@
                         Vulvar Pruritus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pruritus vulvae
+
+                        <span class="phenotype-term-label">Pruritus vulvae</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032004" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0032004">HP:0032004</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0032004" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0032004</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is pruritus vulvae (HP:0032004). HP:0032004 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7760,14 +8247,23 @@
                         Vulvar Pain or Soreness
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Vulvodynia
+
+                        <span class="phenotype-term-label">Vulvodynia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030943" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030943">HP:0030943</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030943" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0030943</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is vulvodynia (HP:0030943). HP:0030943 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7887,13 +8383,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TP53
 
 
-    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11998">hgnc:11998</a>
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:11998</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7951,13 +8452,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:8975">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:8975</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8015,13 +8521,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TERT
 
 
-    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11730">hgnc:11730</a>
+    <a href="https://bioregistry.io/hgnc:11730" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:11730</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8079,13 +8590,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CDKN2A
 
 
-    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1787">hgnc:1787</a>
+    <a href="https://bioregistry.io/hgnc:1787" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:1787</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8143,13 +8659,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7881">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:7881</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8207,13 +8728,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: FAT1
 
 
-    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:3595">hgnc:3595</a>
+    <a href="https://bioregistry.io/hgnc:3595" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:3595</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8271,13 +8797,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: HRAS
 
 
-    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:5173">hgnc:5173</a>
+    <a href="https://bioregistry.io/hgnc:5173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-60">hgnc:5173</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is HRAS (hgnc:5173). hgnc:5173 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -8344,7 +8875,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -8440,7 +8976,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">radiation therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
@@ -8536,7 +9077,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">radiation therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Radiation Therapy</span>
 
 
@@ -8654,7 +9200,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemoradiotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">chemoradiotherapy<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemoradiotherapy (NCIT:C94626). NCIT:C94626 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemoradiotherapy</span>
 
 
@@ -8750,7 +9301,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">chemotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Chemotherapy</span>
 
 
@@ -8781,16 +9337,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         platinum compound
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1450" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1450">NCIT:C1450</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1450" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-66">NCIT:C1450</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses platinum compound (NCIT:C1450). NCIT:C1450 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8863,7 +9424,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">vaccination</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">vaccination<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
 
 
@@ -8894,16 +9460,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         human papillomavirus vaccine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C1951" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C1951">NCIT:C1951</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C1951" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-68">NCIT:C1951</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses human papillomavirus vaccine, annotated with Human Papilloma Virus Vaccine (NCIT:C1951). NCIT:C1951 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8998,7 +9569,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">topical corticosteroid therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-69">topical corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-69">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is topical corticosteroid therapy (NCIT:C122078). NCIT:C122078 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Topical Corticosteroid Therapy</span>
 
 
@@ -9127,16 +9703,21 @@
 
                 <div class="tag-list" style="margin: 10px 0 8px 0;">
 
+
+
                     <span class="tag tag-env">
                         cigarette smoking exposure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" title="Open ECTO:0100003">ECTO:0100003</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0100003" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-70">ECTO:0100003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+Relation: this environmental factor is this exposure
+This environmental factor is cigarette smoking exposure, annotated with exposure to cigarette smoking (ECTO:0100003). ECTO:0100003 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
 
 
@@ -9498,9 +10079,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" tabindex="0" aria-describedby="pill-tip-71">
                         Recurrent, persistent, metastatic, or locally advanced vulvar cancer
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Relation: this clinical trial targets this phenotype
+This clinical trial targets Recurrent, persistent, metastatic, or locally advanced vulvar cancer.</span>
                     </span>
 
                 </div>
@@ -9557,9 +10142,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" tabindex="0" aria-describedby="pill-tip-72">
                         Advanced or recurrent vulvar squamous cell carcinoma
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Relation: this clinical trial targets this phenotype
+This clinical trial targets Advanced or recurrent vulvar squamous cell carcinoma.</span>
                     </span>
 
                 </div>
@@ -9616,9 +10205,13 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
-                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
+
+
+                    <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;" tabindex="0" aria-describedby="pill-tip-73">
                         Vulvar cancer
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-73">Relation: this clinical trial targets this phenotype
+This clinical trial targets Vulvar cancer.</span>
                     </span>
 
                 </div>
@@ -9686,26 +10279,36 @@
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         vulvar squamous carcinoma cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-74">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses vulvar squamous carcinoma cell, annotated with keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-cell">
 
                         cancer-associated fibroblast
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000057">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-75">CL:0000057</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-75">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses cancer-associated fibroblast, annotated with fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -9715,30 +10318,40 @@
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-76">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-76">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             vulva
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0000997">UBERON:0000997</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-77">UBERON:0000997</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-77">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses vulva, annotated with mammalian vulva (UBERON:0000997). UBERON:0000997 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -9770,14 +10383,19 @@
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-fibroblast-supported-tumor-invasion">Fibroblast-Supported Tumor Invasion</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-fibroblast-supported-tumor-invasion">Fibroblast-Supported Tumor Invasion</a>
+
+
+
+                <span class="crosslink-desc">Tests whether cancer-associated fibroblasts support VSCC invasion and tumor formation.</span>
+
+
 
 
 
@@ -9816,10 +10434,11 @@
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -9914,6 +10533,9 @@
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -12894,5 +13516,73 @@ These features are highlighted in recent clinical overviews and updates. (corte2
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

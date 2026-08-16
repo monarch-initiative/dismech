@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3672,6 +3838,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4656,16 +4824,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cardiac neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011012">CL:0011012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0011012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cardiac neural crest cell, annotated with neural crest cell (CL:0011012). CL:0011012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4692,16 +4865,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         cardiac neural crest cell development involved in outflow tract morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061309" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061309">GO:0061309</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061309" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0061309</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cardiac neural crest cell development involved in outflow tract morphogenesis (GO:0061309). GO:0061309 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4710,6 +4888,8 @@
     <span class="tag tag-modifier">
         ↓ DECREASED
     </span>
+
+
 
 
 
@@ -4727,10 +4907,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001755">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001755</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4757,16 +4940,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Outflow tract
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004145" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004145">UBERON:0004145</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004145" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-4">UBERON:0004145</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Outflow tract (UBERON:0004145). UBERON:0004145 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4800,6 +4988,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -4873,16 +5062,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         outflow tract septum morphogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003148" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003148">GO:0003148</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003148" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0003148</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves outflow tract septum morphogenesis (GO:0003148), qualified as loss of function. GO:0003148 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4909,17 +5103,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Truncus arteriosus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002061" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002061">UBERON:0002061</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002061" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-6">UBERON:0002061</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Truncus arteriosus (UBERON:0002061). UBERON:0002061 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         Outflow tract septum
@@ -4927,10 +5128,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004142" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004142">UBERON:0004142</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004142" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0004142</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Outflow tract septum (UBERON:0004142). UBERON:0004142 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -4964,6 +5168,7 @@
 
                     </div>
                 </div>
+
 
 
 
@@ -5040,19 +5245,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Interventricular septum
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002094">UBERON:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002094</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Interventricular septum (UBERON:0002094). UBERON:0002094 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5158,6 +5369,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5231,19 +5443,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002012">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5331,6 +5549,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5389,6 +5608,7 @@
 
                 <div class="item-desc">Coronary origins are abnormal in a large fraction of cases, because the coronary buds address a single unseptated root rather than the normal paired aortic sinuses. There is no single consistent pattern, which is precisely the problem: the surgeon must map the coronaries individually before repair, and an unrecognised anomalous course is an independent driver of perioperative mortality.
 </div>
+
 
 
 
@@ -5501,6 +5721,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5542,19 +5763,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         Pulmonary artery
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002012">UBERON:0002012</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in Pulmonary artery (UBERON:0002012). UBERON:0002012 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5569,6 +5796,7 @@
 
                 <div class="item-desc">Ischaemic injury around the time of repair, from anomalous coronary anatomy, from coronary distortion during root reconstruction, or from the mismatch between a volume-loaded ventricle and a diastolic pressure lowered by truncal regurgitation. It is one of the mechanisms behind an in-hospital mortality that remains around one in ten even in the contemporary era.
 </div>
+
 
 
 
@@ -5646,6 +5874,7 @@
 
 
 
+
 	            </div>
 
         </div>
@@ -5673,7 +5902,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac neural crest and second heart field program disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The outflow tract is built by two cell populations acting together: cardiac neural crest cells migrating through pharyngeal arches three, four, and six to form the elastogenic smooth muscle of the aorticopulmonary septum, and second heart field mesoderm adding myocardium to the elongating outflow tract. Their crosstalk is patterned by TBX, GATA, and NKX transcription factors and by FGF, BMP, and Wnt signalling. Disruption anywhere in this unit, whether by 22q11.2 deletion, a monogenic variant, or a teratogen, converges on the same failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac neural crest cell\"], \"biological_processes\": [\"cardiac neural crest cell development involved in outflow tract morphogenesis\", \"neural crest cell migration\"], \"role\": \"trigger\", \"locations\": [\"Outflow tract\"], \"experimental_models\": [{\"name\": \"Splotch mutant mouse\", \"model_type\": \"OTHER\", \"description\": \"Splotch disrupts neural-crest-derived cell populations, which is the trigger node here.\\n\"}, {\"name\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"model_type\": \"OTHER\", \"description\": \"Tbx1 inactivation in anterior heart field mesoderm models the second heart field arm of the trigger node, complementing the neural crest arm modelled by Splotch.\\n\"}]}}, {\"id\": \"Coronary ostial anomaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Coronary origins are abnormal in a large fraction of cases, because the coronary buds address a single unseptated root rather than the normal paired aortic sinuses. There is no single consistent pattern, which is precisely the problem: the surgeon must map the coronaries individually before repair, and an unrecognised anomalous course is an independent driver of perioperative mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"mechanism\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild central cyanosis from birth, reflecting obligatory mixing rather than restricted pulmonary flow.\\n\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000961\"}}, {\"id\": \"Extracorporeal membrane oxygenation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rescue support, used in about seven percent of these admissions. Its association with a very high mortality odds ratio should be read as severity marking rather than harm: it is used in infants who are dying, and the confounding by indication is total.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of aorticopulmonary septation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining embryologic event, occurring in weeks five to eight of human gestation. The conotruncal ridges fail to fuse and spiral, so no aorticopulmonary septum divides the common trunk into aorta and pulmonary trunk. The same septal deficiency accounts for the ventricular septal defect, because the conal septum that would have closed the outflow portion of the interventricular septum is absent or malformed. That is why the ventricular septal defect here is not an independent second lesion but part of the same failure.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"outflow tract septum morphogenesis\"], \"role\": \"mechanism\", \"locations\": [\"Truncus arteriosus\", \"Outflow tract septum\"], \"experimental_models\": [{\"name\": \"Splotch mutant mouse\", \"model_type\": \"OTHER\", \"description\": \"The mutant reproduces the septation failure itself.\\n\"}, {\"name\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"model_type\": \"OTHER\", \"description\": \"The mutant reproduces the failure of septation between aorta and pulmonary trunk.\\n\"}]}}, {\"id\": \"Maternal pregestational diabetes\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The best-established non-genetic risk factor, and the only modifiable one. The National Birth Defects Prevention Study puts the adjusted odds ratio for this malformation at 14.9 (95% CI 7.6 to 29.3), one of a handful of defects in that study exceeding a ten-fold increased risk. Unlike the genetic causes, this one is preventable in principle, which is why it carries prevention weight out of proportion to the fraction of cases it explains. No mechanism is asserted here: the source states the teratogenic mechanism is unknown.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neonatal complete surgical repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive treatment and the only one that changes the outcome. The ventricular septal defect is closed so the trunk becomes the aorta and arises from the left ventricle alone, the pulmonary arteries are separated from the trunk, and continuity from the right ventricle to the pulmonary arteries is re-established with a conduit. It is performed in the neonatal period, before pulmonary vascular disease develops, and it carries an in-hospital mortality around one in ten in contemporary national data.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Obligatory mixing of systemic and pulmonary venous return\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because there is one outlet, mixing is complete and is not modulated by shunt size or direction. Arterial saturation is therefore set by the proportion of pulmonary to systemic flow rather than by any restrictive orifice, which has a counterintuitive consequence: the more the lungs are flooded, the pinker the baby looks, so improving colour in an untreated infant is a sign of worsening physiology rather than improvement.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"mechanism\"}}, {\"id\": \"Perioperative myocardial ischaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ischaemic injury around the time of repair, from anomalous coronary anatomy, from coronary distortion during root reconstruction, or from the mismatch between a volume-loaded ventricle and a diastolic pressure lowered by truncal regurgitation. It is one of the mechanisms behind an in-hospital mortality that remains around one in ten even in the contemporary era.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Preoperative anticongestive medical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Diuresis and afterload reduction to control pulmonary overcirculation while the infant is prepared for surgery. It is a holding measure with a specific trap: supplemental oxygen lowers pulmonary vascular resistance and therefore increases pulmonary flow, so generous oxygen makes the physiology worse in an infant whose saturation looks reassuringly high.\\n\", \"meta\": {\"therapeutic_agents\": [\"diuretic\"]}}, {\"id\": \"Pulmonary overcirculation and volume-overload heart failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical presentation in the first weeks: tachypnoea, poor feeding, sweating, failure to thrive, and hepatomegaly, in an infant who is only mildly desaturated. It is high-output failure from excessive pulmonary blood flow, not pump failure, which is why the treatment before surgery is to limit pulmonary flow rather than to augment contractility.\\n\", \"meta\": {\"role\": \"consequence\"}}, {\"id\": \"Pulmonary vascular obstructive disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The end of the untreated natural history, and the reason this is a neonatal surgical disease rather than an elective one. Sustained exposure of the pulmonary bed to systemic pressure and high flow produces fixed obstructive remodelling within the first year or two of life. Once resistance is fixed, closing the ventricular septal defect is contraindicated for the same reason it is in Eisenmenger physiology, and the operation that would have been curative at two weeks becomes lethal.\\n\", \"meta\": {\"role\": \"consequence\", \"locations\": [\"Pulmonary artery\"]}}, {\"id\": \"Serial right ventricle to pulmonary artery conduit replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A consequence of the repair rather than a treatment of the disease. The conduit does not grow, so it is outgrown and becomes obstructive, and it is replaced repeatedly through childhood and adolescence. This converts a neonatal emergency into a lifelong surgical relationship, and it is the main reason these patients need permanent congenital cardiology follow-up rather than discharge after successful repair.\\n\"}, {\"id\": \"Single arterial trunk overriding a ventricular septal defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The anatomic result. One vessel leaves the heart through a single semilunar valve and gives rise to the coronary arteries, the pulmonary arteries, and the systemic circulation. Because both ventricles eject into it across a large non-restrictive ventricular septal defect, systemic and pulmonary venous return mix obligatorily at the trunk, and both ventricles see systemic pressure.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"mechanism\", \"locations\": [\"Interventricular septum\"]}}, {\"id\": \"Splotch mutant mouse\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The founding genetic model, and the experiment that established the cardiac neural crest as the tissue of origin for this malformation. Homozygous Sp1H mutants fail to septate the truncus arteriosus and develop persistent truncus arteriosus with an ostium opening to the right ventricle, together with aortic arch variants and thymic, parathyroid, and ultimobranchial body defects. That pattern is the point: the same mutation affects every structure the neural crest populates, which is the argument that the cardiac lesion is a neurocristopathy rather than a local septation failure. The model dies mid-gestation, so it cannot address postnatal physiology at all.\\n\", \"meta\": {\"evidence_count\": 3, \"model_type\": \"OTHER\", \"publication\": \"PMID:2619088\"}}, {\"id\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The canonical model for the 22q11.2 route, and the one that identifies the molecular error. Inactivating Tbx1 in anterior heart field mesoderm produces premature expression of pro-differentiation genes and a persistent truncus arteriosus, so the defect is one of developmental timing rather than of cell absence. Removing one allele of beta-catenin rescues the outflow tract defect in 61 percent of double mutants, which establishes an antagonistic relationship between the two pathways and shows the malformation is developmentally reversible in principle. That is the closest thing to a mechanistic target this disease has.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:28346476\"}}, {\"id\": \"Truncal valve dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single semilunar valve is frequently abnormal, with two, three, four, or rarely five cusps, and is often dysplastic. Regurgitation adds volume load on top of the pulmonary overcirculation. Stenosis is less common but worse tolerated, because both ventricles eject through this one valve, so a single stenotic orifice imposes pressure load on the whole heart at once. Truncal valve disease is a principal determinant of both operative difficulty and long-term reoperation.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"mechanism\"}}, {\"id\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In most anatomic subtypes nothing restricts flow into the pulmonary arteries. The pulmonary bed therefore sees systemic pressure directly, and pulmonary blood flow is governed purely by the ratio of pulmonary to systemic vascular resistance. In the first hours of life high neonatal pulmonary resistance masks the problem; over the following days that resistance falls physiologically, flow rises steeply, and the infant decompensates. The clinical corollary is that a well-looking newborn with this lesion is not reassuring, merely early.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"mechanism\", \"locations\": [\"Pulmonary artery\"]}}], \"edges\": [{\"source\": \"Cardiac neural crest and second heart field program disruption\", \"target\": \"Failure of aorticopulmonary septation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without a properly specified and positioned neural-crest-derived septal population, the conotruncal ridges do not fuse and no aorticopulmonary septum forms.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of aorticopulmonary septation\", \"target\": \"Single arterial trunk overriding a ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unseptated trunk persists as a single vessel with one semilunar valve, sitting over the unclosed outflow portion of the interventricular septum.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Single arterial trunk overriding a ventricular septal defect\", \"target\": \"Obligatory mixing of systemic and pulmonary venous return\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A single outlet for both ventricles forces complete admixture of oxygenated and deoxygenated blood.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Single arterial trunk overriding a ventricular septal defect\", \"target\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary arteries arising directly from the trunk are exposed to systemic pressure with no interposed obstruction.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Single arterial trunk overriding a ventricular septal defect\", \"target\": \"Truncal valve dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The single semilunar valve is frequently dysplastic, with an abnormal cusp number, and is prone to regurgitation and, less often, stenosis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Single arterial trunk overriding a ventricular septal defect\", \"target\": \"Coronary ostial anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coronary arteries arise from an abnormal single-trunk root rather than from a normally septated aortic sinus template, so their origins are frequently anomalous.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obligatory mixing of systemic and pulmonary venous return\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Admixture of desaturated systemic venous return lowers arterial oxygen saturation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"target\": \"Pulmonary overcirculation and volume-overload heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"As pulmonary vascular resistance falls after birth, pulmonary blood flow rises and volume-loads the ventricles.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"target\": \"Pulmonary vascular obstructive disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained high-flow, high-pressure exposure of the pulmonary bed drives progressive remodelling toward fixed resistance.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Truncal valve dysfunction\", \"target\": \"Pulmonary overcirculation and volume-overload heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncal regurgitation adds regurgitant volume to the already high pulmonary flow, compounding ventricular volume overload.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Coronary ostial anomaly\", \"target\": \"Perioperative myocardial ischaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An anomalous coronary origin or course can be compressed, distorted, or divided during conduit placement and root reconstruction.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary overcirculation and volume-overload heart failure\", \"target\": \"Pulmonary vascular obstructive disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continuing high-flow high-pressure exposure remodels the pulmonary arterioles.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal pregestational diabetes\", \"target\": \"Cardiac neural crest and second heart field program disruption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Maternal hyperglycaemia during the fifth to eighth week of gestation is proposed to perturb the neural crest and second heart field program during outflow tract septation.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neonatal complete surgical repair\", \"target\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Neonatal complete surgical repair\", \"target\": \"Obligatory mixing of systemic and pulmonary venous return\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Serial right ventricle to pulmonary artery conduit replacement\", \"target\": \"Pulmonary vascular obstructive disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Preoperative anticongestive medical therapy\", \"target\": \"Pulmonary overcirculation and volume-overload heart failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extracorporeal membrane oxygenation\", \"target\": \"Perioperative myocardial ischaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Splotch mutant mouse\", \"target\": \"Cardiac neural crest and second heart field program disruption\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Splotch mutant mouse\", \"target\": \"Failure of aorticopulmonary septation\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"target\": \"Cardiac neural crest and second heart field program disruption\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"target\": \"Failure of aorticopulmonary septation\", \"predicate\": \"models\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac neural crest and second heart field program disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The outflow tract is built by two cell populations acting together: cardiac neural crest cells migrating through pharyngeal arches three, four, and six to form the elastogenic smooth muscle of the aorticopulmonary septum, and second heart field mesoderm adding myocardium to the elongating outflow tract. Their crosstalk is patterned by TBX, GATA, and NKX transcription factors and by FGF, BMP, and Wnt signalling. Disruption anywhere in this unit, whether by 22q11.2 deletion, a monogenic variant, or a teratogen, converges on the same failure.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac neural crest cell\"], \"biological_processes\": [\"cardiac neural crest cell development involved in outflow tract morphogenesis\", \"neural crest cell migration\"], \"role\": \"trigger\", \"locations\": [\"Outflow tract\"], \"experimental_models\": [{\"name\": \"Splotch mutant mouse\", \"model_type\": \"OTHER\", \"description\": \"Splotch disrupts neural-crest-derived cell populations, which is the trigger node here.\\n\"}, {\"name\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"model_type\": \"OTHER\", \"description\": \"Tbx1 inactivation in anterior heart field mesoderm models the second heart field arm of the trigger node, complementing the neural crest arm modelled by Splotch.\\n\"}]}}, {\"id\": \"Coronary ostial anomaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Coronary origins are abnormal in a large fraction of cases, because the coronary buds address a single unseptated root rather than the normal paired aortic sinuses. There is no single consistent pattern, which is precisely the problem: the surgeon must map the coronaries individually before repair, and an unrecognised anomalous course is an independent driver of perioperative mortality.\\n\", \"meta\": {\"evidence_count\": 2, \"role\": \"mechanism\"}}, {\"id\": \"Cyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild central cyanosis from birth, reflecting obligatory mixing rather than restricted pulmonary flow.\\n\", \"meta\": {\"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000961\"}}, {\"id\": \"Extracorporeal membrane oxygenation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Rescue support, used in about seven percent of these admissions. Its association with a very high mortality odds ratio should be read as severity marking rather than harm: it is used in infants who are dying, and the confounding by indication is total.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Failure of aorticopulmonary septation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining embryologic event, occurring in weeks five to eight of human gestation. The conotruncal ridges fail to fuse and spiral, so no aorticopulmonary septum divides the common trunk into aorta and pulmonary trunk. The same septal deficiency accounts for the ventricular septal defect, because the conal septum that would have closed the outflow portion of the interventricular septum is absent or malformed. That is why the ventricular septal defect here is not an independent second lesion but part of the same failure.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"outflow tract septum morphogenesis\"], \"role\": \"mechanism\", \"locations\": [\"Truncus arteriosus\", \"Outflow tract septum\"], \"experimental_models\": [{\"name\": \"Splotch mutant mouse\", \"model_type\": \"OTHER\", \"description\": \"The mutant reproduces the septation failure itself.\\n\"}, {\"name\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"model_type\": \"OTHER\", \"description\": \"The mutant reproduces the failure of septation between aorta and pulmonary trunk.\\n\"}]}}, {\"id\": \"Maternal pregestational diabetes\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"The best-established non-genetic risk factor, and the only modifiable one. The National Birth Defects Prevention Study puts the adjusted odds ratio for this malformation at 14.9 (95% CI 7.6 to 29.3), one of a handful of defects in that study exceeding a ten-fold increased risk. Unlike the genetic causes, this one is preventable in principle, which is why it carries prevention weight out of proportion to the fraction of cases it explains. No mechanism is asserted here: the source states the teratogenic mechanism is unknown.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Neonatal complete surgical repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The definitive treatment and the only one that changes the outcome. The ventricular septal defect is closed so the trunk becomes the aorta and arises from the left ventricle alone, the pulmonary arteries are separated from the trunk, and continuity from the right ventricle to the pulmonary arteries is re-established with a conduit. It is performed in the neonatal period, before pulmonary vascular disease develops, and it carries an in-hospital mortality around one in ten in contemporary national data.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Obligatory mixing of systemic and pulmonary venous return\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because there is one outlet, mixing is complete and is not modulated by shunt size or direction. Arterial saturation is therefore set by the proportion of pulmonary to systemic flow rather than by any restrictive orifice, which has a counterintuitive consequence: the more the lungs are flooded, the pinker the baby looks, so improving colour in an untreated infant is a sign of worsening physiology rather than improvement.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"mechanism\"}}, {\"id\": \"Perioperative myocardial ischaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ischaemic injury around the time of repair, from anomalous coronary anatomy, from coronary distortion during root reconstruction, or from the mismatch between a volume-loaded ventricle and a diastolic pressure lowered by truncal regurgitation. It is one of the mechanisms behind an in-hospital mortality that remains around one in ten even in the contemporary era.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Preoperative anticongestive medical therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Diuresis and afterload reduction to control pulmonary overcirculation while the infant is prepared for surgery. It is a holding measure with a specific trap: supplemental oxygen lowers pulmonary vascular resistance and therefore increases pulmonary flow, so generous oxygen makes the physiology worse in an infant whose saturation looks reassuringly high.\\n\", \"meta\": {\"therapeutic_agents\": [\"diuretic\"]}}, {\"id\": \"Pulmonary overcirculation and volume-overload heart failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical presentation in the first weeks: tachypnoea, poor feeding, sweating, failure to thrive, and hepatomegaly, in an infant who is only mildly desaturated. It is high-output failure from excessive pulmonary blood flow, not pump failure, which is why the treatment before surgery is to limit pulmonary flow rather than to augment contractility.\\n\", \"meta\": {\"role\": \"consequence\"}}, {\"id\": \"Pulmonary vascular obstructive disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The end of the untreated natural history, and the reason this is a neonatal surgical disease rather than an elective one. Sustained exposure of the pulmonary bed to systemic pressure and high flow produces fixed obstructive remodelling within the first year or two of life. Once resistance is fixed, closing the ventricular septal defect is contraindicated for the same reason it is in Eisenmenger physiology, and the operation that would have been curative at two weeks becomes lethal.\\n\", \"meta\": {\"role\": \"consequence\", \"locations\": [\"Pulmonary artery\"]}}, {\"id\": \"Serial right ventricle to pulmonary artery conduit replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A consequence of the repair rather than a treatment of the disease. The conduit does not grow, so it is outgrown and becomes obstructive, and it is replaced repeatedly through childhood and adolescence. This converts a neonatal emergency into a lifelong surgical relationship, and it is the main reason these patients need permanent congenital cardiology follow-up rather than discharge after successful repair.\\n\"}, {\"id\": \"Single arterial trunk overriding a ventricular septal defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The anatomic result. One vessel leaves the heart through a single semilunar valve and gives rise to the coronary arteries, the pulmonary arteries, and the systemic circulation. Because both ventricles eject into it across a large non-restrictive ventricular septal defect, systemic and pulmonary venous return mix obligatorily at the trunk, and both ventricles see systemic pressure.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"mechanism\", \"locations\": [\"Interventricular septum\"]}}, {\"id\": \"Splotch mutant mouse\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The founding genetic model, and the experiment that established the cardiac neural crest as the tissue of origin for this malformation. Homozygous Sp1H mutants fail to septate the truncus arteriosus and develop persistent truncus arteriosus with an ostium opening to the right ventricle, together with aortic arch variants and thymic, parathyroid, and ultimobranchial body defects. That pattern is the point: the same mutation affects every structure the neural crest populates, which is the argument that the cardiac lesion is a neurocristopathy rather than a local septation failure. The model dies mid-gestation, so it cannot address postnatal physiology at all.\\n\", \"meta\": {\"evidence_count\": 3, \"model_type\": \"OTHER\", \"publication\": \"PMID:2619088\"}}, {\"id\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The canonical model for the 22q11.2 route, and the one that identifies the molecular error. Inactivating Tbx1 in anterior heart field mesoderm produces premature expression of pro-differentiation genes and a persistent truncus arteriosus, so the defect is one of developmental timing rather than of cell absence. Removing one allele of beta-catenin rescues the outflow tract defect in 61 percent of double mutants, which establishes an antagonistic relationship between the two pathways and shows the malformation is developmentally reversible in principle. That is the closest thing to a mechanistic target this disease has.\\n\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"OTHER\", \"publication\": \"PMID:28346476\"}}, {\"id\": \"Truncal valve dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The single semilunar valve is frequently abnormal, with two, three, four, or rarely five cusps, and is often dysplastic. Regurgitation adds volume load on top of the pulmonary overcirculation. Stenosis is less common but worse tolerated, because both ventricles eject through this one valve, so a single stenotic orifice imposes pressure load on the whole heart at once. Truncal valve disease is a principal determinant of both operative difficulty and long-term reoperation.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"mechanism\"}}, {\"id\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In most anatomic subtypes nothing restricts flow into the pulmonary arteries. The pulmonary bed therefore sees systemic pressure directly, and pulmonary blood flow is governed purely by the ratio of pulmonary to systemic vascular resistance. In the first hours of life high neonatal pulmonary resistance masks the problem; over the following days that resistance falls physiologically, flow rises steeply, and the infant decompensates. The clinical corollary is that a well-looking newborn with this lesion is not reassuring, merely early.\\n\", \"meta\": {\"evidence_count\": 1, \"role\": \"mechanism\", \"locations\": [\"Pulmonary artery\"]}}], \"edges\": [{\"source\": \"Cardiac neural crest and second heart field program disruption\", \"target\": \"Failure of aorticopulmonary septation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without a properly specified and positioned neural-crest-derived septal population, the conotruncal ridges do not fuse and no aorticopulmonary septum forms.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of aorticopulmonary septation\", \"target\": \"Single arterial trunk overriding a ventricular septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The unseptated trunk persists as a single vessel with one semilunar valve, sitting over the unclosed outflow portion of the interventricular septum.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Single arterial trunk overriding a ventricular septal defect\", \"target\": \"Obligatory mixing of systemic and pulmonary venous return\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A single outlet for both ventricles forces complete admixture of oxygenated and deoxygenated blood.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Single arterial trunk overriding a ventricular septal defect\", \"target\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary arteries arising directly from the trunk are exposed to systemic pressure with no interposed obstruction.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Single arterial trunk overriding a ventricular septal defect\", \"target\": \"Truncal valve dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The single semilunar valve is frequently dysplastic, with an abnormal cusp number, and is prone to regurgitation and, less often, stenosis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Single arterial trunk overriding a ventricular septal defect\", \"target\": \"Coronary ostial anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coronary arteries arise from an abnormal single-trunk root rather than from a normally septated aortic sinus template, so their origins are frequently anomalous.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Obligatory mixing of systemic and pulmonary venous return\", \"target\": \"Cyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Admixture of desaturated systemic venous return lowers arterial oxygen saturation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"target\": \"Pulmonary overcirculation and volume-overload heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"As pulmonary vascular resistance falls after birth, pulmonary blood flow rises and volume-loads the ventricles.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"target\": \"Pulmonary vascular obstructive disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained high-flow, high-pressure exposure of the pulmonary bed drives progressive remodelling toward fixed resistance.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Truncal valve dysfunction\", \"target\": \"Pulmonary overcirculation and volume-overload heart failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Truncal regurgitation adds regurgitant volume to the already high pulmonary flow, compounding ventricular volume overload.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Coronary ostial anomaly\", \"target\": \"Perioperative myocardial ischaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An anomalous coronary origin or course can be compressed, distorted, or divided during conduit placement and root reconstruction.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pulmonary overcirculation and volume-overload heart failure\", \"target\": \"Pulmonary vascular obstructive disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continuing high-flow high-pressure exposure remodels the pulmonary arterioles.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Maternal pregestational diabetes\", \"target\": \"Cardiac neural crest and second heart field program disruption\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Maternal hyperglycaemia during the fifth to eighth week of gestation is proposed to perturb the neural crest and second heart field program during outflow tract septation.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neonatal complete surgical repair\", \"target\": \"Unobstructed pulmonary blood flow at systemic pressure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Neonatal complete surgical repair\", \"target\": \"Obligatory mixing of systemic and pulmonary venous return\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Serial right ventricle to pulmonary artery conduit replacement\", \"target\": \"Pulmonary vascular obstructive disease\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Preoperative anticongestive medical therapy\", \"target\": \"Pulmonary overcirculation and volume-overload heart failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extracorporeal membrane oxygenation\", \"target\": \"Perioperative myocardial ischaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Splotch mutant mouse\", \"target\": \"Cardiac neural crest and second heart field program disruption\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Splotch disrupts neural-crest-derived cell populations, which is the trigger node here.\\n\"}, {\"source\": \"Splotch mutant mouse\", \"target\": \"Failure of aorticopulmonary septation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mutant reproduces the septation failure itself.\\n\"}, {\"source\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"target\": \"Cardiac neural crest and second heart field program disruption\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Tbx1 inactivation in anterior heart field mesoderm models the second heart field arm of the trigger node, complementing the neural crest arm modelled by Splotch.\\n\"}, {\"source\": \"Tbx1 conditional null mouse with beta-catenin dosage rescue\", \"target\": \"Failure of aorticopulmonary septation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The mutant reproduces the failure of septation between aorta and pulmonary trunk.\\n\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5722,14 +5951,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Truncus arteriosus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001660" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001660">HP:0001660</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001660" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001660</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Truncus arteriosus (HP:0001660). HP:0001660 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5783,14 +6019,21 @@
                         <span class="phenotype-freq">OBLIGATE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ventricular septal defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001629">HP:0001629</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001629</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5844,14 +6087,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congestive heart failure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001635">HP:0001635</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001635</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congestive heart failure (HP:0001635), qualified as temporality acute. HP:0001635 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5891,14 +6141,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aortic regurgitation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001659">HP:0001659</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001659</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Truncal valve regurgitation, annotated with Aortic regurgitation (HP:0001659). HP:0001659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5952,14 +6209,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary arterial hypertension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002092">HP:0002092</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002092</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary arterial hypertension (HP:0002092), qualified as course progressive. HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6040,14 +6304,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cyanosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000961">HP:0000961</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000961" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000961</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cyanosis (HP:0000961), qualified as temporality chronic. HP:0000961 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6096,14 +6367,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypocalcemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002901">HP:0002901</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002901" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002901</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypocalcemia (HP:0002901). HP:0002901 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6166,14 +6444,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Tachypnea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002789">HP:0002789</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002789</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tachypnea (HP:0002789). HP:0002789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6204,14 +6489,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508), qualified as course progressive. HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6260,14 +6552,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal coronary artery origin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011636" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011636">HP:0011636</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011636" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0011636</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal coronary artery origin (HP:0011636). HP:0011636 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6341,14 +6640,21 @@
                         Right aortic arch
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Right aortic arch
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012020" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012020">HP:0012020</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012020</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right aortic arch (HP:0012020). HP:0012020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6402,14 +6708,21 @@
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Interrupted aortic arch
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011611" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011611">HP:0011611</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011611" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0011611</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Interrupted aortic arch (HP:0011611). HP:0011611 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6505,13 +6818,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TBX1
 
 
-    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:11592">hgnc:11592</a>
+    <a href="https://bioregistry.io/hgnc:11592" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:11592</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6593,13 +6911,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: TMEM260
 
 
-    <a href="https://bioregistry.io/hgnc:20185" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20185">hgnc:20185</a>
+    <a href="https://bioregistry.io/hgnc:20185" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:20185</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TMEM260 (hgnc:20185). hgnc:20185 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6681,13 +7004,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NKX2-6
 
 
-    <a href="https://bioregistry.io/hgnc:32940" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:32940">hgnc:32940</a>
+    <a href="https://bioregistry.io/hgnc:32940" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:32940</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NKX2-6 (hgnc:32940). hgnc:32940 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6769,13 +7097,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: GATA6
 
 
-    <a href="https://bioregistry.io/hgnc:4174" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:4174">hgnc:4174</a>
+    <a href="https://bioregistry.io/hgnc:4174" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:4174</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATA6 (hgnc:4174). hgnc:4174 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6835,13 +7168,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: NOTCH1
 
 
-    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:7881">hgnc:7881</a>
+    <a href="https://bioregistry.io/hgnc:7881" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:7881</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6912,7 +7250,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cardiac surgery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">cardiac surgery<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cardiac Surgery</span>
 
 
@@ -7088,7 +7431,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">cardiac surgery</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">cardiac surgery<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Cardiac Surgery</span>
 
 
@@ -7154,7 +7502,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7184,16 +7537,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         diuretic
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C448" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C448">NCIT:C448</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C448" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C448</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses diuretic (NCIT:C448). NCIT:C448 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -7236,7 +7594,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">extracorporeal membrane oxygenation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">extracorporeal membrane oxygenation<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is extracorporeal membrane oxygenation (NCIT:C171507). NCIT:C171507 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Extracorporeal Membrane Oxygenation</span>
 
 
@@ -7715,15 +8078,20 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-33">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-33">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7746,34 +8114,44 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-cardiac-neural-crest-and-second-heart-field-program-disruption">Cardiac neural crest and second heart field program disruption</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Splotch disrupts neural-crest-derived cell populations, which is the trigger node here.
+            <div class="crosslink-item">
+                <a href="#pathophysiology-cardiac-neural-crest-and-second-heart-field-program-disruption">Cardiac neural crest and second heart field program disruption</a>
+
+
+
+                <span class="crosslink-desc">Splotch disrupts neural-crest-derived cell populations, which is the trigger node here.
 </span>
 
 
 
 
-                        </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-failure-of-aorticopulmonary-septation">Failure of aorticopulmonary septation</a>
 
-                            <span class="crosslink-desc">The mutant reproduces the septation failure itself.
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-failure-of-aorticopulmonary-septation">Failure of aorticopulmonary septation</a>
+
+
+
+                <span class="crosslink-desc">The mutant reproduces the septation failure itself.
 </span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -7879,15 +8257,20 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:10090">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-34">NCBITaxon:10090</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-34">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
@@ -7910,34 +8293,44 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-cardiac-neural-crest-and-second-heart-field-program-disruption">Cardiac neural crest and second heart field program disruption</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Tbx1 inactivation in anterior heart field mesoderm models the second heart field arm of the trigger node, complementing the neural crest arm modelled by Splotch.
+            <div class="crosslink-item">
+                <a href="#pathophysiology-cardiac-neural-crest-and-second-heart-field-program-disruption">Cardiac neural crest and second heart field program disruption</a>
+
+
+
+                <span class="crosslink-desc">Tbx1 inactivation in anterior heart field mesoderm models the second heart field arm of the trigger node, complementing the neural crest arm modelled by Splotch.
 </span>
 
 
 
 
-                        </div>
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-failure-of-aorticopulmonary-septation">Failure of aorticopulmonary septation</a>
 
-                            <span class="crosslink-desc">The mutant reproduces the failure of septation between aorta and pulmonary trunk.
+            </div>
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-failure-of-aorticopulmonary-septation">Failure of aorticopulmonary septation</a>
+
+
+
+                <span class="crosslink-desc">The mutant reproduces the failure of septation between aorta and pulmonary trunk.
 </span>
 
 
 
 
-                        </div>
 
-                    </div>
-                </div>
+
+            </div>
+
+        </div>
+    </div>
+
 
 
 
@@ -8003,6 +8396,9 @@ A retinoic-acid mechanism is often proposed for diabetic embryopathy, namely hyp
             </div>
 
         </div>
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10496,5 +10892,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
