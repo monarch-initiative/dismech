@@ -1583,8 +1583,8 @@ Clinical trials can be added to disease entries with evidence validated against 
 ```yaml
 clinical_trials:
 - name: NCT05813288
-  phase: Phase III
-  status: Completed
+  phase: PHASE_III
+  status: COMPLETED
   description: Brief description of the trial's objective and approach
   target_phenotypes:
     - preferred_term: Wheezing
@@ -1609,10 +1609,20 @@ just fetch-reference NCT05813288  # Caches trial data from ClinicalTrials.gov AP
 
 **Key fields:**
 - `name`: NCT identifier (e.g., NCT05813288)
-- `phase`: Trial phase (Phase I, II, III, IV)
-- `status`: Recruitment status (Recruiting, Completed, Terminated, Active not recruiting)
+- `phase` (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or
+  `NOT_APPLICABLE` (observational or device studies that do not follow the standard FDA
+  phase classification)
+- `status` (`ClinicalTrialStatusEnum`): `RECRUITING`, `NOT_RECRUITING`,
+  `ACTIVE_NOT_RECRUITING`, `COMPLETED`, `ENROLLING_BY_INVITATION`, `SUSPENDED`,
+  `TERMINATED`, `WITHDRAWN`, or `UNKNOWN`
 - `target_phenotypes`: Phenotypes addressed by the trial (with HP ontology terms)
 - `evidence`: Evidence items validated against ClinicalTrials.gov
+
+**These are enum values, not free text.** Write `phase: PHASE_III`, not `Phase III`, and
+`status: COMPLETED`, not `Completed` — the schema binds both slots to enums via
+`ClinicalTrial` `slot_usage`, so the prose spellings fail `just validate`. Note the enum
+*descriptions* in the schema render as "Phase III - Efficacy confirmation…", which is what
+makes the free-text form look plausible; the permissible value is the upper-snake-case key.
 
 ### MorPhiC Cellular Phenotypes
 
