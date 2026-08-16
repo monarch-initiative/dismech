@@ -646,7 +646,7 @@ fetch-ontology-dbs *names="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -827,6 +827,16 @@ check-reference-cache-frontmatter:
 [group('QC')]
 check-term-cache-integrity:
     uv run python -m dismech.term_cache_integrity cache
+
+# Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
+# the last value silently, so a duplicate is invisible to every test and
+# renderer here, while the ruamel-based reference validator rejects the file
+# outright. Duplicates arrive by MERGE -- two concurrent curation PRs adding the
+# same block at different points in one file merge without a git conflict -- so
+# this sweeps the whole KB rather than only the files a PR changed.
+[group('QC')]
+check-duplicate-keys *files:
+    uv run python scripts/check_duplicate_yaml_keys.py "$@"
 
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
