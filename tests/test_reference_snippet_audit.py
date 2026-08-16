@@ -836,3 +836,20 @@ def test_the_hint_names_the_culprit_when_a_gloss_shares_the_snippet(
 
     assert "[xRRx]" in outcome.reason
     assert "[after curettage]" not in outcome.reason
+
+
+def test_the_hint_reads_as_a_sentence_with_two_culprits(tmp_path: Path) -> None:
+    """Two dropped spans should read '[A] and [B] are kept', not '[A], [B] is'."""
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(cache_dir, "PMID_123.md", "the rate [xAx] rose and [xBx] fell.")
+    index = CachedReferenceIndex(cache_dir)  # no literal patterns configured
+    pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:123",
+        snippet="the rate [xAx] rose and [xBx] fell.",
+    )
+
+    outcome = check_pair(index, pair)
+
+    assert "[xAx] and [xBx] are kept" in outcome.reason

@@ -465,9 +465,11 @@ class CachedReferenceIndex:
 
         Mirrors ``SupportingTextValidator._split_query``, including its
         ``literal_bracket_patterns`` branch: bracketed content matching a
-        configured pattern (e.g. ``[2Fe-2S]``) is source text the validator
-        keeps, so the audit must keep it too. Without configured patterns both
-        sides strip every ``[...]`` as an editorial note.
+        configured pattern is source text the validator keeps, so the audit must
+        keep it too. Under this repo's config that means an all-caps
+        abbreviation (``[APTT]``) or a percent-bearing span (``[28, 62%]``).
+        Without configured patterns both sides strip every ``[...]`` as an
+        editorial note.
         """
 
         def replace_bracket(match: re.Match[str]) -> str:
@@ -722,14 +724,20 @@ def check_pair(
     # conf/reference_validator_config.yaml, not a re-quote.
     culprits = index.brackets_explaining_mismatch(pair.snippet, content)
     if culprits:
+        spans = (
+            culprits[0]
+            if len(culprits) == 1
+            else f"{', '.join(culprits[:-1])} and {culprits[-1]}"
+        )
+        verb = "is" if len(culprits) == 1 else "are"
         return Unverified(
             pair=pair,
             reason=(
                 f"Text part not found as substring: {missing[0]!r} "
-                "(note: the snippet matches the cached text exactly once "
-                f"{', '.join(culprits)} is kept; bracketed spans are stripped "
-                "before matching unless conf/reference_validator_config.yaml "
-                "lists a matching literal_bracket_patterns entry)"
+                f"(note: the snippet matches the cached text exactly once {spans} "
+                f"{verb} kept; bracketed spans are stripped before matching "
+                "unless conf/reference_validator_config.yaml lists a matching "
+                "literal_bracket_patterns entry)"
             ),
         )
 
