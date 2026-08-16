@@ -2162,6 +2162,35 @@ cache diff, be suspicious of rows sharing one synthetic timestamp (e.g. several
 rows all at `...T00:00:00.000000`): that is the fingerprint of ad-hoc seeding,
 and those labels should be checked against the ontology rather than the cache.
 
+## Duplicate YAML Keys (dismech#8623)
+
+A YAML mapping may not repeat a key. PyYAML's safe loaders — what
+`dismech.yaml_io.safe_load`, and so nearly everything here, uses — accept a
+repeated key anyway and silently keep the **last** value; the ruamel-backed
+`linkml-reference-validator` raises `DuplicateKeyError` and aborts. A duplicate
+is therefore invisible to every test, renderer, and export in this repo while
+being fatal to validation CI.
+
+Crucially, duplicates arrive by **merge**, not by authoring: two concurrent
+curation PRs each adding a `classifications:` block at a different point in one
+entry merge without a git conflict. Both PRs are green against their own base,
+and only the post-merge push build on `main` goes red.
+
+```bash
+just check-duplicate-keys                              # whole KB (~8s, offline)
+just check-duplicate-keys kb/disorders/Asthma.yaml     # specific files
+```
+
+It runs in `just qc` and, unlike `just validate-disorders`, as an **ungated,
+whole-KB** CI step — checking only the changed files is what let a duplicated
+`classifications:` sit unnoticed in `Ulcerative_Colitis.yaml`.
+
+**Fixing one: merge the blocks, do not delete a block.** Each side is somebody's
+curation, and the two usually differ — one carries `notes`, the other cited
+`evidence`. Fold them into the single block at the canonical position and keep
+both sets of values, then re-read the surviving prose: an `explanation` arguing
+for the narrower choice will contradict the merged result and needs trimming.
+
 ## Structured-Database Reference Sources
 
 In addition to fetched literature references (PMID, DOI, NCT), dismech ingests
