@@ -494,17 +494,41 @@ class CachedReferenceIndex:
             if not self.is_literal_bracket(match.group(1))
         )
 
-    def matches_with_brackets_kept(self, snippet: str, content: str) -> bool:
-        """True when the snippet matches ``content`` verbatim, brackets and all.
+    def brackets_explaining_mismatch(
+        self, snippet: str, content: str
+    ) -> tuple[str, ...]:
+        """Stripped spans whose removal is what broke the match, else empty.
 
-        Used only to explain a failure (#8597): when this is true but the normal
-        check failed, nothing is wrong with the quote -- the bracket-stripping
-        step is what broke it, and the error should say so rather than leave the
-        curator hunting for a paraphrase they never wrote.
+        Used only to explain a failure (#8597): when a quote matches the cached
+        text with these spans restored, nothing is wrong with the quote -- the
+        bracket-stripping step is what broke it, and the error should say so
+        rather than leave the curator hunting for a paraphrase they never wrote.
+
+        A snippet can carry both kinds of bracket at once -- a genuine curator
+        gloss (absent from the source, and correctly stripped) alongside source
+        text the config does not yet keep. Restoring only the spans that are
+        actually present in the cached text separates the two, so the hint names
+        the culprit instead of going silent on the mixed case.
         """
-        return all(
-            self.normalize(part) in content for part in self._split_parts(snippet)
+        candidates = tuple(
+            span
+            for span in self.stripped_brackets(snippet)
+            if self.normalize(span[1:-1]).strip()
+            and self.normalize(span[1:-1]) in content
         )
+        if not candidates:
+            return ()
+
+        def restore(match: re.Match[str]) -> str:
+            keep = (
+                self.is_literal_bracket(match.group(1)) or match.group(0) in candidates
+            )
+            return match.group(0) if keep else " "
+
+        restored = re.sub(r"\[(.*?)\]", restore, snippet)
+        if all(self.normalize(part) in content for part in self._split_parts(restored)):
+            return candidates
+        return ()
 
     @staticmethod
     def _split_parts(text: str) -> list[str]:
@@ -696,14 +720,14 @@ def check_pair(
     # substring" and stopping sends the curator looking for a paraphrase that
     # does not exist. The fix is a `literal_bracket_patterns` entry in
     # conf/reference_validator_config.yaml, not a re-quote.
-    stripped = index.stripped_brackets(pair.snippet)
-    if stripped and index.matches_with_brackets_kept(pair.snippet, content):
+    culprits = index.brackets_explaining_mismatch(pair.snippet, content)
+    if culprits:
         return Unverified(
             pair=pair,
             reason=(
                 f"Text part not found as substring: {missing[0]!r} "
                 "(note: the snippet matches the cached text exactly once "
-                f"{', '.join(stripped)} is kept; bracketed spans are stripped "
+                f"{', '.join(culprits)} is kept; bracketed spans are stripped "
                 "before matching unless conf/reference_validator_config.yaml "
                 "lists a matching literal_bracket_patterns entry)"
             ),

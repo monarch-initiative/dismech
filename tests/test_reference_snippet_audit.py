@@ -803,3 +803,36 @@ def test_a_genuine_misquote_is_not_blamed_on_brackets(tmp_path: Path) -> None:
     outcome = check_pair(index, pair)
 
     assert "literal_bracket_patterns" not in outcome.reason
+
+
+def test_the_hint_names_the_culprit_when_a_gloss_shares_the_snippet(
+    tmp_path: Path,
+) -> None:
+    """A gloss and a source-text bracket can sit in one snippet.
+
+    Requiring every stripped span to be restorable would go silent here, which
+    is the case a curator most needs named: one bracket is correctly stripped
+    (the curator wrote it) and the other is source text the config does not yet
+    keep. Only the second is the culprit, and only it should be reported.
+    """
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(
+        cache_dir,
+        "PMID_123.md",
+        "The recurrence rate (relative risk [xRRx], 2.80) was higher.",
+    )
+    index = CachedReferenceIndex(cache_dir)  # no literal patterns configured
+    pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:123",
+        snippet=(
+            "The recurrence rate [after curettage] (relative risk [xRRx], 2.80) "
+            "was higher."
+        ),
+    )
+
+    outcome = check_pair(index, pair)
+
+    assert "[xRRx]" in outcome.reason
+    assert "[after curettage]" not in outcome.reason
