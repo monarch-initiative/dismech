@@ -14,7 +14,7 @@ mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db'
 # Wrapper script that patches linkml-reference-validator for network resilience
 ref_validator := "scripts/run_reference_validator.sh"
 # Wrapper script that applies the SAME patches to deep-research-client, which
-# since 0.2.9 calls linkml-reference-validator in-process to check a report's
+# since 0.2.9+ calls linkml-reference-validator in-process to check a report's
 # references -- so it too reads and writes references_cache/ and must not run
 # unpatched. Notably it needs the issue #7697 delimiter-aware frontmatter read:
 # a truncated read surfaces as a false "unresolved reference", and curators are
@@ -1343,10 +1343,16 @@ research_dir := "research"
 templates_dir := "templates"
 
 # Reference validation applied to a deep-research report as it is generated
-# (needs deep-research-client >= 0.2.9, which pulls in linkml-reference-validator
+# (needs deep-research-client >= 0.2.10, which pulls in linkml-reference-validator
 # through its `validation` extra -- the same library the KB validators use).
 # Every PMID/DOI the report cites is resolved against PubMed/Crossref/DataCite,
-# and every quote attributed to one of them is checked against that source. The
+# and every quote attributed to one of them is checked against that source. Since
+# 0.2.10 each resolved reference is also weighed against the report's own
+# characteristic vocabulary, flagging citations that exist but look off topic --
+# free, since it re-reads records the existence check already fetched, and on by
+# default (turn it off with `--validation-no-relevance`). An off-topic flag is a
+# clue and not a verdict: it sets `needs_review` in the frontmatter but is
+# deliberately NOT a confabulation and does NOT affect the exit code. The
 # results are written into the report itself: a `## Reference Validation` section
 # at the end of the body, and a `reference_validation:` summary in the YAML
 # frontmatter. Lookups are cached into the same `references_cache/` the KB

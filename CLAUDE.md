@@ -1730,12 +1730,22 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
    `reference_validation:` block in the YAML frontmatter, and a
    `## Reference Validation` section at the end of the body listing every
    identifier that failed to resolve. **Do not curate an identifier that appears
-   under `unresolved_references`.** A report generated before 0.2.9 has no such
+   under `unresolved_references`.** Since 0.2.10 the same pass also weighs each
+   resolved reference against the report's own vocabulary and flags citations that
+   exist but look off topic — read `needs_review`, `off_topic_references`, and the
+   `### References that may not be about this subject` section too. An off-topic
+   flag is **evidence, not a verdict** (a paper can be relevant in ways its title
+   and abstract do not spell out), so read the paper before dropping the claim.
+   A report generated before 0.2.9 has no such
    section — add one with `just validate-research-reference <report.md>` (in place,
    safe to re-run; it adds the section but not a frontmatter summary). This is a
    *head start*, not a substitute: it checks the report's citations, not the
    snippet you paste into `kb/`, and it cannot catch NEC (§2b) or a real paper
-   cited for a claim it does not make (#7791). See
+   cited for a claim it does not make (#7791). **The relevance check specifically
+   does not substitute for the §2b `just preflight-dr` NEC check**: relevance is
+   scored against the report's *own* characteristic vocabulary, so a report built
+   around the wrong disease entity is internally consistent and every one of its
+   wrong-disease citations scores as on topic. See
    [`docs/deep-research-reference-validation.md`](docs/deep-research-reference-validation.md).
 1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
    (a cache hit, and instant, for any reference the report already resolved)
