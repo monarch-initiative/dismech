@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3247,6 +3632,16 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3465,6 +3860,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3521,6 +3920,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -4022,15 +4430,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         CHST3
 
 
-    <a href="https://bioregistry.io/hgnc:1971" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1971">hgnc:1971</a>
+    <a href="https://bioregistry.io/hgnc:1971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:1971</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4059,16 +4474,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chondroitin 6-O-sulfotransferase-1 activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008459" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008459">GO:0008459</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008459" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008459</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased chondroitin 6-O-sulfotransferase-1 activity, annotated with chondroitin 6-sulfotransferase activity (GO:0008459). GO:0008459 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4093,19 +4513,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Golgi apparatus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005794">GO:0005794</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0005794</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4195,16 +4621,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         dermal fibroblast
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002620">CL:0002620</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002620" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0002620</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves dermal fibroblast, annotated with skin fibroblast (CL:0002620). CL:0002620 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4231,16 +4662,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         chondroitin sulfate proteoglycan biosynthesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050650" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0050650">GO:0050650</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050650" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0050650</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal chondroitin sulfate proteoglycan biosynthesis, annotated with chondroitin sulfate proteoglycan biosynthetic process (GO:0050650). GO:0050650 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4261,6 +4697,7 @@
 
 
                 </div>
+
 
 
 
@@ -4352,16 +4789,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000138">CL:0000138</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000138</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves chondrocyte (CL:0000138). CL:0000138 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4388,16 +4830,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         extracellular matrix organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030198">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030198</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4424,19 +4871,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         articular cartilage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0010996">UBERON:0010996</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0010996" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0010996</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in articular cartilage, annotated with articular cartilage of joint (UBERON:0010996). UBERON:0010996 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4525,16 +4978,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         growth plate chondrocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:1000217">CL:1000217</a>
+    <a href="http://purl.obolibrary.org/obo/CL_1000217" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:1000217</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves growth plate chondrocyte, annotated with growth plate cartilage chondrocyte (CL:1000217). CL:1000217 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4561,16 +5019,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         growth plate cartilage development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003417" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003417">GO:0003417</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003417" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0003417</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal growth plate cartilage development (GO:0003417). GO:0003417 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4597,19 +5060,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         growth plate cartilage
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004129" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004129">UBERON:0004129</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004129" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0004129</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in growth plate cartilage (UBERON:0004129). UBERON:0004129 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4716,19 +5185,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         knee joint
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001485" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001485">UBERON:0001485</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001485" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001485</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in knee joint (UBERON:0001485). UBERON:0001485 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4797,6 +5272,7 @@
 
                 <div class="item-desc">Beyond the congenital malformation, the abnormal matrix degenerates progressively: joint pain, premature arthrosis, contractures and increasing limitation of range of motion accumulate, and kyphosis or kyphoscoliosis develops in late childhood and worsens. This progressive arm, not the neonatal dislocations, drives most long-term disability.
 </div>
+
 
 
 
@@ -4963,21 +5439,30 @@
                     <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-heart-valve-dysplasia" data-dismech-node="Heart Valve Dysplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Heart Valve Dysplasia
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart valve morphology
+
+                        <span class="phenotype-term-label">Abnormal heart valve morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001654">HP:0001654</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001654" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001654</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal heart valve morphology (HP:0001654). HP:0001654 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5046,21 +5531,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ventricular-septal-defect" data-dismech-node="Ventricular Septal Defect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ventricular Septal Defect
 
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ventricular septal defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001629">HP:0001629</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001629</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5107,21 +5599,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atrial-septal-defect" data-dismech-node="Atrial Septal Defect" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atrial Septal Defect
 
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atrial septal defect
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001631">HP:0001631</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001631</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5177,19 +5676,26 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-long-philtrum" data-dismech-node="Long Philtrum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Long Philtrum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Long philtrum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000343">HP:0000343</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000343</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5236,19 +5742,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-neck" data-dismech-node="Short Neck" data-dismech-type="phenotype">
                     <div class="item-name">
                         Short Neck
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short neck
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000470" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000470">HP:0000470</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000470</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5304,19 +5817,26 @@
                     <span class="cat-count">5</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dislocated-radial-head-with-elbow-joint-dysplasia" data-dismech-node="Dislocated Radial Head with Elbow Joint Dysplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dislocated Radial Head with Elbow Joint Dysplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dislocated radial head
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003083" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003083">HP:0003083</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003083</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dislocated radial head (HP:0003083). HP:0003083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5363,19 +5883,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limited-elbow-extension" data-dismech-node="Limited Elbow Extension" data-dismech-type="phenotype">
                     <div class="item-name">
                         Limited Elbow Extension
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limited elbow extension
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001377" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001377">HP:0001377</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001377" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001377</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limited elbow extension (HP:0001377). HP:0001377 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5422,21 +5949,30 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-club-feet" data-dismech-node="Club Feet" data-dismech-type="phenotype">
                     <div class="item-name">
                         Club Feet
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Talipes equinovarus
+
+                        <span class="phenotype-term-label">Talipes equinovarus</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001762">HP:0001762</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001762</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Talipes equinovarus (HP:0001762). HP:0001762 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5505,19 +6041,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flared-metaphyses" data-dismech-node="Flared Metaphyses" data-dismech-type="phenotype">
                     <div class="item-name">
                         Flared Metaphyses
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Flared metaphysis
+
+                        <span class="phenotype-term-label">Flared metaphysis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003015" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003015">HP:0003015</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003015</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flared metaphysis (HP:0003015). HP:0003015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5564,19 +6109,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-metacarpals" data-dismech-node="Short Metacarpals" data-dismech-type="phenotype">
                     <div class="item-name">
                         Short Metacarpals
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short metacarpal
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010049">HP:0010049</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010049" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0010049</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short metacarpal (HP:0010049). HP:0010049 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5654,21 +6206,28 @@
                     <span class="cat-count">9</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-large-joint-dislocations" data-dismech-node="Congenital Large-Joint Dislocations" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congenital Large-Joint Dislocations
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Large joint dislocations
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005008" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005008">HP:0005008</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005008" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0005008</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Large joint dislocations (HP:0005008). HP:0005008 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5737,21 +6296,30 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limitation-of-range-of-motion-of-large-joints" data-dismech-node="Limitation of Range of Motion of Large Joints" data-dismech-type="phenotype">
                     <div class="item-name">
                         Limitation of Range of Motion of Large Joints
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limitation of joint mobility
+
+                        <span class="phenotype-term-label">Limitation of joint mobility</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001376">HP:0001376</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001376</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limitation of joint mobility (HP:0001376), qualified as course progressive. HP:0001376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5816,21 +6384,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-kyphosis" data-dismech-node="Progressive Kyphosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Kyphosis
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Kyphosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002808">HP:0002808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphosis (HP:0002808), qualified as course progressive. HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5917,19 +6492,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-kyphoscoliosis" data-dismech-node="Kyphoscoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Kyphoscoliosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Kyphoscoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002751">HP:0002751</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002751</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5976,21 +6558,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
                         Scoliosis
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Scoliosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002650">HP:0002650</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002650</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6037,19 +6626,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-platyspondyly" data-dismech-node="Platyspondyly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Platyspondyly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Platyspondyly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000926">HP:0000926</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000926</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6096,19 +6692,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epiphyseal-dysplasia" data-dismech-node="Epiphyseal Dysplasia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Epiphyseal Dysplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Epiphyseal dysplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002656" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002656">HP:0002656</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002656" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002656</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epiphyseal dysplasia (HP:0002656), qualified as course progressive. HP:0002656 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6173,19 +6776,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-arthrosis-and-joint-contractures" data-dismech-node="Premature Arthrosis and Joint Contractures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Premature Arthrosis and Joint Contractures
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Premature osteoarthritis
+
+                        <span class="phenotype-term-label">Premature osteoarthritis</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003088" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003088">HP:0003088</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003088</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature osteoarthritis (HP:0003088), qualified as course progressive. HP:0003088 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6250,21 +6862,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atlantoaxial-instability-with-os-odontoideum" data-dismech-node="Atlantoaxial Instability with Os Odontoideum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Atlantoaxial Instability with Os Odontoideum
 
                         <span class="phenotype-freq">VERY_RARE</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Atlantoaxial instability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003467">HP:0003467</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003467</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6320,19 +6939,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-joint-pain" data-dismech-node="Progressive Joint Pain" data-dismech-type="phenotype">
                     <div class="item-name">
                         Progressive Joint Pain
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthralgia
+
+                        <span class="phenotype-term-label">Arthralgia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002829">HP:0002829</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002829</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829), qualified as course progressive. HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6406,21 +7034,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature-of-prenatal-onset" data-dismech-node="Short Stature of Prenatal Onset" data-dismech-type="phenotype">
                     <div class="item-name">
                         Short Stature of Prenatal Onset
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6489,19 +7124,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rhizomelia" data-dismech-node="Rhizomelia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Rhizomelia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Rhizomelia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008905">HP:0008905</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008905" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0008905</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rhizomelia (HP:0008905). HP:0008905 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6557,19 +7199,26 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-knee-dislocation" data-dismech-node="Congenital Knee Dislocation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Congenital Knee Dislocation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congenital knee dislocation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005191" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005191">HP:0005191</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005191" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0005191</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital knee dislocation (HP:0005191). HP:0005191 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6616,19 +7265,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-dysplasia-or-dislocation" data-dismech-node="Hip Dysplasia or Dislocation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hip Dysplasia or Dislocation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hip dislocation
+
+                        <span class="phenotype-term-label">Hip dislocation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002827">HP:0002827</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002827</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6675,19 +7333,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-distal-humerus" data-dismech-node="Bifid Distal Humerus" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bifid Distal Humerus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Bifid humerus
+
+                        <span class="phenotype-term-label">Bifid humerus</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003864" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003864">HP:0003864</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003864" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003864</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bifid humerus (HP:0003864). HP:0003864 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6734,19 +7401,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-accessory-carpal-ossification-centers" data-dismech-node="Accessory Carpal Ossification Centers" data-dismech-type="phenotype">
                     <div class="item-name">
                         Accessory Carpal Ossification Centers
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Accessory carpal bones
+
+                        <span class="phenotype-term-label">Accessory carpal bones</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004232" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004232">HP:0004232</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0004232</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Accessory carpal bones (HP:0004232). HP:0004232 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6815,19 +7491,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mitral-tricuspid-and-aortic-regurgitation" data-dismech-node="Mitral, Tricuspid and Aortic Regurgitation" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mitral, Tricuspid and Aortic Regurgitation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mitral regurgitation
+
+                        <span class="phenotype-term-label">Mitral regurgitation</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001653">HP:0001653</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001653</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mitral regurgitation (HP:0001653). HP:0001653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6874,19 +7559,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mixed-hearing-impairment" data-dismech-node="Mixed Hearing Impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Mixed Hearing Impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Mixed hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000410">HP:0000410</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000410" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000410</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Mixed hearing impairment (HP:0000410), qualified as course progressive. HP:0000410 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6973,19 +7665,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-forehead" data-dismech-node="Broad Forehead" data-dismech-type="phenotype">
                     <div class="item-name">
                         Broad Forehead
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Broad forehead
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000337">HP:0000337</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000337</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7071,7 +7770,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-chst3" data-dismech-node="CHST3" data-dismech-type="genetic">
                 <div class="item-name">
                     CHST3
 
@@ -7081,13 +7780,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: CHST3
 
 
-    <a href="https://bioregistry.io/hgnc:1971" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1971">hgnc:1971</a>
+    <a href="https://bioregistry.io/hgnc:1971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:1971</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7178,9 +7882,249 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (3)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-chst3-p-arg304gln-r304q" data-dismech-node="CHST3 p.Arg304Gln (R304Q)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        CHST3 p.Arg304Gln (R304Q)
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: CHST3
+
+
+    <a href="https://bioregistry.io/hgnc:1971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:1971</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">Homozygous missense variant in the conserved 3&#39;-phosphoadenosine 5&#39;-phosphosulfate (PAPS) cosubstrate binding site, identified in two large consanguineous Omani families with spondyloepiphyseal dysplasia Omani type. Recombinant enzyme assays show complete loss of C6ST-1 activity.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15215498" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15215498" target="_blank">PMID:15215498</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We used recombinant C6ST-1 to show that the identified missense mutation completely abolishes C6ST-1 activity."</div>
+
+
+                <div class="evidence-explanation">Functional assay demonstrating that R304Q is a complete loss-of-function allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-chst3-p-thr141met-t141m" data-dismech-node="CHST3 p.Thr141Met (T141M)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        CHST3 p.Thr141Met (T141M)
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: CHST3
+
+
+    <a href="https://bioregistry.io/hgnc:1971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:1971</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">Homozygous missense variant in exon 3 identified in a Turkish family with Omani-type spondyloepiphyseal dysplasia and cardiac valve involvement. In contrast to R304Q this allele is hypomorphic, retaining roughly a quarter of wild-type sulfotransferase activity.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19320654" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19320654" target="_blank">PMID:19320654</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Using recombinant C6ST-1, we showed that the identified missense mutation results in a reduction of C6ST-1 activity to 24-29% of the wild type protein."</div>
+
+
+                <div class="evidence-explanation">Quantifies residual enzyme activity, documenting a hypomorphic allele class distinct from complete loss of function.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-chst3-c-776t-c" data-dismech-node="CHST3 c.776T&gt;C" data-dismech-type="genetic">
+
+    <div class="item-name">
+        CHST3 c.776T&gt;C
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: CHST3
+
+
+    <a href="https://bioregistry.io/hgnc:1971" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:1971</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in CHST3 (hgnc:1971). hgnc:1971 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+
+
+    </div>
+
+
+    <div class="item-desc">Recurrent missense variant reported predominantly in Turkish patients, suggesting a population-specific recurrent or founder allele.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32639237" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32639237" target="_blank">PMID:32639237</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biallelic CHST3 c.776T&gt;C mutations are most frequent mutation in CHST3 and have been reported predominantly in Turkish patients"</div>
+
+
+                <div class="evidence-explanation">Documents a recurrent allele with a genotype-ethnicity association.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7192,13 +8136,18 @@
                 <span class="card-count">6</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-orthopedic-surgical-correction-of-dislocated-joints" data-dismech-node="Orthopedic Surgical Correction of Dislocated Joints" data-dismech-type="treatment">
                 <div class="item-name">
                     Orthopedic Surgical Correction of Dislocated Joints
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">orthopedic surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">orthopedic surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Orthopedic Surgical Procedure</span>
 
 
@@ -7236,16 +8185,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Large joint dislocations
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005008" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005008">HP:0005008</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005008" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0005008</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Large joint dislocations (HP:0005008). HP:0005008 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7288,13 +8242,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-occipitocervical-fusion-for-atlantoaxial-instability" data-dismech-node="Occipitocervical Fusion for Atlantoaxial Instability" data-dismech-type="treatment">
                 <div class="item-name">
                     Occipitocervical Fusion for Atlantoaxial Instability
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">spinal fusion</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">spinal fusion<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is spinal fusion (NCIT:C157986). NCIT:C157986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Spinal Fusion</span>
 
 
@@ -7332,16 +8291,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Atlantoaxial instability
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003467">HP:0003467</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0003467</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Atlantoaxial instability (HP:0003467). HP:0003467 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7384,13 +8348,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-physical-therapy" data-dismech-node="Physical Therapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Physical Therapy
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -7463,13 +8432,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-joint-protective-activity-modification" data-dismech-node="Joint-Protective Activity Modification" data-dismech-type="treatment">
                 <div class="item-name">
                     Joint-Protective Activity Modification
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7542,13 +8516,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-multidisciplinary-surveillance" data-dismech-node="Multidisciplinary Surveillance" data-dismech-type="treatment">
                 <div class="item-name">
                     Multidisciplinary Surveillance
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7621,13 +8600,18 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-genetic-counseling" data-dismech-node="Genetic Counseling" data-dismech-type="treatment">
                 <div class="item-name">
                     Genetic Counseling
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -7715,7 +8699,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-reduced-6-o-sulfated-chondroitin-sulfate-in-dermal-fibroblasts" data-dismech-node="Reduced 6-O-Sulfated Chondroitin Sulfate in Dermal Fibroblasts" data-dismech-type="biochemical">
                 <div class="item-name">
                     Reduced 6-O-Sulfated Chondroitin Sulfate in Dermal Fibroblasts
 
@@ -7782,7 +8766,7 @@
 
             </div>
 
-            <div class="item-box biochemical-box">
+            <div class="item-box biochemical-box anchor-target" id="biochemical-urinary-chondroitin-sulfate-undersulfation" data-dismech-node="Urinary Chondroitin Sulfate Undersulfation" data-dismech-type="biochemical">
                 <div class="item-name">
                     Urinary Chondroitin Sulfate Undersulfation
 
@@ -8072,6 +9056,9 @@
 
 
         <!-- Experimental Models -->
+
+
+        <!-- Animal Models -->
 
 
         <!-- Computational Models -->
@@ -10685,5 +11672,73 @@ notes: &gt;
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

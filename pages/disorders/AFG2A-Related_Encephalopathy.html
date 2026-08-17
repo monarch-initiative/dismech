@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1082,10 +1148,87 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         .crosslink-block {
             margin-top: 12px;
             padding-top: 10px;
             border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .variant-box {
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .variant-box-nested {
+            margin-top: 8px;
+            background: #faf5ff;
+        }
+
+        .variant-list {
+            margin-top: 10px;
+        }
+
+        .variant-list-toggle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .variant-list-toggle:hover {
+            color: var(--primary);
+        }
+
+        .variant-significance {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .variant-significance-pathogenic,
+        .variant-significance-likely-pathogenic {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .variant-significance-uncertain-significance {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .variant-significance-benign,
+        .variant-significance-likely-benign {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .variant-effect {
+            margin-top: 8px;
+        }
+
+        .variant-effect + .variant-effect {
+            padding-top: 8px;
+            border-top: 1px dashed rgba(148, 163, 184, 0.35);
         }
 
         .crosslink-title {
@@ -1441,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2456,8 +2614,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -2487,6 +2653,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -2525,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2537,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2548,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2559,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2598,22 +2797,54 @@
         return edgeData && edgeData.hypothesis_groups && edgeData.hypothesis_groups.length;
     }
 
+    /* A protective exposure must not read as a causal arrow, so it gets its
+       own green dashed style instead of the default causal grey. */
+    function isProtectiveEdge(edgeData) {
+        return edgeData && edgeData.predicate === "protects_against";
+    }
+
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
+        if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
         return "#9ca3af";
     }
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
+        if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
     }
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
+        if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
         return "url(#pg-arrow)";
     }
@@ -2631,6 +2862,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -2642,6 +2914,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -2705,6 +2980,48 @@
             .append("path")
             .attr("d", "M0,0 L10,3 L0,6 Z")
             .attr("fill", "#4f46e5");
+
+        /* Tee head, not a triangle: a protective exposure is an inhibition, and
+           this matches the tee CX2 already uses for treatment INHIBITS. */
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-protective")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -2856,13 +3173,17 @@
 
             /* Interaction: hover */
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
@@ -2870,6 +3191,22 @@
 
         /* Click on background clears highlight */
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -3014,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3125,8 +3486,26 @@
                 html.push(pdbHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             /* Position relative to container */
             var rect = container.getBoundingClientRect();
@@ -3140,6 +3519,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -3295,6 +3680,16 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3372,7 +3767,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                AFG2A-related encephalopathy is an ultra-rare autosomal recessive neurodevelopmental disorder caused by biallelic variants in AFG2A, the gene formerly and still most widely known as SPATA5. Its cardinal triad is congenital microcephaly, sensorineural hearing loss and epilepsy, on a background of severe to profound intellectual disability with absent speech, motor impairment that combines axial hypotonia with peripheral spasticity, cortical visual impairment and gastrointestinal dysfunction. When epilepsy is present it most often begins as an infantile epileptic spasms syndrome in the first two years and is usually drug resistant, so the disorder is frequently classified as a developmental and epileptic encephalopathy. AFG2A encodes an AAA+ ATPase that, together with AFG2B (SPATA5L1), C1orf109 and CINP, forms the 55LCC complex; the complex drives the last cytoplasmic maturation step of the pre-60S ribosomal subunit and also governs replisome proteostasis. Loss of AFG2A function in neurons produces a mitochondrial fusion-fission imbalance, reduced ATP production and short axons, which is why the clinical picture is repeatedly mistaken for a primary mitochondrial disease.
+                AFG2A-related encephalopathy is an ultra-rare autosomal recessive neurodevelopmental disorder caused by biallelic variants in AFG2A, the gene formerly and still most widely known as SPATA5. Its cardinal triad is congenital microcephaly, sensorineural hearing loss and epilepsy, on a background of severe to profound intellectual disability with absent speech, motor impairment that combines axial hypotonia with peripheral spasticity, cortical visual impairment and gastrointestinal dysfunction. When epilepsy is present, infantile epileptic spasms syndrome is the most frequently reported onset syndrome among individuals with detailed epilepsy data, and drug resistance occurs in most individuals with treatment data. The disorder can therefore present as a developmental and epileptic encephalopathy. AFG2A encodes an AAA+ ATPase that, together with AFG2B (SPATA5L1), C1orf109 and CINP, forms the 55LCC complex; the complex drives the last cytoplasmic maturation step of the pre-60S ribosomal subunit and also governs replisome proteostasis. Loss of AFG2A function in neurons produces a mitochondrial fusion-fission imbalance, reduced ATP production and short axons, which is why the clinical picture is repeatedly mistaken for a primary mitochondrial disease.
             </p>
 
         </header>
@@ -3468,6 +3863,10 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
 
 
@@ -3524,6 +3923,15 @@
                 <div class="stat-icon" aria-hidden="true">🧬</div>
                 <div class="stat-value">1</div>
                 <div class="stat-label">Genes</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Variants</div>
             </div>
             </a>
 
@@ -3994,15 +4402,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         AFG2A
 
 
-    <a href="https://bioregistry.io/hgnc:18119" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18119">hgnc:18119</a>
+    <a href="https://bioregistry.io/hgnc:18119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:18119</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4032,19 +4447,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Cytosol
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005829">GO:0005829</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0005829</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Cytosol (GO:0005829). GO:0005829 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4155,12 +4576,17 @@
 
                 <div class="item-meta">
 
-                    <span class="tag tag-complex">
+
+
+                    <span class="tag tag-complex" tabindex="0" aria-describedby="pill-tip-3">
                         55LCC complex
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Relation: this pathophysiological event involves this protein complex
+This pathophysiological event involves 55LCC complex.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4267,17 +4693,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Ribosomal large subunit biogenesis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042273" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042273">GO:0042273</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042273" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0042273</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Ribosomal large subunit biogenesis (GO:0042273). GO:0042273 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4298,10 +4731,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042255" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042255">GO:0042255</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042255" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042255</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Ribosome assembly (GO:0042255). GO:0042255 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4323,19 +4759,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Preribosome, large subunit precursor
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030687" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030687">GO:0030687</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030687" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030687</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Preribosome, large subunit precursor (GO:0030687). GO:0030687 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4442,7 +4884,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-global-protein-synthesis" data-dismech-node="Reduced Global Protein Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Global Protein Synthesis</div>
 
-                <div class="item-desc">Depletion of AFG2A or of its partner C1orf109 lowers bulk protein synthesis in human cells. Neurons are among the cell types least able to tolerate a reduced translational capacity during the period of rapid dendritic and axonal growth, which is the proposed link between a housekeeping ribosome assembly defect and a brain-restricted clinical phenotype.</div>
+                <div class="item-desc">Depletion of AFG2A or of its partner C1orf109 lowers bulk protein synthesis in human cells, consistent with impaired late pre-60S maturation.</div>
 
 
 
@@ -4455,16 +4897,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cytoplasmic translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002181" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002181">GO:0002181</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002181" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0002181</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cytoplasmic translation (GO:0002181). GO:0002181 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4488,6 +4935,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -4495,7 +4943,7 @@
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Neuroepithelial Vulnerability During Differentiation</span>
 
-	                            <span class="crosslink-desc">A fall in ribosome availability is only pathogenic where translational reserve is already low, which is what makes the effect brain-specific.</span>
+	                            <span class="crosslink-desc">Other 55LCC-subunit organoid models link reduced ribosome availability to neuroepithelial vulnerability, but the intervening steps and their relevance to AFG2A-deficient cells have not been tested directly.</span>
 
 
 	                        </div>
@@ -4565,11 +5013,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroepithelial-vulnerability-during-differentiation" data-dismech-node="Neuroepithelial Vulnerability During Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroepithelial Vulnerability During Differentiation</div>
 
-                <div class="item-desc">This node answers the central puzzle of the disorder: why a defect in a ubiquitous housekeeping machine produces an almost purely neurological phenotype. Human cerebral organoid work on the sister 55LCC subunit AIRIM/C1orf109 showed that ribosome levels fall physiologically during neuroepithelial differentiation, creating a developmental window in which any further reduction in 60S output crosses a threshold and selectively impairs translation of specific transcripts, disrupting both survival and cell fate commitment. The window is embryonic, which is why no postnatal intervention reverses the microcephaly. Enhancing mTOR activity suppressed the organoid phenotype, making mTOR the first rationally derived candidate target for this disease family.</div>
+                <div class="item-desc">This node answers the central puzzle of the disorder: why a defect in a ubiquitous housekeeping machine produces an almost purely neurological phenotype. Human cerebral organoid work on the sister 55LCC subunit AIRIM/C1orf109 showed that ribosome levels fall physiologically during neuroepithelial differentiation, creating a developmental window in which any further reduction in 60S output crosses a threshold and selectively impairs translation of specific transcripts, disrupting both survival and cell fate commitment. Enhancing mTOR activity suppressed the AIRIM organoid phenotype, identifying a candidate rescue axis for 55LCC-related ribosome-biogenesis disorders that remains untested in AFG2A deficiency.</div>
 
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-cell">
                         Differentiating neuroepithelium
@@ -4577,10 +5027,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0011020">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0011020</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Differentiating neuroepithelium, annotated with neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4607,16 +5060,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Cytoplasmic translation
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002181" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0002181">GO:0002181</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002181" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0002181</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Cytoplasmic translation (GO:0002181). GO:0002181 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4633,6 +5091,7 @@
 
 
                 </div>
+
 
 
 
@@ -4730,16 +5189,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA replication
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006260">GO:0006260</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006260" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006260</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves DNA replication (GO:0006260). GO:0006260 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4761,19 +5225,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Replisome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030894" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030894">GO:0030894</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030894" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0030894</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Replisome (GO:0030894). GO:0030894 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4847,16 +5317,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cerebral cortex neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0010012">CL:0010012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0010012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cerebral cortex neuron (CL:0010012). CL:0010012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -4883,17 +5358,24 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Mitochondrial fusion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008053" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008053">GO:0008053</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008053" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0008053</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Mitochondrial fusion (GO:0008053). GO:0008053 is a biological process from the Gene Ontology.</span>
                     </span>
+
+
 
 
 
@@ -4914,10 +5396,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000266" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0000266">GO:0000266</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000266" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0000266</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Mitochondrial fission (GO:0000266). GO:0000266 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4939,19 +5424,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -4989,7 +5480,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -5062,16 +5553,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000540</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5098,16 +5594,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         ATP biosynthetic process
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006754" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0006754">GO:0006754</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006754" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0006754</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves ATP biosynthetic process (GO:0006754). GO:0006754 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5124,6 +5625,7 @@
 
 
                 </div>
+
 
 
 
@@ -5150,27 +5652,27 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36849973" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:29343804" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36849973" target="_blank">PMID:36849973</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29343804" target="_blank">PMID:29343804</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Oxygen consumption rates in platelets and PBMCs were impaired in the patient when compared to a healthy control."</div>
+                <div class="evidence-snippet">"Overexpression of human shRNA-insensitive SPATA5 restored the ATP/ADP ratio in the SPATA5 shRNA-treated group demonstrating the specificity of shRNA."</div>
 
 
-                <div class="evidence-explanation">Demonstrates impaired oxidative metabolism in accessible cells from a genotyped patient.</div>
+                <div class="evidence-explanation">Direct knockdown-and-rescue evidence for the axonal ATP deficit in cultured rat cortical neurons.</div>
 
 
 
@@ -5185,7 +5687,29 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Oxygen consumption rates in platelets and PBMCs were impaired in the patient when compared to a healthy control."</div>
+
+
+                <div class="evidence-explanation">Ex vivo respiratory assay demonstrates impaired oxidative metabolism in accessible cells from a genotyped patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36849973" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36849973" target="_blank">PMID:36849973</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -5214,16 +5738,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Cerebral cortex neuron
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0010012">CL:0010012</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0010012" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0010012</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Cerebral cortex neuron (CL:0010012). CL:0010012 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5250,16 +5779,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         Axon extension
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048675" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048675">GO:0048675</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048675" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0048675</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves Axon extension (GO:0048675). GO:0048675 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5276,6 +5810,7 @@
 
 
                 </div>
+
 
 
 
@@ -5315,7 +5850,7 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -5338,7 +5873,8 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-microcephaly" data-dismech-node="Congenital Microcephaly" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Microcephaly</div>
 
-                <div class="item-desc">The organism-level endpoint of the pathway. Reduced brain growth is present at birth in the large majority of affected children and, with sensorineural deafness and epilepsy, forms the diagnostic triad. It is the one feature that no postnatal intervention can reverse, because the vulnerable window is the embryonic period of neuroepithelial differentiation.</div>
+                <div class="item-desc">The organism-level endpoint of the pathway. Reduced brain growth is present at birth in the large majority of affected children and, with sensorineural deafness and epilepsy, forms the diagnostic triad.</div>
+
 
 
 
@@ -5423,16 +5959,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         Skeletal muscle fiber
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0008002">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0008002</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5461,19 +6002,25 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         Mitochondrion
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0005739">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0005739</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves Mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5563,7 +6110,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"55LCC ATPase Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFG2A does not act alone. It assembles with its paralogue AFG2B (SPATA5L1) and the heterodimeric partners C1orf109 and CINP into a 4:2:2:2 assembly named 55LCC, built from an N-terminal ring of C1orf109, CINP and the N-terminal domains of AFG2A and AFG2B sitting above two hexameric AAA+ ATPase rings. Reduced AFG2A activity therefore compromises a shared machine rather than a single enzyme, which is the structural reason AFG2A and AFG2B disease phenotypes overlap.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"AFG2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"presence\": \"Biallelic pathogenic or likely pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"Anti-seizure medication polytherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most individuals with epilepsy require more than one anti-seizure medication and remain refractory. No agent has shown disease-specific superiority; the reported regimens span valproate, levetiracetam, lamotrigine, vigabatrin, ACTH, topiramate, zonisamide, clobazam, phenobarbital, rufinamide, cannabidiol and others. Only four of sixteen individuals with follow-up data achieved seizure freedom. Notably, the standard first-line treatments for infantile epileptic spasms syndrome do not work here.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic AFG2A Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in AFG2A (formerly SPATA5) reduce the amount or the activity of an 892-amino-acid AAA+ ATPase. Most reported alleles are missense or small in-frame changes rather than complete nulls, and no individual carrying two unequivocal null alleles has been reported, which is consistent with hypomorphic rather than complete loss of function being compatible with life. The protein carries two conserved ATPase modules.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"role\": \"root\"}}, {\"id\": \"Congenital Microcephaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level endpoint of the pathway. Reduced brain growth is present at birth in the large majority of affected children and, with sensorineural deafness and epilepsy, forms the diagnostic triad. It is the one feature that no postnatal intervention can reverse, because the vulnerable window is the embryonic period of neuroepithelial differentiation.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Early hearing habilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sensorineural deafness is congenital and detectable on newborn or neonatal brainstem audiometry, so amplification or implantation can be started in the first months. One genotyped child received a hearing device before the age of two months after postnatal brainstem audiometry showed sensorineural deafness. No systematic outcome data for cochlear implantation in this disorder exist, and profound intellectual disability with cerebral visual impairment complicates candidacy assessment, so this is curated as supportive habilitation rather than as an intervention with demonstrated efficacy in this genotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Cortical Neuron Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developing cortical neurons deficient in the protein grow markedly shorter axons, and the defect is rescued by re-expressing the wild-type human protein. This is the most proximate cellular correlate available for the congenital microcephaly, hypomyelination and thin corpus callosum seen in patients, although no experiment has yet connected the neuronal growth defect to the human imaging findings directly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cerebral cortex neuron\"], \"biological_processes\": [\"Axon extension\"]}}, {\"id\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In yeast the AFG2A orthologue Drg1 strips the assembly factor Rlp24, a placeholder for the ribosomal protein Rpl24, off pre-60S particles as soon as they reach the cytoplasm; the human equivalent step is performed by AFG2A within the 55LCC complex, with recognition of the pre-60S particle mediated by the human-specific subunit CINP. When AFG2A activity falls, large ribosomal subunits stall at this last maturation checkpoint.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Ribosomal large subunit biogenesis\", \"Ribosome assembly\"]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"When epilepsy occurs, it most often declares itself as an infantile epileptic spasms syndrome in the first two years of life, with a mean onset around 9 to 14 months. Epileptic spasms or tonic seizures typically emerge between 6 and 12 months in the smaller Japanese series. Neither corticosteroids nor vigabatrin, the standard first-line treatments for infantile spasms, achieve seizure control in this disorder.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Ketogenic diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is the only intervention with disease-specific evidence. In a series of five genotyped patients, four received the diet for drug-resistant epilepsy with seizure reduction rates of 0%, 30%, 70% and 100%; the patient who became seizure free is maintained on ketogenic diet monotherapy. Non-seizure benefits (social interaction, attention, motor function) were reported in three. Fibroblasts from these patients cultured in a ketogenic-diet-mimicking medium showed reversal of the mitochondrial morphology, dynamics and ATP abnormalities, giving a plausible mechanistic rationale. The evidence is a small uncontrolled series and is recorded as partial.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Neuroepithelial Vulnerability During Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node answers the central puzzle of the disorder: why a defect in a ubiquitous housekeeping machine produces an almost purely neurological phenotype. Human cerebral organoid work on the sister 55LCC subunit AIRIM/C1orf109 showed that ribosome levels fall physiologically during neuroepithelial differentiation, creating a developmental window in which any further reduction in 60S output crosses a threshold and selectively impairs translation of specific transcripts, disrupting both survival and cell fate commitment. The window is embryonic, which is why no postnatal intervention reverses the microcephaly. Enhancing mTOR activity suppressed the organoid phenotype, making mTOR the first rationally derived candidate target for this disease family.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Differentiating neuroepithelium\"], \"biological_processes\": [\"Cytoplasmic translation\"]}}, {\"id\": \"Neuronal ATP Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The axonal ATP/ADP ratio falls by roughly 12% in knockdown neurons and is restored by re-expression of the wild-type human protein, establishing specificity. The same energy failure is detectable in patient blood cells, where oxygen consumption rates in platelets and peripheral blood mononuclear cells are impaired and monocyte mitochondrial mass is reduced.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"ATP biosynthetic process\"]}}, {\"id\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silencing the gene in rat primary cortical neurons shortens mitochondria by about 20% and halves the fusion-to-fission ratio. Patient-derived fibroblasts likewise show altered mitochondrial morphology and dynamics. This occurs even though the protein itself is dominantly cytosolic and does not co-localise with mitochondrial markers, so the effect is indirect; the intervening steps are unknown.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cerebral cortex neuron\"], \"biological_processes\": [\"Mitochondrial fusion\", \"Mitochondrial fission\"]}}, {\"id\": \"Reduced Global Protein Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of AFG2A or of its partner C1orf109 lowers bulk protein synthesis in human cells. Neurons are among the cell types least able to tolerate a reduced translational capacity during the period of rapid dendritic and axonal growth, which is the proposed link between a housekeeping ribosome assembly defect and a brain-restricted clinical phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cytoplasmic translation\"]}}, {\"id\": \"Replisome Proteostasis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 55LCC complex has a second, ribosome-independent job: its ATPase activity is stimulated by replication fork DNA and it couples cysteine protease-dependent cleavage of replisome substrates to replication fork damage. Losing that activity produces ubiquitin-independent proteotoxicity, replication stress and chromosome instability. Whether this branch contributes to the human neurodevelopmental phenotype is proposed by the authors but not established in patient material, so the node is provisional.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA replication\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy affects roughly three quarters of individuals. Generalised-onset seizures predominate, and the epilepsy is usually drug resistant, requiring polytherapy. A minority of individuals never develop seizures at all, so epilepsy is a frequent but not obligate feature despite the historical name of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral sensorineural hearing loss, usually detectable from early infancy, is one of the three cardinal features. It is the single most consistent finding across families and, in at least one sibling, has been the ONLY manifestation of a confirmed biallelic genotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skeletal Muscle Mitochondrial Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Muscle is affected as well as brain. A quadriceps biopsy from an 8-year-old girl with a typical presentation and two compound heterozygous variants showed a histochemical pattern suggesting mitochondrial pathology, and proteomic profiling found 82 dysregulated proteins of which 15 are mitochondrial. This provides the tissue-level counterpart of the mitochondrial dysfunction seen in neurons and fibroblasts, and it is one reason the disorder is investigated as a suspected mitochondrial myopathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"]}}, {\"id\": \"c.1822_1824del (p.Asp608del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous in-frame deletion segregating with severe intellectual disability and microcephaly in an extended consanguineous family with seven affected individuals; molecular modelling predicted a deleterious effect on protein function.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"in-frame deletion\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.251G\u003eA (p.Arg84Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent missense allele; found homozygous through maternal uniparental isodisomy of chromosome 4 in a diagnostic case of developmental encephalopathy with late-onset epilepsy, and one of the four alleles accounting for 42% of reported individuals.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.989_991del (p.Thr330del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent in-frame single-amino-acid deletion reported in multiple unrelated families, including the Japanese siblings, the Polish family in which one sibling had isolated hearing loss, and several of the Estonian and German compound heterozygotes.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"in-frame deletion\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"55LCC ATPase Complex Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AFG2A is the catalytic core of the 55LCC complex, so reduced AFG2A ATPase activity is directly a deficiency of the complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Knockdown of the gene in rat cortical neurons shifts the mitochondrial fusion-fission balance, but the molecular steps between the ATPase defect and the mitochondrial phenotype have not been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"Skeletal Muscle Mitochondrial Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle biopsy in a genotyped patient shows a mitochondrial histochemical pattern and a dysregulated mitochondrial proteome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"55LCC ATPase Complex Dysfunction\", \"target\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The complex performs the terminal cytoplasmic maturation step on the pre-60S particle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"55LCC ATPase Complex Dysfunction\", \"target\": \"Replisome Proteostasis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same complex extracts and licenses degradation of replisome components at damaged replication forks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"target\": \"Reduced Global Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer mature 60S subunits reach the translating pool, so bulk translation capacity falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Global Protein Synthesis\", \"target\": \"Neuroepithelial Vulnerability During Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A fall in ribosome availability is only pathogenic where translational reserve is already low, which is what makes the effect brain-specific.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuroepithelial Vulnerability During Differentiation\", \"target\": \"Impaired Cortical Neuron Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attrition and mis-specification of differentiating neuroepithelium is the proposed route to reduced brain growth, but the intervening steps have not been mapped in AFG2A deficiency itself.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"target\": \"Neuronal ATP Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion-fission imbalance is accompanied by a measured fall in the axonal ATP/ADP ratio in the same experiments.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal ATP Deficit\", \"target\": \"Impaired Cortical Neuron Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axon extension is one of the most energy-demanding processes in a developing neuron.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuron Growth\", \"target\": \"Congenital Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced growth of individual cortical neurons is the presumed cellular cause of the whole-organism reduction in brain and head growth, but no experiment has connected the two directly in AFG2A deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ketogenic diet\", \"target\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Infantile spasms\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-seizure medication polytherapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Early hearing habilitation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AFG2A\", \"target\": \"Biallelic AFG2A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.989_991del (p.Thr330del)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1822_1824del (p.Asp608del)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.251G\u003eA (p.Arg84Gln)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"55LCC ATPase Complex Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AFG2A does not act alone. It assembles with its paralogue AFG2B (SPATA5L1) and the heterodimeric partners C1orf109 and CINP into a 4:2:2:2 assembly named 55LCC, built from an N-terminal ring of C1orf109, CINP and the N-terminal domains of AFG2A and AFG2B sitting above two hexameric AAA+ ATPase rings. Reduced AFG2A activity therefore compromises a shared machine rather than a single enzyme, which is the structural reason AFG2A and AFG2B disease phenotypes overlap.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"AFG2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"presence\": \"Biallelic pathogenic or likely pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"Anti-seizure medication polytherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Most individuals with epilepsy require more than one anti-seizure medication and remain refractory. No agent has shown disease-specific superiority; the reported regimens span valproate, levetiracetam, lamotrigine, vigabatrin, ACTH, topiramate, zonisamide, clobazam, phenobarbital, rufinamide, cannabidiol and others. Only four of sixteen individuals with follow-up data achieved seizure freedom. In the reported IESS series, corticosteroids and vigabatrin did not achieve seizure control.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Biallelic AFG2A Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in AFG2A (formerly SPATA5) reduce the amount or the activity of an 892-amino-acid AAA+ ATPase. Most reported alleles are missense or small in-frame changes rather than complete nulls, and no individual carrying two unequivocal null alleles has been reported, which is consistent with hypomorphic rather than complete loss of function being compatible with life. The protein carries two conserved ATPase modules.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"role\": \"root\"}}, {\"id\": \"Congenital Microcephaly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level endpoint of the pathway. Reduced brain growth is present at birth in the large majority of affected children and, with sensorineural deafness and epilepsy, forms the diagnostic triad.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Early hearing habilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sensorineural deafness is congenital and detectable on newborn or neonatal brainstem audiometry, so amplification or implantation can be started in the first months. One genotyped child received a hearing device before the age of two months after postnatal brainstem audiometry showed sensorineural deafness. No systematic outcome data for cochlear implantation in this disorder exist, and profound intellectual disability with cerebral visual impairment complicates candidacy assessment, so this is curated as supportive habilitation rather than as an intervention with demonstrated efficacy in this genotype.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Impaired Cortical Neuron Growth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Developing cortical neurons deficient in the protein grow markedly shorter axons, and the defect is rescued by re-expressing the wild-type human protein. This is the most proximate cellular correlate available for the congenital microcephaly, hypomyelination and thin corpus callosum seen in patients, although no experiment has yet connected the neuronal growth defect to the human imaging findings directly.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cerebral cortex neuron\"], \"biological_processes\": [\"Axon extension\"]}}, {\"id\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In yeast the AFG2A orthologue Drg1 strips the assembly factor Rlp24, a placeholder for the ribosomal protein Rpl24, off pre-60S particles as soon as they reach the cytoplasm; the human equivalent step is performed by AFG2A within the 55LCC complex, with recognition of the pre-60S particle mediated by the human-specific subunit CINP. When AFG2A activity falls, large ribosomal subunits stall at this last maturation checkpoint.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"Ribosomal large subunit biogenesis\", \"Ribosome assembly\"]}}, {\"id\": \"Infantile spasms\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"When epilepsy occurs, it most often declares itself as an infantile epileptic spasms syndrome in the first two years of life, with a mean onset around 9 to 14 months. Epileptic spasms or tonic seizures typically emerge between 6 and 12 months in the smaller Japanese series. In the reported IESS series, neither corticosteroids nor vigabatrin achieved seizure control.\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0012469\"}}, {\"id\": \"Ketogenic diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The ketogenic diet is the only intervention with disease-specific evidence. In a series of five genotyped patients, four received the diet for drug-resistant epilepsy with seizure reduction rates of 0%, 30%, 70% and 100%; the patient who became seizure free is maintained on ketogenic diet monotherapy. Non-seizure benefits (social interaction, attention, motor function) were reported in three. Fibroblasts from these patients cultured in a ketogenic-diet-mimicking medium showed reversal of the mitochondrial morphology, dynamics and ATP abnormalities, giving a plausible mechanistic rationale. The evidence is a small uncontrolled series and is recorded as partial.\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"Neuroepithelial Vulnerability During Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node answers the central puzzle of the disorder: why a defect in a ubiquitous housekeeping machine produces an almost purely neurological phenotype. Human cerebral organoid work on the sister 55LCC subunit AIRIM/C1orf109 showed that ribosome levels fall physiologically during neuroepithelial differentiation, creating a developmental window in which any further reduction in 60S output crosses a threshold and selectively impairs translation of specific transcripts, disrupting both survival and cell fate commitment. Enhancing mTOR activity suppressed the AIRIM organoid phenotype, identifying a candidate rescue axis for 55LCC-related ribosome-biogenesis disorders that remains untested in AFG2A deficiency.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Differentiating neuroepithelium\"], \"biological_processes\": [\"Cytoplasmic translation\"]}}, {\"id\": \"Neuronal ATP Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The axonal ATP/ADP ratio falls by roughly 12% in knockdown neurons and is restored by re-expression of the wild-type human protein, establishing specificity. The same energy failure is detectable in patient blood cells, where oxygen consumption rates in platelets and peripheral blood mononuclear cells are impaired and monocyte mitochondrial mass is reduced.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neuron\"], \"biological_processes\": [\"ATP biosynthetic process\"]}}, {\"id\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Silencing the gene in rat primary cortical neurons shortens mitochondria by about 20% and halves the fusion-to-fission ratio. Patient-derived fibroblasts likewise show altered mitochondrial morphology and dynamics. This occurs even though the protein itself is dominantly cytosolic and does not co-localise with mitochondrial markers, so the effect is indirect; the intervening steps are unknown.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Cerebral cortex neuron\"], \"biological_processes\": [\"Mitochondrial fusion\", \"Mitochondrial fission\"]}}, {\"id\": \"Reduced Global Protein Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of AFG2A or of its partner C1orf109 lowers bulk protein synthesis in human cells, consistent with impaired late pre-60S maturation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cytoplasmic translation\"]}}, {\"id\": \"Replisome Proteostasis Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The 55LCC complex has a second, ribosome-independent job: its ATPase activity is stimulated by replication fork DNA and it couples cysteine protease-dependent cleavage of replisome substrates to replication fork damage. Losing that activity produces ubiquitin-independent proteotoxicity, replication stress and chromosome instability. Whether this branch contributes to the human neurodevelopmental phenotype is proposed by the authors but not established in patient material, so the node is provisional.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA replication\"]}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy affects roughly three quarters of individuals. Generalised-onset seizures predominate, and the epilepsy is usually drug resistant, requiring polytherapy. A minority of individuals never develop seizures at all, so epilepsy is a frequent but not obligate feature despite the historical name of the syndrome.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral sensorineural hearing loss, usually detectable from early infancy, is one of the three cardinal features. It is the single most consistent finding across families and, in at least one sibling, has been the ONLY manifestation of a confirmed biallelic genotype.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Skeletal Muscle Mitochondrial Pathology\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Muscle is affected as well as brain. A quadriceps biopsy from an 8-year-old girl with a typical presentation and two compound heterozygous variants showed a histochemical pattern suggesting mitochondrial pathology, and proteomic profiling found 82 dysregulated proteins of which 15 are mitochondrial. This provides the tissue-level counterpart of the mitochondrial dysfunction seen in neurons and fibroblasts, and it is one reason the disorder is investigated as a suspected mitochondrial myopathy.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"]}}, {\"id\": \"c.1822_1824del (p.Asp608del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous in-frame deletion segregating with severe intellectual disability and microcephaly in an extended consanguineous family with seven affected individuals; molecular modelling predicted a deleterious effect on protein function.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"in-frame deletion\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"c.251G\u003eA (p.Arg84Gln)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent missense allele; found homozygous through maternal uniparental isodisomy of chromosome 4 in a diagnostic case of developmental encephalopathy with late-onset epilepsy, and one of the four alleles accounting for 42% of reported individuals.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"c.989_991del (p.Thr330del)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent in-frame single-amino-acid deletion reported in multiple unrelated families, including the Japanese siblings, the Polish family in which one sibling had isolated hearing loss, and several of the Estonian and German compound heterozygotes.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AFG2A\"], \"gene_terms\": [{\"label\": \"AFG2A\", \"id\": \"hgnc:18119\"}], \"variant_type\": \"in-frame deletion\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"55LCC ATPase Complex Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AFG2A is the catalytic core of the 55LCC complex, so reduced AFG2A ATPase activity is directly a deficiency of the complex.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Knockdown of the gene in rat cortical neurons shifts the mitochondrial fusion-fission balance, but the molecular steps between the ATPase defect and the mitochondrial phenotype have not been identified.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic AFG2A Loss of Function\", \"target\": \"Skeletal Muscle Mitochondrial Pathology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Muscle biopsy in a genotyped patient shows a mitochondrial histochemical pattern and a dysregulated mitochondrial proteome.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"55LCC ATPase Complex Dysfunction\", \"target\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The complex performs the terminal cytoplasmic maturation step on the pre-60S particle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"55LCC ATPase Complex Dysfunction\", \"target\": \"Replisome Proteostasis Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same complex extracts and licenses degradation of replisome components at damaged replication forks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cytoplasmic Pre-60S Ribosomal Maturation\", \"target\": \"Reduced Global Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer mature 60S subunits reach the translating pool, so bulk translation capacity falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Global Protein Synthesis\", \"target\": \"Neuroepithelial Vulnerability During Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Other 55LCC-subunit organoid models link reduced ribosome availability to neuroepithelial vulnerability, but the intervening steps and their relevance to AFG2A-deficient cells have not been tested directly.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuroepithelial Vulnerability During Differentiation\", \"target\": \"Impaired Cortical Neuron Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attrition and mis-specification of differentiating neuroepithelium is the proposed route to reduced brain growth, but the intervening steps have not been mapped in AFG2A deficiency itself.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"target\": \"Neuronal ATP Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fusion-fission imbalance is accompanied by a measured fall in the axonal ATP/ADP ratio in the same experiments.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neuronal ATP Deficit\", \"target\": \"Impaired Cortical Neuron Growth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Axon extension is one of the most energy-demanding processes in a developing neuron.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Cortical Neuron Growth\", \"target\": \"Congenital Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced growth of individual cortical neurons is the presumed cellular cause of the whole-organism reduction in brain and head growth, but no experiment has connected the two directly in AFG2A deficiency.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ketogenic diet\", \"target\": \"Neuronal Mitochondrial Fusion-Fission Imbalance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ketogenic diet\", \"target\": \"Infantile spasms\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Anti-seizure medication polytherapy\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Early hearing habilitation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"AFG2A\", \"target\": \"Biallelic AFG2A Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"c.989_991del (p.Thr330del)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.1822_1824del (p.Asp608del)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"c.251G\u003eA (p.Arg84Gln)\", \"target\": \"AFG2A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5605,21 +6152,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-feeding-difficulties" data-dismech-node="Feeding difficulties" data-dismech-type="phenotype">
                     <div class="item-name">
                         Feeding difficulties
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5699,21 +6253,28 @@
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-impairment" data-dismech-node="Sensorineural hearing impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Sensorineural hearing impairment
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5793,21 +6354,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
                     <div class="item-name">
                         Microcephaly
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5878,19 +6446,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-depressed-nasal-bridge" data-dismech-node="Depressed nasal bridge" data-dismech-type="phenotype">
                     <div class="item-name">
                         Depressed nasal bridge
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Depressed nasal bridge
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005280">HP:0005280</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0005280</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5946,21 +6521,28 @@
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Hypotonia
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6009,21 +6591,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spasticity" data-dismech-node="Spasticity" data-dismech-type="phenotype">
                     <div class="item-name">
                         Spasticity
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6103,21 +6692,28 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
                     <div class="item-name">
                         Intellectual disability
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6188,21 +6784,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-speech" data-dismech-node="Absent speech" data-dismech-type="phenotype">
                     <div class="item-name">
                         Absent speech
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Absent speech
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001344">HP:0001344</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001344</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6271,21 +6874,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
                     <div class="item-name">
                         Global developmental delay
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6334,21 +6944,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
                         Seizure
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6419,21 +7036,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dystonia" data-dismech-node="Dystonia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dystonia
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6504,21 +7128,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-hypomyelination" data-dismech-node="Cerebral hypomyelination" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral hypomyelination
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral hypomyelination
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0006808">HP:0006808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0006808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral hypomyelination (HP:0006808). HP:0006808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6589,21 +7220,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-atrophy" data-dismech-node="Cerebral atrophy" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral atrophy
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral atrophy
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002059">HP:0002059</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002059</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6683,19 +7321,26 @@
                     <span class="cat-count">7</span>
                 </summary>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-infantile-spasms" data-dismech-node="Infantile spasms" data-dismech-type="phenotype">
                     <div class="item-name">
                         Infantile spasms
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Infantile spasms
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012469">HP:0012469</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012469</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6788,19 +7433,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-multifocal-epileptiform-discharges" data-dismech-node="Multifocal epileptiform discharges" data-dismech-type="phenotype">
                     <div class="item-name">
                         Multifocal epileptiform discharges
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Multifocal epileptiform discharges
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010841" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010841">HP:0010841</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0010841</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Multifocal epileptiform discharges (HP:0010841). HP:0010841 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6869,21 +7521,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-visual-impairment" data-dismech-node="Cerebral visual impairment" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cerebral visual impairment
 
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cerebral visual impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100704">HP:0100704</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100704</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6954,21 +7613,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inability-to-walk" data-dismech-node="Inability to walk" data-dismech-type="phenotype">
                     <div class="item-name">
                         Inability to walk
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Inability to walk
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002540">HP:0002540</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002540</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7020,10 +7686,10 @@
 
                 </div>
 
-                <div class="evidence-snippet">"ment was present in almost all individuals with available data (97.83%)."</div>
+                <div class="evidence-snippet">"was present in almost all individuals with available data (97.83%)."</div>
 
 
-                <div class="evidence-explanation">Records that motor impairment of some degree is near-universal. The quote starts mid-word because &#34;Motor impairment&#34; is split across a line break by a hyphen in the cached PDF text.</div>
+                <div class="evidence-explanation">Records that motor impairment of some degree is near-universal.</div>
 
 
 
@@ -7039,21 +7705,28 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin corpus callosum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thin corpus callosum
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thin corpus callosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033725">HP:0033725</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0033725</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7102,19 +7775,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-retrognathia" data-dismech-node="Retrognathia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Retrognathia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Retrognathia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000278" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000278">HP:0000278</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000278" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000278</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Retrognathia (HP:0000278). HP:0000278 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7161,19 +7841,26 @@
 
                 </div>
 
-                <div class="item-box phenotype-box">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-concentration" data-dismech-node="Increased circulating lactate concentration" data-dismech-type="phenotype">
                     <div class="item-name">
                         Increased circulating lactate concentration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased circulating lactate concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002151">HP:0002151</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002151</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7261,7 +7948,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box genetic-box">
+            <div class="item-box genetic-box anchor-target" id="genetic-afg2a" data-dismech-node="AFG2A" data-dismech-type="genetic">
                 <div class="item-name">
                     AFG2A
 
@@ -7271,13 +7958,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: AFG2A
 
 
-    <a href="https://bioregistry.io/hgnc:18119" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:18119">hgnc:18119</a>
+    <a href="https://bioregistry.io/hgnc:18119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:18119</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7352,9 +8044,283 @@
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (3)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-989-991del-p-thr330del" data-dismech-node="c.989_991del (p.Thr330del)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.989_991del (p.Thr330del)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: AFG2A
+
+
+    <a href="https://bioregistry.io/hgnc:18119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:18119</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">in-frame deletion</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">A recurrent in-frame single-amino-acid deletion reported in multiple unrelated families, including the Japanese siblings, the Polish family in which one sibling had isolated hearing loss, and several of the Estonian and German compound heterozygotes.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27246907" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27246907" target="_blank">PMID:27246907</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two siblings carried compound heterozygous mutations, c.989_991del (p.Thr330del) and c.2130_2133del (p.Glu711Profs*21), and the third child had c.967T&gt;A (p.Phe323Ile) and c.2146G&gt;C (p.Ala716Pro) mutations."</div>
+
+
+                <div class="evidence-explanation">Documents the recurrent p.Thr330del allele in trans with a frameshift.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28293831" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28293831" target="_blank">PMID:28293831</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Herein we describe a family in which two SPATA5 mutations with established pathogenicity (p.Thr330del and c.1714+1G&gt;A) were found in the proband and her younger sister."</div>
+
+
+                <div class="evidence-explanation">The same recurrent allele in a family with strikingly variable expression between siblings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-1822-1824del-p-asp608del" data-dismech-node="c.1822_1824del (p.Asp608del)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.1822_1824del (p.Asp608del)
+
+        <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: AFG2A
+
+
+    <a href="https://bioregistry.io/hgnc:18119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:18119</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">in-frame deletion</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Homozygous in-frame deletion segregating with severe intellectual disability and microcephaly in an extended consanguineous family with seven affected individuals; molecular modelling predicted a deleterious effect on protein function.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27683084" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27683084" target="_blank">PMID:27683084</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Linkage analysis followed by exome sequencing revealed a homozygous variant in SPATA5 (c.1822_1824del; p.Asp608del), which segregates with the phenotype in the family."</div>
+
+
+                <div class="evidence-explanation">Segregation evidence in a seven-affected consanguineous family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-c-251g-a-p-arg84gln" data-dismech-node="c.251G&gt;A (p.Arg84Gln)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        c.251G&gt;A (p.Arg84Gln)
+
+        <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
+
+    </div>
+
+    <div class="item-meta">
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Gene: AFG2A
+
+
+    <a href="https://bioregistry.io/hgnc:18119" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:18119</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant is in this gene
+This variant is in AFG2A, annotated with SPATA5 (hgnc:18119). hgnc:18119 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
+
+
+
+    </div>
+
+
+    <div class="item-desc">Recurrent missense allele; found homozygous through maternal uniparental isodisomy of chromosome 4 in a diagnostic case of developmental encephalopathy with late-onset epilepsy, and one of the four alleles accounting for 42% of reported individuals.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30552426" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30552426" target="_blank">PMID:30552426</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This diagnostic case with developmental encephalopathy with late-onset epilepsy also had an unusual mutational mechanism with homozygotization of a... inherited variant due to maternal isodisomy of..."</div>
+
+
+                <div class="evidence-explanation">Documents an unusual route to homozygosity, maternal uniparental isodisomy of chromosome 4, which is relevant to recurrence-risk counselling. The quote is elided at two points because &#34;maternally&#34; and &#34;chromosome&#34; are each split across a line break by a hyphen in the cached PDF text.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
+
             </div>
 
         </div>
+
+
+        <!-- Variants recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7366,7 +8332,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-ketogenic-diet" data-dismech-node="Ketogenic diet" data-dismech-type="treatment">
                 <div class="item-name">
                     Ketogenic diet
                 </div>
@@ -7374,7 +8340,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Ketogenic diet</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Ketogenic diet<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Ketogenic diet (NCIT:C173168). NCIT:C173168 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Ketogenic Diet</span>
 
 
@@ -7461,17 +8432,24 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Infantile spasms
@@ -7479,10 +8457,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0012469">HP:0012469</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0012469</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Infantile spasms (HP:0012469). HP:0012469 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7571,7 +8552,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-anti-seizure-medication-polytherapy" data-dismech-node="Anti-seizure medication polytherapy" data-dismech-type="treatment">
                 <div class="item-name">
                     Anti-seizure medication polytherapy
                 </div>
@@ -7579,7 +8560,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7608,12 +8594,14 @@
 
 
 
-                <div class="item-desc">Most individuals with epilepsy require more than one anti-seizure medication and remain refractory. No agent has shown disease-specific superiority; the reported regimens span valproate, levetiracetam, lamotrigine, vigabatrin, ACTH, topiramate, zonisamide, clobazam, phenobarbital, rufinamide, cannabidiol and others. Only four of sixteen individuals with follow-up data achieved seizure freedom. Notably, the standard first-line treatments for infantile epileptic spasms syndrome do not work here.</div>
+                <div class="item-desc">Most individuals with epilepsy require more than one anti-seizure medication and remain refractory. No agent has shown disease-specific superiority; the reported regimens span valproate, levetiracetam, lamotrigine, vigabatrin, ACTH, topiramate, zonisamide, clobazam, phenobarbital, rufinamide, cannabidiol and others. Only four of sixteen individuals with follow-up data achieved seizure freedom. In the reported IESS series, corticosteroids and vigabatrin did not achieve seizure control.</div>
 
 
 
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Seizure
@@ -7621,10 +8609,13 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001250</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7689,7 +8680,7 @@
 
             </div>
 
-            <div class="item-box treatment-box">
+            <div class="item-box treatment-box anchor-target" id="treatment-early-hearing-habilitation" data-dismech-node="Early hearing habilitation" data-dismech-type="treatment">
                 <div class="item-name">
                     Early hearing habilitation
                 </div>
@@ -7697,7 +8688,12 @@
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">hearing habilitation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">hearing habilitation<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is hearing habilitation, annotated with Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Rehabilitation</span>
 
 
@@ -7734,16 +8730,21 @@
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Sensorineural hearing impairment
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000407</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -7812,12 +8813,11 @@
             <div class="item-box differential-box">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">AFG2B-related neurodevelopmental disorder</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Neurodevelopmental_Disorder_with_Hearing_Loss_and_Spasticity.html">AFG2B-related neurodevelopmental disorder</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0859206" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0859206" target="_blank">
                             MONDO:0859206
                         </a>
                     </span>
@@ -8274,7 +9274,7 @@
                     Quantitative proteomic profiling of a quadriceps muscle biopsy from a child with AFG2A-related encephalopathy
 
                     <span class="dataset-accession">
-                        <a href="https://bioregistry.io/proteomexchange:PXD026182" target="_blank">proteomexchange:PXD026182</a>
+                        <a href="https://www.ebi.ac.uk/pride/archive/projects/PXD026182" target="_blank">proteomexchange:PXD026182</a>
                     </span>
 
                 </div>
@@ -8351,6 +9351,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8386,9 +9389,10 @@ description: &gt;-
   background of severe to profound intellectual disability with absent speech,
   motor impairment that combines axial hypotonia with peripheral spasticity,
   cortical visual impairment and gastrointestinal dysfunction. When epilepsy is
-  present it most often begins as an infantile epileptic spasms syndrome in the
-  first two years and is usually drug resistant, so the disorder is frequently
-  classified as a developmental and epileptic encephalopathy. AFG2A encodes an
+  present, infantile epileptic spasms syndrome is the most frequently reported
+  onset syndrome among individuals with detailed epilepsy data, and drug
+  resistance occurs in most individuals with treatment data. The disorder can
+  therefore present as a developmental and epileptic encephalopathy. AFG2A encodes an
   AAA+ ATPase that, together with AFG2B (SPATA5L1), C1orf109 and CINP, forms the
   55LCC complex; the complex drives the last cytoplasmic maturation step of the
   pre-60S ribosomal subunit and also governs replisome proteostasis. Loss of
@@ -8448,9 +9452,9 @@ classifications:
         and indicate that SPATA5 defects may account for a fraction of isolated sensorineural
         hearing impairment cases.
       explanation: &gt;-
-        Sensorineural hearing loss is near-universal in the disorder and can be
-        its only manifestation, so the entity also belongs to the disorders of
-        the ear chapter.
+        A confirmed biallelic AFG2A genotype can present as isolated
+        sensorineural hearing impairment, supporting inclusion in the disorders
+        of the ear chapter.
 notes: &gt;-
   Scope, naming and provenance notes for this entry.
 
@@ -8680,41 +9684,6 @@ prevalence:
     explanation: &gt;-
       The largest pooled cohort assembled to date numbers 51 individuals
       worldwide, which places the disorder in the ultra-rare tier.
-- population: Children with early-onset epileptic encephalopathy or developmental
-    and epileptic encephalopathy
-  measure_type: PERIOD_PREVALENCE
-  prevalence_class: ABOVE_1_IN_1000
-  rate_per_100000: 3000.0
-  notes: &gt;-
-    Derived from a stated denominator. Papuc and colleagues found causative
-    biallelic SPATA5 variants in 2 of 63 research patients with early-onset
-    epileptic encephalopathy, then replicated the finding in 1 of 39 diagnostic
-    cases, giving 3 of 102 combined patients (2.9%, reported as 3%). READ THE
-    `population:` FIELD BEFORE USING THE RATE. The 3000 per 100,000 figure is the
-    diagnostic yield WITHIN a selected early-onset epileptic encephalopathy
-    cohort, not a population prevalence, and it must never be compared with a
-    general-population rate. The deprecated free-text `percentage:` slot is
-    deliberately not used.
-  evidence:
-  - reference: PMID:30552426
-    reference_title: &#34;The role of recessive inheritance in early-onset epileptic encephalopathies:\
-      \ a combined whole-exome sequencing and copy number study.&#34;
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: Notably, we found the recessive gene SPATA5 causative in as much as 3%
-      of our cohort, indicating that it may have been underdiagnosed in previous
-      studies.
-    explanation: &gt;-
-      Gives the diagnostic yield of AFG2A/SPATA5 within a deeply phenotyped
-      early-onset epileptic encephalopathy cohort.
-  - reference: PMID:41933351
-    reference_title: AFG2A-related encephalopathy, expanding the neurodevelopmental
-      and epileptic spectrum.
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: The prevalence of AFG2A-RE has been estimated at around 3% of early-onset
-      developmental and epileptic encephalopathies
-    explanation: The 2026 review carries the same 3% yield forward.
 progression:
 - age_range: Birth to 2 years
   notes: &gt;-
@@ -8741,10 +9710,11 @@ progression:
     explanation: Confirms early-infantile onset across the pooled 30-patient series.
 - age_range: Childhood onwards
   notes: &gt;-
-    The course is one of severe static-to-slowly-progressive encephalopathy.
-    Serial imaging in some children shows progressive cerebral atrophy, and a
-    minority die in childhood; three of 51 pooled individuals had died, at ages
-    3, 4.9 and 13.4 years.
+    Long-term clinical trajectories have not been defined prospectively. Serial
+    imaging in some children shows progressive cerebral atrophy. In the pooled
+    retrospective literature, three of 51 individuals had died, at ages 3, 4.9
+    and 13.4 years; two causes were unreported and one was respiratory failure,
+    so these observations do not establish a survival estimate.
   evidence:
   - reference: PMID:27246907
     reference_title: Characterization of SPATA5-related encephalopathy in early childhood.
@@ -8755,6 +9725,16 @@ progression:
     explanation: &gt;-
       Documents that the cerebral atrophy component of the imaging phenotype is
       progressive rather than static.
+  - reference: PMID:41933351
+    reference_title: AFG2A-related encephalopathy, expanding the neurodevelopmental
+      and epileptic spectrum.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: All the individuals reported were alive, except for three (4.89%) who
+      died at the ages of 3, 4.9 and 13.4 years
+    explanation: &gt;-
+      Documents the three reported deaths without treating the retrospective
+      proportion as a survival estimate.
 pathophysiology:
 - name: Biallelic AFG2A Loss of Function
   description: &gt;-
@@ -8933,10 +9913,7 @@ pathophysiology:
 - name: Reduced Global Protein Synthesis
   description: &gt;-
     Depletion of AFG2A or of its partner C1orf109 lowers bulk protein synthesis
-    in human cells. Neurons are among the cell types least able to tolerate a
-    reduced translational capacity during the period of rapid dendritic and
-    axonal growth, which is the proposed link between a housekeeping ribosome
-    assembly defect and a brain-restricted clinical phenotype.
+    in human cells, consistent with impaired late pre-60S maturation.
   biological_scale: CELLULAR
   mechanism_confidence: ESTABLISHED
   biological_processes:
@@ -8946,10 +9923,11 @@ pathophysiology:
       label: cytoplasmic translation
   downstream:
   - target: Neuroepithelial Vulnerability During Differentiation
-    causal_link_type: DIRECT
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     description: &gt;-
-      A fall in ribosome availability is only pathogenic where translational
-      reserve is already low, which is what makes the effect brain-specific.
+      Other 55LCC-subunit organoid models link reduced ribosome availability to
+      neuroepithelial vulnerability, but the intervening steps and their
+      relevance to AFG2A-deficient cells have not been tested directly.
   evidence:
   - reference: PMID:35354024
     reference_title: Labeling of heterochronic ribosomes reveals C1ORF109 and SPATA5
@@ -8977,10 +9955,9 @@ pathophysiology:
     neuroepithelial differentiation, creating a developmental window in which any
     further reduction in 60S output crosses a threshold and selectively impairs
     translation of specific transcripts, disrupting both survival and cell fate
-    commitment. The window is embryonic, which is why no postnatal intervention
-    reverses the microcephaly. Enhancing mTOR activity suppressed the organoid
-    phenotype, making mTOR the first rationally derived candidate target for this
-    disease family.
+    commitment. Enhancing mTOR activity suppressed the AIRIM organoid phenotype,
+    identifying a candidate rescue axis for 55LCC-related ribosome-biogenesis
+    disorders that remains untested in AFG2A deficiency.
   biological_scale: CELLULAR
   mechanism_confidence: PROVISIONAL
   notes: &gt;-
@@ -9108,7 +10085,7 @@ pathophysiology:
     reference_title: Compound heterozygous SPATA5 variants in four families and functional
       studies of SPATA5 deficiency.
     supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
+    evidence_source: IN_VITRO
     snippet: SPATA5-deficient neurons had a significant imbalance in the mitochondrial
       fusion-fission rate, impaired energy production and short axons.
     explanation: &gt;-
@@ -9162,23 +10139,33 @@ pathophysiology:
       Axon extension is one of the most energy-demanding processes in a
       developing neuron.
   evidence:
+  - reference: PMID:29343804
+    reference_title: Compound heterozygous SPATA5 variants in four families and functional
+      studies of SPATA5 deficiency.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: Overexpression of human shRNA-insensitive SPATA5 restored the ATP/ADP
+      ratio in the SPATA5 shRNA-treated group demonstrating the specificity of shRNA.
+    explanation: &gt;-
+      Direct knockdown-and-rescue evidence for the axonal ATP deficit in cultured
+      rat cortical neurons.
   - reference: PMID:36849973
     reference_title: Computational and mitochondrial functional studies of novel compound
       heterozygous variants in SPATA5 gene support a causal link with epileptogenic
       encephalopathy.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: IN_VITRO
     snippet: Oxygen consumption rates in platelets and PBMCs were impaired in the
       patient when compared to a healthy control.
     explanation: &gt;-
-      Demonstrates impaired oxidative metabolism in accessible cells from a
-      genotyped patient.
+      Ex vivo respiratory assay demonstrates impaired oxidative metabolism in
+      accessible cells from a genotyped patient.
   - reference: PMID:36849973
     reference_title: Computational and mitochondrial functional studies of novel compound
       heterozygous variants in SPATA5 gene support a causal link with epileptogenic
       encephalopathy.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: IN_VITRO
     snippet: Also, a decrease in mitochondrial mass was observed in the patient monocytes
       with respect to the control.
     explanation: Reduced mitochondrial mass accompanies the respiratory deficit.
@@ -9214,7 +10201,7 @@ pathophysiology:
     reference_title: Compound heterozygous SPATA5 variants in four families and functional
       studies of SPATA5 deficiency.
     supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
+    evidence_source: IN_VITRO
     snippet: In conclusion, SPATA5 protein has an important role in mitochondrial
       dynamics and axonal growth.
     explanation: &gt;-
@@ -9224,9 +10211,7 @@ pathophysiology:
   description: &gt;-
     The organism-level endpoint of the pathway. Reduced brain growth is present
     at birth in the large majority of affected children and, with sensorineural
-    deafness and epilepsy, forms the diagnostic triad. It is the one feature that
-    no postnatal intervention can reverse, because the vulnerable window is the
-    embryonic period of neuroepithelial differentiation.
+    deafness and epilepsy, forms the diagnostic triad.
   biological_scale: ORGANISM
   mechanism_confidence: ESTABLISHED
   evidence:
@@ -9404,10 +10389,8 @@ phenotypes:
 - name: Microcephaly
   category: Neurologic
   description: &gt;-
-    Microcephaly is present in the large majority and is usually congenital
-    rather than acquired, which is one of the features that separates this
-    disorder from the AFG2B disease and from most other developmental and
-    epileptic encephalopathies.
+    Microcephaly is present in the large majority, is usually congenital rather
+    than acquired, and is one of the cardinal features of the disorder.
   frequency: VERY_FREQUENT
   diagnostic: true
   notes: 85.71% in the 51-individual pooled cohort; 90% in the earlier 30-patient summary.
@@ -9502,9 +10485,8 @@ phenotypes:
     When epilepsy occurs, it most often declares itself as an infantile epileptic
     spasms syndrome in the first two years of life, with a mean onset around 9 to
     14 months. Epileptic spasms or tonic seizures typically emerge between 6 and
-    12 months in the smaller Japanese series. Neither corticosteroids nor
-    vigabatrin, the standard first-line treatments for infantile spasms, achieve
-    seizure control in this disorder.
+    12 months in the smaller Japanese series. In the reported IESS series,
+    neither corticosteroids nor vigabatrin achieved seizure control.
   notes: &gt;-
     Frequency band deliberately omitted. Infantile epileptic spasms syndrome was
     reported in 16 of the 24 individuals with detailed epilepsy data (66.67%),
@@ -9731,18 +10713,14 @@ phenotypes:
       and epileptic spectrum.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: ment was present in almost all individuals with available data (97.83%).
+    snippet: &#34;was present in almost all individuals with available data (97.83%).&#34;
     explanation: &gt;-
-      Records that motor impairment of some degree is near-universal. The quote
-      starts mid-word because &#34;Motor impairment&#34; is split across a line break by
-      a hyphen in the cached PDF text.
+      Records that motor impairment of some degree is near-universal.
 - name: Dystonia
   category: Neurologic
   description: &gt;-
     Non-paroxysmal movement disorders affect over a third of individuals, with
     dystonia the commonest, followed by dyskinesia, ataxia, chorea and athetosis.
-    Movement disorders are probably under-recognised, as in other developmental
-    and epileptic encephalopathies.
   frequency: OCCASIONAL
   notes: &gt;-
     Dystonia 21.74% in the 51-individual pooled cohort; movement disorders of
@@ -10113,11 +11091,10 @@ genetic:
 diagnosis:
 - name: Exome or genome sequencing
   description: &gt;-
-    The diagnosis is molecular. Every reported cohort was ascertained by
-    whole-exome sequencing, usually after a clinical suspicion of a mitochondrial
+    The diagnosis is molecular. Multiple reported cohorts were ascertained by
+    whole-exome sequencing, often after a clinical suspicion of a mitochondrial
     disorder or of an unexplained developmental and epileptic encephalopathy.
-    Targeted epilepsy or hearing loss panels may not include the gene, and the
-    symbol under which it is listed may still be SPATA5.
+    The symbol in older reports and some resources is SPATA5.
   evidence:
   - reference: PMID:29343804
     reference_title: Compound heterozygous SPATA5 variants in four families and functional
@@ -10131,7 +11108,33 @@ diagnosis:
     explanation: &gt;-
       Illustrates the usual diagnostic route: a suspected mitochondrial disorder
       resolved by exome sequencing.
+  - reference: PMID:30552426
+    reference_title: &#34;The role of recessive inheritance in early-onset epileptic encephalopathies:\
+      \ a combined whole-exome sequencing and copy number study.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Notably, we found the recessive gene SPATA5 causative in as much as 3%
+      of our cohort, indicating that it may have been underdiagnosed in previous
+      studies.
+    explanation: &gt;-
+      Reports a selected-cohort diagnostic yield, which belongs with molecular
+      diagnosis rather than population prevalence.
+  - reference: PMID:41933351
+    reference_title: AFG2A-related encephalopathy, expanding the neurodevelopmental
+      and epileptic spectrum.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: The prevalence of AFG2A-RE has been estimated at around 3% of early-onset
+      developmental and epileptic encephalopathies
+    explanation: &gt;-
+      The systematic review carries forward the selected-cohort
+      diagnostic-yield estimate; this is not a population prevalence claim.
   notes: &gt;-
+    Papuc and colleagues identified causative biallelic SPATA5 variants in 2 of
+    63 research participants with early-onset epileptic encephalopathy and 1 of
+    39 diagnostic cases (3 of 102 combined, reported as 3%). This is a diagnostic
+    yield in a selected cohort, not a population prevalence estimate.
+
     Elevated or high-normal blood copper was reported in the three Japanese
     children (PMID:27246907) but has never been replicated in any later cohort,
     so it is recorded here as an unreplicated observation and not curated as a
@@ -10139,10 +11142,9 @@ diagnosis:
 - name: Audiological assessment
   description: &gt;-
     Because sensorineural hearing loss is near-universal and may be the earliest
-    or, rarely, the only sign, formal audiological testing is indicated in any
-    child with unexplained microcephaly and developmental delay, and biallelic
-    AFG2A variants should be considered in apparently isolated sensorineural
-    hearing impairment.
+    or, rarely, the only sign, formal audiological assessment is an important
+    component of evaluation, and biallelic AFG2A variants should be considered
+    in apparently isolated sensorineural hearing impairment.
   evidence:
   - reference: PMID:28293831
     reference_title: Isolated Hearing Impairment Caused by SPATA5 Mutations in a Family
@@ -10175,9 +11177,8 @@ treatments:
       label: Ketogenic Diet
   notes: &gt;-
     Four treated patients is the entire published experience. The 2026 review
-    adds that neither corticosteroids nor vigabatrin, the standard first-line
-    treatments for infantile epileptic spasms syndrome, achieved seizure control
-    in this disorder, which is why the diet is being explored.
+    adds that neither corticosteroids nor vigabatrin achieved seizure control in
+    the reported IESS series, which is why the diet is being explored.
   target_phenotypes:
   - preferred_term: Seizure
     term:
@@ -10258,8 +11259,8 @@ treatments:
     reported regimens span valproate, levetiracetam, lamotrigine, vigabatrin,
     ACTH, topiramate, zonisamide, clobazam, phenobarbital, rufinamide,
     cannabidiol and others. Only four of sixteen individuals with follow-up data
-    achieved seizure freedom. Notably, the standard first-line treatments for
-    infantile epileptic spasms syndrome do not work here.
+    achieved seizure freedom. In the reported IESS series, corticosteroids and
+    vigabatrin did not achieve seizure control.
   action_category: THERAPEUTIC
   therapeutic_modality: SMALL_MOLECULE
   treatment_term:
@@ -12189,7 +13190,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "AFG2A-Related Encephalopathy", "mondoId": "MONDO:0014698", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "AFG2A-Related_Encephalopathy", "yamlRevision": "8d270b539d3c"};
+        const OS_CONFIG = {"diseaseName": "AFG2A-Related Encephalopathy", "mondoId": "MONDO:0014698", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "AFG2A-Related_Encephalopathy", "yamlRevision": "5bc24ae9847e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -12608,5 +13609,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

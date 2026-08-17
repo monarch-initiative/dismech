@@ -257,12 +257,20 @@ _test-examples: _ensure_examples_output
 
 # Generate merged model
 #
-# The merged schema is copied into elements/ and committed, so its
-# `generation_date:` (a wall-clock stamp LinkML writes unconditionally — it
-# honours neither --no-metadata nor SOURCE_DATE_EPOCH) would otherwise make a
-# fresh render differ from the committed copy on every single run. Pin it to
-# the same constant the MkDocs build uses. The stamp records when the file was
-# generated, which git already records more accurately.
+# The merged schema is copied into elements/ and committed, so two wall-clock
+# stamps LinkML writes unconditionally (it honours neither --no-metadata nor
+# SOURCE_DATE_EPOCH) would otherwise make a fresh render differ from the
+# committed copy. Both are pinned to the same constant the MkDocs build uses:
+#
+#   generation_date  — when gen-yaml ran. Differs on every run.
+#   source_file_date — the **mtime of the source schema file**. This one is
+#     nastier: it is stable on a working copy, so it looks fine locally, but a
+#     fresh `git clone` sets mtimes to checkout time — so it differs on every
+#     CI run, and between CI and any developer machine. It is what kept
+#     deploy-docs red after the first four fixes landed (#8025).
+#
+# `source_file_size` is content-derived and needs no pinning. Both stamps
+# record provenance git already records more accurately.
 # Generated to a temp file and rewritten in place rather than piped through
 # sed: `just` runs recipes with `sh -cu`, where a pipeline's exit status is the
 # LAST command's, so `gen-yaml ... | sed > out` would report sed's success even
@@ -272,7 +280,8 @@ _test-examples: _ensure_examples_output
 _gen-yaml:
   -mkdir -p docs/schema
   PYTHONHASHSEED=0 uv run gen-yaml {{source_schema_path}} > {{merged_schema_path}}.tmp
-  sed "s/^generation_date: .*/generation_date: '2025-01-01T00:00:00'/" \
+  sed -e "s/^generation_date: .*/generation_date: '2025-01-01T00:00:00'/" \
+      -e "s/^source_file_date: .*/source_file_date: '2025-01-01T00:00:00'/" \
     {{merged_schema_path}}.tmp > {{merged_schema_path}}
   rm -f {{merged_schema_path}}.tmp
 

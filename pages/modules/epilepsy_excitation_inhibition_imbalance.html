@@ -375,6 +375,61 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -470,6 +525,24 @@
 
         .anchor-target {
             scroll-margin-top: 96px;
+        }
+
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
         }
 
         /* Mechanistic hypotheses */
@@ -695,8 +768,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -726,6 +807,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -849,6 +959,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -860,6 +1011,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -1030,19 +1184,39 @@
                 .text(label);
 
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
         });
 
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -1178,8 +1352,26 @@
                 html.push(readoutHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -1192,6 +1384,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -1306,6 +1504,7 @@
     
 
     
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1341,7 +1540,7 @@
             <div class="header-meta">
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">epilepsy_excitation_inhibition_imbalance</span>
-                <span class="badge badge-count">52 disorders</span>
+                <span class="badge badge-count">67 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1372,16 +1571,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-cell">
                         Neuron
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000540</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1393,16 +1597,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-cell">
                         GABAergic Neuron
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000617">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000617</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves GABAergic Neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1427,16 +1636,21 @@
                 
                 <div class="tag-list">
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Regulation of Membrane Potential
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042391">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0042391</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal Regulation of Membrane Potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1449,6 +1663,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         Chemical Synaptic Transmission
@@ -1456,10 +1672,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007268</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves abnormal Chemical Synaptic Transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1473,16 +1692,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         GABA Signaling Pathway
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007214">GO:0007214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0007214</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves decreased GABA Signaling Pathway (GO:0007214). GO:0007214 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1496,16 +1720,21 @@
     
     
                     
+                    
+                    
                     <span class="tag tag-bio">
                         Action Potential
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0001508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001508">GO:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001508</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased Action Potential (GO:0001508). GO:0001508 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1544,10 +1773,30 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">52</span>
+                <span class="card-count">67</span>
             </div>
             
             <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Alpers-Huttenlocher_Syndrome.html">Alpers-Huttenlocher Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Selective Interneuron and Pyramidal Neuron Loss in Occipital Cortex → Excitation-Inhibition Imbalance
+                        
+                        
+                        , 
+                        
+                        Intractable Focal Epilepsy and Epilepsia Partialis Continua → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Autosomal_Dominant_Epilepsy_with_Auditory_Features.html">Autosomal Dominant Epilepsy with Auditory Features</a>
@@ -1685,6 +1934,26 @@
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Childhood_Occipital_Visual_Epilepsy.html">Childhood Occipital Visual Epilepsy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Occipital Interictal and Ictal Paroxysmal Discharges → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Recurrent Brief Diurnal Visual Seizures → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/CPLX1-Related_Developmental_and_Epileptic_Encephalopathy.html">CPLX1-Related Developmental and Epileptic Encephalopathy</a>
                     
                     <span class="crosslink-desc">
@@ -1708,6 +1977,26 @@
                         
                         
                         Focal Cortical Hyperexcitability and Focal-Onset Seizures → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep.html">Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Abnormal Frequency-Dependent Cortical Excitability → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Focal and Atypical Absence Seizures → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -1822,7 +2111,62 @@
                         
                         , 
                         
-                        Migrating Focal Seizures → Recurrent Unprovoked Seizures
+                        Migrating Focal Seizure Generation → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.html">Epilepsy with Generalized Tonic-Clonic Seizures Alone</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Polygenic Susceptibility to Generalized Epilepsy → Ion Channel and Synaptic Dysfunction
+                        
+                        
+                        , 
+                        
+                        Cortico-Thalamocortical Excitation-Inhibition Imbalance → Excitation-Inhibition Imbalance
+                        
+                        
+                        , 
+                        
+                        Generalized Hypersynchronous Discharge → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Recruitment of Motor Systems into Tonic-Clonic Output → Seizure Generation and Epileptogenesis
+                        
+                        
+                        , 
+                        
+                        Recurrent Unprovoked Generalized Tonic-Clonic Seizures → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Epilepsy_with_Myoclonic_Absences.html">Epilepsy with Myoclonic Absences</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Hypersynchronous Three-Hertz Thalamocortical Spike-Wave Oscillation → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Rhythmic Myoclonus with Progressive Tonic Contraction → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -1893,6 +2237,41 @@
                         
                         
                         Drug-Resistant Focal Epilepsy → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/GABRB3-Related_Developmental_and_Epileptic_Encephalopathy.html">GABRB3-Related Developmental and Epileptic Encephalopathy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        GABRB3 Variant and Beta-3 Subunit Dysfunction → Ion Channel and Synaptic Dysfunction
+                        
+                        
+                        , 
+                        
+                        Disrupted Excitation-Inhibition Balance in Developing Networks → Excitation-Inhibition Imbalance
+                        
+                        
+                        , 
+                        
+                        Neuronal Hyperexcitability and Thalamocortical Hypersynchrony → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Seizure Generation and Developmental Encephalopathy → Seizure Generation and Epileptogenesis
+                        
+                        
+                        , 
+                        
+                        Drug-Resistant Epilepsy with Developmental Impairment → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -2050,6 +2429,46 @@
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Hemiconvulsion-Hemiplegia-Epilepsy_Syndrome.html">Hemiconvulsion-Hemiplegia-Epilepsy Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Epileptogenic Reorganization of the Damaged Hemisphere → Seizure Generation and Epileptogenesis
+                        
+                        
+                        , 
+                        
+                        Drug-Resistant Focal Epilepsy from the Affected Hemisphere → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Hemimegalencephaly.html">Hemimegalencephaly</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Intrinsically Epileptogenic Dysplastic Cortex → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Drug-Resistant Epilepsy of Infantile Onset → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Hyperprolinemia_Type_2.html">Hyperprolinemia Type 2</a>
                     
                     <span class="crosslink-desc">
@@ -2088,6 +2507,41 @@
                         
                         
                         Loss of GABAergic Inhibition → Excitation-Inhibition Imbalance
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Altered Thalamic Low-Threshold Calcium Bursting → Ion Channel and Synaptic Dysfunction
+                        
+                        
+                        , 
+                        
+                        Aberrant GABAergic Inhibition in the Thalamic Reticular Nucleus → Excitation-Inhibition Imbalance
+                        
+                        
+                        , 
+                        
+                        Hypersynchronous Thalamocortical Oscillation → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Generalized Spike-Wave Discharges → Seizure Generation and Epileptogenesis
+                        
+                        
+                        , 
+                        
+                        Absence Seizures → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -2205,6 +2659,46 @@
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Cortical Neuronal Hyperexcitability → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Progressive Myoclonic Epilepsy → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Myoclonic_Epilepsy_in_Infancy.html">Myoclonic Epilepsy in Infancy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Age-Restricted Generalized Cortical Hyperexcitability of Infancy → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Brief Generalized Myoclonic Seizures → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Paroxysmal_Dyskinesia.html">Paroxysmal Dyskinesia</a>
                     
                     <span class="crosslink-desc">
@@ -2233,6 +2727,21 @@
                         , 
                         
                         Fever-Sensitive Clustering Seizures → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Photosensitive_Occipital_Lobe_Epilepsy.html">Photosensitive Occipital Lobe Epilepsy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Abnormal Visual Cortical Response to Photic and Pattern Stimulation → Neuronal Hyperexcitability and Hypersynchrony
                         
                         
                     </span>
@@ -2290,6 +2799,31 @@
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Progressive_Myoclonic_Epilepsy_Type_7.html">Progressive Myoclonic Epilepsy Type 7</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        KCNC1 (Kv3.1) Dominant-Negative Loss of Function → Ion Channel and Synaptic Dysfunction
+                        
+                        
+                        , 
+                        
+                        Cortical Excitation-Inhibition Imbalance → Excitation-Inhibition Imbalance
+                        
+                        
+                        , 
+                        
+                        Cortical Reflex Myoclonus and Seizures → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Pyridoxine-Dependent_Epilepsy.html">Pyridoxine-Dependent Epilepsy</a>
                     
                     <span class="crosslink-desc">
@@ -2328,6 +2862,26 @@
                         , 
                         
                         Drug-Resistant Focal Seizures and Epilepsia Partialis Continua → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Ring_Chromosome_20_Syndrome.html">Ring Chromosome 20 Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Frontally Predominant Cortical Hyperexcitability → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Drug-Resistant Focal Epilepsy → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -2383,6 +2937,26 @@
                         , 
                         
                         Seizures and Developmental Encephalopathy → Recurrent Unprovoked Seizures
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Self-Limited_Epilepsy_with_Autonomic_Seizures.html">Self-Limited Epilepsy with Autonomic Seizures</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Multifocal Cortical Epileptogenicity with Age-Shifting Foci → Neuronal Hyperexcitability and Hypersynchrony
+                        
+                        
+                        , 
+                        
+                        Focal Autonomic Seizures → Recurrent Unprovoked Seizures
                         
                         
                     </span>
@@ -2587,7 +3161,7 @@
                         
                         
                         
-                        Cortical Hyperexcitability and Stimulus-Sensitive Myoclonus → Neuronal Hyperexcitability and Hypersynchrony
+                        Cortical Hyperexcitability → Neuronal Hyperexcitability and Hypersynchrony
                         
                         
                     </span>
@@ -2645,16 +3219,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         Neuron
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000540</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2672,16 +3251,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Regulation of Membrane Potential
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0042391">GO:0042391</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042391</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Regulation of Membrane Potential (GO:0042391). GO:0042391 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2695,16 +3279,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Chemical Synaptic Transmission
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007268">GO:0007268</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0007268</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal Chemical Synaptic Transmission (GO:0007268). GO:0007268 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2785,6 +3374,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.html">Epilepsy with Generalized Tonic-Clonic Seizures Alone</a>
+                            
+                            <span class="crosslink-desc">as Polygenic Susceptibility to Generalized Epilepsy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Epilepsy_with_Myoclonic-Atonic_Seizures.html">Epilepsy with Myoclonic-Atonic Seizures</a>
                             
                             <span class="crosslink-desc">as Impaired GABA Transporter (GAT-1) Function</span>
@@ -2799,6 +3395,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/GABRB3-Related_Developmental_and_Epileptic_Encephalopathy.html">GABRB3-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                            <span class="crosslink-desc">as GABRB3 Variant and Beta-3 Subunit Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/GABRG2-Related_Epilepsy.html">GABRG2-Related Epilepsy</a>
                             
                             <span class="crosslink-desc">as GABRG2 Variant and Gamma-2 Subunit Dysfunction</span>
@@ -2809,6 +3412,13 @@
                             <a href="../disorders/GNAO1-Related_Developmental_and_Epileptic_Encephalopathy.html">GNAO1-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Impaired Gbg Modulation of Presynaptic Calcium Channels</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Altered Thalamic Low-Threshold Calcium Bursting</span>
                             
                         </div>
                         
@@ -2837,6 +3447,13 @@
                             <a href="../disorders/Paroxysmal_Dyskinesia.html">Paroxysmal Dyskinesia</a>
                             
                             <span class="crosslink-desc">as Presynaptic Release Failure and Neuronal Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Progressive_Myoclonic_Epilepsy_Type_7.html">Progressive Myoclonic Epilepsy Type 7</a>
+                            
+                            <span class="crosslink-desc">as KCNC1 (Kv3.1) Dominant-Negative Loss of Function</span>
                             
                         </div>
                         
@@ -2908,16 +3525,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         GABAergic Neuron
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000617">CL:0000617</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000617</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves GABAergic Neuron (CL:0000617). CL:0000617 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -2935,16 +3557,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         GABA Signaling Pathway
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007214">GO:0007214</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007214" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007214</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased GABA Signaling Pathway, annotated with gamma-aminobutyric acid signaling pathway (GO:0007214). GO:0007214 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -2967,6 +3594,13 @@
                 <div class="crosslink-block">
                     <div class="crosslink-title">Used by disorders</div>
                     <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Alpers-Huttenlocher_Syndrome.html">Alpers-Huttenlocher Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Selective Interneuron and Pyramidal Neuron Loss in Occipital Cortex</span>
+                            
+                        </div>
                         
                         <div class="crosslink-item">
                             <a href="../disorders/Autosomal_Dominant_Epilepsy_with_Auditory_Features.html">Autosomal Dominant Epilepsy with Auditory Features</a>
@@ -3011,9 +3645,23 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.html">Epilepsy with Generalized Tonic-Clonic Seizures Alone</a>
+                            
+                            <span class="crosslink-desc">as Cortico-Thalamocortical Excitation-Inhibition Imbalance</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Febrile_Infection-Related_Epilepsy_Syndrome.html">Febrile Infection-Related Epilepsy Syndrome</a>
                             
                             <span class="crosslink-desc">as Cortical Excitation-Inhibition Imbalance</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/GABRB3-Related_Developmental_and_Epileptic_Encephalopathy.html">GABRB3-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                            <span class="crosslink-desc">as Disrupted Excitation-Inhibition Balance in Developing Networks</span>
                             
                         </div>
                         
@@ -3079,6 +3727,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Aberrant GABAergic Inhibition in the Thalamic Reticular Nucleus</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/KCNB1-Related_Developmental_and_Epileptic_Encephalopathy.html">KCNB1-Related Developmental and Epileptic Encephalopathy</a>
                             
                         </div>
@@ -3101,6 +3756,13 @@
                             <a href="../disorders/Post-Traumatic_Epilepsy.html">Post-Traumatic Epilepsy</a>
                             
                             <span class="crosslink-desc">as GABAergic Interneuron Loss</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Progressive_Myoclonic_Epilepsy_Type_7.html">Progressive Myoclonic Epilepsy Type 7</a>
+                            
+                            <span class="crosslink-desc">as Cortical Excitation-Inhibition Imbalance</span>
                             
                         </div>
                         
@@ -3158,16 +3820,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         neuron
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000540</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -3185,16 +3852,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         Action Potential
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0001508" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001508">GO:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001508" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0001508</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased Action Potential (GO:0001508). GO:0001508 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -3254,6 +3926,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Childhood_Occipital_Visual_Epilepsy.html">Childhood Occipital Visual Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Occipital Interictal and Ictal Paroxysmal Discharges</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/CPLX1-Related_Developmental_and_Epileptic_Encephalopathy.html">CPLX1-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Cortical Hyperexcitability and Seizures</span>
@@ -3264,6 +3943,13 @@
                             <a href="../disorders/DEPDC5-Related_Epilepsy.html">DEPDC5-Related Epilepsy</a>
                             
                             <span class="crosslink-desc">as Focal Cortical Hyperexcitability and Focal-Onset Seizures</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep.html">Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep</a>
+                            
+                            <span class="crosslink-desc">as Abnormal Frequency-Dependent Cortical Excitability</span>
                             
                         </div>
                         
@@ -3289,9 +3975,30 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.html">Epilepsy with Generalized Tonic-Clonic Seizures Alone</a>
+                            
+                            <span class="crosslink-desc">as Generalized Hypersynchronous Discharge</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Epilepsy_with_Myoclonic_Absences.html">Epilepsy with Myoclonic Absences</a>
+                            
+                            <span class="crosslink-desc">as Hypersynchronous Three-Hertz Thalamocortical Spike-Wave Oscillation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Epilepsy_with_Myoclonic-Atonic_Seizures.html">Epilepsy with Myoclonic-Atonic Seizures</a>
                             
                             <span class="crosslink-desc">as Thalamocortical Network Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/GABRB3-Related_Developmental_and_Epileptic_Encephalopathy.html">GABRB3-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                            <span class="crosslink-desc">as Neuronal Hyperexcitability and Thalamocortical Hypersynchrony</span>
                             
                         </div>
                         
@@ -3309,6 +4016,20 @@
                         
                         <div class="crosslink-item">
                             <a href="../disorders/GLUT1_Deficiency_Syndrome.html">GLUT1 Deficiency Syndrome</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hemimegalencephaly.html">Hemimegalencephaly</a>
+                            
+                            <span class="crosslink-desc">as Intrinsically Epileptogenic Dysplastic Cortex</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Hypersynchronous Thalamocortical Oscillation</span>
                             
                         </div>
                         
@@ -3339,6 +4060,20 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Cortical Neuronal Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Myoclonic_Epilepsy_in_Infancy.html">Myoclonic Epilepsy in Infancy</a>
+                            
+                            <span class="crosslink-desc">as Age-Restricted Generalized Cortical Hyperexcitability of Infancy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/PCDH19_Clustering_Epilepsy.html">PCDH19 Clustering Epilepsy</a>
                             
                             <span class="crosslink-desc">as Neuronal Network Hyperexcitability</span>
@@ -3346,9 +4081,23 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Photosensitive_Occipital_Lobe_Epilepsy.html">Photosensitive Occipital Lobe Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Abnormal Visual Cortical Response to Photic and Pattern Stimulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/PNPO_Deficiency.html">PNPO Deficiency</a>
                             
                             <span class="crosslink-desc">as Neuronal Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Progressive_Myoclonic_Epilepsy_Type_7.html">Progressive Myoclonic Epilepsy Type 7</a>
+                            
+                            <span class="crosslink-desc">as Cortical Reflex Myoclonus and Seizures</span>
                             
                         </div>
                         
@@ -3367,6 +4116,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Ring_Chromosome_20_Syndrome.html">Ring Chromosome 20 Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Frontally Predominant Cortical Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/SCN2A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN2A-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Neuronal Hyperexcitability and Network Dysfunction</span>
@@ -3377,6 +4133,13 @@
                             <a href="../disorders/SCN8A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN8A-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Neuronal Hyperexcitability</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Self-Limited_Epilepsy_with_Autonomic_Seizures.html">Self-Limited Epilepsy with Autonomic Seizures</a>
+                            
+                            <span class="crosslink-desc">as Multifocal Cortical Epileptogenicity with Age-Shifting Foci</span>
                             
                         </div>
                         
@@ -3446,7 +4209,7 @@
                         <div class="crosslink-item">
                             <a href="../disorders/Unverricht-Lundborg_Disease.html">Unverricht-Lundborg Disease</a>
                             
-                            <span class="crosslink-desc">as Cortical Hyperexcitability and Stimulus-Sensitive Myoclonus</span>
+                            <span class="crosslink-desc">as Cortical Hyperexcitability</span>
                             
                         </div>
                         
@@ -3483,16 +4246,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         neuron
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000540</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -3524,6 +4292,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.html">Epilepsy with Generalized Tonic-Clonic Seizures Alone</a>
+                            
+                            <span class="crosslink-desc">as Recruitment of Motor Systems into Tonic-Clonic Output</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Febrile_Infection-Related_Epilepsy_Syndrome.html">Febrile Infection-Related Epilepsy Syndrome</a>
                             
                             <span class="crosslink-desc">as Super-Refractory Status Epilepticus</span>
@@ -3531,9 +4306,30 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/GABRB3-Related_Developmental_and_Epileptic_Encephalopathy.html">GABRB3-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                            <span class="crosslink-desc">as Seizure Generation and Developmental Encephalopathy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hemiconvulsion-Hemiplegia-Epilepsy_Syndrome.html">Hemiconvulsion-Hemiplegia-Epilepsy Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Epileptogenic Reorganization of the Damaged Hemisphere</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Hyperprolinemia_Type_2.html">Hyperprolinemia Type 2</a>
                             
                             <span class="crosslink-desc">as Seizures and Metabolic Encephalopathy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Generalized Spike-Wave Discharges</span>
                             
                         </div>
                         
@@ -3577,16 +4373,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         neuron
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000540">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000540</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -3611,6 +4412,13 @@
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Alpers-Huttenlocher_Syndrome.html">Alpers-Huttenlocher Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Intractable Focal Epilepsy and Epilepsia Partialis Continua</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Autosomal_Dominant_Epilepsy_with_Auditory_Features.html">Autosomal Dominant Epilepsy with Auditory Features</a>
                             
                             <span class="crosslink-desc">as Focal Seizures with Auditory Features</span>
@@ -3632,6 +4440,20 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Childhood_Occipital_Visual_Epilepsy.html">Childhood Occipital Visual Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Recurrent Brief Diurnal Visual Seizures</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep.html">Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep</a>
+                            
+                            <span class="crosslink-desc">as Focal and Atypical Absence Seizures</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Early-Infantile_Developmental_and_Epileptic_Encephalopathy.html">Early-Infantile Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Recurrent Drug-Resistant Seizures</span>
@@ -3641,7 +4463,21 @@
                         <div class="crosslink-item">
                             <a href="../disorders/Epilepsy_of_Infancy_with_Migrating_Focal_Seizures.html">Epilepsy of Infancy with Migrating Focal Seizures</a>
                             
-                            <span class="crosslink-desc">as Migrating Focal Seizures</span>
+                            <span class="crosslink-desc">as Migrating Focal Seizure Generation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Epilepsy_with_Generalized_Tonic-Clonic_Seizures_Alone.html">Epilepsy with Generalized Tonic-Clonic Seizures Alone</a>
+                            
+                            <span class="crosslink-desc">as Recurrent Unprovoked Generalized Tonic-Clonic Seizures</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Epilepsy_with_Myoclonic_Absences.html">Epilepsy with Myoclonic Absences</a>
+                            
+                            <span class="crosslink-desc">as Rhythmic Myoclonus with Progressive Tonic Contraction</span>
                             
                         </div>
                         
@@ -3667,6 +4503,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/GABRB3-Related_Developmental_and_Epileptic_Encephalopathy.html">GABRB3-Related Developmental and Epileptic Encephalopathy</a>
+                            
+                            <span class="crosslink-desc">as Drug-Resistant Epilepsy with Developmental Impairment</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/GLUT1_Deficiency_Syndrome.html">GLUT1 Deficiency Syndrome</a>
                             
                             <span class="crosslink-desc">as Recurrent Pharmacoresistant Seizures</span>
@@ -3677,6 +4520,27 @@
                             <a href="../disorders/GNAO1-Related_Developmental_and_Epileptic_Encephalopathy.html">GNAO1-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Developmental and Epileptic Encephalopathy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hemiconvulsion-Hemiplegia-Epilepsy_Syndrome.html">Hemiconvulsion-Hemiplegia-Epilepsy Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Drug-Resistant Focal Epilepsy from the Affected Hemisphere</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hemimegalencephaly.html">Hemimegalencephaly</a>
+                            
+                            <span class="crosslink-desc">as Drug-Resistant Epilepsy of Infantile Onset</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Juvenile_Absence_Epilepsy.html">Juvenile Absence Epilepsy</a>
+                            
+                            <span class="crosslink-desc">as Absence Seizures</span>
                             
                         </div>
                         
@@ -3698,6 +4562,20 @@
                             <a href="../disorders/Lennox-Gastaut_Syndrome.html">Lennox-Gastaut Syndrome</a>
                             
                             <span class="crosslink-desc">as Multiple Drug-Resistant Seizure Types</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/MERRF_Syndrome.html">MERRF Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Progressive Myoclonic Epilepsy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Myoclonic_Epilepsy_in_Infancy.html">Myoclonic Epilepsy in Infancy</a>
+                            
+                            <span class="crosslink-desc">as Brief Generalized Myoclonic Seizures</span>
                             
                         </div>
                         
@@ -3737,6 +4615,13 @@
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Ring_Chromosome_20_Syndrome.html">Ring Chromosome 20 Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Drug-Resistant Focal Epilepsy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/SCN2A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN2A-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Seizures and Developmental Encephalopathy</span>
@@ -3747,6 +4632,13 @@
                             <a href="../disorders/SCN8A-Related_Developmental_and_Epileptic_Encephalopathy.html">SCN8A-Related Developmental and Epileptic Encephalopathy</a>
                             
                             <span class="crosslink-desc">as Seizures and Developmental Encephalopathy</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Self-Limited_Epilepsy_with_Autonomic_Seizures.html">Self-Limited Epilepsy with Autonomic Seizures</a>
+                            
+                            <span class="crosslink-desc">as Focal Autonomic Seizures</span>
                             
                         </div>
                         
@@ -3811,5 +4703,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
