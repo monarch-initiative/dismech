@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-06-02T21:05:05
+# Generation date: 2026-08-17T21:35:53
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -82,29 +82,38 @@ NCBITAXON = CurieNamespace('NCBITaxon', 'http://purl.obolibrary.org/obo/NCBITaxo
 NCIT = CurieNamespace('NCIT', 'http://purl.obolibrary.org/obo/NCIT_')
 OBI = CurieNamespace('OBI', 'http://purl.obolibrary.org/obo/OBI_')
 OPL = CurieNamespace('OPL', 'http://purl.obolibrary.org/obo/OPL_')
+PATO = CurieNamespace('PATO', 'http://purl.obolibrary.org/obo/PATO_')
 PMID = CurieNamespace('PMID', 'http://www.ncbi.nlm.nih.gov/pubmed/')
+SO = CurieNamespace('SO', 'http://purl.obolibrary.org/obo/SO_')
 UBERON = CurieNamespace('UBERON', 'http://purl.obolibrary.org/obo/UBERON_')
 XCO = CurieNamespace('XCO', 'http://purl.obolibrary.org/obo/XCO_')
 ARRAYEXPRESS = CurieNamespace('arrayexpress', 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/')
 BIGG = CurieNamespace('bigg', 'https://bigg.ucsd.edu/models/')
 BIOMODELS = CurieNamespace('biomodels', 'https://www.ebi.ac.uk/biomodels/')
+BIOPROJECT = CurieNamespace('bioproject', 'https://www.ncbi.nlm.nih.gov/bioproject/')
 CELLXGENE = CurieNamespace('cellxgene', 'https://cellxgene.cziscience.com/collections/')
 CLINICALTRIALS = CurieNamespace('clinicaltrials', 'https://clinicaltrials.gov/study/')
 CLINVAR = CurieNamespace('clinvar', 'https://www.ncbi.nlm.nih.gov/clinvar/variation/')
 DBGAP = CurieNamespace('dbgap', 'https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=')
 DISMECH = CurieNamespace('dismech', 'https://w3id.org/monarch-initiative/dismech/')
+EGA = CurieNamespace('ega', 'https://ega-archive.org/studies/')
 ENCODE = CurieNamespace('encode', 'https://www.encodeproject.org/experiments/')
 GEO = CurieNamespace('geo', 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=')
 GTEX = CurieNamespace('gtex', 'https://gtexportal.org/home/datasets/')
 HCA = CurieNamespace('hca', 'https://data.humancellatlas.org/explore/projects/')
 ICD11F = CurieNamespace('icd11f', 'http://purl.obolibrary.org/obo/icd11f_')
 LINKML = CurieNamespace('linkml', 'https://w3id.org/linkml/')
+MASSIVE = CurieNamespace('massive', 'https://massive.ucsd.edu/ProteoSAFe/dataset.jsp?task=')
 METABOLIGHTS = CurieNamespace('metabolights', 'https://www.ebi.ac.uk/metabolights/')
+METABOLOMICS_WORKBENCH = CurieNamespace('metabolomics_workbench', 'https://www.metabolomicsworkbench.org/data/DRCCMetadata.php?Mode=Study&StudyID=')
+MGNIFY = CurieNamespace('mgnify', 'https://www.ebi.ac.uk/metagenomics/studies/')
 MORPHIC = CurieNamespace('morphic', 'https://data.morphic.bio/')
 NAMO = CurieNamespace('namo', 'https://w3id.org/monarch-initiative/namo/')
-OSDR = CurieNamespace('osdr', 'https://osdr.nasa.gov/bio/repo/data/studies/OSD-')
+OSDR = CurieNamespace('osdr', 'https://osdr.nasa.gov/bio/repo/data/studies/')
 PHENOPACKET_STORE = CurieNamespace('phenopacket-store', 'https://github.com/monarch-initiative/phenopacket-store/tree/main/notebooks/')
 PRIDE = CurieNamespace('pride', 'https://www.ebi.ac.uk/pride/archive/projects/')
+PROTEOMEXCHANGE = CurieNamespace('proteomexchange', 'https://www.ebi.ac.uk/pride/archive/projects/')
+SCEA = CurieNamespace('scea', 'https://www.ebi.ac.uk/gxa/sc/experiments/')
 SKOS = CurieNamespace('skos', 'http://www.w3.org/2004/02/skos/core#')
 SRA = CurieNamespace('sra', 'https://www.ncbi.nlm.nih.gov/sra/')
 SYNAPSE = CurieNamespace('synapse', 'https://www.synapse.org/#!Synapse:')
@@ -181,6 +190,10 @@ class SubtypeName(extended_str):
     pass
 
 
+class ReferenceRangeBandName(extended_str):
+    pass
+
+
 class SurrogateEndpointRowId(extended_str):
     pass
 
@@ -214,6 +227,10 @@ class BiochemicalName(extended_str):
 
 
 class HistopathologyFindingName(extended_str):
+    pass
+
+
+class ImagingFindingName(extended_str):
     pass
 
 
@@ -286,6 +303,10 @@ class ComorbidityAssociationName(extended_str):
 
 
 class FDASurrogateEndpointCollectionName(SurrogateEndpointCollectionName):
+    pass
+
+
+class GroupingName(extended_str):
     pass
 
 
@@ -653,6 +674,41 @@ class ProteinComplexDescriptor(Descriptor):
 
 
 @dataclass(repr=False)
+class GeneSetAssociation(YAMLRoot):
+    """
+    A curated link between this disease and an external gene set, referenced by its structured-source id
+    (MYGENESET:<id>, resolving to references_cache/MYGENESET_<id>.md). The gene set's membership and curated GO
+    interpretation live upstream / in the cache file; this object records only the precise disease<->set link and its
+    semantics, avoiding re-duplication of genes in the KB. It is the anchor for BP alignment (`just genesets-align`):
+    the set's curated biological processes are scored against this disease's pathograph.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["GeneSetAssociation"]
+    class_class_curie: ClassVar[str] = "dismech:GeneSetAssociation"
+    class_name: ClassVar[str] = "GeneSetAssociation"
+    class_model_uri: ClassVar[URIRef] = DISMECH.GeneSetAssociation
+
+    gene_set: Union[str, URIorCURIE] = None
+    relationship: Optional[Union[str, "GeneSetRelationshipEnum"]] = None
+    note: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.gene_set):
+            self.MissingRequiredField("gene_set")
+        if not isinstance(self.gene_set, URIorCURIE):
+            self.gene_set = URIorCURIE(self.gene_set)
+
+        if self.relationship is not None and not isinstance(self.relationship, GeneSetRelationshipEnum):
+            self.relationship = GeneSetRelationshipEnum(self.relationship)
+
+        if self.note is not None and not isinstance(self.note, str):
+            self.note = str(self.note)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class AssayDescriptor(Descriptor):
     """
     A descriptor for assays, bindable to OBI
@@ -788,8 +844,9 @@ class GeneProductDescriptor(Descriptor):
 @dataclass(repr=False)
 class HistopathologyFindingDescriptor(Descriptor):
     """
-    A descriptor for histopathologic findings, bindable to NCIT Morphologic Finding (C35867), Histologic Grade
-    (C18000), or HP Abnormal cell morphology (HP:0025461)
+    A descriptor for histopathologic findings, bindable to the NCIT Histopathology Result branch (C83490) -
+    Morphologic Finding (C35867), Immunophenotypic Finding (C40998), Ultrastructural Finding (C43265), Staining
+    Intensity (C127762), Histologic Grade (C18000) - or HP Abnormal cell morphology (HP:0025461)
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -804,6 +861,64 @@ class HistopathologyFindingDescriptor(Descriptor):
     def __post_init__(self, *_: str, **kwargs: Any):
         if self.term is not None and not isinstance(self.term, Term):
             self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ImagingFindingDescriptor(Descriptor):
+    """
+    A descriptor for an in-vivo imaging finding, bindable to the NCIT Imaging Finding branch (C176708 / C199145) or an
+    HP imaging-observable phenotype. Inherits located_in (UBERON body site), laterality, spatial_extent, and modifier
+    from Descriptor for post-composition.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ImagingFindingDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:ImagingFindingDescriptor"
+    class_name: ClassVar[str] = "ImagingFindingDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ImagingFindingDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ElectrophysiologyContext(YAMLRoot):
+    """
+    An optional post-composition sidecar on a Phenotype, carrying the electrophysiologic axes that a flat HP phenotype
+    term cannot express: the modality it was recorded on, whether it is ictal/interictal/postictal, and the
+    behavioural/activation recording state. Used ONLY on phenotypes whose phenotype_term is an electrophysiologic
+    finding (the HP EEG/EMG/EKG abnormality subtrees, e.g. descendants of HP:0002353). Deliberately NOT a separate
+    finding class: because electrophysiologic findings are already HP phenotypes, they live in `phenotypes` and this
+    block only post-composes them, exactly as temporality/clinical_course/severity/onset do elsewhere.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ElectrophysiologyContext"]
+    class_class_curie: ClassVar[str] = "dismech:ElectrophysiologyContext"
+    class_name: ClassVar[str] = "ElectrophysiologyContext"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ElectrophysiologyContext
+
+    electrophysiology_modality: Optional[Union[str, "ElectrophysiologyModalityEnum"]] = None
+    ictal_state: Optional[Union[str, "IctalStateEnum"]] = None
+    recording_state: Optional[Union[str, "EEGRecordingStateEnum"]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.electrophysiology_modality is not None and not isinstance(self.electrophysiology_modality, ElectrophysiologyModalityEnum):
+            self.electrophysiology_modality = ElectrophysiologyModalityEnum(self.electrophysiology_modality)
+
+        if self.ictal_state is not None and not isinstance(self.ictal_state, IctalStateEnum):
+            self.ictal_state = IctalStateEnum(self.ictal_state)
+
+        if self.recording_state is not None and not isinstance(self.recording_state, EEGRecordingStateEnum):
+            self.recording_state = EEGRecordingStateEnum(self.recording_state)
 
         super().__post_init__(**kwargs)
 
@@ -1086,6 +1201,7 @@ class GeneticContext(YAMLRoot):
     zygosity: Optional[Union[str, "ZygosityEnum"]] = None
     functional_impact: Optional[str] = None
     functional_impact_category: Optional[Union[str, "FunctionalImpactEnum"]] = None
+    nmd_fate: Optional[Union[str, "NmdFateEnum"]] = None
     complementation_group: Optional[str] = None
     description: Optional[str] = None
     notes: Optional[str] = None
@@ -1117,6 +1233,9 @@ class GeneticContext(YAMLRoot):
 
         if self.functional_impact_category is not None and not isinstance(self.functional_impact_category, FunctionalImpactEnum):
             self.functional_impact_category = FunctionalImpactEnum(self.functional_impact_category)
+
+        if self.nmd_fate is not None and not isinstance(self.nmd_fate, NmdFateEnum):
+            self.nmd_fate = NmdFateEnum(self.nmd_fate)
 
         if self.complementation_group is not None and not isinstance(self.complementation_group, str):
             self.complementation_group = str(self.complementation_group)
@@ -1305,9 +1424,10 @@ class Dataset(YAMLRoot):
 @dataclass(repr=False)
 class ExperimentalModel(YAMLRoot):
     """
-    A disease-relevant non-animal experimental model system. This is a disease-centric bridge class inspired by NAMO,
-    intended to capture the model itself while keeping dismech focused on disease mechanisms rather than study-level
-    model registries.
+    A disease-relevant non-animal experimental model system — a New Approach Methodology (NAM) such as an organoid,
+    organ-on-chip, cell line, iPSC-derived model, or primary culture. This is a disease-centric bridge class inspired
+    by NAMO, intended to capture the model itself while keeping dismech focused on disease mechanisms rather than
+    study-level model registries.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -1540,8 +1660,8 @@ class ExperimentalPerturbation(YAMLRoot):
 @dataclass(repr=False)
 class ExperimentalReadout(YAMLRoot):
     """
-    A structured readout or outcome measured in an experiment. Use descriptor slots to ground readouts to phenotypes,
-    biomarkers, biological processes, and assays.
+    A structured readout or outcome measured in an experiment or reported by a model. Use descriptor slots to ground
+    readouts to phenotypes, biomarkers, biological processes, and assays.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -1557,7 +1677,7 @@ class ExperimentalReadout(YAMLRoot):
     biomarker_term: Optional[Union[dict, BiomarkerDescriptor]] = None
     biological_processes: Optional[Union[Union[dict, BiologicalProcessDescriptor], list[Union[dict, BiologicalProcessDescriptor]]]] = empty_list()
     assays: Optional[Union[Union[dict, AssayDescriptor], list[Union[dict, AssayDescriptor]]]] = empty_list()
-    direction: Optional[Union[str, "BiomarkerReadoutDirectionEnum"]] = None
+    direction: Optional[Union[dict, Any]] = None
     interpretation: Optional[str] = None
     evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
     notes: Optional[str] = None
@@ -1585,9 +1705,6 @@ class ExperimentalReadout(YAMLRoot):
         self._normalize_inlined_as_list(slot_name="biological_processes", slot_type=BiologicalProcessDescriptor, key_name="preferred_term", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="assays", slot_type=AssayDescriptor, key_name="preferred_term", keyed=False)
-
-        if self.direction is not None and not isinstance(self.direction, BiomarkerReadoutDirectionEnum):
-            self.direction = BiomarkerReadoutDirectionEnum(self.direction)
 
         if self.interpretation is not None and not isinstance(self.interpretation, str):
             self.interpretation = str(self.interpretation)
@@ -2123,19 +2240,22 @@ class TreatmentMechanismTarget(YAMLRoot):
 
 
 @dataclass(repr=False)
-class ModelMechanismLink(YAMLRoot):
+class EnvironmentalMechanismTarget(YAMLRoot):
     """
-    Links an experimental model to a specific pathophysiology mechanism node, with optional assertion text describing
-    the aspect of the mechanism that the model recapitulates, perturbs, or reads out.
+    Links an environmental factor or exposure to a specific pathophysiology mechanism node it acts on. The
+    environmental counterpart of TreatmentMechanismTarget: it places exposures inside the causal graph as upstream
+    initiating (or protective) steps instead of leaving them as a disconnected disease-level list.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
-    class_class_uri: ClassVar[URIRef] = DISMECH["ModelMechanismLink"]
-    class_class_curie: ClassVar[str] = "dismech:ModelMechanismLink"
-    class_name: ClassVar[str] = "ModelMechanismLink"
-    class_model_uri: ClassVar[URIRef] = DISMECH.ModelMechanismLink
+    class_class_uri: ClassVar[URIRef] = DISMECH["EnvironmentalMechanismTarget"]
+    class_class_curie: ClassVar[str] = "dismech:EnvironmentalMechanismTarget"
+    class_name: ClassVar[str] = "EnvironmentalMechanismTarget"
+    class_model_uri: ClassVar[URIRef] = DISMECH.EnvironmentalMechanismTarget
 
     target: str = None
+    environmental_effect: Optional[Union[str, "EnvironmentalEffectEnum"]] = None
+    causal_link_type: Optional[Union[str, "CausalLinkTypeEnum"]] = None
     description: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
 
@@ -2145,8 +2265,63 @@ class ModelMechanismLink(YAMLRoot):
         if not isinstance(self.target, str):
             self.target = str(self.target)
 
+        if self.environmental_effect is not None and not isinstance(self.environmental_effect, EnvironmentalEffectEnum):
+            self.environmental_effect = EnvironmentalEffectEnum(self.environmental_effect)
+
+        if self.causal_link_type is not None and not isinstance(self.causal_link_type, CausalLinkTypeEnum):
+            self.causal_link_type = CausalLinkTypeEnum(self.causal_link_type)
+
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ModelMechanismLink(YAMLRoot):
+    """
+    Links an experimental (NAM), animal, or computational model to a specific pathophysiology mechanism node,
+    recording which facet of that mechanism the model recapitulates, perturbs, or reads out; how faithfully it does
+    so; and the outcome measures that ground the claim.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModelMechanismLink"]
+    class_class_curie: ClassVar[str] = "dismech:ModelMechanismLink"
+    class_name: ClassVar[str] = "ModelMechanismLink"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModelMechanismLink
+
+    target: str = None
+    relationship: Optional[Union[str, "ModelMechanismRelationshipEnum"]] = None
+    description: Optional[str] = None
+    readouts: Optional[Union[dict[Union[str, ExperimentalReadoutName], Union[dict, ExperimentalReadout]], list[Union[dict, ExperimentalReadout]]]] = empty_dict()
+    fidelity: Optional[Union[str, "ModelFidelityEnum"]] = None
+    limitations: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.target):
+            self.MissingRequiredField("target")
+        if not isinstance(self.target, str):
+            self.target = str(self.target)
+
+        if self.relationship is not None and not isinstance(self.relationship, ModelMechanismRelationshipEnum):
+            self.relationship = ModelMechanismRelationshipEnum(self.relationship)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        self._normalize_inlined_as_list(slot_name="readouts", slot_type=ExperimentalReadout, key_name="name", keyed=True)
+
+        if self.fidelity is not None and not isinstance(self.fidelity, ModelFidelityEnum):
+            self.fidelity = ModelFidelityEnum(self.fidelity)
+
+        if self.limitations is not None and not isinstance(self.limitations, str):
+            self.limitations = str(self.limitations)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -2208,6 +2383,165 @@ class BiomarkerReadout(YAMLRoot):
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
         self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class PhenotypeReadout(YAMLRoot):
+    """
+    Links an investigation-readout phenotype (an abnormal electrophysiology, functional-test, or clinical-laboratory
+    finding, e.g. HP:0000512 Abnormal electroretinogram) to the pathograph node whose underlying state it measures or
+    reflects. This is an observational readout link, not a causal claim that the target mechanism causes the test
+    result. It is the phenotype-side counterpart of BiomarkerReadout, deliberately lean: it omits the
+    surrogate-endpoint/regulatory slots (regulatory_endpoint_refs and the source-table bridge) that belong only to
+    molecular biomarker readouts.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["PhenotypeReadout"]
+    class_class_curie: ClassVar[str] = "dismech:PhenotypeReadout"
+    class_name: ClassVar[str] = "PhenotypeReadout"
+    class_model_uri: ClassVar[URIRef] = DISMECH.PhenotypeReadout
+
+    target: str = None
+    relationship: Union[str, "BiomarkerReadoutRelationshipEnum"] = None
+    direction: Optional[Union[str, "BiomarkerReadoutDirectionEnum"]] = None
+    endpoint_context: Optional[Union[str, "BiomarkerEndpointContextEnum"]] = None
+    interpretation: Optional[str] = None
+    description: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.target):
+            self.MissingRequiredField("target")
+        if not isinstance(self.target, str):
+            self.target = str(self.target)
+
+        if self._is_empty(self.relationship):
+            self.MissingRequiredField("relationship")
+        if not isinstance(self.relationship, BiomarkerReadoutRelationshipEnum):
+            self.relationship = BiomarkerReadoutRelationshipEnum(self.relationship)
+
+        if self.direction is not None and not isinstance(self.direction, BiomarkerReadoutDirectionEnum):
+            self.direction = BiomarkerReadoutDirectionEnum(self.direction)
+
+        if self.endpoint_context is not None and not isinstance(self.endpoint_context, BiomarkerEndpointContextEnum):
+            self.endpoint_context = BiomarkerEndpointContextEnum(self.endpoint_context)
+
+        if self.interpretation is not None and not isinstance(self.interpretation, str):
+            self.interpretation = str(self.interpretation)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ReferenceRangeBand(YAMLRoot):
+    """
+    A single graded interpretation band within a reference range, mapping a value interval to a categorical clinical
+    label (e.g., "Normal", "Mild", "Moderate", "Severe", "Critical"). Bands partition the measurement scale so a
+    numeric result can be classified into a clinical category. This expresses the "above value X is mild, above value
+    Y is moderate" style of graded result interpretation that a single normal interval cannot capture.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ReferenceRangeBand"]
+    class_class_curie: ClassVar[str] = "dismech:ReferenceRangeBand"
+    class_name: ClassVar[str] = "ReferenceRangeBand"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ReferenceRangeBand
+
+    name: Union[str, ReferenceRangeBandName] = None
+    lower_bound: Optional[float] = None
+    upper_bound: Optional[float] = None
+    unit: Optional[str] = None
+    abnormal_flag: Optional[Union[str, "AbnormalFlagEnum"]] = None
+    severity: Optional[Union[dict, Any]] = None
+    phenotype_term: Optional[Union[dict, PhenotypeDescriptor]] = None
+    interpretation: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ReferenceRangeBandName):
+            self.name = ReferenceRangeBandName(self.name)
+
+        if self.lower_bound is not None and not isinstance(self.lower_bound, float):
+            self.lower_bound = float(self.lower_bound)
+
+        if self.upper_bound is not None and not isinstance(self.upper_bound, float):
+            self.upper_bound = float(self.upper_bound)
+
+        if self.unit is not None and not isinstance(self.unit, str):
+            self.unit = str(self.unit)
+
+        if self.abnormal_flag is not None and not isinstance(self.abnormal_flag, AbnormalFlagEnum):
+            self.abnormal_flag = AbnormalFlagEnum(self.abnormal_flag)
+
+        if self.phenotype_term is not None and not isinstance(self.phenotype_term, PhenotypeDescriptor):
+            self.phenotype_term = PhenotypeDescriptor(**as_dict(self.phenotype_term))
+
+        if self.interpretation is not None and not isinstance(self.interpretation, str):
+            self.interpretation = str(self.interpretation)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ReferenceRange(YAMLRoot):
+    """
+    A population reference interval for a clinical laboratory analyte. Captures the numeric normal range (lower and
+    upper bounds), measurement unit in UCUM notation, and population qualifier. Provenance is carried by structured
+    evidence items (the same EvidenceItem model used elsewhere in dismech), consistent with how all other assertions
+    are attributed. Complements ModelVariableDescriptor thresholds (which define disease-model activation points) with
+    empirically grounded clinical reference intervals.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ReferenceRange"]
+    class_class_curie: ClassVar[str] = "dismech:ReferenceRange"
+    class_name: ClassVar[str] = "ReferenceRange"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ReferenceRange
+
+    loinc_term: Optional[Union[dict, Term]] = None
+    lower_bound: Optional[float] = None
+    upper_bound: Optional[float] = None
+    unit: Optional[str] = None
+    population: Optional[str] = None
+    interpretation_bands: Optional[Union[dict[Union[str, ReferenceRangeBandName], Union[dict, ReferenceRangeBand]], list[Union[dict, ReferenceRangeBand]]]] = empty_dict()
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.loinc_term is not None and not isinstance(self.loinc_term, Term):
+            self.loinc_term = Term(**as_dict(self.loinc_term))
+
+        if self.lower_bound is not None and not isinstance(self.lower_bound, float):
+            self.lower_bound = float(self.lower_bound)
+
+        if self.upper_bound is not None and not isinstance(self.upper_bound, float):
+            self.upper_bound = float(self.upper_bound)
+
+        if self.unit is not None and not isinstance(self.unit, str):
+            self.unit = str(self.unit)
+
+        if self.population is not None and not isinstance(self.population, str):
+            self.population = str(self.population)
+
+        self._normalize_inlined_as_list(slot_name="interpretation_bands", slot_type=ReferenceRangeBand, key_name="name", keyed=True)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
 
         super().__post_init__(**kwargs)
 
@@ -2654,6 +2988,11 @@ class Prevalence(YAMLRoot):
 
     subtype: Optional[str] = None
     population: Optional[str] = None
+    measure_type: Optional[Union[str, "PrevalenceMeasureEnum"]] = None
+    prevalence_class: Optional[Union[str, "PrevalenceClassEnum"]] = None
+    rate_per_100000: Optional[float] = None
+    rate_low: Optional[float] = None
+    rate_high: Optional[float] = None
     percentage: Optional[Union[dict, Any]] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     notes: Optional[str] = None
@@ -2664,6 +3003,71 @@ class Prevalence(YAMLRoot):
 
         if self.population is not None and not isinstance(self.population, str):
             self.population = str(self.population)
+
+        if self.measure_type is not None and not isinstance(self.measure_type, PrevalenceMeasureEnum):
+            self.measure_type = PrevalenceMeasureEnum(self.measure_type)
+
+        if self.prevalence_class is not None and not isinstance(self.prevalence_class, PrevalenceClassEnum):
+            self.prevalence_class = PrevalenceClassEnum(self.prevalence_class)
+
+        if self.rate_per_100000 is not None and not isinstance(self.rate_per_100000, float):
+            self.rate_per_100000 = float(self.rate_per_100000)
+
+        if self.rate_low is not None and not isinstance(self.rate_low, float):
+            self.rate_low = float(self.rate_low)
+
+        if self.rate_high is not None and not isinstance(self.rate_high, float):
+            self.rate_high = float(self.rate_high)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class GeneCaseFraction(YAMLRoot):
+    """
+    A structured estimate of the fraction of cases of a genetically heterogeneous disease attributable to one gene, in
+    a defined cohort. The genetic-spectrum analog of a population Prevalence record: it pairs a cohort/population with
+    a normalized percentage (plus optional range bounds and cohort size), source notes, and citable evidence. Distinct
+    from population occurrence (Prevalence) and from population allele frequency; this is "what share of patients have
+    their disease explained by this gene". Complements the coarse free-text `frequency` band on the Genetic entry.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["GeneCaseFraction"]
+    class_class_curie: ClassVar[str] = "dismech:GeneCaseFraction"
+    class_name: ClassVar[str] = "GeneCaseFraction"
+    class_model_uri: ClassVar[URIRef] = DISMECH.GeneCaseFraction
+
+    population: Optional[str] = None
+    case_fraction_percent: Optional[float] = None
+    case_fraction_low: Optional[float] = None
+    case_fraction_high: Optional[float] = None
+    cohort_size: Optional[int] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.population is not None and not isinstance(self.population, str):
+            self.population = str(self.population)
+
+        if self.case_fraction_percent is not None and not isinstance(self.case_fraction_percent, float):
+            self.case_fraction_percent = float(self.case_fraction_percent)
+
+        if self.case_fraction_low is not None and not isinstance(self.case_fraction_low, float):
+            self.case_fraction_low = float(self.case_fraction_low)
+
+        if self.case_fraction_high is not None and not isinstance(self.case_fraction_high, float):
+            self.case_fraction_high = float(self.case_fraction_high)
+
+        if self.cohort_size is not None and not isinstance(self.cohort_size, int):
+            self.cohort_size = int(self.cohort_size)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -2723,6 +3127,43 @@ class ProgressionInfo(YAMLRoot):
 
         if self.duration is not None and not isinstance(self.duration, str):
             self.duration = str(self.duration)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ClinicalBurden(YAMLRoot):
+    """
+    Disease-level assessment of the typical clinical burden imposed by a disease. This captures the overall burden of
+    the disease concept and is distinct from severity annotations on individual phenotypes.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ClinicalBurden"]
+    class_class_curie: ClassVar[str] = "dismech:ClinicalBurden"
+    class_name: ClassVar[str] = "ClinicalBurden"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ClinicalBurden
+
+    burden_level: Union[str, "ClinicalBurdenLevelEnum"] = None
+    rationale: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.burden_level):
+            self.MissingRequiredField("burden_level")
+        if not isinstance(self.burden_level, ClinicalBurdenLevelEnum):
+            self.burden_level = ClinicalBurdenLevelEnum(self.burden_level)
+
+        if self.rationale is not None and not isinstance(self.rationale, str):
+            self.rationale = str(self.rationale)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
 
         super().__post_init__(**kwargs)
 
@@ -2820,6 +3261,7 @@ class Pathophysiology(YAMLRoot):
     genetic_context: Optional[Union[dict, GeneticContext]] = None
     pdb_structures: Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]] = empty_list()
     mechanism_confidence: Optional[Union[str, "MechanismConfidenceEnum"]] = None
+    biological_scale: Optional[Union[str, "BiologicalScaleEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -2903,6 +3345,9 @@ class Pathophysiology(YAMLRoot):
         if self.mechanism_confidence is not None and not isinstance(self.mechanism_confidence, MechanismConfidenceEnum):
             self.mechanism_confidence = MechanismConfidenceEnum(self.mechanism_confidence)
 
+        if self.biological_scale is not None and not isinstance(self.biological_scale, BiologicalScaleEnum):
+            self.biological_scale = BiologicalScaleEnum(self.biological_scale)
+
         super().__post_init__(**kwargs)
 
 
@@ -2930,6 +3375,8 @@ class Phenotype(YAMLRoot):
     subtype: Optional[str] = None
     subtypes: Optional[Union[str, list[str]]] = empty_list()
     phenotype_contexts: Optional[Union[Union[dict, PhenotypeContext], list[Union[dict, PhenotypeContext]]]] = empty_list()
+    electrophysiology: Optional[Union[dict, ElectrophysiologyContext]] = None
+    reports_on: Optional[Union[Union[dict, PhenotypeReadout], list[Union[dict, PhenotypeReadout]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -2975,6 +3422,11 @@ class Phenotype(YAMLRoot):
             self.phenotype_contexts = [self.phenotype_contexts] if self.phenotype_contexts is not None else []
         self.phenotype_contexts = [v if isinstance(v, PhenotypeContext) else PhenotypeContext(**as_dict(v)) for v in self.phenotype_contexts]
 
+        if self.electrophysiology is not None and not isinstance(self.electrophysiology, ElectrophysiologyContext):
+            self.electrophysiology = ElectrophysiologyContext(**as_dict(self.electrophysiology))
+
+        self._normalize_inlined_as_list(slot_name="reports_on", slot_type=PhenotypeReadout, key_name="target", keyed=False)
+
         super().__post_init__(**kwargs)
 
 
@@ -2991,6 +3443,7 @@ class Biochemical(YAMLRoot):
     biomarker_term: Optional[Union[dict, BiomarkerDescriptor]] = None
     presence: Optional[str] = None
     readouts: Optional[Union[Union[dict, BiomarkerReadout], list[Union[dict, BiomarkerReadout]]]] = empty_list()
+    reference_ranges: Optional[Union[Union[dict, ReferenceRange], list[Union[dict, ReferenceRange]]]] = empty_list()
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     specificity: Optional[str] = None
     frequency: Optional[Union[dict, Any]] = None
@@ -3016,6 +3469,10 @@ class Biochemical(YAMLRoot):
             self.presence = str(self.presence)
 
         self._normalize_inlined_as_list(slot_name="readouts", slot_type=BiomarkerReadout, key_name="target", keyed=False)
+
+        if not isinstance(self.reference_ranges, list):
+            self.reference_ranges = [self.reference_ranges] if self.reference_ranges is not None else []
+        self.reference_ranges = [v if isinstance(v, ReferenceRange) else ReferenceRange(**as_dict(v)) for v in self.reference_ranges]
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -3105,6 +3562,86 @@ class HistopathologyFinding(YAMLRoot):
 
 
 @dataclass(repr=False)
+class ImagingFinding(YAMLRoot):
+    """
+    A finding detected by in-vivo medical imaging (MRI, CT, PET, ultrasound, etc.) that reflects disease
+    pathophysiology or defines a diagnostic criterion. The macroscopic / in-vivo counterpart of HistopathologyFinding.
+    Captures the modality plus the imaging appearance - NOT acquisition protocol, per-patient reads, or radiology
+    decision support.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ImagingFinding"]
+    class_class_curie: ClassVar[str] = "dismech:ImagingFinding"
+    class_name: ClassVar[str] = "ImagingFinding"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ImagingFinding
+
+    name: Union[str, ImagingFindingName] = None
+    modality: Optional[Union[str, "ImagingModalityEnum"]] = None
+    imaging_finding_term: Optional[Union[dict, ImagingFindingDescriptor]] = None
+    description: Optional[str] = None
+    located_in: Optional[Union[dict, AnatomicalEntityDescriptor]] = None
+    laterality: Optional[Union[str, "LateralityEnum"]] = None
+    spatial_extent: Optional[Union[str, "SpatialExtentEnum"]] = None
+    phenotype_term: Optional[Union[dict, PhenotypeDescriptor]] = None
+    diagnostic: Optional[Union[bool, Bool]] = None
+    frequency: Optional[Union[dict, Any]] = None
+    modifier: Optional[Union[str, "ModifierEnum"]] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+    context: Optional[str] = None
+    subtype: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ImagingFindingName):
+            self.name = ImagingFindingName(self.name)
+
+        if self.modality is not None and not isinstance(self.modality, ImagingModalityEnum):
+            self.modality = ImagingModalityEnum(self.modality)
+
+        if self.imaging_finding_term is not None and not isinstance(self.imaging_finding_term, ImagingFindingDescriptor):
+            self.imaging_finding_term = ImagingFindingDescriptor(**as_dict(self.imaging_finding_term))
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.located_in is not None and not isinstance(self.located_in, AnatomicalEntityDescriptor):
+            self.located_in = AnatomicalEntityDescriptor(**as_dict(self.located_in))
+
+        if self.laterality is not None and not isinstance(self.laterality, LateralityEnum):
+            self.laterality = LateralityEnum(self.laterality)
+
+        if self.spatial_extent is not None and not isinstance(self.spatial_extent, SpatialExtentEnum):
+            self.spatial_extent = SpatialExtentEnum(self.spatial_extent)
+
+        if self.phenotype_term is not None and not isinstance(self.phenotype_term, PhenotypeDescriptor):
+            self.phenotype_term = PhenotypeDescriptor(**as_dict(self.phenotype_term))
+
+        if self.diagnostic is not None and not isinstance(self.diagnostic, Bool):
+            self.diagnostic = Bool(self.diagnostic)
+
+        if self.modifier is not None and not isinstance(self.modifier, ModifierEnum):
+            self.modifier = ModifierEnum(self.modifier)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        if self.context is not None and not isinstance(self.context, str):
+            self.context = str(self.context)
+
+        if self.subtype is not None and not isinstance(self.subtype, str):
+            self.subtype = str(self.subtype)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class Genetic(YAMLRoot):
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -3123,6 +3660,7 @@ class Genetic(YAMLRoot):
     review_notes: Optional[str] = None
     subtype: Optional[str] = None
     frequency: Optional[Union[dict, Any]] = None
+    case_fractions: Optional[Union[Union[dict, GeneCaseFraction], list[Union[dict, GeneCaseFraction]]]] = empty_list()
     inheritance: Optional[Union[dict[Union[str, InheritanceName], Union[dict, "Inheritance"]], list[Union[dict, "Inheritance"]]]] = empty_dict()
     variants: Optional[Union[dict[Union[str, VariantName], Union[dict, "Variant"]], list[Union[dict, "Variant"]]]] = empty_dict()
     features: Optional[str] = None
@@ -3159,6 +3697,10 @@ class Genetic(YAMLRoot):
 
         if self.subtype is not None and not isinstance(self.subtype, str):
             self.subtype = str(self.subtype)
+
+        if not isinstance(self.case_fractions, list):
+            self.case_fractions = [self.case_fractions] if self.case_fractions is not None else []
+        self.case_fractions = [v if isinstance(v, GeneCaseFraction) else GeneCaseFraction(**as_dict(v)) for v in self.case_fractions]
 
         self._normalize_inlined_as_list(slot_name="inheritance", slot_type=Inheritance, key_name="name", keyed=True)
 
@@ -3202,6 +3744,7 @@ class Environmental(YAMLRoot):
     exposure_term: Optional[Union[dict, ExposureDescriptor]] = None
     environment_context: Optional[Union[dict, EnvironmentDescriptor]] = None
     food_source: Optional[Union[dict, FoodDescriptor]] = None
+    influences_mechanisms: Optional[Union[Union[dict, EnvironmentalMechanismTarget], list[Union[dict, EnvironmentalMechanismTarget]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -3249,6 +3792,8 @@ class Environmental(YAMLRoot):
         if self.food_source is not None and not isinstance(self.food_source, FoodDescriptor):
             self.food_source = FoodDescriptor(**as_dict(self.food_source))
 
+        self._normalize_inlined_as_list(slot_name="influences_mechanisms", slot_type=EnvironmentalMechanismTarget, key_name="target", keyed=False)
+
         super().__post_init__(**kwargs)
 
 
@@ -3272,10 +3817,12 @@ class Disease(YAMLRoot):
     has_subtypes: Optional[Union[dict[Union[str, SubtypeName], Union[dict, Subtype]], list[Union[dict, Subtype]]]] = empty_dict()
     prevalence: Optional[Union[Union[dict, Prevalence], list[Union[dict, Prevalence]]]] = empty_list()
     progression: Optional[Union[Union[dict, ProgressionInfo], list[Union[dict, ProgressionInfo]]]] = empty_list()
+    clinical_burden: Optional[Union[dict, ClinicalBurden]] = None
     pathophysiology: Optional[Union[dict[Union[str, PathophysiologyName], Union[dict, Pathophysiology]], list[Union[dict, Pathophysiology]]]] = empty_dict()
     mechanistic_hypotheses: Optional[Union[Union[dict, "MechanisticHypothesis"], list[Union[dict, "MechanisticHypothesis"]]]] = empty_list()
     phenotypes: Optional[Union[dict[Union[str, PhenotypeName], Union[dict, Phenotype]], list[Union[dict, Phenotype]]]] = empty_dict()
     histopathology: Optional[Union[dict[Union[str, HistopathologyFindingName], Union[dict, HistopathologyFinding]], list[Union[dict, HistopathologyFinding]]]] = empty_dict()
+    imaging_findings: Optional[Union[dict[Union[str, ImagingFindingName], Union[dict, ImagingFinding]], list[Union[dict, ImagingFinding]]]] = empty_dict()
     biochemical: Optional[Union[dict[Union[str, BiochemicalName], Union[dict, Biochemical]], list[Union[dict, Biochemical]]]] = empty_dict()
     stages: Optional[Union[dict[Union[str, StageName], Union[dict, "Stage"]], list[Union[dict, "Stage"]]]] = empty_dict()
     genetic: Optional[Union[dict[Union[str, GeneticName], Union[dict, Genetic]], list[Union[dict, Genetic]]]] = empty_dict()
@@ -3300,6 +3847,7 @@ class Disease(YAMLRoot):
     computational_models: Optional[Union[dict[Union[str, ComputationalModelName], Union[dict, ComputationalModel]], list[Union[dict, ComputationalModel]]]] = empty_dict()
     classifications: Optional[Union[dict, "DiseaseClassifications"]] = None
     definitions: Optional[Union[dict[Union[str, DefinitionName], Union[dict, "Definition"]], list[Union[dict, "Definition"]]]] = empty_dict()
+    gene_sets: Optional[Union[Union[dict, GeneSetAssociation], list[Union[dict, GeneSetAssociation]]]] = empty_list()
     mappings: Optional[Union[dict, "DiseaseMappings"]] = None
     external_assertions: Optional[Union[dict[Union[str, ExternalAssertionName], Union[dict, ExternalAssertion]], list[Union[dict, ExternalAssertion]]]] = empty_dict()
     tracked_issues: Optional[Union[Union[dict, TrackedIssue], list[Union[dict, TrackedIssue]]]] = empty_list()
@@ -3345,6 +3893,9 @@ class Disease(YAMLRoot):
             self.progression = [self.progression] if self.progression is not None else []
         self.progression = [v if isinstance(v, ProgressionInfo) else ProgressionInfo(**as_dict(v)) for v in self.progression]
 
+        if self.clinical_burden is not None and not isinstance(self.clinical_burden, ClinicalBurden):
+            self.clinical_burden = ClinicalBurden(**as_dict(self.clinical_burden))
+
         self._normalize_inlined_as_list(slot_name="pathophysiology", slot_type=Pathophysiology, key_name="name", keyed=True)
 
         self._normalize_inlined_as_list(slot_name="mechanistic_hypotheses", slot_type=MechanisticHypothesis, key_name="hypothesis_group_id", keyed=False)
@@ -3352,6 +3903,8 @@ class Disease(YAMLRoot):
         self._normalize_inlined_as_list(slot_name="phenotypes", slot_type=Phenotype, key_name="name", keyed=True)
 
         self._normalize_inlined_as_list(slot_name="histopathology", slot_type=HistopathologyFinding, key_name="name", keyed=True)
+
+        self._normalize_inlined_as_list(slot_name="imaging_findings", slot_type=ImagingFinding, key_name="name", keyed=True)
 
         self._normalize_inlined_as_list(slot_name="biochemical", slot_type=Biochemical, key_name="name", keyed=True)
 
@@ -3408,6 +3961,8 @@ class Disease(YAMLRoot):
             self.classifications = DiseaseClassifications(**as_dict(self.classifications))
 
         self._normalize_inlined_as_list(slot_name="definitions", slot_type=Definition, key_name="name", keyed=True)
+
+        self._normalize_inlined_as_list(slot_name="gene_sets", slot_type=GeneSetAssociation, key_name="gene_set", keyed=False)
 
         if self.mappings is not None and not isinstance(self.mappings, DiseaseMappings):
             self.mappings = DiseaseMappings(**as_dict(self.mappings))
@@ -3578,6 +4133,10 @@ class AgentLifeCycleStage(YAMLRoot):
 
 @dataclass(repr=False)
 class AnimalModel(YAMLRoot):
+    """
+    A whole-organism animal model of the disease. This is the home for animal models; non-animal systems (organoids,
+    organ-chips, cell lines, iPSC-derived and primary cultures) belong in `experimental_models` as ExperimentalModel.
+    """
     _inherited_slots: ClassVar[list[str]] = []
 
     class_class_uri: ClassVar[URIRef] = DISMECH["AnimalModel"]
@@ -3592,8 +4151,12 @@ class AnimalModel(YAMLRoot):
     category: Optional[str] = None
     alleles: Optional[Union[str, list[str]]] = empty_list()
     description: Optional[str] = None
+    publication: Optional[str] = None
     associated_phenotypes: Optional[Union[str, list[str]]] = empty_list()
+    modeled_mechanisms: Optional[Union[Union[dict, ModelMechanismLink], list[Union[dict, ModelMechanismLink]]]] = empty_list()
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+    name: Optional[str] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self.species is not None and not isinstance(self.species, str):
@@ -3617,13 +4180,24 @@ class AnimalModel(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
+        if self.publication is not None and not isinstance(self.publication, str):
+            self.publication = str(self.publication)
+
         if not isinstance(self.associated_phenotypes, list):
             self.associated_phenotypes = [self.associated_phenotypes] if self.associated_phenotypes is not None else []
         self.associated_phenotypes = [v if isinstance(v, str) else str(v) for v in self.associated_phenotypes]
 
+        self._normalize_inlined_as_list(slot_name="modeled_mechanisms", slot_type=ModelMechanismLink, key_name="target", keyed=False)
+
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
         self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        if self.name is not None and not isinstance(self.name, str):
+            self.name = str(self.name)
 
         super().__post_init__(**kwargs)
 
@@ -3642,6 +4216,8 @@ class Treatment(YAMLRoot):
     action_category: Optional[Union[str, "MedicalActionCategoryEnum"]] = None
     treatment_term: Optional[Union[dict, TreatmentDescriptor]] = None
     regimen_term: Optional[Union[dict, RegimenDescriptor]] = None
+    therapeutic_modality: Optional[Union[str, "TherapeuticModalityEnum"]] = None
+    aso_details: Optional[Union[dict, "AntisenseOligonucleotideDetail"]] = None
     target_phenotypes: Optional[Union[Union[dict, PhenotypeDescriptor], list[Union[dict, PhenotypeDescriptor]]]] = empty_list()
     target_mechanisms: Optional[Union[Union[dict, TreatmentMechanismTarget], list[Union[dict, TreatmentMechanismTarget]]]] = empty_list()
     pdb_structures: Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]] = empty_list()
@@ -3671,6 +4247,12 @@ class Treatment(YAMLRoot):
         if self.regimen_term is not None and not isinstance(self.regimen_term, RegimenDescriptor):
             self.regimen_term = RegimenDescriptor(**as_dict(self.regimen_term))
 
+        if self.therapeutic_modality is not None and not isinstance(self.therapeutic_modality, TherapeuticModalityEnum):
+            self.therapeutic_modality = TherapeuticModalityEnum(self.therapeutic_modality)
+
+        if self.aso_details is not None and not isinstance(self.aso_details, AntisenseOligonucleotideDetail):
+            self.aso_details = AntisenseOligonucleotideDetail(**as_dict(self.aso_details))
+
         self._normalize_inlined_as_list(slot_name="target_phenotypes", slot_type=PhenotypeDescriptor, key_name="preferred_term", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="target_mechanisms", slot_type=TreatmentMechanismTarget, key_name="target", keyed=False)
@@ -3698,6 +4280,49 @@ class Treatment(YAMLRoot):
         if not isinstance(self.examples, list):
             self.examples = [self.examples] if self.examples is not None else []
         self.examples = [v if isinstance(v, str) else str(v) for v in self.examples]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class AntisenseOligonucleotideDetail(YAMLRoot):
+    """
+    Structured attributes specific to an antisense oligonucleotide (ASO) treatment: its molecular mechanism, RNA
+    target, splice exon (for splice-switching ASOs), backbone chemistry, and targeting conjugate. Attach via the
+    aso_details slot on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["AntisenseOligonucleotideDetail"]
+    class_class_curie: ClassVar[str] = "dismech:AntisenseOligonucleotideDetail"
+    class_name: ClassVar[str] = "AntisenseOligonucleotideDetail"
+    class_model_uri: ClassVar[URIRef] = DISMECH.AntisenseOligonucleotideDetail
+
+    aso_mechanism: Optional[Union[str, "AsoMechanismEnum"]] = None
+    target_gene: Optional[Union[dict, GeneDescriptor]] = None
+    target_transcript: Optional[str] = None
+    target_exon: Optional[str] = None
+    aso_chemistry: Optional[Union[str, "AsoChemistryEnum"]] = None
+    conjugation: Optional[Union[str, "AsoConjugationEnum"]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.aso_mechanism is not None and not isinstance(self.aso_mechanism, AsoMechanismEnum):
+            self.aso_mechanism = AsoMechanismEnum(self.aso_mechanism)
+
+        if self.target_gene is not None and not isinstance(self.target_gene, GeneDescriptor):
+            self.target_gene = GeneDescriptor(**as_dict(self.target_gene))
+
+        if self.target_transcript is not None and not isinstance(self.target_transcript, str):
+            self.target_transcript = str(self.target_transcript)
+
+        if self.target_exon is not None and not isinstance(self.target_exon, str):
+            self.target_exon = str(self.target_exon)
+
+        if self.aso_chemistry is not None and not isinstance(self.aso_chemistry, AsoChemistryEnum):
+            self.aso_chemistry = AsoChemistryEnum(self.aso_chemistry)
+
+        if self.conjugation is not None and not isinstance(self.conjugation, AsoConjugationEnum):
+            self.conjugation = AsoConjugationEnum(self.conjugation)
 
         super().__post_init__(**kwargs)
 
@@ -4244,6 +4869,82 @@ class ChannelopathyAssignment(ClassificationAssignment):
 
 
 @dataclass(repr=False)
+class ICIMDAssignment(ClassificationAssignment):
+    """
+    ICIMD category/group classification assignment for inherited metabolic disorders. Assign the most specific
+    applicable node (usually a group); the parent category is derivable via the enum's ``is_a`` hierarchy.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ICIMDAssignment"]
+    class_class_curie: ClassVar[str] = "dismech:ICIMDAssignment"
+    class_name: ClassVar[str] = "ICIMDAssignment"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ICIMDAssignment
+
+    classification_value: Union[str, "ICIMDEnum"] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.classification_value):
+            self.MissingRequiredField("classification_value")
+        if not isinstance(self.classification_value, ICIMDEnum):
+            self.classification_value = ICIMDEnum(self.classification_value)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ISDSNosologyAssignment(ClassificationAssignment):
+    """
+    ISDS Nosology group assignment for a genetic skeletal disorder, per the Nosology of Genetic Skeletal Disorders
+    (2023 revision, 11th edition; Unger et al., PMID:36779427), which supersedes the 2019 revision (PMID:31633310).
+    Record the provenance — which revision, the group number/name, and the listed disorder name where it differs from
+    the dismech entry name — in ``notes``. Assignments may legitimately cite either revision while the 2019-derived
+    backfill is being re-verified against the 2023 table; the ``notes`` must say which one.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ISDSNosologyAssignment"]
+    class_class_curie: ClassVar[str] = "dismech:ISDSNosologyAssignment"
+    class_name: ClassVar[str] = "ISDSNosologyAssignment"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ISDSNosologyAssignment
+
+    classification_value: Union[str, "ISDSNosologyGroupEnum"] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.classification_value):
+            self.MissingRequiredField("classification_value")
+        if not isinstance(self.classification_value, ISDSNosologyGroupEnum):
+            self.classification_value = ISDSNosologyGroupEnum(self.classification_value)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class NIHResearchPriorityAssignment(ClassificationAssignment):
+    """
+    NIH Highlighted Topics funding-priority assignment. A secondary, grant-strategy tag (not a disease nosology)
+    recording which NIH highlighted funding topic the disease is relevant to. Use ``notes`` to explain the relevance
+    and ``evidence`` where a specific claim backs it.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["NIHResearchPriorityAssignment"]
+    class_class_curie: ClassVar[str] = "dismech:NIHResearchPriorityAssignment"
+    class_name: ClassVar[str] = "NIHResearchPriorityAssignment"
+    class_model_uri: ClassVar[URIRef] = DISMECH.NIHResearchPriorityAssignment
+
+    classification_value: Union[str, "NIHResearchPriorityEnum"] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.classification_value):
+            self.MissingRequiredField("classification_value")
+        if not isinstance(self.classification_value, NIHResearchPriorityEnum):
+            self.classification_value = NIHResearchPriorityEnum(self.classification_value)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class DiseaseClassifications(YAMLRoot):
     """
     Container for all classification assignments for a disease
@@ -4261,6 +4962,9 @@ class DiseaseClassifications(YAMLRoot):
     mechanistic_category: Optional[Union[Union[dict, MechanisticNosologyAssignment], list[Union[dict, MechanisticNosologyAssignment]]]] = empty_list()
     iuis_category: Optional[Union[dict, IUISAssignment]] = None
     channelopathy_category: Optional[Union[dict, ChannelopathyAssignment]] = None
+    icimd_category: Optional[Union[Union[dict, ICIMDAssignment], list[Union[dict, ICIMDAssignment]]]] = empty_list()
+    isds_skeletal_category: Optional[Union[Union[dict, ISDSNosologyAssignment], list[Union[dict, ISDSNosologyAssignment]]]] = empty_list()
+    nih_research_priority: Optional[Union[Union[dict, NIHResearchPriorityAssignment], list[Union[dict, NIHResearchPriorityAssignment]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self.icdo_morphology is not None and not isinstance(self.icdo_morphology, ICDOMorphologyAssignment):
@@ -4279,6 +4983,12 @@ class DiseaseClassifications(YAMLRoot):
         if self.channelopathy_category is not None and not isinstance(self.channelopathy_category, ChannelopathyAssignment):
             self.channelopathy_category = ChannelopathyAssignment(**as_dict(self.channelopathy_category))
 
+        self._normalize_inlined_as_list(slot_name="icimd_category", slot_type=ICIMDAssignment, key_name="classification_value", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="isds_skeletal_category", slot_type=ISDSNosologyAssignment, key_name="classification_value", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="nih_research_priority", slot_type=NIHResearchPriorityAssignment, key_name="classification_value", keyed=False)
+
         super().__post_init__(**kwargs)
 
 
@@ -4296,8 +5006,11 @@ class Definition(YAMLRoot):
 
     name: Union[str, DefinitionName] = None
     definition_type: Union[str, "DefinitionTypeEnum"] = None
+    derivation_basis: Optional[Union[str, "DefinitionDerivationBasisEnum"]] = None
+    validation_status: Optional[Union[dict, "AlgorithmValidationStatus"]] = None
     description: Optional[str] = None
     scope: Optional[str] = None
+    attaches_to: Optional[Union[str, list[str]]] = empty_list()
     criteria_sets: Optional[Union[dict[Union[str, CriteriaSetName], Union[dict, "CriteriaSet"]], list[Union[dict, "CriteriaSet"]]]] = empty_dict()
     inclusion_criteria: Optional[Union[Union[dict, "CriteriaItem"], list[Union[dict, "CriteriaItem"]]]] = empty_list()
     exclusion_criteria: Optional[Union[Union[dict, "CriteriaItem"], list[Union[dict, "CriteriaItem"]]]] = empty_list()
@@ -4315,11 +5028,21 @@ class Definition(YAMLRoot):
         if not isinstance(self.definition_type, DefinitionTypeEnum):
             self.definition_type = DefinitionTypeEnum(self.definition_type)
 
+        if self.derivation_basis is not None and not isinstance(self.derivation_basis, DefinitionDerivationBasisEnum):
+            self.derivation_basis = DefinitionDerivationBasisEnum(self.derivation_basis)
+
+        if self.validation_status is not None and not isinstance(self.validation_status, AlgorithmValidationStatus):
+            self.validation_status = AlgorithmValidationStatus(**as_dict(self.validation_status))
+
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
         if self.scope is not None and not isinstance(self.scope, str):
             self.scope = str(self.scope)
+
+        if not isinstance(self.attaches_to, list):
+            self.attaches_to = [self.attaches_to] if self.attaches_to is not None else []
+        self.attaches_to = [v if isinstance(v, str) else str(v) for v in self.attaches_to]
 
         self._normalize_inlined_as_list(slot_name="criteria_sets", slot_type=CriteriaSet, key_name="name", keyed=True)
 
@@ -4333,6 +5056,40 @@ class Definition(YAMLRoot):
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class AlgorithmValidationStatus(YAMLRoot):
+    """
+    Validation maturity of a phenotype algorithm / computable case definition: a graded status plus a free-text
+    rationale and optional citing evidence (the standard EvidenceItem model — reference + verbatim snippet +
+    explanation).
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["AlgorithmValidationStatus"]
+    class_class_curie: ClassVar[str] = "dismech:AlgorithmValidationStatus"
+    class_name: ClassVar[str] = "AlgorithmValidationStatus"
+    class_model_uri: ClassVar[URIRef] = DISMECH.AlgorithmValidationStatus
+
+    status: Union[str, "AlgorithmValidationStatusEnum"] = None
+    rationale: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.status):
+            self.MissingRequiredField("status")
+        if not isinstance(self.status, AlgorithmValidationStatusEnum):
+            self.status = AlgorithmValidationStatusEnum(self.status)
+
+        if self.rationale is not None and not isinstance(self.rationale, str):
+            self.rationale = str(self.rationale)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
 
         super().__post_init__(**kwargs)
 
@@ -4679,6 +5436,7 @@ class ComorbidityAssociation(YAMLRoot):
     disease_a: Optional[Union[dict, ConditionDescriptor]] = None
     disease_b: Optional[Union[dict, ConditionDescriptor]] = None
     directionality: Optional[Union[str, "ComorbidityDirectionEnum"]] = None
+    effect_direction: Optional[Union[str, "ComorbidityEffectDirectionEnum"]] = None
     association_signals: Optional[Union[Union[dict, "AssociationSignal"], list[Union[dict, "AssociationSignal"]]]] = empty_list()
     literature_evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     hypotheses: Optional[Union[Union[dict, "ComorbidityHypothesis"], list[Union[dict, "ComorbidityHypothesis"]]]] = empty_list()
@@ -4707,6 +5465,9 @@ class ComorbidityAssociation(YAMLRoot):
 
         if self.directionality is not None and not isinstance(self.directionality, ComorbidityDirectionEnum):
             self.directionality = ComorbidityDirectionEnum(self.directionality)
+
+        if self.effect_direction is not None and not isinstance(self.effect_direction, ComorbidityEffectDirectionEnum):
+            self.effect_direction = ComorbidityEffectDirectionEnum(self.effect_direction)
 
         if not isinstance(self.association_signals, list):
             self.association_signals = [self.association_signals] if self.association_signals is not None else []
@@ -4760,6 +5521,7 @@ class AssociationSignal(YAMLRoot):
     limited_precision: Optional[Union[bool, Bool]] = None
     precision_count_threshold: Optional[int] = None
     directionality: Optional[Union[str, "ComorbidityDirectionEnum"]] = None
+    effect_direction: Optional[Union[str, "ComorbidityEffectDirectionEnum"]] = None
     a_before_b: Optional[float] = None
     b_before_a: Optional[float] = None
     same_time: Optional[float] = None
@@ -4808,6 +5570,9 @@ class AssociationSignal(YAMLRoot):
 
         if self.directionality is not None and not isinstance(self.directionality, ComorbidityDirectionEnum):
             self.directionality = ComorbidityDirectionEnum(self.directionality)
+
+        if self.effect_direction is not None and not isinstance(self.effect_direction, ComorbidityEffectDirectionEnum):
+            self.effect_direction = ComorbidityEffectDirectionEnum(self.effect_direction)
 
         if self.a_before_b is not None and not isinstance(self.a_before_b, float):
             self.a_before_b = float(self.a_before_b)
@@ -5236,6 +6001,284 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
         super().__post_init__(**kwargs)
 
 
+@dataclass(repr=False)
+class Grouping(YAMLRoot):
+    """
+    An explicit, curated union of distinct Disease entries assembled below the level of the formal classification
+    taxonomies. A Grouping points DOWN: it lists its members rather than being inferred from them, and it does not
+    recapitulate MONDO (an optional `mappings` block may cross-reference an external grouping term). Its purpose is to
+    make the grouping boundary auditable — recording WHY these conditions are grouped (`grouping_basis`,
+    `grouping_rationale`), the shared `membership_criteria` (prose plus an optional boolean expression), and, per
+    member, the mechanisms that differentiate it from its siblings.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["Grouping"]
+    class_class_curie: ClassVar[str] = "dismech:Grouping"
+    class_name: ClassVar[str] = "Grouping"
+    class_model_uri: ClassVar[URIRef] = DISMECH.Grouping
+
+    name: Union[str, GroupingName] = None
+    members: Union[Union[dict, "GroupingMember"], list[Union[dict, "GroupingMember"]]] = None
+    display_name: Optional[str] = None
+    creation_date: Optional[str] = None
+    description: Optional[str] = None
+    grouping_basis: Optional[Union[Union[str, "GroupingBasisEnum"], list[Union[str, "GroupingBasisEnum"]]]] = empty_list()
+    grouping_rationale: Optional[str] = None
+    membership_criteria: Optional[Union[Union[dict, "GroupingCriteria"], list[Union[dict, "GroupingCriteria"]]]] = empty_list()
+    mappings: Optional[Union[dict, DiseaseMappings]] = None
+    references: Optional[Union[dict[Union[str, PublicationReferenceReference], Union[dict, PublicationReference]], list[Union[dict, PublicationReference]]]] = empty_dict()
+    discussions: Optional[Union[Union[dict, Discussion], list[Union[dict, Discussion]]]] = empty_list()
+    curation_history: Optional[Union[Union[dict, CurationEvent], list[Union[dict, CurationEvent]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, GroupingName):
+            self.name = GroupingName(self.name)
+
+        if self._is_empty(self.members):
+            self.MissingRequiredField("members")
+        self._normalize_inlined_as_list(slot_name="members", slot_type=GroupingMember, key_name="member", keyed=False)
+
+        if self.display_name is not None and not isinstance(self.display_name, str):
+            self.display_name = str(self.display_name)
+
+        if self.creation_date is not None and not isinstance(self.creation_date, str):
+            self.creation_date = str(self.creation_date)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.grouping_basis, list):
+            self.grouping_basis = [self.grouping_basis] if self.grouping_basis is not None else []
+        self.grouping_basis = [v if isinstance(v, GroupingBasisEnum) else GroupingBasisEnum(v) for v in self.grouping_basis]
+
+        if self.grouping_rationale is not None and not isinstance(self.grouping_rationale, str):
+            self.grouping_rationale = str(self.grouping_rationale)
+
+        self._normalize_inlined_as_list(slot_name="membership_criteria", slot_type=GroupingCriteria, key_name="description", keyed=False)
+
+        if self.mappings is not None and not isinstance(self.mappings, DiseaseMappings):
+            self.mappings = DiseaseMappings(**as_dict(self.mappings))
+
+        self._normalize_inlined_as_list(slot_name="references", slot_type=PublicationReference, key_name="reference", keyed=True)
+
+        self._normalize_inlined_as_list(slot_name="discussions", slot_type=Discussion, key_name="discussion_id", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="curation_history", slot_type=CurationEvent, key_name="curation_timestamp", keyed=False)
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class GroupingCriteria(YAMLRoot):
+    """
+    The shared membership criteria for a grouping, pairing a human-readable description with an optional structured
+    boolean expression and a necessary/sufficient/equivalent semantics marker.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["GroupingCriteria"]
+    class_class_curie: ClassVar[str] = "dismech:GroupingCriteria"
+    class_name: ClassVar[str] = "GroupingCriteria"
+    class_model_uri: ClassVar[URIRef] = DISMECH.GroupingCriteria
+
+    description: str = None
+    criteria_semantics: Optional[Union[str, "CriteriaSemanticsEnum"]] = None
+    logic: Optional[Union[dict, "LogicalCriterion"]] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.description):
+            self.MissingRequiredField("description")
+        if not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.criteria_semantics is not None and not isinstance(self.criteria_semantics, CriteriaSemanticsEnum):
+            self.criteria_semantics = CriteriaSemanticsEnum(self.criteria_semantics)
+
+        if self.logic is not None and not isinstance(self.logic, LogicalCriterion):
+            self.logic = LogicalCriterion(**as_dict(self.logic))
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class LogicalCriterion(YAMLRoot):
+    """
+    A node in a nested boolean membership-criteria expression. A branch node sets `operator` and combines child
+    `operands`; a leaf node sets `criterion_predicate` and the payload slots relevant to that predicate. This is a
+    deliberately lightweight, OWL-inspired representation, not a full logical formalism.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["LogicalCriterion"]
+    class_class_curie: ClassVar[str] = "dismech:LogicalCriterion"
+    class_name: ClassVar[str] = "LogicalCriterion"
+    class_model_uri: ClassVar[URIRef] = DISMECH.LogicalCriterion
+
+    operator: Optional[Union[str, "LogicalOperatorEnum"]] = None
+    operands: Optional[Union[Union[dict, "LogicalCriterion"], list[Union[dict, "LogicalCriterion"]]]] = empty_list()
+    criterion_predicate: Optional[Union[str, "CriterionPredicateEnum"]] = None
+    description: Optional[str] = None
+    negated: Optional[Union[bool, Bool]] = None
+    phenotype_term: Optional[Union[dict, PhenotypeDescriptor]] = None
+    min_frequency: Optional[Union[str, "FrequencyEnum"]] = None
+    gene: Optional[Union[dict, GeneDescriptor]] = None
+    biological_processes: Optional[Union[Union[dict, BiologicalProcessDescriptor], list[Union[dict, BiologicalProcessDescriptor]]]] = empty_list()
+    module: Optional[str] = None
+    classification: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.operator is not None and not isinstance(self.operator, LogicalOperatorEnum):
+            self.operator = LogicalOperatorEnum(self.operator)
+
+        if not isinstance(self.operands, list):
+            self.operands = [self.operands] if self.operands is not None else []
+        self.operands = [v if isinstance(v, LogicalCriterion) else LogicalCriterion(**as_dict(v)) for v in self.operands]
+
+        if self.criterion_predicate is not None and not isinstance(self.criterion_predicate, CriterionPredicateEnum):
+            self.criterion_predicate = CriterionPredicateEnum(self.criterion_predicate)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.negated is not None and not isinstance(self.negated, Bool):
+            self.negated = Bool(self.negated)
+
+        if self.phenotype_term is not None and not isinstance(self.phenotype_term, PhenotypeDescriptor):
+            self.phenotype_term = PhenotypeDescriptor(**as_dict(self.phenotype_term))
+
+        if self.min_frequency is not None and not isinstance(self.min_frequency, FrequencyEnum):
+            self.min_frequency = FrequencyEnum(self.min_frequency)
+
+        if self.gene is not None and not isinstance(self.gene, GeneDescriptor):
+            self.gene = GeneDescriptor(**as_dict(self.gene))
+
+        self._normalize_inlined_as_list(slot_name="biological_processes", slot_type=BiologicalProcessDescriptor, key_name="preferred_term", keyed=False)
+
+        if self.module is not None and not isinstance(self.module, str):
+            self.module = str(self.module)
+
+        if self.classification is not None and not isinstance(self.classification, str):
+            self.classification = str(self.classification)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class GroupingMember(YAMLRoot):
+    """
+    One member of a grouping, referenced by foreign key, together with the mechanisms that differentiate it from its
+    siblings.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["GroupingMember"]
+    class_class_curie: ClassVar[str] = "dismech:GroupingMember"
+    class_name: ClassVar[str] = "GroupingMember"
+    class_model_uri: ClassVar[URIRef] = DISMECH.GroupingMember
+
+    member: str = None
+    member_type: Optional[Union[str, "GroupingMemberTypeEnum"]] = None
+    display_name: Optional[str] = None
+    disease_term: Optional[Union[dict, DiseaseDescriptor]] = None
+    differentiating_mechanisms: Optional[Union[Union[dict, "DifferentiatingMechanism"], list[Union[dict, "DifferentiatingMechanism"]]]] = empty_list()
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.member):
+            self.MissingRequiredField("member")
+        if not isinstance(self.member, str):
+            self.member = str(self.member)
+
+        if self.member_type is not None and not isinstance(self.member_type, GroupingMemberTypeEnum):
+            self.member_type = GroupingMemberTypeEnum(self.member_type)
+
+        if self.display_name is not None and not isinstance(self.display_name, str):
+            self.display_name = str(self.display_name)
+
+        if self.disease_term is not None and not isinstance(self.disease_term, DiseaseDescriptor):
+            self.disease_term = DiseaseDescriptor(**as_dict(self.disease_term))
+
+        self._normalize_inlined_as_list(slot_name="differentiating_mechanisms", slot_type=DifferentiatingMechanism, key_name="description", keyed=False)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class DifferentiatingMechanism(YAMLRoot):
+    """
+    A mechanism or feature that distinguishes a grouping member from its siblings, as prose plus optional structured
+    descriptors (gene, phenotype, biological process, module).
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["DifferentiatingMechanism"]
+    class_class_curie: ClassVar[str] = "dismech:DifferentiatingMechanism"
+    class_name: ClassVar[str] = "DifferentiatingMechanism"
+    class_model_uri: ClassVar[URIRef] = DISMECH.DifferentiatingMechanism
+
+    description: str = None
+    gene: Optional[Union[dict, GeneDescriptor]] = None
+    phenotype_term: Optional[Union[dict, PhenotypeDescriptor]] = None
+    biological_processes: Optional[Union[Union[dict, BiologicalProcessDescriptor], list[Union[dict, BiologicalProcessDescriptor]]]] = empty_list()
+    module: Optional[str] = None
+    modifier: Optional[Union[str, "ModifierEnum"]] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.description):
+            self.MissingRequiredField("description")
+        if not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.gene is not None and not isinstance(self.gene, GeneDescriptor):
+            self.gene = GeneDescriptor(**as_dict(self.gene))
+
+        if self.phenotype_term is not None and not isinstance(self.phenotype_term, PhenotypeDescriptor):
+            self.phenotype_term = PhenotypeDescriptor(**as_dict(self.phenotype_term))
+
+        self._normalize_inlined_as_list(slot_name="biological_processes", slot_type=BiologicalProcessDescriptor, key_name="preferred_term", keyed=False)
+
+        if self.module is not None and not isinstance(self.module, str):
+            self.module = str(self.module)
+
+        if self.modifier is not None and not isinstance(self.modifier, ModifierEnum):
+            self.modifier = ModifierEnum(self.modifier)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
 # Enumerations
 class EvidenceItemSupportEnum(EnumDefinitionImpl):
     """
@@ -5319,6 +6362,48 @@ class DefinitionTypeEnum(EnumDefinitionImpl):
         description="The type of definition or criteria set",
     )
 
+class DefinitionDerivationBasisEnum(EnumDefinitionImpl):
+    """
+    The epistemic grounding of a definition / phenotype algorithm, orthogonal to definition_type. Records where the
+    definition comes from and how well established it is, so a mechanism-predicated case-finding query is not
+    conflated with a consensus- or gold-standard-validated one. When the basis is a hypothesis, the definition should
+    attaches_to the pathophysiology node(s)/edge(s) it is predicated on, so the basis can be cross-checked against
+    those edges' hypothesis_groups.
+    """
+    ESTABLISHED_CRITERIA = PermissibleValue(
+        text="ESTABLISHED_CRITERIA",
+        description="""Published consensus criteria or a validated computable phenotype (e.g. an OHDSI Phenotype Library cohort). The implicit default for existing definitions.""")
+    MECHANISTIC_HYPOTHESIS = PermissibleValue(
+        text="MECHANISTIC_HYPOTHESIS",
+        description="""Predicated on a specific, not-yet-proven disease mechanism hypothesis; membership is contingent on that hypothesis holding.""")
+    MODEL_SYSTEM_EXTRAPOLATION = PermissibleValue(
+        text="MODEL_SYSTEM_EXTRAPOLATION",
+        description="Extrapolated from an animal or in-vitro model result not yet demonstrated in humans.")
+
+    _defn = EnumDefinition(
+        name="DefinitionDerivationBasisEnum",
+        description="""The epistemic grounding of a definition / phenotype algorithm, orthogonal to definition_type. Records where the definition comes from and how well established it is, so a mechanism-predicated case-finding query is not conflated with a consensus- or gold-standard-validated one. When the basis is a hypothesis, the definition should attaches_to the pathophysiology node(s)/edge(s) it is predicated on, so the basis can be cross-checked against those edges' hypothesis_groups.""",
+    )
+
+class AlgorithmValidationStatusEnum(EnumDefinitionImpl):
+    """
+    Validation maturity of a phenotype algorithm / computable case definition.
+    """
+    PROPOSED = PermissibleValue(
+        text="PROPOSED",
+        description="Drafted; never executed against data.")
+    UNVALIDATED = PermissibleValue(
+        text="UNVALIDATED",
+        description="Executable but not yet evaluated against a gold-standard or labeled cohort.")
+    VALIDATED_AGAINST_GOLD_STANDARD = PermissibleValue(
+        text="VALIDATED_AGAINST_GOLD_STANDARD",
+        description="PPV/sensitivity characterized against a reference standard.")
+
+    _defn = EnumDefinition(
+        name="AlgorithmValidationStatusEnum",
+        description="Validation maturity of a phenotype algorithm / computable case definition.",
+    )
+
 class MappingConsistencyEnum(EnumDefinitionImpl):
     """
     Consistency of a mapping relative to another reference source
@@ -5374,6 +6459,105 @@ class FrequencyEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="FrequencyEnum",
         description="The frequency of an event or phenomenon",
+    )
+
+class PrevalenceMeasureEnum(EnumDefinitionImpl):
+    """
+    The kind of epidemiological measure a Prevalence record reports. Disease occurrence is reported in several
+    non-interchangeable ways; this enum makes the measure explicit so a point prevalence is never silently compared
+    with an incidence rate or a literature case-count. Mirrors the "type" column of the Orphanet epidemiology table.
+    """
+    POINT_PREVALENCE = PermissibleValue(
+        text="POINT_PREVALENCE",
+        title="Point prevalence",
+        description="Proportion of a population affected at a single point in time.")
+    BIRTH_PREVALENCE = PermissibleValue(
+        text="BIRTH_PREVALENCE",
+        title="Prevalence at birth",
+        description="Proportion of live births (or births) affected; common for congenital disorders.")
+    LIFETIME_PREVALENCE = PermissibleValue(
+        text="LIFETIME_PREVALENCE",
+        title="Lifetime prevalence",
+        description="Proportion of a population affected at some point during their lifetime.")
+    PERIOD_PREVALENCE = PermissibleValue(
+        text="PERIOD_PREVALENCE",
+        title="Period prevalence",
+        description="""Proportion of a population affected during a defined interval (e.g., five-year period prevalence).""")
+    ANNUAL_INCIDENCE = PermissibleValue(
+        text="ANNUAL_INCIDENCE",
+        title="Annual incidence",
+        description="Rate of new cases arising in a population per year (an incidence, not a prevalence).")
+    CARRIER_FREQUENCY = PermissibleValue(
+        text="CARRIER_FREQUENCY",
+        title="Carrier frequency",
+        description="Frequency of heterozygous carriers in a population (not affected individuals).")
+    CASES_IN_LITERATURE = PermissibleValue(
+        text="CASES_IN_LITERATURE",
+        title="Cases/families reported in the literature",
+        description="""Count of reported cases or families rather than a population rate; used for ultra-rare disorders where no denominator-based estimate exists.""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="The measure type is not stated or cannot be determined from the source.")
+
+    _defn = EnumDefinition(
+        name="PrevalenceMeasureEnum",
+        description="""The kind of epidemiological measure a Prevalence record reports. Disease occurrence is reported in several non-interchangeable ways; this enum makes the measure explicit so a point prevalence is never silently compared with an incidence rate or a literature case-count. Mirrors the \"type\" column of the Orphanet epidemiology table.""",
+    )
+
+class PrevalenceClassEnum(EnumDefinitionImpl):
+    """
+    Coarse, always-fillable band for disease occurrence — the population-rate analog of the HPO-style FrequencyEnum
+    used for phenotype frequency. The numeric bands are the Orphanet prevalence classes (so the ~7% of records already
+    quoting Orphanet map directly and the ICEES/ORPHA structured sources stay aligned); the qualitative tiers cover
+    records that report only prose ("rare", "common") with no numeric estimate. When a numeric estimate exists, also
+    populate rate_per_100000 (or rate_low/rate_high); the band is the queryable summary, the rate carries the
+    precision.
+    """
+    ABOVE_1_IN_1000 = PermissibleValue(
+        text="ABOVE_1_IN_1000",
+        title=">1 / 1,000",
+        description="More than 1 in 1,000 (more than 100 per 100,000). Orphanet class.")
+    BAND_1_5_PER_10000 = PermissibleValue(
+        text="BAND_1_5_PER_10000",
+        title="1-9 / 10,000",
+        description="""1 to 9 per 10,000 (10-99 per 100,000). Combines the Orphanet 1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching the other per-decade bands and the _band_from_rate() boundaries.""")
+    BAND_1_9_PER_100000 = PermissibleValue(
+        text="BAND_1_9_PER_100000",
+        title="1-9 / 100,000",
+        description="1 to 9 per 100,000. Orphanet class.")
+    BAND_1_9_PER_1000000 = PermissibleValue(
+        text="BAND_1_9_PER_1000000",
+        title="1-9 / 1,000,000",
+        description="1 to 9 per 1,000,000 (0.1-0.9 per 100,000). Orphanet class.")
+    BELOW_1_IN_1000000 = PermissibleValue(
+        text="BELOW_1_IN_1000000",
+        title="<1 / 1,000,000",
+        description="Fewer than 1 in 1,000,000 (less than 0.1 per 100,000). Orphanet class.")
+    COMMON = PermissibleValue(
+        text="COMMON",
+        title="Common",
+        description="""Qualitative tier for disorders described as common/endemic with no numeric estimate captured. Roughly corresponds to the >1/1,000 region but asserted only qualitatively.""")
+    RARE = PermissibleValue(
+        text="RARE",
+        title="Rare",
+        description="""Qualitative tier for disorders described as \"rare\" in the source without a numeric estimate (the EU rare-disease threshold is <1 in 2,000).""")
+    ULTRA_RARE = PermissibleValue(
+        text="ULTRA_RARE",
+        title="Ultra-rare",
+        description="""Qualitative tier for disorders described as ultra-rare / only a handful of reported cases, with no population rate available. Often paired with measure_type CASES_IN_LITERATURE.""")
+    NOT_YET_DOCUMENTED = PermissibleValue(
+        text="NOT_YET_DOCUMENTED",
+        title="Not yet documented",
+        description="Source states prevalence is not yet documented. Orphanet class.")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="Prevalence is unknown or not stated.")
+
+    _defn = EnumDefinition(
+        name="PrevalenceClassEnum",
+        description="""Coarse, always-fillable band for disease occurrence — the population-rate analog of the HPO-style FrequencyEnum used for phenotype frequency. The numeric bands are the Orphanet prevalence classes (so the ~7% of records already quoting Orphanet map directly and the ICEES/ORPHA structured sources stay aligned); the qualitative tiers cover records that report only prose (\"rare\", \"common\") with no numeric estimate. When a numeric estimate exists, also populate rate_per_100000 (or rate_low/rate_high); the band is the queryable summary, the rate carries the precision.""",
     )
 
 class ClinicalSignificanceEnum(EnumDefinitionImpl):
@@ -5659,58 +6843,172 @@ class AllelicEventEnum(EnumDefinitionImpl):
 
 class FunctionalImpactEnum(EnumDefinitionImpl):
     """
-    Directional or qualitative functional consequence of a variant or genetic context.
+    Functional consequence of a genetic variant or allele on the product of its own gene. This is the *variant/allele*
+    axis: it records what a lesion does to that gene's product, independent of dose, of the allele in trans, and of
+    the disease that results.
+    Three neighbouring axes are deliberately NOT modeled here:
+    * the activity state of a pathway, process, or molecular function
+    regardless of cause (viral protein, epigenetic silencing, autocrine
+    loop) — that is `Descriptor.modifier` / ModifierEnum;
+    * the kind of molecular event (missense, frameshift, deletion) — that is
+    `GeneticContext.allelic_events` / AllelicEventEnum;
+    * whether a premature-termination lesion is degraded or translated —
+    that is `GeneticContext.nmd_fate` / NmdFateEnum, which frequently
+    DETERMINES which value here applies and must never be conflated with
+    it. A truncating variant is not automatically loss of function.
+
+    The values form a hierarchy via `is_a`. Use the most specific value the evidence supports and fall back to a
+    parent when it does not discriminate: LOSS_OF_FUNCTION is a legitimate answer when complete and partial have not
+    been separated, and is NOT a synonym for complete loss.
+    DOMINANT_NEGATIVE is a sibling of, not a kind of, LOSS_OF_FUNCTION. The variant product gains an interfering
+    activity; the loss appears at the level of the complex or pathway rather than of the product itself (Muller's
+    antimorph, and the placement SO uses). Do not reclassify it as a severe loss of function on the grounds that the
+    net effect on pathway output is a loss.
+    WHEN TO SPLIT AN ENTRY. dismech curates at the knowledge level, so a graded molecular continuum stays one entry
+    with a qualifier. Split into `has_subtypes`, or into separate Disease entries, only when a distinct molecular
+    effect forms a CLUSTER with distinct clinical outcomes. COL1A1 is the worked case: null alleles
+    (haploinsufficiency, mild OI type I) and triple-helix glycine substitutions (dominant negative, lethal or severe
+    OI type II/III) are two clusters with opposite severity, so they warrant separate subtypes. PAH residual activity
+    is by contrast a continuum whose class boundaries are clinical thresholds, so it stays one entry carrying
+    COMPLETE_LOSS_OF_FUNCTION and PARTIAL_LOSS_OF_FUNCTION on separate genetic contexts.
     """
     LOSS_OF_FUNCTION = PermissibleValue(
         text="LOSS_OF_FUNCTION",
         title="Loss of function",
-        description="Complete or partial reduction of normal gene product function.")
-    GAIN_OF_FUNCTION = PermissibleValue(
-        text="GAIN_OF_FUNCTION",
-        title="Gain of function",
-        description="Increased, novel, or constitutive gene product function.")
+        description="""The gene product has reduced or abolished normal biological function relative to the reference. Use this parent when the evidence does not separate complete from partial loss.""",
+        meaning=SO["0002054"])
+    COMPLETE_LOSS_OF_FUNCTION = PermissibleValue(
+        text="COMPLETE_LOSS_OF_FUNCTION",
+        title="Complete loss of function",
+        description="""No gene product is produced, or the product retains no detectable normal function. The amorphic or null allele.""",
+        meaning=SO["0002055"])
     PARTIAL_LOSS_OF_FUNCTION = PermissibleValue(
         text="PARTIAL_LOSS_OF_FUNCTION",
         title="Partial loss of function",
-        description="Hypomorphic reduction of normal gene product function.")
-    DOMINANT_NEGATIVE = PermissibleValue(
-        text="DOMINANT_NEGATIVE",
-        title="Dominant negative",
-        description="Mutant product interferes with the remaining wild-type product.")
+        description="Normal function is reduced but not abolished. The hypomorphic allele.",
+        meaning=SO["0001561"])
+    GAIN_OF_FUNCTION = PermissibleValue(
+        text="GAIN_OF_FUNCTION",
+        title="Gain of function",
+        description="""The gene product exhibits an activity the reference product does not, or exhibits the reference activity at increased level or outside its normal spatiotemporal context. Use this parent when the evidence does not discriminate among the children below.""",
+        meaning=SO["0002053"])
     HYPERMORPHIC = PermissibleValue(
         text="HYPERMORPHIC",
         title="Hypermorphic",
-        description="Increased normal gene product activity.")
+        description="""An increased level of the same activity the reference product has, including constitutive or ligand-independent activation of that activity. The activity is qualitatively unchanged.""")
     NEOMORPHIC = PermissibleValue(
         text="NEOMORPHIC",
         title="Neomorphic",
-        description="Novel gene product activity not present in the wild type.")
+        description="An activity qualitatively different from any activity of the reference product.")
+    ECTOPIC_EXPRESSION = PermissibleValue(
+        text="ECTOPIC_EXPRESSION",
+        title="Ectopic expression",
+        description="""The reference activity is expressed in a cell type, tissue, or developmental stage in which the reference product is not normally active, or at a pathologically increased level, while the product itself is structurally normal. Typically driven by a regulatory or structural lesion rather than by a coding change.""")
+    TOXIC_GAIN_OF_FUNCTION = PermissibleValue(
+        text="TOXIC_GAIN_OF_FUNCTION",
+        title="Toxic gain of function",
+        description="""The product acquires a cytotoxic property, typically through misfolding, aggregation, or sequestration, that the reference product does not have. The pathogenic activity is the toxicity itself, not a change in the product's normal function.""")
+    DOMINANT_NEGATIVE = PermissibleValue(
+        text="DOMINANT_NEGATIVE",
+        title="Dominant negative",
+        description="""The variant product interferes with the function of the product of the reference allele, or with another subunit of a complex in which it participates. Muller's antimorph. Deliberately not defined in terms of a percentage loss of function or of diploid dose.""",
+        meaning=SO["0002052"])
+    UNDETERMINED_NON_LOSS_OF_FUNCTION = PermissibleValue(
+        text="UNDETERMINED_NON_LOSS_OF_FUNCTION",
+        title="Undetermined non-loss-of-function",
+        description="""The mechanism is demonstrably not loss of function, but the evidence does not distinguish gain of function from dominant negative. Strictly more informative than UNKNOWN, and should be preferred over it whenever the non-loss-of-function claim is itself supported.""")
     UNKNOWN = PermissibleValue(
         text="UNKNOWN",
         title="Unknown",
-        description="Functional impact is not known.")
+        description="""The functional impact has not been determined. Use only when the direction of effect is genuinely open; prefer UNDETERMINED_NON_LOSS_OF_FUNCTION when loss of function has been excluded.""",
+        meaning=SO["0002220"])
 
     _defn = EnumDefinition(
         name="FunctionalImpactEnum",
-        description="Directional or qualitative functional consequence of a variant or genetic context.",
+        description="""Functional consequence of a genetic variant or allele on the product of its own gene. This is the *variant/allele* axis: it records what a lesion does to that gene's product, independent of dose, of the allele in trans, and of the disease that results.
+Three neighbouring axes are deliberately NOT modeled here:
+* the activity state of a pathway, process, or molecular function
+  regardless of cause (viral protein, epigenetic silencing, autocrine
+  loop) — that is `Descriptor.modifier` / ModifierEnum;
+* the kind of molecular event (missense, frameshift, deletion) — that is
+  `GeneticContext.allelic_events` / AllelicEventEnum;
+* whether a premature-termination lesion is degraded or translated —
+  that is `GeneticContext.nmd_fate` / NmdFateEnum, which frequently
+  DETERMINES which value here applies and must never be conflated with
+  it. A truncating variant is not automatically loss of function.
+
+The values form a hierarchy via `is_a`. Use the most specific value the evidence supports and fall back to a parent when it does not discriminate: LOSS_OF_FUNCTION is a legitimate answer when complete and partial have not been separated, and is NOT a synonym for complete loss.
+DOMINANT_NEGATIVE is a sibling of, not a kind of, LOSS_OF_FUNCTION. The variant product gains an interfering activity; the loss appears at the level of the complex or pathway rather than of the product itself (Muller's antimorph, and the placement SO uses). Do not reclassify it as a severe loss of function on the grounds that the net effect on pathway output is a loss.
+WHEN TO SPLIT AN ENTRY. dismech curates at the knowledge level, so a graded molecular continuum stays one entry with a qualifier. Split into `has_subtypes`, or into separate Disease entries, only when a distinct molecular effect forms a CLUSTER with distinct clinical outcomes. COL1A1 is the worked case: null alleles (haploinsufficiency, mild OI type I) and triple-helix glycine substitutions (dominant negative, lethal or severe OI type II/III) are two clusters with opposite severity, so they warrant separate subtypes. PAH residual activity is by contrast a continuum whose class boundaries are clinical thresholds, so it stays one entry carrying COMPLETE_LOSS_OF_FUNCTION and PARTIAL_LOSS_OF_FUNCTION on separate genetic contexts.""",
+    )
+
+class NmdFateEnum(EnumDefinitionImpl):
+    """
+    Fate of a transcript carrying a premature termination codon: degraded by nonsense-mediated decay, or translated
+    into a truncated product.
+    This is a separate axis from FunctionalImpactEnum and from AllelicEventEnum, and is the axis that most often
+    DETERMINES the functional impact of a truncating lesion. A premature termination codon upstream of the last
+    exon-exon junction usually triggers decay of the transcript, giving no product and therefore complete loss of
+    function; a premature termination codon that escapes decay yields a truncated protein that may instead act as a
+    dominant negative or a gain of function. Recording the two axes separately, rather than as a cross-product of
+    event type and fate, follows the same convention as AllelicEventEnum.
+    Consequently the historical term "protein-truncating variant" should not be treated as equivalent to loss of
+    function; a nonsense or frameshift lesion carries no functional-impact claim until its fate is known.
+    """
+    NMD_TRIGGERING = PermissibleValue(
+        text="NMD_TRIGGERING",
+        title="NMD-triggering",
+        description="""The premature termination codon triggers nonsense-mediated decay, so little or no product is made from the allele.""",
+        meaning=SO["0002319"])
+    NMD_ESCAPING = PermissibleValue(
+        text="NMD_ESCAPING",
+        title="NMD-escaping",
+        description="""The premature termination codon escapes nonsense-mediated decay — typically because it lies in the last exon or close downstream of the final exon-exon junction — so a truncated product is made.""",
+        meaning=SO["0002320"])
+    NMD_UNDETERMINED = PermissibleValue(
+        text="NMD_UNDETERMINED",
+        title="NMD fate undetermined",
+        description="""The lesion introduces a premature termination codon but its fate has not been established, whether by transcript assay or by position relative to the last exon-exon junction.""")
+    NOT_APPLICABLE = PermissibleValue(
+        text="NOT_APPLICABLE",
+        title="Not applicable",
+        description="""The variant does not introduce a premature termination codon, so nonsense-mediated decay is not in question.""")
+
+    _defn = EnumDefinition(
+        name="NmdFateEnum",
+        description="""Fate of a transcript carrying a premature termination codon: degraded by nonsense-mediated decay, or translated into a truncated product.
+This is a separate axis from FunctionalImpactEnum and from AllelicEventEnum, and is the axis that most often DETERMINES the functional impact of a truncating lesion. A premature termination codon upstream of the last exon-exon junction usually triggers decay of the transcript, giving no product and therefore complete loss of function; a premature termination codon that escapes decay yields a truncated protein that may instead act as a dominant negative or a gain of function. Recording the two axes separately, rather than as a cross-product of event type and fate, follows the same convention as AllelicEventEnum.
+Consequently the historical term \"protein-truncating variant\" should not be treated as equivalent to loss of function; a nonsense or frameshift lesion carries no functional-impact claim until its fate is known.""",
     )
 
 class ModifierEnum(EnumDefinitionImpl):
     """
-    Qualifiers for direction, intensity, or pathological state of a descriptor
+    Qualifiers for direction, intensity, functional impact, or pathological state of a descriptor (biological process,
+    molecular function, cell type, etc.). GAIN_OF_FUNCTION and LOSS_OF_FUNCTION describe the activity *state* of a
+    pathway or process regardless of underlying cause (genetic variant, viral protein, epigenetic silencing,
+    post-translational modification, etc.). For the functional consequence of a specific genetic *variant*, use
+    GeneticContext.functional_impact_category (FunctionalImpactEnum) instead. Boundary with INCREASED/DECREASED:
+    prefer the PATO-bound INCREASED/DECREASED when the claim is *quantitative* — a normally regulated process running
+    above or below its normal level. Reserve GAIN_OF_FUNCTION/LOSS_OF_FUNCTION for a *qualitative* change in
+    regulatory control, where the process is driven outside its normal regulatory constraints (viral oncoprotein,
+    autocrine loop, epigenetic silencing, protein sequestration). Existing INCREASED/DECREASED annotations should not
+    be migrated to GAIN_OF_FUNCTION/LOSS_OF_FUNCTION without that qualitative justification.
     """
     INCREASED = PermissibleValue(
         text="INCREASED",
         title="Increased",
-        description="Upregulated, hyperactive, elevated, or excessive")
+        description="Upregulated, hyperactive, elevated, or excessive",
+        meaning=PATO["0002300"])
     DECREASED = PermissibleValue(
         text="DECREASED",
         title="Decreased",
-        description="Downregulated, hypoactive, reduced, or deficient")
+        description="Downregulated, hypoactive, reduced, or deficient",
+        meaning=PATO["0002301"])
     ABNORMAL = PermissibleValue(
         text="ABNORMAL",
         title="Abnormal",
-        description="Qualitatively abnormal (e.g., misfolding, mislocalization, malformed)")
+        description="Qualitatively abnormal (e.g., misfolding, mislocalization, malformed)",
+        meaning=PATO["0000460"])
     DYSREGULATED = PermissibleValue(
         text="DYSREGULATED",
         title="Dysregulated",
@@ -5718,11 +7016,20 @@ class ModifierEnum(EnumDefinitionImpl):
     ABSENT = PermissibleValue(
         text="ABSENT",
         title="Absent",
-        description="Not occurring or not present")
+        description="Not occurring or not present",
+        meaning=PATO["0000462"])
+    GAIN_OF_FUNCTION = PermissibleValue(
+        text="GAIN_OF_FUNCTION",
+        title="Gain of function",
+        description="""Constitutive or aberrant activation of a pathway, process, or molecular function regardless of underlying mechanism (viral oncoprotein, autocrine loop, post-translational modification, etc.). For mutation-driven GOF, use GeneticContext.functional_impact_category: GAIN_OF_FUNCTION.""")
+    LOSS_OF_FUNCTION = PermissibleValue(
+        text="LOSS_OF_FUNCTION",
+        title="Loss of function",
+        description="""Reduction or abolition of normal pathway, process, or molecular function regardless of underlying mechanism (epigenetic silencing, protein sequestration, competitive inhibition, etc.). For mutation-driven LOF, use GeneticContext.functional_impact_category: LOSS_OF_FUNCTION.""")
 
     _defn = EnumDefinition(
         name="ModifierEnum",
-        description="Qualifiers for direction, intensity, or pathological state of a descriptor",
+        description="""Qualifiers for direction, intensity, functional impact, or pathological state of a descriptor (biological process, molecular function, cell type, etc.). GAIN_OF_FUNCTION and LOSS_OF_FUNCTION describe the activity *state* of a pathway or process regardless of underlying cause (genetic variant, viral protein, epigenetic silencing, post-translational modification, etc.). For the functional consequence of a specific genetic *variant*, use GeneticContext.functional_impact_category (FunctionalImpactEnum) instead. Boundary with INCREASED/DECREASED: prefer the PATO-bound INCREASED/DECREASED when the claim is *quantitative* — a normally regulated process running above or below its normal level. Reserve GAIN_OF_FUNCTION/LOSS_OF_FUNCTION for a *qualitative* change in regulatory control, where the process is driven outside its normal regulatory constraints (viral oncoprotein, autocrine loop, epigenetic silencing, protein sequestration). Existing INCREASED/DECREASED annotations should not be migrated to GAIN_OF_FUNCTION/LOSS_OF_FUNCTION without that qualitative justification.""",
     )
 
 class DietaryModificationActionEnum(EnumDefinitionImpl):
@@ -5944,6 +7251,38 @@ class SeverityQualifierEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="SeverityQualifierEnum",
         description="Severity qualifiers for descriptor post-composition",
+    )
+
+class ClinicalBurdenLevelEnum(EnumDefinitionImpl):
+    """
+    Coarse disease-level assessment of the typical clinical burden imposed by a disease, considering functional
+    impact, morbidity, duration, monitoring/treatment burden, and expected long-term consequences. This is distinct
+    from phenotype-level severity.
+    """
+    LOW = PermissibleValue(
+        text="LOW",
+        title="Low",
+        description="""Typical cases impose limited functional impact, morbidity, management burden, or long-term consequences.""")
+    MODERATE = PermissibleValue(
+        text="MODERATE",
+        title="Moderate",
+        description="""Typical cases impose clinically meaningful but not usually life-threatening or highly disabling burden.""")
+    HIGH = PermissibleValue(
+        text="HIGH",
+        title="High",
+        description="""Typical cases impose substantial morbidity, disability, intensive management needs, major long-term consequences, or mortality risk.""")
+    VARIABLE = PermissibleValue(
+        text="VARIABLE",
+        title="Variable",
+        description="""Clinical burden varies widely across patients, subtypes, stages, or contexts, and no single low/moderate/high level is representative.""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="The typical clinical burden is not established or has not been assessed.")
+
+    _defn = EnumDefinition(
+        name="ClinicalBurdenLevelEnum",
+        description="""Coarse disease-level assessment of the typical clinical burden imposed by a disease, considering functional impact, morbidity, duration, monitoring/treatment burden, and expected long-term consequences. This is distinct from phenotype-level severity.""",
     )
 
 class AssayTerm(EnumDefinitionImpl):
@@ -6367,12 +7706,26 @@ class GeneProductTerm(EnumDefinitionImpl):
 
 class HistopathologyFindingTerm(EnumDefinitionImpl):
     """
-    A histopathologic finding term from NCIT. Includes morphologic findings, architectural patterns, growth patterns,
-    cellular features, and grading. Rooted at NCIT:C35867 (Morphologic Finding) and NCIT:C18000 (Histologic Grade).
+    A histopathologic finding term from NCIT. Covers the full NCIT Histopathology Result branch (NCIT:C83490):
+    morphologic findings, architectural/growth patterns, cellular features, grading, immunophenotype (IHC/flow
+    markers), ultrastructure, and staining intensity.
     """
     _defn = EnumDefinition(
         name="HistopathologyFindingTerm",
-        description="""A histopathologic finding term from NCIT. Includes morphologic findings, architectural patterns, growth patterns, cellular features, and grading. Rooted at NCIT:C35867 (Morphologic Finding) and NCIT:C18000 (Histologic Grade).""",
+        description="""A histopathologic finding term from NCIT. Covers the full NCIT Histopathology Result branch (NCIT:C83490): morphologic findings, architectural/growth patterns, cellular features, grading, immunophenotype (IHC/flow markers), ultrastructure, and staining intensity.""",
+    )
+
+class ImagingFindingTerm(EnumDefinitionImpl):
+    """
+    An in-vivo imaging finding term. Imaging findings are drawn from the NCIT Imaging Finding branch (NCIT:C176708 /
+    NCIT:C199145) and, because most radiologic observations coincide with a described phenotype, from the HP
+    Phenotypic abnormality branch (HP:0000118) - e.g. white-matter lesions, atrophy, hyperintensity. Binding is
+    RECOMMENDED (not REQUIRED): many specific radiologic appearances lack a dedicated NCIT/HP term and are left to
+    preferred_term until a radiology ontology (e.g. RadLex via BioPortal) is wired in.
+    """
+    _defn = EnumDefinition(
+        name="ImagingFindingTerm",
+        description="""An in-vivo imaging finding term. Imaging findings are drawn from the NCIT Imaging Finding branch (NCIT:C176708 / NCIT:C199145) and, because most radiologic observations coincide with a described phenotype, from the HP Phenotypic abnormality branch (HP:0000118) - e.g. white-matter lesions, atrophy, hyperintensity. Binding is RECOMMENDED (not REQUIRED): many specific radiologic appearances lack a dedicated NCIT/HP term and are left to preferred_term until a radiology ontology (e.g. RadLex via BioPortal) is wired in.""",
     )
 
 class DiseaseTerm(EnumDefinitionImpl):
@@ -6494,6 +7847,10 @@ class OnsetEnum(EnumDefinitionImpl):
         text="JUVENILE",
         description="Juvenile onset",
         meaning=HP["0003621"])
+    ADULT = PermissibleValue(
+        text="ADULT",
+        description="Adult onset",
+        meaning=HP["0003581"])
     YOUNG_ADULT = PermissibleValue(
         text="YOUNG_ADULT",
         description="Young adult onset",
@@ -6636,6 +7993,106 @@ class ExperimentalModelTypeEnum(EnumDefinitionImpl):
         description="""Broad disease-centric categories for experimental model systems, primarily non-animal systems curated in this section""",
     )
 
+class ModelMechanismRelationshipEnum(EnumDefinitionImpl):
+    """
+    Controlled relationship between an experimental, animal, or computational model and the pathophysiology node it is
+    linked to. Distinguishes a model that reproduces a mechanism from one that merely manipulates or measures it, and
+    gives negative results (a model that does NOT reproduce the human mechanism) a first-class home rather than
+    leaving them in prose.
+    """
+    RECAPITULATES = PermissibleValue(
+        text="RECAPITULATES",
+        title="Recapitulates",
+        description="""The model reproduces the linked mechanism, such that observations in the model are taken to be informative about the human mechanism.""")
+    PARTIALLY_RECAPITULATES = PermissibleValue(
+        text="PARTIALLY_RECAPITULATES",
+        title="Partially recapitulates",
+        description="""The model reproduces some but not all of the linked mechanism. Use `limitations` to state which facets are and are not reproduced.""")
+    FAILS_TO_RECAPITULATE = PermissibleValue(
+        text="FAILS_TO_RECAPITULATE",
+        title="Fails to recapitulate",
+        description="""The model does NOT reproduce the linked mechanism. This is a substantive negative claim and the structural signal for a HUMAN_MODEL_MISMATCH discussion; it requires `limitations` and supporting `evidence`.""")
+    PERTURBS = PermissibleValue(
+        text="PERTURBS",
+        title="Perturbs",
+        description="""The model manipulates the linked mechanism (knockout, knockdown, overexpression, chemical challenge) without itself being a claim that the full mechanism is reproduced.""")
+    MEASURES = PermissibleValue(
+        text="MEASURES",
+        title="Measures",
+        description="""The model provides a readout of the linked mechanism without claiming to reproduce or perturb it.""")
+    RESCUES = PermissibleValue(
+        text="RESCUES",
+        title="Rescues",
+        description="""The model demonstrates reversal or correction of the linked mechanism, typically a genetic-correction, drug-rescue, or isogenic-repair arm.""")
+
+    _defn = EnumDefinition(
+        name="ModelMechanismRelationshipEnum",
+        description="""Controlled relationship between an experimental, animal, or computational model and the pathophysiology node it is linked to. Distinguishes a model that reproduces a mechanism from one that merely manipulates or measures it, and gives negative results (a model that does NOT reproduce the human mechanism) a first-class home rather than leaving them in prose.""",
+    )
+
+class ModelFidelityEnum(EnumDefinitionImpl):
+    """
+    Curator assessment of how faithfully a model captures the linked human mechanism. Deliberately coarse: this is a
+    translational-validity caveat, not a metric. Pair with `limitations` for the specific caveat.
+    """
+    HIGH = PermissibleValue(
+        text="HIGH",
+        title="High",
+        description="""Human-derived or otherwise closely matched system reproducing the mechanism with well-characterized correspondence to human disease.""")
+    MODERATE = PermissibleValue(
+        text="MODERATE",
+        title="Moderate",
+        description="""Reproduces the mechanism with known and material divergences from human biology (species differences, supraphysiological expression, reduced cellular complexity).""")
+    LOW = PermissibleValue(
+        text="LOW",
+        title="Low",
+        description="""Informative but with divergences substantial enough that findings should not be transferred to human disease without corroboration.""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="""Correspondence to the human mechanism has not been established. Prefer this over guessing a tier.""")
+
+    _defn = EnumDefinition(
+        name="ModelFidelityEnum",
+        description="""Curator assessment of how faithfully a model captures the linked human mechanism. Deliberately coarse: this is a translational-validity caveat, not a metric. Pair with `limitations` for the specific caveat.""",
+    )
+
+class ModelReadoutDirectionEnum(EnumDefinitionImpl):
+    """
+    Direction of a measured effect in an experimental, animal, or computational model, relative to the model's control
+    or comparator arm. Complements BiomarkerReadoutDirectionEnum, which describes the direction of a clinical
+    biomarker's *association* with an endpoint rather than the direction of an experimental measurement.
+    """
+    INCREASED = PermissibleValue(
+        text="INCREASED",
+        title="Increased",
+        description="The readout is higher in the model condition than in the comparator")
+    DECREASED = PermissibleValue(
+        text="DECREASED",
+        title="Decreased",
+        description="The readout is lower in the model condition than in the comparator")
+    UNCHANGED = PermissibleValue(
+        text="UNCHANGED",
+        title="Unchanged",
+        description="""The readout does not differ materially from the comparator. A genuine negative result, not missing data; omit `direction` entirely when the measurement was not made or not reported.""")
+    RESTORED = PermissibleValue(
+        text="RESTORED",
+        title="Restored",
+        description="""The readout returns toward the comparator/wild-type value, typically in a rescue, correction, or treatment arm.""")
+    ABOLISHED = PermissibleValue(
+        text="ABOLISHED",
+        title="Abolished",
+        description="The readout is lost or reduced to background in the model condition")
+    ALTERED = PermissibleValue(
+        text="ALTERED",
+        title="Altered",
+        description="""The readout differs from the comparator in a way that is not monotonic (e.g. a shifted distribution or changed kinetics). Prefer a directional value when one applies.""")
+
+    _defn = EnumDefinition(
+        name="ModelReadoutDirectionEnum",
+        description="""Direction of a measured effect in an experimental, animal, or computational model, relative to the model's control or comparator arm. Complements BiomarkerReadoutDirectionEnum, which describes the direction of a clinical biomarker's *association* with an endpoint rather than the direction of an experimental measurement.""",
+    )
+
 class CurationActionEnum(EnumDefinitionImpl):
     """
     Simple action types for curation audit trail
@@ -6776,6 +8233,32 @@ class ThresholdDirectionEnum(EnumDefinitionImpl):
         description="Whether a threshold activates when the variable goes above or below the value",
     )
 
+class AbnormalFlagEnum(EnumDefinitionImpl):
+    """
+    Categorical interpretation flag for a clinical laboratory result band, aligned with HL7 v2 / LOINC abnormal-flag
+    conventions.
+    """
+    NORMAL = PermissibleValue(
+        text="NORMAL",
+        description="Result within the reference interval (HL7 \"N\")")
+    LOW = PermissibleValue(
+        text="LOW",
+        description="Result below the reference interval (HL7 \"L\")")
+    HIGH = PermissibleValue(
+        text="HIGH",
+        description="Result above the reference interval (HL7 \"H\")")
+    CRITICAL_LOW = PermissibleValue(
+        text="CRITICAL_LOW",
+        description="Critically (panic) low result requiring urgent action (HL7 \"LL\")")
+    CRITICAL_HIGH = PermissibleValue(
+        text="CRITICAL_HIGH",
+        description="Critically (panic) high result requiring urgent action (HL7 \"HH\")")
+
+    _defn = EnumDefinition(
+        name="AbnormalFlagEnum",
+        description="""Categorical interpretation flag for a clinical laboratory result band, aligned with HL7 v2 / LOINC abnormal-flag conventions.""",
+    )
+
 class CausalLinkTypeEnum(EnumDefinitionImpl):
     """
     Degree of mechanistic directness represented by a causal edge
@@ -6823,9 +8306,211 @@ class TreatmentEffectEnum(EnumDefinitionImpl):
         description="How a treatment affects a pathophysiology mechanism node",
     )
 
+class EnvironmentalEffectEnum(EnumDefinitionImpl):
+    """
+    How an environmental factor or exposure acts on a pathophysiology mechanism node. The environmental analogue of
+    TreatmentEffectEnum, used to keep causative, aggravating, and protective exposures visually and semantically
+    distinct in the pathograph.
+    """
+    TRIGGERS = PermissibleValue(
+        text="TRIGGERS",
+        title="Triggers",
+        description="""The exposure initiates the mechanism, which would not otherwise occur in its absence (e.g., inorganic arsenic ingestion initiating systemic arsenic exposure; allergen contact initiating sensitization).""")
+    EXACERBATES = PermissibleValue(
+        text="EXACERBATES",
+        title="Exacerbates",
+        description="""The exposure worsens or amplifies a mechanism that is already present or can arise independently (e.g., tobacco smoke amplifying airway inflammation).""")
+    PREDISPOSES = PermissibleValue(
+        text="PREDISPOSES",
+        title="Predisposes",
+        description="""The exposure increases susceptibility to the mechanism without being sufficient to produce it (e.g., a risk-factor exposure that requires additional genetic or environmental hits).""")
+    PROTECTS_AGAINST = PermissibleValue(
+        text="PROTECTS_AGAINST",
+        title="Protects against",
+        description="""The exposure reduces the occurrence or severity of the mechanism (e.g., early-life microbial exposure and allergic sensitization).""")
+    MODULATES = PermissibleValue(
+        text="MODULATES",
+        title="Modulates",
+        description="""The exposure alters the mechanism without a clear unidirectional effect, or the direction is context dependent.""")
+
+    _defn = EnumDefinition(
+        name="EnvironmentalEffectEnum",
+        description="""How an environmental factor or exposure acts on a pathophysiology mechanism node. The environmental analogue of TreatmentEffectEnum, used to keep causative, aggravating, and protective exposures visually and semantically distinct in the pathograph.""",
+    )
+
+class ImagingModalityEnum(EnumDefinitionImpl):
+    """
+    In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus
+    Diagnostic Imaging branch.
+    """
+    MRI = PermissibleValue(
+        text="MRI",
+        title="Magnetic Resonance Imaging",
+        description="Magnetic resonance imaging, including structural and contrast-enhanced MRI",
+        meaning=NCIT["C16809"])
+    FUNCTIONAL_MRI = PermissibleValue(
+        text="FUNCTIONAL_MRI",
+        title="Functional Magnetic Resonance Imaging",
+        description="Blood-oxygen-level-dependent functional MRI",
+        meaning=NCIT["C17958"])
+    CT = PermissibleValue(
+        text="CT",
+        title="Computed Tomography",
+        description="X-ray computed tomography",
+        meaning=NCIT["C17204"])
+    PET = PermissibleValue(
+        text="PET",
+        title="Positron Emission Tomography",
+        description="Positron emission tomography (e.g., FDG-PET, amyloid-PET)",
+        meaning=NCIT["C17007"])
+    SPECT = PermissibleValue(
+        text="SPECT",
+        title="Single Photon Emission Computed Tomography",
+        description="Single-photon emission computed tomography",
+        meaning=NCIT["C17203"])
+    ULTRASOUND = PermissibleValue(
+        text="ULTRASOUND",
+        title="Ultrasound Imaging",
+        description="Diagnostic ultrasonography, including Doppler and echocardiography",
+        meaning=NCIT["C17230"])
+    XRAY = PermissibleValue(
+        text="XRAY",
+        title="X-Ray Imaging",
+        description="Projectional radiography (plain film)",
+        meaning=NCIT["C38101"])
+    MAMMOGRAPHY = PermissibleValue(
+        text="MAMMOGRAPHY",
+        title="Mammography",
+        description="X-ray imaging of the breast",
+        meaning=NCIT["C16818"])
+    ANGIOGRAPHY = PermissibleValue(
+        text="ANGIOGRAPHY",
+        title="Angiography",
+        description="Imaging of blood vessels (CT, MR, or catheter angiography)",
+        meaning=NCIT["C190556"])
+    OCT = PermissibleValue(
+        text="OCT",
+        title="Optical Coherence Tomography",
+        description="Optical coherence tomography (e.g., retinal OCT)",
+        meaning=NCIT["C20828"])
+    OTHER = PermissibleValue(
+        text="OTHER",
+        title="Other imaging modality",
+        description="An imaging modality not otherwise enumerated")
+
+    _defn = EnumDefinition(
+        name="ImagingModalityEnum",
+        description="""In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.""",
+    )
+
+class ElectrophysiologyModalityEnum(EnumDefinitionImpl):
+    """
+    In-vivo electrophysiologic / neurophysiologic investigation on which an electrophysiologic phenotype was recorded
+    (carried on the ElectrophysiologyContext phenotype sidecar). Meanings bind to the NCI Thesaurus
+    diagnostic-procedure branch.
+    """
+    EEG = PermissibleValue(
+        text="EEG",
+        title="Electroencephalography",
+        description="Scalp electroencephalography (routine, prolonged, or ambulatory)",
+        meaning=NCIT["C38054"])
+    VIDEO_EEG = PermissibleValue(
+        text="VIDEO_EEG",
+        title="Video Electroencephalography",
+        description="""Simultaneous video and EEG monitoring for seizure semiology-EEG correlation. No distinct NCIT procedure term; a specialization of EEG.""")
+    ECG = PermissibleValue(
+        text="ECG",
+        title="Electrocardiography",
+        description="Electrocardiography, including resting and stress ECG",
+        meaning=NCIT["C38053"])
+    EMG = PermissibleValue(
+        text="EMG",
+        title="Electromyography",
+        description="Needle or surface electromyography",
+        meaning=NCIT["C38056"])
+    NERVE_CONDUCTION_STUDY = PermissibleValue(
+        text="NERVE_CONDUCTION_STUDY",
+        title="Nerve Conduction Velocity Test",
+        description="Nerve conduction study (motor/sensory conduction velocity and amplitude)",
+        meaning=NCIT["C88502"])
+    EVOKED_POTENTIAL = PermissibleValue(
+        text="EVOKED_POTENTIAL",
+        title="Evoked Potential",
+        description="""Evoked-potential testing (visual, brainstem-auditory, or somatosensory). No clean generic NCIT procedure term.""")
+    POLYSOMNOGRAPHY = PermissibleValue(
+        text="POLYSOMNOGRAPHY",
+        title="Polysomnography",
+        description="Overnight sleep study combining EEG, EOG, EMG, ECG, and respiratory channels",
+        meaning=NCIT["C114185"])
+    MEG = PermissibleValue(
+        text="MEG",
+        title="Magnetoencephalography",
+        description="Magnetoencephalography (magnetic-field source localization)",
+        meaning=NCIT["C16811"])
+    OTHER = PermissibleValue(
+        text="OTHER",
+        title="Other electrophysiologic modality",
+        description="An electrophysiologic modality not otherwise enumerated")
+
+    _defn = EnumDefinition(
+        name="ElectrophysiologyModalityEnum",
+        description="""In-vivo electrophysiologic / neurophysiologic investigation on which an electrophysiologic phenotype was recorded (carried on the ElectrophysiologyContext phenotype sidecar). Meanings bind to the NCI Thesaurus diagnostic-procedure branch.""",
+    )
+
+class IctalStateEnum(EnumDefinitionImpl):
+    """
+    Timing of an electrophysiologic finding relative to a seizure or paroxysmal event - the axis a flat HP phenotype
+    term cannot express.
+    """
+    ICTAL = PermissibleValue(
+        text="ICTAL",
+        description="Recorded during a seizure / paroxysmal event")
+    INTERICTAL = PermissibleValue(
+        text="INTERICTAL",
+        description="Recorded between events, in the baseline state")
+    POSTICTAL = PermissibleValue(
+        text="POSTICTAL",
+        description="Recorded in the period immediately following an event")
+
+    _defn = EnumDefinition(
+        name="IctalStateEnum",
+        description="""Timing of an electrophysiologic finding relative to a seizure or paroxysmal event - the axis a flat HP phenotype term cannot express.""",
+    )
+
+class EEGRecordingStateEnum(EnumDefinitionImpl):
+    """
+    Behavioural state or activation procedure under which an EEG finding is recorded, since many findings are state-
+    or provocation-dependent.
+    """
+    AWAKE = PermissibleValue(
+        text="AWAKE",
+        description="Recorded during wakefulness")
+    ASLEEP = PermissibleValue(
+        text="ASLEEP",
+        description="Recorded during sleep (findings may be sleep-activated)")
+    DROWSY = PermissibleValue(
+        text="DROWSY",
+        description="Recorded during drowsiness / transition to sleep")
+    SLEEP_DEPRIVED = PermissibleValue(
+        text="SLEEP_DEPRIVED",
+        description="Recorded after sleep deprivation (a seizure-activation procedure)")
+    PHOTIC_STIMULATION = PermissibleValue(
+        text="PHOTIC_STIMULATION",
+        description="Recorded during intermittent photic stimulation")
+    HYPERVENTILATION = PermissibleValue(
+        text="HYPERVENTILATION",
+        description="Recorded during hyperventilation activation")
+
+    _defn = EnumDefinition(
+        name="EEGRecordingStateEnum",
+        description="""Behavioural state or activation procedure under which an EEG finding is recorded, since many findings are state- or provocation-dependent.""",
+    )
+
 class MedicalActionCategoryEnum(EnumDefinitionImpl):
     """
-    Broad functional category for a clinical action currently represented in the treatments section. Specific actions such as genetic counseling should be represented by treatment_term, while this category stays at the level needed for validation and rendering.
+    Broad functional category for a clinical action currently represented in the treatments section. Specific actions
+    such as genetic counseling should be represented by treatment_term, while this category stays at the level needed
+    for validation and rendering.
     """
     THERAPEUTIC = PermissibleValue(
         text="THERAPEUTIC",
@@ -6855,7 +8540,188 @@ class MedicalActionCategoryEnum(EnumDefinitionImpl):
 
     _defn = EnumDefinition(
         name="MedicalActionCategoryEnum",
-        description="Broad functional category for a clinical action currently represented in the treatments section. Specific actions such as genetic counseling should be represented by treatment_term, while this category stays at the level needed for validation and rendering.",
+        description="""Broad functional category for a clinical action currently represented in the treatments section. Specific actions such as genetic counseling should be represented by treatment_term, while this category stays at the level needed for validation and rendering.""",
+    )
+
+class TherapeuticModalityEnum(EnumDefinitionImpl):
+    """
+    Broad therapeutic modality / platform of a treatment, independent of the specific agent or NCIT action term.
+    Captures the "kind of thing" a treatment is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene
+    therapy) so treatments are queryable by platform across diseases.
+    """
+    SMALL_MOLECULE = PermissibleValue(
+        text="SMALL_MOLECULE",
+        description="Small-molecule pharmacotherapy (orally or parenterally administered chemical drugs)",
+        meaning=NCIT["C48809"])
+    MONOCLONAL_ANTIBODY = PermissibleValue(
+        text="MONOCLONAL_ANTIBODY",
+        description="""Monoclonal antibody or antibody-derived biologic (including bispecifics and antibody-drug conjugates)""",
+        meaning=NCIT["C20401"])
+    NANOBODY = PermissibleValue(
+        text="NANOBODY",
+        title="Nanobody / single-domain antibody",
+        description="""Single-domain antibody (sdAb/VHH/Nanobody) — a single variable-domain immunoglobulin fragment (e.g., caplacizumab), distinct from full-size monoclonal antibodies""")
+    ANTISENSE_OLIGONUCLEOTIDE = PermissibleValue(
+        text="ANTISENSE_OLIGONUCLEOTIDE",
+        title="Antisense oligonucleotide",
+        description="""Single-stranded antisense oligonucleotide (ASO) acting on RNA via RNase H, splice modulation, or steric blockade""",
+        meaning=NCIT["C1291"])
+    SIRNA = PermissibleValue(
+        text="SIRNA",
+        title="siRNA / RNAi",
+        description="Small interfering RNA or other double-stranded RNAi therapeutic",
+        meaning=NCIT["C2191"])
+    MRNA_THERAPY = PermissibleValue(
+        text="MRNA_THERAPY",
+        title="mRNA therapy",
+        description="""Therapeutic messenger RNA delivering a functional transcript (excludes prophylactic mRNA vaccines, see VACCINE)""")
+    GENE_THERAPY = PermissibleValue(
+        text="GENE_THERAPY",
+        description="Gene addition/replacement therapy (e.g., AAV- or lentivirus-delivered transgene)",
+        meaning=NCIT["C15238"])
+    GENE_EDITING = PermissibleValue(
+        text="GENE_EDITING",
+        description="In vivo or ex vivo genome editing (e.g., CRISPR/Cas, base or prime editing)")
+    CELL_THERAPY = PermissibleValue(
+        text="CELL_THERAPY",
+        description="Cell-based therapy (e.g., CAR-T, stem cell transplantation, engineered cells)",
+        meaning=NCIT["C70601"])
+    PROTEIN_REPLACEMENT = PermissibleValue(
+        text="PROTEIN_REPLACEMENT",
+        description="Recombinant protein or enzyme replacement therapy",
+        meaning=NCIT["C16221"])
+    PEPTIDE = PermissibleValue(
+        text="PEPTIDE",
+        description="Therapeutic peptide or peptide analog",
+        meaning=CHEBI["16670"])
+    VACCINE = PermissibleValue(
+        text="VACCINE",
+        description="Prophylactic or therapeutic vaccine",
+        meaning=NCIT["C923"])
+    RADIOTHERAPY = PermissibleValue(
+        text="RADIOTHERAPY",
+        description="Radiation-based therapy",
+        meaning=NCIT["C15313"])
+    SURGERY = PermissibleValue(
+        text="SURGERY",
+        description="Surgical or procedural intervention",
+        meaning=NCIT["C15329"])
+    DEVICE = PermissibleValue(
+        text="DEVICE",
+        description="Implanted or external therapeutic device",
+        meaning=NCIT["C16830"])
+    BEHAVIORAL = PermissibleValue(
+        text="BEHAVIORAL",
+        description="Non-pharmacologic behavioral, physical, dietary, or lifestyle intervention")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        description="Modality not covered by the above categories")
+
+    _defn = EnumDefinition(
+        name="TherapeuticModalityEnum",
+        description="""Broad therapeutic modality / platform of a treatment, independent of the specific agent or NCIT action term. Captures the \"kind of thing\" a treatment is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene therapy) so treatments are queryable by platform across diseases.""",
+    )
+
+class AsoMechanismEnum(EnumDefinitionImpl):
+    """
+    Molecular mechanism of action of an antisense oligonucleotide, following the three core ASO paradigms (RNase
+    H-mediated degradation, splice modulation, and steric blockade) described in Sang et al. 2024 (PMID:38914784).
+    """
+    RNASE_H_KNOCKDOWN = PermissibleValue(
+        text="RNASE_H_KNOCKDOWN",
+        title="RNase H knockdown",
+        description="""ASO:RNA heteroduplex recruits RNase H1 to cleave the target mRNA, reducing a toxic or gain-of-function protein""",
+        meaning=GO["0004523"])
+    SPLICE_MODULATION_EXON_SKIPPING = PermissibleValue(
+        text="SPLICE_MODULATION_EXON_SKIPPING",
+        title="Splice modulation (exon skipping)",
+        description="""ASO occludes a splice site or splicing element to exclude an exon, restoring an in-frame transcript (e.g., DMD exon skipping)""")
+    SPLICE_MODULATION_EXON_INCLUSION = PermissibleValue(
+        text="SPLICE_MODULATION_EXON_INCLUSION",
+        title="Splice modulation (exon inclusion)",
+        description="""ASO blocks an intronic splicing silencer to promote exon inclusion (e.g., nusinersen at SMN2 ISS-N1)""")
+    STERIC_BLOCKADE = PermissibleValue(
+        text="STERIC_BLOCKADE",
+        title="Steric translational blockade",
+        description="""ASO sterically blocks ribosome access or other RNA-protein interactions without inducing cleavage (e.g., fomivirsen)""")
+    MIRNA_MODULATION = PermissibleValue(
+        text="MIRNA_MODULATION",
+        title="miRNA modulation",
+        description="ASO sequesters or inhibits a microRNA (antimiR) or blocks a miRNA binding site")
+
+    _defn = EnumDefinition(
+        name="AsoMechanismEnum",
+        description="""Molecular mechanism of action of an antisense oligonucleotide, following the three core ASO paradigms (RNase H-mediated degradation, splice modulation, and steric blockade) described in Sang et al. 2024 (PMID:38914784).""",
+    )
+
+class AsoChemistryEnum(EnumDefinitionImpl):
+    """
+    Backbone / sugar chemistry of an antisense oligonucleotide. Determines nuclease resistance, binding affinity, and
+    whether the ASO supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy.
+    """
+    PHOSPHOROTHIOATE = PermissibleValue(
+        text="PHOSPHOROTHIOATE",
+        title="Phosphorothioate backbone",
+        description="""Phosphorothioate (PS) backbone modification conferring nuclease resistance; common base chemistry for RNase H ASOs""",
+        meaning=CHEBI["76674"])
+    PHOSPHORODIAMIDATE_MORPHOLINO = PermissibleValue(
+        text="PHOSPHORODIAMIDATE_MORPHOLINO",
+        title="Phosphorodiamidate morpholino (PMO)",
+        description="""Morpholino backbone (PMO); charge-neutral, steric-block/splice-switching chemistry (e.g., eteplirsen, golodirsen)""")
+    TWO_PRIME_O_METHYL = PermissibleValue(
+        text="TWO_PRIME_O_METHYL",
+        title="2'-O-methyl",
+        description="2'-O-methyl (2'-OMe) ribose modification")
+    TWO_PRIME_O_METHOXYETHYL = PermissibleValue(
+        text="TWO_PRIME_O_METHOXYETHYL",
+        title="2'-O-methoxyethyl (2'-MOE)",
+        description="2'-O-methoxyethyl (2'-MOE) ribose modification (e.g., nusinersen, inotersen, eplontersen)")
+    LOCKED_NUCLEIC_ACID = PermissibleValue(
+        text="LOCKED_NUCLEIC_ACID",
+        title="Locked nucleic acid (LNA)",
+        description="Locked nucleic acid bridged-bicyclic sugar modification")
+    CONSTRAINED_ETHYL = PermissibleValue(
+        text="CONSTRAINED_ETHYL",
+        title="Constrained ethyl (cEt)",
+        description="Constrained ethyl (cEt) bridged sugar modification")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        description="Chemistry not covered by the above categories")
+
+    _defn = EnumDefinition(
+        name="AsoChemistryEnum",
+        description="""Backbone / sugar chemistry of an antisense oligonucleotide. Determines nuclease resistance, binding affinity, and whether the ASO supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy.""",
+    )
+
+class AsoConjugationEnum(EnumDefinitionImpl):
+    """
+    Targeting ligand or conjugate attached to an antisense oligonucleotide to direct tissue uptake or improve
+    pharmacokinetics.
+    """
+    UNCONJUGATED = PermissibleValue(
+        text="UNCONJUGATED",
+        description="No targeting conjugate (naked ASO)")
+    GALNAC = PermissibleValue(
+        text="GALNAC",
+        title="GalNAc-conjugated",
+        description="""Tri-antennary N-acetylgalactosamine conjugate for hepatocyte (ASGR-mediated) uptake (e.g., eplontersen, olezarsen)""",
+        meaning=CHEBI["28037"])
+    LIPID = PermissibleValue(
+        text="LIPID",
+        description="Lipid or fatty-acid conjugate")
+    PEPTIDE = PermissibleValue(
+        text="PEPTIDE",
+        description="Cell-penetrating or targeting peptide conjugate")
+    ANTIBODY = PermissibleValue(
+        text="ANTIBODY",
+        description="Antibody-oligonucleotide conjugate (AOC) for receptor-targeted delivery")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        description="Conjugate not covered by the above categories")
+
+    _defn = EnumDefinition(
+        name="AsoConjugationEnum",
+        description="""Targeting ligand or conjugate attached to an antisense oligonucleotide to direct tissue uptake or improve pharmacokinetics.""",
     )
 
 class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):
@@ -6878,6 +8744,32 @@ class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="MechanisticHypothesisStatusEnum",
         description="Curation/maturity status for a disease-level mechanistic hypothesis",
+    )
+
+class BiologicalScaleEnum(EnumDefinitionImpl):
+    """
+    Biological scale of the substrate a pathophysiology node describes. A tag capturing which level of biological
+    organisation the node is primarily situated at — molecular, cellular, tissue/organ, or organism. Each value covers
+    both ongoing processes AND persistent states at that scale (a fusion protein exists / a cell population
+    accumulates / an ectopic tissue persists / a metabolite is chronically elevated). See
+    projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md for the survey that led to this enum design.
+    """
+    MOLECULAR = PermissibleValue(
+        text="MOLECULAR",
+        description="""Molecular scale — molecular activities (kinase activity, transcription factor binding, ion transport, catalysis) or molecular states (a fusion protein exists, a chemical accumulates, an enzyme is functionally deficient, a gene carries a variant burden). Substrate is a molecule, complex, or genetic element.""")
+    CELLULAR = PermissibleValue(
+        text="CELLULAR",
+        description="""Cellular scale — cellular processes (differentiation, apoptosis, autophagy, intracellular signaling) or cellular states (a cell population is in a maintained aberrant condition, an organelle is structurally disrupted, a cell type has accumulated). Substrate is a single cell or cell type.""")
+    TISSUE = PermissibleValue(
+        text="TISSUE",
+        description="""Tissue / organ scale — tissue processes (inflammation, fibrosis, granuloma formation, neoplastic outgrowth) or tissue states (an ectopic tissue persists, an organ is malformed, a structural lesion exists). Substrate is a tissue, organ, or anatomical structure.""")
+    ORGANISM = PermissibleValue(
+        text="ORGANISM",
+        description="""Organism scale — systemic / multi-organ / whole-body processes (DIC, cytokine storm, fever, cachexia) or systemic states (a metabolite is chronically elevated, the microbiome is dysbiotic, a syndromic developmental phenotype bundles multi-organ features). Substrate is the whole organism.""")
+
+    _defn = EnumDefinition(
+        name="BiologicalScaleEnum",
+        description="""Biological scale of the substrate a pathophysiology node describes. A tag capturing which level of biological organisation the node is primarily situated at — molecular, cellular, tissue/organ, or organism. Each value covers both ongoing processes AND persistent states at that scale (a fusion protein exists / a cell population accumulates / an ectopic tissue persists / a metabolite is chronically elevated). See projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md for the survey that led to this enum design.""",
     )
 
 class DiscussionKindEnum(EnumDefinitionImpl):
@@ -6905,6 +8797,9 @@ class DiscussionKindEnum(EnumDefinitionImpl):
     INTERPRETATION = PermissibleValue(
         text="INTERPRETATION",
         description="A discussion about how to interpret existing evidence or model an edge")
+    HUMAN_MODEL_MISMATCH = PermissibleValue(
+        text="HUMAN_MODEL_MISMATCH",
+        description="""A knowledge gap where model-system evidence exists but its fidelity to human disease-relevant biology is uncertain — the model may recapitulate a proximal mechanism or phenotype only partially, or the relevant human cell type (e.g., outer radial glia) or anatomy (e.g., gyrencephalic cortex) is absent from the model. Distinct from KNOWLEDGE_GAP (which covers any missing assertion) in that some mechanistic evidence exists but translational validity is the open question. Use when a curator wants to flag that model-organism, organoid, or in vitro data support a node but it is unclear whether the same mechanism operates in the human disease context.""")
 
     _defn = EnumDefinition(
         name="DiscussionKindEnum",
@@ -6956,6 +8851,39 @@ class ComorbidityDirectionEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="ComorbidityDirectionEnum",
         description="Directionality of a comorbidity/trajectory association",
+    )
+
+class ComorbidityEffectDirectionEnum(EnumDefinitionImpl):
+    """
+    The sign (effect direction) of a comorbidity/trajectory association - whether the presence of one condition raises
+    or lowers the risk, incidence, or severity of the other. This is orthogonal to ComorbidityDirectionEnum, which
+    captures only the temporal ordering (which condition comes first), not whether the effect is positive or inverse.
+    A conventional risk comorbidity (A increases risk of B) is RISK; the cancer/Alzheimer's-disease inverse
+    correlation is PROTECTIVE.
+    """
+    RISK = PermissibleValue(
+        text="RISK",
+        title="Risk (positive) association",
+        description="""Positive association: the presence of one condition increases the risk, incidence, or severity of the other. This is the conventional comorbidity direction and the default for most curated pairs.""")
+    PROTECTIVE = PermissibleValue(
+        text="PROTECTIVE",
+        title="Protective (inverse) association",
+        description="""Inverse association: the presence of one condition is associated with a reduced risk or incidence of the other (e.g., the reciprocal cancer/Alzheimer's-disease inverse correlation, atopy and glioma, balancing-selection heterozygote advantage). Quantitatively an odds ratio / hazard ratio / relative risk below 1.""")
+    MIXED = PermissibleValue(
+        text="MIXED",
+        title="Mixed / direction-dependent association",
+        description="""The effect direction is not uniform: it is protective in some contexts (subtype, direction, population) and risk-conferring in others (e.g., Parkinson's disease shows an inverse association with most cancers but a positive association with melanoma). Use the per-signal effect_direction and notes to record the split.""")
+    NO_ASSOCIATION = PermissibleValue(
+        text="NO_ASSOCIATION",
+        title="No association",
+        description="""Evidence indicates no significant association in either direction (a null result). Useful for recording examined-but-refuted pairs.""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        description="The effect direction (risk vs. protective) has not been established.")
+
+    _defn = EnumDefinition(
+        name="ComorbidityEffectDirectionEnum",
+        description="""The sign (effect direction) of a comorbidity/trajectory association - whether the presence of one condition raises or lowers the risk, incidence, or severity of the other. This is orthogonal to ComorbidityDirectionEnum, which captures only the temporal ordering (which condition comes first), not whether the effect is positive or inverse. A conventional risk comorbidity (A increases risk of B) is RISK; the cancer/Alzheimer's-disease inverse correlation is PROTECTIVE.""",
     )
 
 class CurationStatusEnum(EnumDefinitionImpl):
@@ -7142,6 +9070,150 @@ class MechanismConfidenceEnum(EnumDefinitionImpl):
         description="Level of confidence in a pathophysiology mechanism",
     )
 
+class GroupingBasisEnum(EnumDefinitionImpl):
+    """
+    The axis (or axes) on which a disease Grouping is drawn. A grouping assembles already-distinct Disease entries
+    into an explicit union; this enum records WHY they belong together, supporting an audit of the grouping boundary.
+    Multivalued — a grouping may rest on more than one basis (e.g., the mucopolysaccharidoses are grouped on both a
+    shared mechanism and a shared gene/enzyme family).
+    """
+    SHARED_MECHANISM = PermissibleValue(
+        text="SHARED_MECHANISM",
+        title="Shared mechanism",
+        description="""Members converge on a common pathophysiological mechanism or final-common-pathway (often a shared mechanism module).""")
+    SHARED_GENE_FAMILY = PermissibleValue(
+        text="SHARED_GENE_FAMILY",
+        title="Shared gene family",
+        description="""Members are caused by variants in the same gene, gene family, or functionally related set of genes/enzymes.""")
+    SHARED_PATHWAY = PermissibleValue(
+        text="SHARED_PATHWAY",
+        title="Shared pathway",
+        description="Members perturb the same biological pathway or process.")
+    SHARED_PHENOTYPE = PermissibleValue(
+        text="SHARED_PHENOTYPE",
+        title="Shared phenotype",
+        description="Members share a defining clinical phenotype or phenotypic spectrum.")
+    SHARED_TREATMENT_RESPONSE = PermissibleValue(
+        text="SHARED_TREATMENT_RESPONSE",
+        title="Shared treatment response",
+        description="""Members are grouped by a shared therapeutic vulnerability or response to a common class of treatment.""")
+    CLINICAL_CONVENTION = PermissibleValue(
+        text="CLINICAL_CONVENTION",
+        title="Clinical convention",
+        description="""Members are grouped by established clinical or nosological convention rather than a single mechanistic axis.""")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        title="Other",
+        description="A grouping basis that does not fit the categories above.")
+
+    _defn = EnumDefinition(
+        name="GroupingBasisEnum",
+        description="""The axis (or axes) on which a disease Grouping is drawn. A grouping assembles already-distinct Disease entries into an explicit union; this enum records WHY they belong together, supporting an audit of the grouping boundary. Multivalued — a grouping may rest on more than one basis (e.g., the mucopolysaccharidoses are grouped on both a shared mechanism and a shared gene/enzyme family).""",
+    )
+
+class LogicalOperatorEnum(EnumDefinitionImpl):
+    """
+    Boolean operator for a branch node in a nested membership-criteria expression (LogicalCriterion). Branch nodes set
+    an operator and combine child operands; leaf nodes set a criterion_predicate instead.
+    """
+    AND = PermissibleValue(
+        text="AND",
+        description="All operands must hold (conjunction).")
+    OR = PermissibleValue(
+        text="OR",
+        description="At least one operand must hold (disjunction).")
+    NOT = PermissibleValue(
+        text="NOT",
+        description="Negation. Conventionally applied to a single operand (or to the conjunction of its operands).")
+
+    _defn = EnumDefinition(
+        name="LogicalOperatorEnum",
+        description="""Boolean operator for a branch node in a nested membership-criteria expression (LogicalCriterion). Branch nodes set an operator and combine child operands; leaf nodes set a criterion_predicate instead.""",
+    )
+
+class CriterionPredicateEnum(EnumDefinitionImpl):
+    """
+    The kind of constraint expressed by a leaf node in a membership-criteria expression (LogicalCriterion). The leaf's
+    payload slots are interpreted according to this predicate (e.g., HAS_PHENOTYPE uses phenotype_term and optional
+    min_frequency; HAS_GENE uses gene; CONFORMS_TO_MODULE uses module).
+    """
+    HAS_PHENOTYPE = PermissibleValue(
+        text="HAS_PHENOTYPE",
+        description="""Members present a given phenotype (phenotype_term), optionally at or above a frequency threshold (min_frequency).""")
+    HAS_GENE = PermissibleValue(
+        text="HAS_GENE",
+        description="Members carry causal variants in a given gene (gene).")
+    CONFORMS_TO_MODULE = PermissibleValue(
+        text="CONFORMS_TO_MODULE",
+        description="Members have a pathophysiology node conforming to a given mechanism module (module).")
+    HAS_BIOLOGICAL_PROCESS = PermissibleValue(
+        text="HAS_BIOLOGICAL_PROCESS",
+        description="""Members involve a given biological process (biological_processes), optionally with a directional modifier.""")
+    HAS_CLASSIFICATION = PermissibleValue(
+        text="HAS_CLASSIFICATION",
+        description="Members carry a given nosology/classification assignment (classification).")
+    HAS_INHERITANCE = PermissibleValue(
+        text="HAS_INHERITANCE",
+        description="Members share a mode of inheritance (description carries the value).")
+    HAS_MAPPING = PermissibleValue(
+        text="HAS_MAPPING",
+        description="Members map to a given external term or code namespace (description carries the value).")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        description="""A membership constraint that does not fit the categories above; described in free text via the description slot.""")
+
+    _defn = EnumDefinition(
+        name="CriterionPredicateEnum",
+        description="""The kind of constraint expressed by a leaf node in a membership-criteria expression (LogicalCriterion). The leaf's payload slots are interpreted according to this predicate (e.g., HAS_PHENOTYPE uses phenotype_term and optional min_frequency; HAS_GENE uses gene; CONFORMS_TO_MODULE uses module).""",
+    )
+
+class CriteriaSemanticsEnum(EnumDefinitionImpl):
+    """
+    The logical direction relating a grouping's membership criteria to its members, mirroring the OWL
+    necessary/sufficient/equivalent distinction. This determines what tooling may infer: NECESSARY criteria can only
+    be used to AUDIT listed members (member => criteria); SUFFICIENT criteria can be used to CLASSIFY non-members as
+    candidates (criteria => member); NECESSARY_AND_SUFFICIENT criteria do both (member <=> criteria).
+    """
+    NECESSARY = PermissibleValue(
+        text="NECESSARY",
+        title="Necessary (member => criteria)",
+        description="""Every member satisfies these criteria, but satisfying them does not by itself establish membership. Used to audit members for violations.""")
+    SUFFICIENT = PermissibleValue(
+        text="SUFFICIENT",
+        title="Sufficient (criteria => member)",
+        description="""Any disorder satisfying these criteria is a member. Used to classify non-members as candidate members.""")
+    NECESSARY_AND_SUFFICIENT = PermissibleValue(
+        text="NECESSARY_AND_SUFFICIENT",
+        title="Necessary and sufficient (member <=> criteria)",
+        description="""These criteria define the grouping: a disorder is a member if and only if it satisfies them. Supports both auditing and classification.""")
+
+    _defn = EnumDefinition(
+        name="CriteriaSemanticsEnum",
+        description="""The logical direction relating a grouping's membership criteria to its members, mirroring the OWL necessary/sufficient/equivalent distinction. This determines what tooling may infer: NECESSARY criteria can only be used to AUDIT listed members (member => criteria); SUFFICIENT criteria can be used to CLASSIFY non-members as candidates (criteria => member); NECESSARY_AND_SUFFICIENT criteria do both (member <=> criteria).""",
+    )
+
+class GroupingMemberTypeEnum(EnumDefinitionImpl):
+    """
+    The kind of entity referenced by a GroupingMember.
+    """
+    DISEASE = PermissibleValue(
+        text="DISEASE",
+        description="A Disease entry in kb/disorders/.")
+    SUBTYPE = PermissibleValue(
+        text="SUBTYPE",
+        description="A named subtype within a Disease entry.")
+    MODULE = PermissibleValue(
+        text="MODULE",
+        description="A mechanism module in kb/modules/.")
+    GROUPING = PermissibleValue(
+        text="GROUPING",
+        description="Another Grouping (nested grouping).")
+
+    _defn = EnumDefinition(
+        name="GroupingMemberTypeEnum",
+        description="The kind of entity referenced by a GroupingMember.",
+    )
+
 class ReferenceTagEnum(EnumDefinitionImpl):
     """
     Controlled vocabulary for tagging top-level references by authoritative source type. Enables queries like "which
@@ -7155,6 +9227,33 @@ class ReferenceTagEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="ReferenceTagEnum",
         description="""Controlled vocabulary for tagging top-level references by authoritative source type. Enables queries like \"which disorders lack a GeneReviews citation?\"""",
+    )
+
+class GeneSetRelationshipEnum(EnumDefinitionImpl):
+    """
+    How an external gene set (e.g. an MSigDB/KEGG pathway, a cell-type signature, or an expression-perturbation
+    signature) relates to a disease entry. Records the semantics of a curated disease<->gene-set link so the link is
+    auditable and the right kind of alignment can be applied.
+    """
+    CANONICAL_PATHWAY = PermissibleValue(
+        text="CANONICAL_PATHWAY",
+        description="""A curated pathway gene set representing the disease's canonical mechanism (e.g. KEGG_ASTHMA for asthma). The primary target for BP alignment against the pathograph.""")
+    CELL_TYPE_SIGNATURE = PermissibleValue(
+        text="CELL_TYPE_SIGNATURE",
+        description="A marker gene set for a cell type relevant to the disease.")
+    PERTURBATION_SIGNATURE = PermissibleValue(
+        text="PERTURBATION_SIGNATURE",
+        description="""An up/down expression signature from a perturbation or contrast (e.g. drug response, knockout) relevant to the disease.""")
+    DISEASE_SIGNATURE = PermissibleValue(
+        text="DISEASE_SIGNATURE",
+        description="A differential-expression signature derived from the disease itself.")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        description="A related gene set that does not fit the categories above.")
+
+    _defn = EnumDefinition(
+        name="GeneSetRelationshipEnum",
+        description="""How an external gene set (e.g. an MSigDB/KEGG pathway, a cell-type signature, or an expression-perturbation signature) relates to a disease entry. Records the semantics of a curated disease<->gene-set link so the link is auditable and the right kind of alignment can be applied.""",
     )
 
 class ICDOMorphologyEnum(EnumDefinitionImpl):
@@ -7377,6 +9476,9 @@ class MechanisticNosologyEnum(EnumDefinitionImpl):
         text="collagenopathy",
         description="Collagen synthesis/structure disorders (OI, EDS, Alport)",
         meaning=MONDO["0004603"])
+    desmosomopathy = PermissibleValue(
+        text="desmosomopathy",
+        description="""Desmosomal cell-cell adhesion disorders (Naxos disease, Carvajal syndrome, arrhythmogenic cardiomyopathy, pemphigus, desmosomal palmoplantar keratodermas)""")
     amyloidopathy = PermissibleValue(
         text="amyloidopathy",
         description="""Amyloid protein aggregation disorders (Alzheimer's, CAA, hereditary cerebral amyloid angiopathy)""")
@@ -7627,9 +9729,808 @@ class PhenotypeCategoryEnum(EnumDefinitionImpl):
                 description="Abnormalities of thoracic structures (pleura, mediastinum, diaphragm)",
                 meaning=HP["0045027"]))
 
+class ICIMDEnum(EnumDefinitionImpl):
+    """
+    ICIMD category (layer 1) and disease group (layer 2) assignments. Groups point to their parent category via
+    ``is_a``. See the schema-level description for provenance and the assign-most-specific rule.
+    """
+    amino_acid_metabolism = PermissibleValue(
+        text="amino_acid_metabolism",
+        description="""ICIMD category 1: Disorders of amino acid metabolism (super-domain: intermediary metabolism — nutrients). Enzyme deficiencies of amino acid pathways, frequently causing accumulation of toxic metabolites.""")
+    branched_chain_amino_acids = PermissibleValue(
+        text="branched_chain_amino_acids",
+        description="Disorders of branched-chain amino acid (leucine, isoleucine, valine) metabolism.")
+    phe_and_tyr = PermissibleValue(
+        text="phe_and_tyr",
+        description="Disorders of phenylalanine and tyrosine metabolism.")
+    sulfur_containing_amino_acids = PermissibleValue(
+        text="sulfur_containing_amino_acids",
+        description="Disorders of sulfur-containing amino acid (methionine, homocysteine, cysteine) metabolism.")
+    gly_and_ser = PermissibleValue(
+        text="gly_and_ser",
+        description="Disorders of glycine and serine metabolism.")
+    orn_pro_and_hyp = PermissibleValue(
+        text="orn_pro_and_hyp",
+        description="Disorders of ornithine, proline and hydroxyproline metabolism.")
+    lys_hyl_and_trp = PermissibleValue(
+        text="lys_hyl_and_trp",
+        description="Disorders of lysine, hydroxylysine and tryptophan metabolism.")
+    glu_gln_and_asp_asn = PermissibleValue(
+        text="glu_gln_and_asp_asn",
+        description="Disorders of glutamate/glutamine and aspartate/asparagine metabolism.")
+    histidine_metabolism = PermissibleValue(
+        text="histidine_metabolism",
+        description="Disorders of histidine metabolism.")
+    organic_acidurias = PermissibleValue(
+        text="organic_acidurias",
+        description="""Organic acidurias — deficiencies of mitochondrial enzymes for breakdown of CoA-activated small carboxylic acids, mostly from amino acid deamination.""")
+    urea_cycle_and_hyperammonemias = PermissibleValue(
+        text="urea_cycle_and_hyperammonemias",
+        description="Urea cycle disorders and other hyperammonemias.")
+    amino_acid_transport = PermissibleValue(
+        text="amino_acid_transport",
+        description="Disorders of amino acid transport.")
+    amino_acids_other = PermissibleValue(
+        text="amino_acids_other",
+        description="Other disorders of amino acid metabolism.")
+    peptide_and_amine_metabolism = PermissibleValue(
+        text="peptide_and_amine_metabolism",
+        description="""ICIMD category 2: Disorders of peptide and amine metabolism (super-domain: intermediary metabolism — nutrients).""")
+    glutathione_metabolism = PermissibleValue(
+        text="glutathione_metabolism",
+        description="Disorders of glutathione biosynthesis and regeneration.")
+    peptides_other = PermissibleValue(
+        text="peptides_other",
+        description="Other peptide disorders, including dipeptidase deficiencies.")
+    methylamine_metabolism = PermissibleValue(
+        text="methylamine_metabolism",
+        description="Disorders of methylamine metabolism.")
+    polyamine_metabolism = PermissibleValue(
+        text="polyamine_metabolism",
+        description="Disorders of polyamine metabolism.")
+    carbohydrate_metabolism = PermissibleValue(
+        text="carbohydrate_metabolism",
+        description="""ICIMD category 3: Disorders of carbohydrate metabolism (super-domain: intermediary metabolism — nutrients).""")
+    galactose_and_fructose = PermissibleValue(
+        text="galactose_and_fructose",
+        description="Disorders of galactose and fructose metabolism.")
+    gluconeogenesis = PermissibleValue(
+        text="gluconeogenesis",
+        description="Disorders of gluconeogenesis (including pyruvate carboxylase deficiency).")
+    glycolysis = PermissibleValue(
+        text="glycolysis",
+        description="Disorders of glycolysis.")
+    glycogen_metabolism = PermissibleValue(
+        text="glycogen_metabolism",
+        description="Disorders of glycogen metabolism (glycogen storage diseases).")
+    pentose_polyol_metabolism = PermissibleValue(
+        text="pentose_polyol_metabolism",
+        description="Disorders of pentose and polyol metabolism.")
+    carbohydrate_transport_and_absorption = PermissibleValue(
+        text="carbohydrate_transport_and_absorption",
+        description="Disorders of carbohydrate (hexose) transmembrane transport and absorption.")
+    fatty_acid_and_ketone_body_metabolism = PermissibleValue(
+        text="fatty_acid_and_ketone_body_metabolism",
+        description="""ICIMD category 4: Disorders of fatty acid and ketone body metabolism (super-domain: intermediary metabolism — nutrients).""")
+    carnitine_metabolism = PermissibleValue(
+        text="carnitine_metabolism",
+        description="Disorders of carnitine metabolism.")
+    mitochondrial_fatty_acid_oxidation = PermissibleValue(
+        text="mitochondrial_fatty_acid_oxidation",
+        description="Disorders of mitochondrial fatty acid oxidation.")
+    ketone_body_metabolism = PermissibleValue(
+        text="ketone_body_metabolism",
+        description="Disorders of ketone body synthesis, breakdown and transport.")
+    energy_substrate_metabolism = PermissibleValue(
+        text="energy_substrate_metabolism",
+        description="""ICIMD category 5: Disorders of energy substrate metabolism (super-domain: intermediary metabolism — energy).""")
+    pyruvate_metabolism = PermissibleValue(
+        text="pyruvate_metabolism",
+        description="Disorders of pyruvate metabolism.")
+    krebs_cycle = PermissibleValue(
+        text="krebs_cycle",
+        description="Disorders of the Krebs (tricarboxylic acid) cycle.")
+    creatine_metabolism = PermissibleValue(
+        text="creatine_metabolism",
+        description="Disorders of creatine metabolism.")
+    mitochondrial_dna_related_disorders = PermissibleValue(
+        text="mitochondrial_dna_related_disorders",
+        description="""ICIMD category 6: Mitochondrial DNA-related disorders (super-domain: intermediary metabolism — energy).""")
+    mtdna_encoded_respiratory_chain_proteins = PermissibleValue(
+        text="mtdna_encoded_respiratory_chain_proteins",
+        description="Disorders of the 13 mtDNA protein-coding (respiratory chain) genes.")
+    mtdna_encoded_trna_rrna = PermissibleValue(
+        text="mtdna_encoded_trna_rrna",
+        description="Disorders of mtDNA-encoded tRNA and rRNA genes.")
+    single_large_scale_mtdna_deletions = PermissibleValue(
+        text="single_large_scale_mtdna_deletions",
+        description="Disorders associated with single large-scale mtDNA deletions.")
+    nuclear_encoded_oxidative_phosphorylation = PermissibleValue(
+        text="nuclear_encoded_oxidative_phosphorylation",
+        description="""ICIMD category 7: Nuclear-encoded disorders of oxidative phosphorylation (super-domain: intermediary metabolism — energy).""")
+    complex_i_subunits_and_assembly_factors = PermissibleValue(
+        text="complex_i_subunits_and_assembly_factors",
+        description="Nuclear-encoded complex I subunit and assembly factor defects.")
+    complex_ii_subunits_and_assembly_factors = PermissibleValue(
+        text="complex_ii_subunits_and_assembly_factors",
+        description="Nuclear-encoded complex II subunit and assembly factor defects.")
+    complex_iii_subunits_and_assembly_factors = PermissibleValue(
+        text="complex_iii_subunits_and_assembly_factors",
+        description="Nuclear-encoded complex III subunit and assembly factor defects.")
+    complex_iv_subunits_and_assembly_factors = PermissibleValue(
+        text="complex_iv_subunits_and_assembly_factors",
+        description="Nuclear-encoded complex IV subunit and assembly factor defects.")
+    complex_v_subunits_and_assembly_factors = PermissibleValue(
+        text="complex_v_subunits_and_assembly_factors",
+        description="Nuclear-encoded complex V subunit and assembly factor defects.")
+    mitochondrial_cofactor_biosynthesis = PermissibleValue(
+        text="mitochondrial_cofactor_biosynthesis",
+        description="""ICIMD category 8: Disorders of mitochondrial cofactor biosynthesis (super-domain: intermediary metabolism — energy).""")
+    coenzyme_q10_biosynthesis = PermissibleValue(
+        text="coenzyme_q10_biosynthesis",
+        description="Disorders of coenzyme Q10 (ubiquinone) biosynthesis.")
+    lipoic_acid_and_iron_sulfur = PermissibleValue(
+        text="lipoic_acid_and_iron_sulfur",
+        description="Disorders of lipoic acid and iron-sulfur cluster biosynthesis.")
+    cytochrome_c = PermissibleValue(
+        text="cytochrome_c",
+        description="Disorders of cytochrome c.")
+    mitochondrial_dna_maintenance_and_replication = PermissibleValue(
+        text="mitochondrial_dna_maintenance_and_replication",
+        description="""ICIMD category 9: Disorders of mitochondrial DNA maintenance and replication (super-domain: intermediary metabolism — energy).""")
+    nucleotide_pool_maintenance = PermissibleValue(
+        text="nucleotide_pool_maintenance",
+        description="Disorders of mitochondrial nucleotide pool maintenance.")
+    mtdna_replication_and_maintenance = PermissibleValue(
+        text="mtdna_replication_and_maintenance",
+        description="Disorders of mtDNA replication and maintenance.")
+    mitochondrial_gene_expression = PermissibleValue(
+        text="mitochondrial_gene_expression",
+        description="""ICIMD category 10: Disorders of mitochondrial gene expression (super-domain: intermediary metabolism — energy).""")
+    mtdna_transcript_processing_and_modification = PermissibleValue(
+        text="mtdna_transcript_processing_and_modification",
+        description="Disorders of mtDNA transcript processing and modification.")
+    mitochondrial_aminoacyl_trna_synthetases = PermissibleValue(
+        text="mitochondrial_aminoacyl_trna_synthetases",
+        description="Disorders of mitochondrial aminoacyl-tRNA synthetases.")
+    mitoribosome = PermissibleValue(
+        text="mitoribosome",
+        description="Disorders of the mitoribosome.")
+    other_mitochondrial_function = PermissibleValue(
+        text="other_mitochondrial_function",
+        description="""ICIMD category 11: Other disorders of mitochondrial function (super-domain: intermediary metabolism — energy).""")
+    mitochondrial_shuttles_and_carriers = PermissibleValue(
+        text="mitochondrial_shuttles_and_carriers",
+        description="Disorders of mitochondrial shuttles and carriers.")
+    mitochondrial_protein_import = PermissibleValue(
+        text="mitochondrial_protein_import",
+        description="Disorders of mitochondrial protein import.")
+    mitochondrial_protein_quality_control = PermissibleValue(
+        text="mitochondrial_protein_quality_control",
+        description="Disorders of mitochondrial protein quality control.")
+    mitochondrial_dysfunction_miscellaneous = PermissibleValue(
+        text="mitochondrial_dysfunction_miscellaneous",
+        description="Miscellaneous mitochondrial disorders not fitting other groups.")
+    metabolite_repair_proofreading = PermissibleValue(
+        text="metabolite_repair_proofreading",
+        description="""ICIMD category 12: Disorders of metabolite repair/proofreading (super-domain: intermediary metabolism — other).""")
+    metabolite_proofreading = PermissibleValue(
+        text="metabolite_proofreading",
+        description="""Disorders of metabolite proofreading, addressing the promiscuity of certain intermediary-metabolism enzymes.""")
+    miscellaneous_intermediary_metabolism = PermissibleValue(
+        text="miscellaneous_intermediary_metabolism",
+        description="""ICIMD category 13: Miscellaneous disorders of intermediary metabolism (super-domain: intermediary metabolism — other).""")
+    glyoxylate_and_oxalate = PermissibleValue(
+        text="glyoxylate_and_oxalate",
+        description="Disorders of glyoxylate and oxalate metabolism.")
+    intermediary_metabolism_miscellaneous = PermissibleValue(
+        text="intermediary_metabolism_miscellaneous",
+        description="Other miscellaneous disorders of intermediary metabolism.")
+    lipid_metabolism = PermissibleValue(
+        text="lipid_metabolism",
+        description="""ICIMD category 14: Disorders of lipid metabolism (super-domain: lipid metabolism and transport); follows the LIPID MAPS lipid classification.""")
+    fatty_acyl_synthesis_elongation_and_recycling = PermissibleValue(
+        text="fatty_acyl_synthesis_elongation_and_recycling",
+        description="Disorders of fatty acyl synthesis, elongation, and recycling.")
+    peroxisomal_fatty_acid_oxidation = PermissibleValue(
+        text="peroxisomal_fatty_acid_oxidation",
+        description="Disorders of peroxisomal fatty acid oxidation.")
+    eicosanoid_metabolism = PermissibleValue(
+        text="eicosanoid_metabolism",
+        description="Disorders of eicosanoid metabolism.")
+    glycerolipid_metabolism = PermissibleValue(
+        text="glycerolipid_metabolism",
+        description="Disorders of glycerolipid metabolism.")
+    glycerophospholipid_metabolism = PermissibleValue(
+        text="glycerophospholipid_metabolism",
+        description="Disorders of glycerophospholipid metabolism.")
+    sphingolipid_synthesis_and_recycling = PermissibleValue(
+        text="sphingolipid_synthesis_and_recycling",
+        description="Disorders of sphingolipid synthesis and recycling.")
+    sterol_metabolism = PermissibleValue(
+        text="sterol_metabolism",
+        description="Disorders of sterol metabolism.")
+    bile_acid_metabolism = PermissibleValue(
+        text="bile_acid_metabolism",
+        description="Disorders of bile acid metabolism.")
+    lipoprotein_metabolism = PermissibleValue(
+        text="lipoprotein_metabolism",
+        description="""ICIMD category 15: Disorders of lipoprotein metabolism (super-domain: lipid metabolism and transport).""")
+    hypercholesterolemias = PermissibleValue(
+        text="hypercholesterolemias",
+        description="Hypercholesterolemias.")
+    hypertriglyceridemias = PermissibleValue(
+        text="hypertriglyceridemias",
+        description="Hypertriglyceridemias.")
+    mixed_hyperlipidemias = PermissibleValue(
+        text="mixed_hyperlipidemias",
+        description="Mixed hyperlipidemias.")
+    hdl_metabolism = PermissibleValue(
+        text="hdl_metabolism",
+        description="Disorders of high-density lipoprotein (HDL) metabolism.")
+    decreased_ldl_triglycerides = PermissibleValue(
+        text="decreased_ldl_triglycerides",
+        description="Disorders with decreased LDL and/or triglycerides.")
+    lipoproteins_other = PermissibleValue(
+        text="lipoproteins_other",
+        description="Other disorders of lipoprotein metabolism.")
+    nucleobase_nucleotide_nucleic_acid_metabolism = PermissibleValue(
+        text="nucleobase_nucleotide_nucleic_acid_metabolism",
+        description="""ICIMD category 16: Disorders of nucleobase, nucleotide and nucleic acid metabolism (super-domain: metabolism of heterocyclic compounds).""")
+    purine_metabolism = PermissibleValue(
+        text="purine_metabolism",
+        description="Disorders of purine metabolism.")
+    pyrimidine_metabolism = PermissibleValue(
+        text="pyrimidine_metabolism",
+        description="Disorders of pyrimidine metabolism.")
+    ectonucleotides_and_nucleic_acids = PermissibleValue(
+        text="ectonucleotides_and_nucleic_acids",
+        description="Disorders of ectonucleotides and nucleic acids.")
+    non_mitochondrial_trna_metabolism = PermissibleValue(
+        text="non_mitochondrial_trna_metabolism",
+        description="Disorders of non-mitochondrial tRNA metabolism.")
+    ribosomal_biogenesis = PermissibleValue(
+        text="ribosomal_biogenesis",
+        description="Disorders of ribosomal biogenesis (non-mitochondrial rRNA metabolism).")
+    tetrapyrrole_metabolism = PermissibleValue(
+        text="tetrapyrrole_metabolism",
+        description="""ICIMD category 17: Disorders of tetrapyrrole metabolism (super-domain: metabolism of heterocyclic compounds).""")
+    heme_synthesis_and_porphyrias = PermissibleValue(
+        text="heme_synthesis_and_porphyrias",
+        description="Disorders of heme biosynthesis (porphyrias).")
+    heme_degradation_and_bilirubin = PermissibleValue(
+        text="heme_degradation_and_bilirubin",
+        description="Disorders of heme breakdown (biliverdin and bilirubin).")
+    congenital_disorders_of_glycosylation = PermissibleValue(
+        text="congenital_disorders_of_glycosylation",
+        description="""ICIMD category 18: Congenital disorders of glycosylation (super-domain: complex molecule and organelle metabolism).""")
+    n_linked_protein_glycosylation = PermissibleValue(
+        text="n_linked_protein_glycosylation",
+        description="Disorders of N-linked protein glycosylation.")
+    o_linked_protein_glycosylation = PermissibleValue(
+        text="o_linked_protein_glycosylation",
+        description="Disorders of O-linked protein glycosylation (including glycosaminoglycan synthesis).")
+    lipid_glycosylation = PermissibleValue(
+        text="lipid_glycosylation",
+        description="Disorders of lipid glycosylation (including glycosylphosphatidylinositol biosynthesis).")
+    multiple_glycosylation_pathways = PermissibleValue(
+        text="multiple_glycosylation_pathways",
+        description="""Disorders affecting multiple glycosylation pathways (dolichol metabolism, Golgi transport and homeostasis, sialic acid metabolism).""")
+    other_glycan_metabolism = PermissibleValue(
+        text="other_glycan_metabolism",
+        description="Other disorders of glycan metabolism.")
+    organelle_biogenesis_dynamics_and_interactions = PermissibleValue(
+        text="organelle_biogenesis_dynamics_and_interactions",
+        description="""ICIMD category 19: Disorders of organelle biogenesis, dynamics and interactions (super-domain: complex molecule and organelle metabolism).""")
+    mitochondrial_membrane_biogenesis_and_remodeling = PermissibleValue(
+        text="mitochondrial_membrane_biogenesis_and_remodeling",
+        description="Disorders of mitochondrial membrane biogenesis and remodeling.")
+    mitochondrial_and_peroxisomal_dynamics = PermissibleValue(
+        text="mitochondrial_and_peroxisomal_dynamics",
+        description="Disorders of mitochondrial and peroxisomal dynamics.")
+    peroxisomal_biogenesis = PermissibleValue(
+        text="peroxisomal_biogenesis",
+        description="Peroxisomal biogenesis disorders (peroxin-related).")
+    lysosome_related_organelle_biogenesis = PermissibleValue(
+        text="lysosome_related_organelle_biogenesis",
+        description="Disorders of lysosome-related organelle biogenesis.")
+    organelle_interplay = PermissibleValue(
+        text="organelle_interplay",
+        description="Disorders of organelle interplay.")
+    vesicular_trafficking = PermissibleValue(
+        text="vesicular_trafficking",
+        description="Disorders of vesicular trafficking.")
+    complex_molecule_degradation = PermissibleValue(
+        text="complex_molecule_degradation",
+        description="""ICIMD category 20: Disorders of complex molecule degradation (super-domain: complex molecule and organelle metabolism); the classical lysosomal disorders.""")
+    sphingolipid_degradation = PermissibleValue(
+        text="sphingolipid_degradation",
+        description="Disorders of sphingolipid degradation (sphingolipidoses).")
+    glycosaminoglycan_degradation = PermissibleValue(
+        text="glycosaminoglycan_degradation",
+        description="Disorders of glycosaminoglycan degradation (mucopolysaccharidoses).")
+    glycoprotein_degradation = PermissibleValue(
+        text="glycoprotein_degradation",
+        description="Disorders of glycoprotein degradation.")
+    neuronal_ceroid_lipofuscinosis = PermissibleValue(
+        text="neuronal_ceroid_lipofuscinosis",
+        description="Neuronal ceroid lipofuscinoses.")
+    autophagy = PermissibleValue(
+        text="autophagy",
+        description="Disorders of autophagy.")
+    complex_molecule_degradation_other = PermissibleValue(
+        text="complex_molecule_degradation_other",
+        description="Other disorders of complex molecule degradation.")
+    vitamin_and_cofactor_metabolism = PermissibleValue(
+        text="vitamin_and_cofactor_metabolism",
+        description="""ICIMD category 21: Disorders of vitamin and cofactor metabolism (super-domain: cofactor and mineral metabolism).""")
+    tetrahydrobiopterin_metabolism = PermissibleValue(
+        text="tetrahydrobiopterin_metabolism",
+        description="Disorders of tetrahydrobiopterin metabolism.")
+    thiamine_metabolism = PermissibleValue(
+        text="thiamine_metabolism",
+        description="Disorders of thiamine (vitamin B1) metabolism.")
+    riboflavin_metabolism = PermissibleValue(
+        text="riboflavin_metabolism",
+        description="Disorders of riboflavin (vitamin B2) metabolism.")
+    niacin_and_nad_metabolism = PermissibleValue(
+        text="niacin_and_nad_metabolism",
+        description="Disorders of niacin/nicotinamide (vitamin B3) and NAD metabolism.")
+    pantothenate_and_coa_metabolism = PermissibleValue(
+        text="pantothenate_and_coa_metabolism",
+        description="Disorders of pantothenate (vitamin B5) and coenzyme A metabolism.")
+    pyridoxine_metabolism = PermissibleValue(
+        text="pyridoxine_metabolism",
+        description="Disorders of pyridoxine (vitamin B6) metabolism.")
+    biotin_metabolism = PermissibleValue(
+        text="biotin_metabolism",
+        description="Disorders of biotin (vitamin B7) metabolism.")
+    folate_metabolism = PermissibleValue(
+        text="folate_metabolism",
+        description="Disorders of folate (vitamin B9) metabolism.")
+    cobalamin_metabolism = PermissibleValue(
+        text="cobalamin_metabolism",
+        description="Disorders of cobalamin (vitamin B12) metabolism.")
+    molybdenum_cofactor_metabolism = PermissibleValue(
+        text="molybdenum_cofactor_metabolism",
+        description="Disorders of molybdenum cofactor metabolism.")
+    vitamins_other = PermissibleValue(
+        text="vitamins_other",
+        description="Other disorders of vitamin and cofactor metabolism.")
+    trace_elements_and_metals = PermissibleValue(
+        text="trace_elements_and_metals",
+        description="""ICIMD category 22: Disorders of trace elements and metals (super-domain: cofactor and mineral metabolism).""")
+    copper_metabolism = PermissibleValue(
+        text="copper_metabolism",
+        description="Disorders of copper metabolism.")
+    iron_metabolism = PermissibleValue(
+        text="iron_metabolism",
+        description="Disorders of iron metabolism.")
+    manganese_metabolism = PermissibleValue(
+        text="manganese_metabolism",
+        description="Disorders of manganese metabolism.")
+    zinc_metabolism = PermissibleValue(
+        text="zinc_metabolism",
+        description="Disorders of zinc metabolism.")
+    trace_element_other = PermissibleValue(
+        text="trace_element_other",
+        description="Other disorders of trace element and metal metabolism.")
+    neurotransmitter_disorders = PermissibleValue(
+        text="neurotransmitter_disorders",
+        description="ICIMD category 23: Neurotransmitter disorders (super-domain: metabolic cell signaling).")
+    monoamine_metabolism = PermissibleValue(
+        text="monoamine_metabolism",
+        description="Disorders of monoamine neurotransmitter metabolism.")
+    gaba_metabolism = PermissibleValue(
+        text="gaba_metabolism",
+        description="Disorders of GABA metabolism.")
+    glutamate_neurotransmission = PermissibleValue(
+        text="glutamate_neurotransmission",
+        description="Disorders of glutamate neurotransmitter function.")
+    glycine_neurotransmission = PermissibleValue(
+        text="glycine_neurotransmission",
+        description="Disorders of glycine neurotransmitter function.")
+    choline_metabolism = PermissibleValue(
+        text="choline_metabolism",
+        description="Disorders of choline metabolism.")
+    synaptic_vesicle_cycle = PermissibleValue(
+        text="synaptic_vesicle_cycle",
+        description="Disorders of the synaptic vesicle cycle.")
+    endocrine_metabolic_disorders = PermissibleValue(
+        text="endocrine_metabolic_disorders",
+        description="ICIMD category 24: Endocrine metabolic disorders (super-domain: metabolic cell signaling).")
+    insulin_metabolism = PermissibleValue(
+        text="insulin_metabolism",
+        description="Disorders affecting insulin metabolism.")
+    steroid_hormone_metabolism = PermissibleValue(
+        text="steroid_hormone_metabolism",
+        description="Disorders of steroid hormone metabolism.")
+
+    _defn = EnumDefinition(
+        name="ICIMDEnum",
+        description="""ICIMD category (layer 1) and disease group (layer 2) assignments. Groups point to their parent category via ``is_a``. See the schema-level description for provenance and the assign-most-specific rule.""",
+    )
+
+class ISDSNosologyGroupEnum(EnumDefinitionImpl):
+    """
+    The 41 groups of the ISDS Nosology of Genetic Skeletal Disorders, 2023 revision (PMID:36779427), plus four groups
+    deprecated from the 2019 revision (PMID:31633310) that the 2023 revision dissolved. Values are ordered by their
+    2023 group number; each description opens with that number and records the 2019 number where it differed.
+    """
+    fgfr3_chondrodysplasia = PermissibleValue(
+        text="fgfr3_chondrodysplasia",
+        description="""Group 1 (2023 revision): FGFR3 chondrodysplasias. Disorders caused by gain-of-function (and, for CATSHL, loss-of-function) variation in FGFR3 — thanatophoric dysplasia types 1 and 2, SADDAN, achondroplasia, hypochondroplasia, CATSHL syndrome. FGFR3-related craniosynostosis is listed in group 34 and LADD syndrome in group 40 instead.""")
+    type_2_collagen = PermissibleValue(
+        text="type_2_collagen",
+        description="""Group 2 (2023 revision): Type 2 collagen disorders. COL2A1-related type II collagenopathies spanning a lethal-to-mild continuum — achondrogenesis type 2, hypochondrogenesis, platyspondylic dysplasia Torrance type, spondyloepiphyseal dysplasia congenita, SEMD Strudwick type, Kniest dysplasia, spondyloperipheral dysplasia, Czech dysplasia, Stickler syndrome type 1.""")
+    type_11_collagen = PermissibleValue(
+        text="type_11_collagen",
+        description="""Group 3 (2023 revision): Type 11 collagen disorders. COL11A1/COL11A2 disorders — Stickler syndrome types 2 and 3, Marshall syndrome, fibrochondrogenesis, otospondylomegaepiphyseal dysplasia (OSMED, recessive and dominant/Weissenbacher-Zweymuller types).""")
+    sulphation_disorders = PermissibleValue(
+        text="sulphation_disorders",
+        description="""Group 4 (2023 revision): Sulfation disorders. Defects of sulfate transport and proteoglycan sulfation — SLC26A2 (achondrogenesis type 1B, atelosteogenesis type 2, diastrophic dysplasia, recessive MED), PAPSS2 (SEMD PAPSS2 type, recessive brachyolmia), IMPAD1, CHST3 (chondrodysplasia with congenital joint dislocations), and CHST14/DSE (musculocontractural Ehlers-Danlos syndrome).""")
+    dysplasias_with_multiple_joint_dislocations = PermissibleValue(
+        text="dysplasias_with_multiple_joint_dislocations",
+        description="""Group 5 (2023 revision): Dysplasias with multiple joint dislocations. Largely proteoglycan-biosynthesis (linkeropathy) disorders — Desbuquois dysplasia types 1 and 2 (CANT1, XYLT1), spondyloepimetaphyseal dysplasia with joint laxity (KIF22, B3GALT6, EXOC6B), CSGALNACT1 and B3GAT3 deficiency, pseudodiastrophic dysplasia, the kyphoscoliotic Ehlers-Danlos syndromes (PLOD1, FKBP14), and spondylodysplastic Ehlers-Danlos syndrome types 1 and 2 (B4GALT7, B3GALT6) — type 3 (SLC39A13) is in group 13 instead, so a dismech entry covering all three needs both values. Was group 20 in the 2019 revision.""")
+    filamin_and_related = PermissibleValue(
+        text="filamin_and_related",
+        description="""Group 6 (2023 revision): Filamins and related disorders. FLNA/FLNB filaminopathies and mechanistically allied conditions — frontometaphyseal dysplasia (FLNA, MAP3K7, TAB2), Melnick-Needles syndrome, otopalatodigital syndromes types 1 and 2, terminal osseous dysplasia, atelosteogenesis types 1 and 3, dominant Larsen syndrome, spondylocarpotarsal synostosis (FLNB, MYH3), Frank-ter Haar syndrome (SH3PXD2B), cardiospondylocarpofacial syndrome (MAP3K7). Was group 7 in the 2019 revision.""")
+    proteoglycan_core_protein_disorders = PermissibleValue(
+        text="proteoglycan_core_protein_disorders",
+        description="""Group 7 (2023 revision): Proteoglycan core proteins disorders. Disorders of the core proteins of cartilage proteoglycans, formed in the 2023 revision by merging the former Perlecan (HSPG2 - dyssegmental dysplasia, Schwartz-Jampel syndrome) and Aggrecan (ACAN - SED Kimberley type, SEMD aggrecan type, short stature with advanced bone age) groups, and additionally holding the biglycan (BGN) entry, SEMD Camera type — the revision's only BGN row, which is why the BGN-related Meester-Loeys syndrome is not in group 31. Distinct from the sulfation/linkeropathy disorders of group 4, which affect glycosaminoglycan chain synthesis rather than the core protein. Has no single counterpart in the 2019 revision: it fuses two of them.""")
+    trpv4 = PermissibleValue(
+        text="trpv4",
+        description="""Group 8 (2023 revision): TRPV4 disorders. TRPV4 skeletal channelopathies spanning a severity continuum — metatropic dysplasia, SED Maroteaux type, spondylometaphyseal dysplasia Kozlowski type, autosomal dominant brachyolmia, familial digital arthropathy-brachydactyly.""")
+    multiple_epiphyseal_dysplasia_and_pseudoachondroplasia = PermissibleValue(
+        text="multiple_epiphyseal_dysplasia_and_pseudoachondroplasia",
+        description="""Group 9 (2023 revision): Pseudoachondroplasia and the multiple epiphyseal dysplasias. COMP, MATN3, and type IX collagen (COL9A1/2/3) disorders — pseudoachondroplasia, dominant multiple epiphyseal dysplasia, recessive Stickler syndrome. Was group 10 in the 2019 revision.""")
+    ciliopathies_with_major_skeletal_involvement = PermissibleValue(
+        text="ciliopathies_with_major_skeletal_involvement",
+        description="""Group 10 (2023 revision): Skeletal disorders caused by abnormalities of cilia or ciliary signaling. Skeletal ciliopathies caused by intraflagellar-transport and basal-body defects — chondroectodermal dysplasia (Ellis-van Creveld), short-rib-polydactyly syndromes types 1-5, asphyxiating thoracic dysplasia (Jeune), cranioectodermal dysplasia (Levin-Sensenbrenner), Mainzer-Saldino syndrome, axial spondylometaphyseal dysplasia, orofaciodigital syndrome types 2 and 4, thoracolaryngopelvic dysplasia. Weyers acrofacial (acrodental) dysostosis is listed in group 35 instead. Was group 9 in the 2019 revision.""")
+    metaphyseal_dysplasias = PermissibleValue(
+        text="metaphyseal_dysplasias",
+        description="""Group 11 (2023 revision): Metaphyseal dysplasias. Disorders with predominantly metaphyseal change — metaphyseal dysplasia Schmid type (COL10A1), cartilage-hair hypoplasia (RMRP), the CHH-like short-stature dysplasias (POP1, NEPRO), Shwachman-Diamond syndrome (SBDS, EFL1, DNAJC21, SRP54), metaphyseal dysplasia Spahr and metaphyseal anadysplasia (MMP13, MMP9), metaphyseal dysplasia with maxillary hypoplasia (RUNX2).""")
+    spondylometaphyseal_dysplasias = PermissibleValue(
+        text="spondylometaphyseal_dysplasias",
+        description="""Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD). Combined vertebral and metaphyseal involvement — spondyloenchondrodysplasia (ACP5), odontochondrodysplasia (TRIP11), SMD corner-fracture/Sutcliffe type (FN1), SMD with cone-rod dystrophy (PCYT1A).""")
+    spondylo_epi_metaphyseal_dysplasias = PermissibleValue(
+        text="spondylo_epi_metaphyseal_dysplasias",
+        description="""Group 13 (2023 revision): Spondyloepi(meta)physeal dysplasias (SE(M)D). A large, molecularly heterogeneous group with vertebral plus epiphyseal (with or without metaphyseal) involvement — Dyggve-Melchior-Clausen dysplasia, immuno-osseous dysplasia (Schimke), Wolcott-Rallison syndrome, the named SEMD types (matrilin/MATN3, biglycan, NANS, RSPRY1, TMEM165, EXTL3, DDRGK1, UFSP2, DDR2), X-linked SED tarda (TRAPPC2), spondylodysplastic Ehlers-Danlos syndrome (SLC39A13), SPONASTRIME dysplasia, Steel syndrome, CODAS, EVEN-PLUS and CAGSSS syndromes.""")
+    severe_spondylodysplastic_dysplasias = PermissibleValue(
+        text="severe_spondylodysplastic_dysplasias",
+        description="""Group 14 (2023 revision): Severe spondylodysplastic dysplasias. Perinatally severe/lethal platyspondylic conditions — achondrogenesis type 1A (TRIP11), Schneckenbecken dysplasia (SLC35D1), SMD Sedaghatian type (GPX4), opsismodysplasia (INPPL1).""")
+    mesomelic_and_rhizomesomelic_dysplasias = PermissibleValue(
+        text="mesomelic_and_rhizomesomelic_dysplasias",
+        description="""Group 15 (2023 revision): Mesomelic and rhizo-mesomelic dysplasias. Middle-segment (with or without proximal-segment) shortening — Leri-Weill dyschondrosteosis and Langer mesomelic dysplasia (SHOX), Robinow syndrome (ROR2, NXN, WNT5A, DVL1, DVL3, FZD2), omodysplasia (GPC6, FZD2), and the Kantaputra, Nievergelt, Kozlowski-Reardon, Savarirayan, and Verloes-David-Pfeiffer mesomelic dysplasias. Was group 17 in the 2019 revision.""")
+    acromesomelic_dysplasias = PermissibleValue(
+        text="acromesomelic_dysplasias",
+        description="""Group 16 (2023 revision): Acromesomelic dysplasias. BMP/GDF/NPR2-pathway disorders with combined middle- and distal-segment shortening — acromesomelic dysplasia type Maroteaux (NPR2), Grebe dysplasia and the GDF5/BMPR1B chondrodysplasias, fibular hypoplasia with complex brachydactyly (Du Pan).""")
+    acromelic_dysplasias = PermissibleValue(
+        text="acromelic_dysplasias",
+        description="""Group 17 (2023 revision): Acromelic dysplasias. Short-hand/foot dysplasias — acrocapitofemoral dysplasia (IHH), geleophysic and acromicric dysplasia (ADAMTSL2, FBN1, LTBP3), Weill-Marchesani syndrome, Myhre dysplasia (SMAD4), acrodysostosis (PDE4D, PRKAR1A), Albright hereditary osteodystrophy (GNAS), Leri pleonosteosis. The 2023 revision moved trichorhinophalangeal dysplasia types 1-3 and Langer-Giedion syndrome out of this group into group 19, Brachydactylies as part of syndromes, and moved in the GNAS entity that the 2019 revision listed as \"Pseudohypoparathyroidism type IA\" in group 38 — same OMIM 103580, renamed to Albright hereditary osteodystrophy. This is the only PTH-adjacent GNAS disorder in the nosology outside group 30; note that it is here and NOT in group 28, which despite its name holds only PTH1R/PTHLH/SIK3 disorders. Was group 15 in the 2019 revision.""")
+    brachydactyly_without_extraskeletal_manifestations = PermissibleValue(
+        text="brachydactyly_without_extraskeletal_manifestations",
+        description="""Group 18 (2023 revision): Brachydactylies (isolated). Isolated brachydactyly types A1 (IHH), A2 (BMPR1B, BMP2, GDF5), B (ROR2), B2 (NOG), C (GDF5), D (HOXD13) and E (HOXD13; the PTHLH-related type E2 is in group 28), plus brachydactyly with anonychia (Cooks syndrome, KCNJ2). Was group 37 in the 2019 revision.""")
+    brachydactyly_with_extraskeletal_manifestations = PermissibleValue(
+        text="brachydactyly_with_extraskeletal_manifestations",
+        description="""Group 19 (2023 revision): Brachydactylies as part of syndromes. Syndromic brachydactyly — brachydactyly-mental retardation syndrome (HDAC4), hyperphosphatasia with mental retardation (PIGV), brachydactyly-hypertension/Bilginturan syndrome (PDE3A), Temtamy preaxial brachydactyly (CHSY1), Rubinstein-Taybi syndrome (CREBBP, EP300), Coffin-Siris syndrome and the BAF-complex genes (ARID1B, SMARCB1, SMARCA4, SMARCE1), Feingold syndrome (MYCN), hand-foot-genital syndrome (HOXA13), Catel-Manzke syndrome (TGDS), DOORS syndrome (TBC1D24), and the trichorhinophalangeal dysplasias types 1-3 with Langer-Giedion syndrome (TRPS1, EXT1), which the 2023 revision moved here from group 17. The 2019 group-38 member \"Pseudohypoparathyroidism type IA\" (GNAS) is NOT here in 2023: the same entity (OMIM 103580) was renamed Albright hereditary osteodystrophy and moved to group 17. Was group 38 in the 2019 revision.""")
+    bent_bone_dysplasia = PermissibleValue(
+        text="bent_bone_dysplasia",
+        description="""Group 20 (2023 revision): Bent bones dysplasia group. Disorders sharing the radiographic sign of bent (angulated) long bones — campomelic dysplasia (SOX9), Stuve-Wiedemann dysplasia (LIFR), kyphomelic dysplasia, bent bone dysplasia FGFR2 type. Renamed in the 2019 revision from \"Campomelic dysplasia and related disorders\". Was group 18 in the 2019 revision.""")
+    primordial_dwarfism_and_slender_bones = PermissibleValue(
+        text="primordial_dwarfism_and_slender_bones",
+        description="""Group 21 (2023 revision): Primordial dwarfism and slender bones group. Severe pre- and postnatal growth restriction with gracile tubular bones — 3-M syndrome (CUL7, OBSL1, CCDC8), microcephalic osteodysplastic primordial dwarfism (RNU4ATAC, PCNT2, and the ATR/RBBP8/CEP152/DNA2/TRAIP/CENPE group), Roifman and Lowry-Wood syndromes, Sanjad-Sakati (TBCE) and Kenny-Caffey/osteocraniostenosis (FAM111A) syndromes, IMAGe syndrome, Hallermann-Streiff and Saul-Wilson syndromes, and the ear-patella-primordial short stature (Meier-Gorlin) syndrome across its pre-replication-complex genes (ORC1, ORC4, ORC6, CDT1, CDC6, GMNN, CDC45, MCM3/5/7, GINS2) — which belongs here and NOT in group 37, patellar dysostoses, despite the \"ear-patella\" in its name. Renamed in the 2019 revision from \"Slender bone dysplasia group\". Was group 19 in the 2019 revision.""")
+    lysosomal_storage_with_skeletal_involvement = PermissibleValue(
+        text="lysosomal_storage_with_skeletal_involvement",
+        description="""Group 22 (2023 revision): Lysosomal Storage Diseases with Skeletal Involvement. Mucopolysaccharidoses (types 1-4, 6 and 7, plus VPS33A-related MPS-plus syndrome), mucolipidoses II and III, oligosaccharidoses (fucosidosis, alpha- and beta-mannosidosis, aspartylglucosaminuria, sialidosis, galactosialidosis), sialic acid storage disease, GM1 gangliosidosis, multiple sulfatase deficiency. Was group 27 in the 2019 revision.""")
+    chondrodysplasia_punctata = PermissibleValue(
+        text="chondrodysplasia_punctata",
+        description="""Group 23 (2023 revision): Chondrodysplasia punctata (CDP) group. Disorders with epiphyseal stippling — X-linked dominant Conradi-Hunermann CDPX2 (EBP) and X-linked recessive brachytelephalangic CDPX1 (ARSE/ARSL), rhizomelic CDP (PEX7, GNPAT, AGPS, FAR1, PEX5), CHILD syndrome (NSDHL), Greenberg dysplasia (LBR), Keutel syndrome (MGP). Was group 21 in the 2019 revision.""")
+    osteopetrosis_and_related = PermissibleValue(
+        text="osteopetrosis_and_related",
+        description="""Group 24 (2023 revision): Osteopetrosis and related osteoclast disorders. Osteoclast failure with defective bone resorption — infantile and intermediate osteopetrosis (TCIRG1, CLCN7, OSTM1, SNX10, TNFSF11, TNFRSF11A, PLEKHM1), late-onset (Albers-Schonberg) osteopetrosis, osteopetrosis with renal tubular acidosis (CA2), syndromic forms with ectodermal dysplasia/immune defect (IKBKG) or defective leucocyte adhesion (FERMT3), osteosclerotic metaphyseal dysplasia (LRRK1), pycnodysostosis (CTSK), dysosteosclerosis. Was group 23 in the 2019 revision.""")
+    osteosclerotic_disorders = PermissibleValue(
+        text="osteosclerotic_disorders",
+        description="""Group 25 (2023 revision): Osteosclerotic disorders. Non-osteopetrotic increased bone mass or density, formed in the 2023 revision by fusing the former Neonatal osteosclerotic dysplasias and Other sclerosing bone disorders groups - osteopoikilosis and melorheostosis (LEMD3, MAP2K1), osteopathia striata with cranial sclerosis (AMER1), sclerosteosis and van Buchem disease (SOST, LRP4), craniometaphyseal and craniodiaphyseal dysplasia, Camurati-Engelmann diaphyseal dysplasia (TGFB1), Raine dysplasia (FAM20C), Caffey disease, Pyle disease (SFRP4), Lenz-Majewski hyperostotic dysplasia (PTDSS1). Osteoclast-failure osteopetrosis stays in group 24, and the PTH1R-related Blomstrand dysplasia moved to group 28. Has no single counterpart in the 2019 revision: it fuses two of them.""")
+    osteogenesis_imperfecta_and_decreased_bone_density = PermissibleValue(
+        text="osteogenesis_imperfecta_and_decreased_bone_density",
+        description="""Group 26 (2023 revision): Osteogenesis Imperfecta and bone fragility group. OI types 1-5 across the classical COL1A1/COL1A2 loci and the collagen chaperone/modification, WNT1, IFITM5, and SERPINF1 genes, plus non-OI low-bone-mass and bone-fragility conditions — X-linked and autosomal dominant osteoporosis, osteoporosis-pseudoglioma syndrome (LRP5), Bruck syndrome types 1 and 2, Cole-Carpenter dysplasia (P4HB, SEC24D), spondylo-ocular dysplasia (XYLT2), gnathodiaphyseal dysplasia (ANO5), geroderma osteodysplasticum, autosomal recessive cutis laxa types 2A and 2B, and the Wiedemann-Rautenstrauch and Singleton-Merten syndromes. The B4GALT7-related spondylodysplastic Ehlers-Danlos syndrome that the 2019 revision listed here moved to group 5, Dysplasias with multiple joint dislocations. Was group 25 in the 2019 revision.""")
+    abnormal_mineralization = PermissibleValue(
+        text="abnormal_mineralization",
+        description="""Group 27 (2023 revision): Disorders of bone mineralisation. Disorders of the mineral/phosphate axis with skeletal consequences — hypophosphatasia (ALPL), X-linked and autosomal hypophosphatemic rickets (PHEX, FGF23, DMP1, ENPP1, CLCN5, SLC34A3), vitamin D-dependent rickets types 1A/1B/2A/2B (CYP27B1, CYP2R1, VDR), familial and neonatal hyperparathyroidism (CDC73, GCM2, CASR, TRPV6) and familial hypocalciuric hypercalcemia, and familial chondrocalcinosis / calcium pyrophosphate deposition disease type 2 (ANKH). Was group 26 in the 2019 revision.""")
+    parathyroid_hormone_signaling = PermissibleValue(
+        text="parathyroid_hormone_signaling",
+        description="""Group 28 (2023 revision): Skeletal disorders of parathyroid hormone signaling cascade. New in 2023, collecting the PTH/PTHrP-axis conditions the 2019 revision distributed across other groups. All six members, transcribed from the 2023 table: Jansen-type (PTH1R) and Csukasi-Krakow-type (SIK3) metaphyseal dysplasia, Blomstrand dysplasia (PTH1R), Eiken dysplasia (PTH1R), PTHLH-related brachydactyly type E2, and PTHLH-related osteolysis. Jansen and Eiken came from the 2019 metaphyseal group, Blomstrand from the 2019 neonatal osteosclerotic group. NOTE: despite the group's name, no GNAS disorder belongs here - the 2023 table places Albright hereditary osteodystrophy (GNAS) in group 17 and fibrous dysplasia/McCune-Albright and progressive osseous heteroplasia (GNAS) in group 30, and does not list pseudohypoparathyroidism under that name at all. Do not file PHP/PPHP entries here on mechanistic grounds. Has no counterpart in the 2019 revision.""")
+    osteolysis = PermissibleValue(
+        text="osteolysis",
+        description="""Group 29 (2023 revision): Osteolysis group. Progressive resorption of bone — familial expansile osteolysis (TNFRSF11A), multicentric osteolysis with nodulosis and arthropathy (MMP2, MMP14), multicentric carpal-tarsal osteolysis (MAFB), Hajdu-Cheney syndrome (NOTCH2), mandibuloacral dysplasia and Hutchinson-Gilford progeria (LMNA, ZMPSTE24). Was group 28 in the 2019 revision.""")
+    disorganized_development_of_skeletal_components = PermissibleValue(
+        text="disorganized_development_of_skeletal_components",
+        description="""Group 30 (2023 revision): Disorganized development of skeletal components group. Focal or mosaic disorganized bone and cartilage growth — multiple cartilaginous exostoses (EXT1, EXT2), enchondromatosis (Ollier) and Maffucci syndrome (IDH1, IDH2), metachondromatosis (PTPN11), cherubism (SH3BP2), polyostotic fibrous dysplasia / McCune-Albright syndrome (GNAS), fibrodysplasia ossificans progressiva (ACVR1), neurofibromatosis type 1, osteoglophonic dysplasia (FGFR1), Nasu-Hakola disease (TREM2, TYROBP), dysplasia epiphysealis hemimelica (Trevor), Gorham-Stout disease, osteofibrous dysplasia (MET). Was group 29 in the 2019 revision.""")
+    overgrowth_syndromes_with_skeletal_involvement = PermissibleValue(
+        text="overgrowth_syndromes_with_skeletal_involvement",
+        description="""Group 31 (2023 revision): Overgrowth (tall stature) syndromes and segmental overgrowth. Sotos (NSD1), Weaver (EZH2), Tatton-Brown-Rahman (DNMT3A), Luscan-Lumish (SETD2) and Marshall-Smith (NFIX) syndromes, Proteus syndrome (AKT1) and CLOVES (PIK3CA), Marfan syndrome (FBN1), congenital contractural arachnodactyly (FBN2), Loeys-Dietz syndrome types 1-6 (TGFBR1, TGFBR2, TGFB2, TGFB3, SMAD2, SMAD3), Simpson-Golabi-Behmel (GPC3) and Beckwith-Wiedemann (11p15 imprinting) syndromes. The BGN-related Meester-Loeys syndrome is not listed here — the 2023 revision's only BGN entry is SEMD Camera type in group 7, Proteoglycan core protein disorders. Was group 30 in the 2019 revision.""")
+    genetic_inflammatory_rheumatoid_like_osteoarthropathies = PermissibleValue(
+        text="genetic_inflammatory_rheumatoid_like_osteoarthropathies",
+        description="""Group 32 (2023 revision): Genetic inflammatory or rheumatoid-like osteoarthropathies. Monogenic conditions mimicking inflammatory arthritis or osteomyelitis — progressive pseudorheumatoid dysplasia (WISP3/CCN6), CINCA/NOMID (NLRP3/CIAS1), deficiency of the IL-1 receptor antagonist (IL1RN), Majeed syndrome (LPIN2), hyaline fibromatosis syndrome (ANTXR2). Was group 31 in the 2019 revision.""")
+    cleidocranial_dysplasia_and_related = PermissibleValue(
+        text="cleidocranial_dysplasia_and_related",
+        description="""Group 33 (2023 revision): Cleidocranial dysplasia and related disorders. Cleidocranial dysplasia (RUNX2), CDAGS syndrome, Yunis-Varon dysplasia (FIG4, VAC14), isolated parietal foramina (ALX4, MSX2) and parietal foramina with cleidocranial dysplasia. Was group 32 in the 2019 revision.""")
+    craniosynostosis_syndromes = PermissibleValue(
+        text="craniosynostosis_syndromes",
+        description="""Group 34 (2023 revision): Syndromes featuring craniosynostosis. Syndromic premature suture fusion — Pfeiffer (FGFR1, FGFR2), Apert (FGFR2), Crouzon (FGFR2) and Beare-Stevenson cutis gyrata (FGFR2) syndromes, and the two FGFR3 entries that group 1 points here — Crouzon-like craniosynostosis with acanthosis nigricans (FGFR3) and Muenke-type craniosynostosis (FGFR3), which belong to this group and not to the FGFR3 chondrodysplasias. Also Saethre-Chotzen syndrome (TWIST1), Antley-Bixler syndrome (POR), Boston-type (MSX2), coronal (TCF12) and complex (ERF) craniosynostosis, Shprintzen-Goldberg syndrome (SKI), Baller-Gerold syndrome (RECQL4), Carpenter syndrome (RAB23, MEGF8). Was group 33 in the 2019 revision.""")
+    dysostoses_with_predominant_craniofacial_involvement = PermissibleValue(
+        text="dysostoses_with_predominant_craniofacial_involvement",
+        description="""Group 35 (2023 revision): Craniofacial Dysostoses. Mandibulofacial dysostoses (Treacher Collins — TCOF1, POLR1C, POLR1D; EFTUD2-related with microcephaly; EDNRA-related with alopecia), acrofacial dysostoses (Nager and Rodriguez — SF3B4; Miller — DHODH; Cincinnati — POLR1A), frontonasal dysplasias types 1-3 (ALX3, ALX4, ALX1), craniofrontonasal syndrome (EFNB1), acromelic frontonasal dysostosis (ZSWIM6), auriculocondylar syndrome (GNAI3, PLCB4, EDN1), Richieri-Costa-Pereira syndrome (EIF4A3), orofaciodigital syndrome type I (OFD1), Weyers acrofacial (acrodental) dysostosis (EVC1, EVC2), hemifacial microsomia. Was group 34 in the 2019 revision.""")
+    dysostoses_with_predominant_vertebral_and_costal_involvement = PermissibleValue(
+        text="dysostoses_with_predominant_vertebral_and_costal_involvement",
+        description="""Group 36 (2023 revision): Vertebral and costal dysostoses. Spondylocostal dysostosis (DLL3, MESP2, LFNG, HES7, TBX6, RIPPLY2) and vertebral segmentation defects, Klippel-Feil syndrome (GDF6, MEOX1, GDF3, MYO18B), Currarino syndrome (MNX1), cerebrocostomandibular syndrome (SNRPB), NAD deficiency syndrome (HAAO, KYNU), diaphanospondylodysostosis (BMPER), spondylo-megaepiphyseal-metaphyseal dysplasia (NKX3-2). Was group 35 in the 2019 revision.""")
+    patellar_dysostoses = PermissibleValue(
+        text="patellar_dysostoses",
+        description="""Group 37 (2023 revision): Patellar dysostoses. Ischiopatellar (small patella) dysplasia (TBX4), nail-patella syndrome (LMX1B), and genitopatellar syndrome (KAT6B). Despite its name, the ear-patella-primordial short stature (Meier-Gorlin) syndrome and its pre-replication-complex genes (ORC1, ORC4, ORC6, CDT1, CDC6, GMNN, CDC45, MCM3/5/7, GINS2) are NOT in this group: the 2023 revision lists them in group 21, Primordial dwarfism and slender bone dysplasias. The 2019 revision called it \"ear-patella-short stature syndrome\" and did list it here, in the group's 2019 predecessor — the inserted \"primordial\" is the rename that accompanied the move. Was group 36 in the 2019 revision.""")
+    limb_hypoplasia_reduction_defects = PermissibleValue(
+        text="limb_hypoplasia_reduction_defects",
+        description="""Group 38 (2023 revision): Limb hypoplasia - reduction defects group. Ulnar-mammary syndrome (TBX3), Holt-Oram syndrome (TBX5), Cornelia de Lange syndrome and the cohesinopathies (NIPBL, SMC1A, SMC3, RAD21, HDAC8), Fanconi anemia, thrombocytopenia-absent radius (RBM8A), Roberts syndrome (ESCO2), Okihiro/Duane-radial ray syndrome (SALL4), RAPADILINO syndrome (RECQL4), Adams-Oliver syndrome (ARHGAP31, DOCK6, NOTCH1, DLL4, RBPJ, EOGT), tibial hemimelia, acheiropodia (LMBR1) and tetra-amelia (WNT3, RSPO2), Al-Awadi/ Raas-Rothschild and Fuhrmann syndromes (WNT7A), Poland syndrome. Werner syndrome (tibial hemimelia with polysyndactyly and triphalangeal thumb) is here too, as a ZRS variant; ZRS is the limb-specific SHH enhancer inside LMBR1, so this group and group 40 both touch SHH regulation while listing different disorders. Was group 39 in the 2019 revision.""")
+    ectrodactyly_with_and_without_other_manifestations = PermissibleValue(
+        text="ectrodactyly_with_and_without_other_manifestations",
+        description="""Group 39 (2023 revision): Split hand/foot with and without other manifestations. Split-hand/foot malformation and the ectrodactyly-ectodermal dysplasia-clefting spectrum — TP63-related EEC3, AEC, limb-mammary and SHFM4 phenotypes, SHFM1 (DLX5, DLX6), the 10q24-duplication SHFM3 locus, SHFM6 (WNT10B), split-foot malformation with mesoaxial polydactyly (ZAK), EEM syndrome (CDH3), Hartsfield syndrome (FGFR1). Was group 40 in the 2019 revision.""")
+    polydactyly_syndactyly_triphalangism = PermissibleValue(
+        text="polydactyly_syndactyly_triphalangism",
+        description="""Group 40 (2023 revision): Polydactyly-Syndactyly-Triphalangism group. Preaxial polydactyly types 1-4 and the SHH/ZRS limb enhancer, GLI3-related Greig cephalopolysyndactyly and Pallister-Hall syndromes, synpolydactyly (HOXD13, FBLN1), Townes-Brocks syndrome (SALL1), syndactyly types 1-5 and Cenani-Lenz syndactyly (LRP4), Laurin-Sandrow mirror-image polydactyly, acrocallosal syndrome (KIF7), Filippi syndrome (CKAP2L), STAR syndrome (FAM58A), Meckel syndrome types 1-6, LADD syndrome (FGFR2, FGFR3, FGF10). Was group 41 in the 2019 revision.""")
+    defects_in_joint_formation_and_synostoses = PermissibleValue(
+        text="defects_in_joint_formation_and_synostoses",
+        description="""Group 41 (2023 revision): Defects in joint formation and synostoses. Multiple synostoses syndrome (NOG, GDF5, FGF9, GDF6), radio-ulnar synostosis with amegakaryocytic thrombocytopenia (HOXA11, MECOM), Liebenberg syndrome (PITX1), SAMS syndrome (GSC). Was group 42 in the 2019 revision.""")
+    perlecan = PermissibleValue(
+        text="perlecan",
+        description="""DEPRECATED - HSPG2 (perlecan) disorders — dyssegmental dysplasia (Silverman-Handmaker and Rolland-Desbuquois types) and Schwartz-Jampel syndrome (myotonic chondrodystrophy).""")
+    aggrecan = PermissibleValue(
+        text="aggrecan",
+        description="""DEPRECATED - ACAN disorders — SED Kimberley type, SEMD aggrecan type, and short stature with advanced bone age.""")
+    neonatal_osteosclerotic_dysplasias = PermissibleValue(
+        text="neonatal_osteosclerotic_dysplasias",
+        description="""DEPRECATED - Increased bone density presenting at birth or in early infancy — Blomstrand dysplasia (PTH1R), desmosterolosis (DHCR24), Caffey disease (COL1A1), Raine dysplasia (FAM20C), Al-Gazali-type dysplastic cortical hyperostosis.""")
+    other_sclerosing_bone_disorders = PermissibleValue(
+        text="other_sclerosing_bone_disorders",
+        description="""DEPRECATED - Increased bone mass or density from mechanisms other than osteoclast failure — osteopoikilosis and melorheostosis (LEMD3, MAP2K1), osteopathia striata with cranial sclerosis (AMER1), sclerosteosis and van Buchem disease (SOST, LRP4), craniometaphyseal dysplasia (ANKH, GJA1) and craniodiaphyseal dysplasia (SOST), Camurati-Engelmann diaphyseal dysplasia (TGFB1), hyperostosis-hyperphosphatemia syndrome (GALNT3, FGF23, KL), high-bone-mass LRP5 phenotypes, juvenile Paget disease (TNFRSF11B), Pyle disease (SFRP4), Lenz-Majewski hyperostotic dysplasia (PTDSS1), oculodentoosseous dysplasia (GJA1), Ghosal hematodiaphyseal dysplasia, hypertrophic osteoarthropathy.""")
+
+    _defn = EnumDefinition(
+        name="ISDSNosologyGroupEnum",
+        description="""The 41 groups of the ISDS Nosology of Genetic Skeletal Disorders, 2023 revision (PMID:36779427), plus four groups deprecated from the 2019 revision (PMID:31633310) that the 2023 revision dissolved. Values are ordered by their 2023 group number; each description opens with that number and records the 2019 number where it differed.""",
+    )
+
+class NIHResearchPriorityEnum(EnumDefinitionImpl):
+    """
+    NIH Highlighted Topics funding-priority areas. Tag entries/projects with the topic(s) whose research goals they
+    advance. Snapshot: 2026-07-12.
+    """
+    NIH_HT_2_transition_from_pediatric_to_adult_health = PermissibleValue(
+        text="NIH_HT_2_transition_from_pediatric_to_adult_health",
+        description="""Research on the Transition from Pediatric to Adult Health Care (NIH Highlighted Topic 2; expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/2""")
+    NIH_HT_3_prevention_treatment_bacterial_sexually_transmitted_infections = PermissibleValue(
+        text="NIH_HT_3_prevention_treatment_bacterial_sexually_transmitted_infections",
+        description="""Advancing Prevention and Treatment of Bacterial Sexually Transmitted Infections in HIV-Affected Populations (NIH Highlighted Topic 3; expires September 11, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/3""")
+    NIH_HT_4_impact_immune_function_neurocognition_substance_use = PermissibleValue(
+        text="NIH_HT_4_impact_immune_function_neurocognition_substance_use",
+        description="""Understanding the Impact of Immune Function on Neurocognition and Substance Use Disorder Risk Across the Lifespan (IMMUNE-LIFESPAN) (NIH Highlighted Topic 4; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/4""")
+    NIH_HT_5_sleep_circadian_rhythms_substance_use_disorders = PermissibleValue(
+        text="NIH_HT_5_sleep_circadian_rhythms_substance_use_disorders",
+        description="""Sleep, Circadian Rhythms, and Substance Use Disorders (NIH Highlighted Topic 5; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/5""")
+    NIH_HT_6_novel_targets_methods_pharmacological_approaches_to = PermissibleValue(
+        text="NIH_HT_6_novel_targets_methods_pharmacological_approaches_to",
+        description="""Novel Targets, Methods, and Pharmacological Approaches to Treat Substance Use Disorder (NIH Highlighted Topic 6; expires January 28, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/6""")
+    NIH_HT_7_novel_circuits_mechanisms_modulating_sensory_integration = PermissibleValue(
+        text="NIH_HT_7_novel_circuits_mechanisms_modulating_sensory_integration",
+        description="""Novel Circuits and Mechanisms Modulating Sensory Integration and Addiction (NIH Highlighted Topic 7; expires January 9, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/7""")
+    NIH_HT_8_data_science_artificial_intelligence_approaches_biomedical = PermissibleValue(
+        text="NIH_HT_8_data_science_artificial_intelligence_approaches_biomedical",
+        description="""Data Science and Artificial Intelligence Approaches for Biomedical, Biobehavioral and Social Science Research (NIH Highlighted Topic 8; expires June 25, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/8""")
+    NIH_HT_9_drowning_prevention = PermissibleValue(
+        text="NIH_HT_9_drowning_prevention",
+        description="""Research on Drowning Prevention (NIH Highlighted Topic 9; expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/9""")
+    NIH_HT_10_effects_contraception_as_treatment_gynecologic_disorders = PermissibleValue(
+        text="NIH_HT_10_effects_contraception_as_treatment_gynecologic_disorders",
+        description="""Effects of Contraception as Treatment for Gynecologic Disorders (NIH Highlighted Topic 10; expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/10""")
+    NIH_HT_11_school_mental_behavioral_health_expanding_access = PermissibleValue(
+        text="NIH_HT_11_school_mental_behavioral_health_expanding_access",
+        description="""School Mental and Behavioral Health: Expanding Access to Evidence-Based Interventions and Services (NIH Highlighted Topic 11; expires September 11, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/11""")
+    NIH_HT_12_computational_approaches_in_fundamental_neuroscience = PermissibleValue(
+        text="NIH_HT_12_computational_approaches_in_fundamental_neuroscience",
+        description="""Computational Approaches in Fundamental Neuroscience (NIH Highlighted Topic 12; expires January 27, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/12""")
+    NIH_HT_13_combating_chronic_disease_burden_role_trauma = PermissibleValue(
+        text="NIH_HT_13_combating_chronic_disease_burden_role_trauma",
+        description="""Understanding and Combating Chronic Disease Burden: The Role of Trauma (NIH Highlighted Topic 13; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/13""")
+    NIH_HT_16_priority_questions_in_fundamental_cellular_molecular = PermissibleValue(
+        text="NIH_HT_16_priority_questions_in_fundamental_cellular_molecular",
+        description="""Priority Research Questions in Fundamental Cellular and Molecular Neuroscience (NIH Highlighted Topic 16; expires September 15, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/16""")
+    NIH_HT_18_brain_initiative_data_knowledgebase_ecosystem_neuroai = PermissibleValue(
+        text="NIH_HT_18_brain_initiative_data_knowledgebase_ecosystem_neuroai",
+        description="""BRAIN Initiative: Data Knowledgebase Ecosystem and NeuroAI Integration (NIH Highlighted Topic 18; expires September 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/18""")
+    NIH_HT_19_brain_initiative_human_neuroscience_precision_molecular = PermissibleValue(
+        text="NIH_HT_19_brain_initiative_human_neuroscience_precision_molecular",
+        description="""BRAIN Initiative: Advancing Human Neuroscience and Precision Molecular Therapies for Transformative Treatments (NIH Highlighted Topic 19; expires January 22, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/19""")
+    NIH_HT_20_implementation_science_to_optimize_hiv_prevention = PermissibleValue(
+        text="NIH_HT_20_implementation_science_to_optimize_hiv_prevention",
+        description="""Implementation Science to Optimize HIV Prevention and Treatment (NIH Highlighted Topic 20; expires December 2, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/20""")
+    NIH_HT_21_microbiome_science_through_multidisciplinary_mechanistic_investigations = PermissibleValue(
+        text="NIH_HT_21_microbiome_science_through_multidisciplinary_mechanistic_investigations",
+        description="""Advancing Microbiome Science Through Multidisciplinary Mechanistic Investigations of the Human Microbiome in Health and Disease (NIH Highlighted Topic 21; expires January 15, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/21""")
+    NIH_HT_22_short_lived_long_lived_plasma_cells = PermissibleValue(
+        text="NIH_HT_22_short_lived_long_lived_plasma_cells",
+        description="""Research on Short-Lived and Long-Lived Plasma Cells in Humans (NIH Highlighted Topic 22; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/22""")
+    NIH_HT_23_in_celiac_disease = PermissibleValue(
+        text="NIH_HT_23_in_celiac_disease",
+        description="""Accelerating Research in Celiac Disease (NIH Highlighted Topic 23; expires September 10, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/23""")
+    NIH_HT_24_computational_modeling_complex_processes_across_biological = PermissibleValue(
+        text="NIH_HT_24_computational_modeling_complex_processes_across_biological",
+        description="""Computational Modeling of Complex Processes Across Biological Scales (NIH Highlighted Topic 24; expires April 17, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/24""")
+    NIH_HT_25_neural_exposome_factors_that_affect_brain = PermissibleValue(
+        text="NIH_HT_25_neural_exposome_factors_that_affect_brain",
+        description="""Neural Exposome Factors that Affect Brain Health and Neurological Disorders (NIH Highlighted Topic 25; expires December 2, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/25""")
+    NIH_HT_27_technology_development_genomics = PermissibleValue(
+        text="NIH_HT_27_technology_development_genomics",
+        description="""Technology Development for Genomics (NIH Highlighted Topic 27; expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/27""")
+    NIH_HT_28_use_genomic_information_clinical_care = PermissibleValue(
+        text="NIH_HT_28_use_genomic_information_clinical_care",
+        description="""Advancing the Use of Genomic Information Into Clinical Care (NIH Highlighted Topic 28; expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/28""")
+    NIH_HT_31_resources_from_osteoarthritis_initiative_oai = PermissibleValue(
+        text="NIH_HT_31_resources_from_osteoarthritis_initiative_oai",
+        description="""Supporting Research Using the Resources from the Osteoarthritis Initiative (OAI) (NIH Highlighted Topic 31; expires January 26, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/31""")
+    NIH_HT_33_training_career_development_in_dissemination_implementation = PermissibleValue(
+        text="NIH_HT_33_training_career_development_in_dissemination_implementation",
+        description="""Training and Career Development in Dissemination and Implementation Science (NIH Highlighted Topic 33; expires April 14, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/33""")
+    NIH_HT_34_evaluating_evidence_based_practice_users_augmentative = PermissibleValue(
+        text="NIH_HT_34_evaluating_evidence_based_practice_users_augmentative",
+        description="""Developing and Evaluating Evidence-Based Practice for Users of Augmentative and Alternative Communication (AAC) (NIH Highlighted Topic 34; expires January 26, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/34""")
+    NIH_HT_35_use_3d_technologies_human_auditory_vestibular = PermissibleValue(
+        text="NIH_HT_35_use_3d_technologies_human_auditory_vestibular",
+        description="""Advancing the Use of 3D Technologies Using Human Auditory, Vestibular and Chemosensory Organoids to Create New Approach Models (NAMs) for Treatments (NIH Highlighted Topic 35; expires December 2, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/35""")
+    NIH_HT_36_meaningful_outcome_measures_in_adult_hearing = PermissibleValue(
+        text="NIH_HT_36_meaningful_outcome_measures_in_adult_hearing",
+        description="""Advancing Meaningful Outcome Measures in Adult Hearing Care (NIH Highlighted Topic 36; expires December 8, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/36""")
+    NIH_HT_37_fundamental_science_neural_circuits_underlying_sensory = PermissibleValue(
+        text="NIH_HT_37_fundamental_science_neural_circuits_underlying_sensory",
+        description="""Fundamental Science Research on the Neural Circuits Underlying Sensory Processing (NIH Highlighted Topic 37; expires January 22, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/37""")
+    NIH_HT_38_leveraging_new_approach_methodologies_non_animal = PermissibleValue(
+        text="NIH_HT_38_leveraging_new_approach_methodologies_non_animal",
+        description="""Leveraging New Approach Methodologies and Non-Animal Technologies to Accelerate Osteoarthritis Research (NIH Highlighted Topic 38; expires August 29, 2027). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/38""")
+    NIH_HT_42_rare_cancers_across_cancer_control_continuum = PermissibleValue(
+        text="NIH_HT_42_rare_cancers_across_cancer_control_continuum",
+        description="""Research on Rare Cancers Across the Cancer Control Continuum (NIH Highlighted Topic 42; expires February 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/42""")
+    NIH_HT_43_autoimmune_disease_integrating_genetic_environmental_immunological = PermissibleValue(
+        text="NIH_HT_43_autoimmune_disease_integrating_genetic_environmental_immunological",
+        description="""Advancing Autoimmune Disease Research: Integrating Genetic, Environmental, and Immunological Factors to Improve Diagnosis and Treatment (NIH Highlighted Topic 43; expires February 12, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/43""")
+    NIH_HT_45_optimal_interprofessional_teaming_care_coordination_strategies = PermissibleValue(
+        text="NIH_HT_45_optimal_interprofessional_teaming_care_coordination_strategies",
+        description="""Optimal Interprofessional Teaming and Care Coordination Strategies for Cancer Care Quality and Outcomes (NIH Highlighted Topic 45; expires February 13, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/45""")
+    NIH_HT_46_drug_discovery_nervous_system_disorders = PermissibleValue(
+        text="NIH_HT_46_drug_discovery_nervous_system_disorders",
+        description="""Drug Discovery for Nervous System Disorders (NIH Highlighted Topic 46; expires January 28, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/46""")
+    NIH_HT_48_nutrition_to_inform_regulatory_practice = PermissibleValue(
+        text="NIH_HT_48_nutrition_to_inform_regulatory_practice",
+        description="""Advancing Nutrition Research to Inform Regulatory Practice (NIH Highlighted Topic 48; expires March 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/48""")
+    NIH_HT_49_science_prenatal_dietary_supplements = PermissibleValue(
+        text="NIH_HT_49_science_prenatal_dietary_supplements",
+        description="""Advancing the Science of Prenatal Dietary Supplements (NIH Highlighted Topic 49; expires May 21, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/49""")
+    NIH_HT_50_nanotechnology_to_improve_diagnosis_treatment_options = PermissibleValue(
+        text="NIH_HT_50_nanotechnology_to_improve_diagnosis_treatment_options",
+        description="""Advancing Nanotechnology Research to Improve Diagnosis and Treatment Options (NIH Highlighted Topic 50; expires March 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/50""")
+    NIH_HT_51_treatment_options_targeted_degrader_technologies = PermissibleValue(
+        text="NIH_HT_51_treatment_options_targeted_degrader_technologies",
+        description="""Advancing Treatment Options using Targeted Degrader Technologies (NIH Highlighted Topic 51; expires March 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/51""")
+    NIH_HT_52_biomedical_promoting_trust_improving_health_through = PermissibleValue(
+        text="NIH_HT_52_biomedical_promoting_trust_improving_health_through",
+        description="""Strengthening Biomedical Research, Promoting Trust, and Improving Health through Bioethics Research (NIH Highlighted Topic 52; expires January 12, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/52""")
+    NIH_HT_53_multidisciplinary_studies_hiv_aids_aging = PermissibleValue(
+        text="NIH_HT_53_multidisciplinary_studies_hiv_aids_aging",
+        description="""Multidisciplinary Studies of HIV/AIDS and Aging (NIH Highlighted Topic 53; expires March 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/53""")
+    NIH_HT_54_science_science_to_understand_strengthen_biomedical = PermissibleValue(
+        text="NIH_HT_54_science_science_to_understand_strengthen_biomedical",
+        description="""Advancing \"Science of Science\" Research to Understand and Strengthen the Biomedical Research Ecosystem (NIH Highlighted Topic 54; expires March 31, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/54""")
+    NIH_HT_55_mechanism_driven_translational_beneficial_detrimental_effect = PermissibleValue(
+        text="NIH_HT_55_mechanism_driven_translational_beneficial_detrimental_effect",
+        description="""Advancing Mechanism-driven Translational Research of Beneficial and Detrimental Effect of Psilocybin on Cancer and Other Health Conditions (NIH Highlighted Topic 55; expires April 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/55""")
+    NIH_HT_56_characterizing_interactions_between_biology_electromagnetic_radiation = PermissibleValue(
+        text="NIH_HT_56_characterizing_interactions_between_biology_electromagnetic_radiation",
+        description="""Characterizing Interactions between Biology and Electromagnetic Radiation (NIH Highlighted Topic 56; expires April 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/56""")
+    NIH_HT_57_quantum_information_science_technologies_biomedical_applications = PermissibleValue(
+        text="NIH_HT_57_quantum_information_science_technologies_biomedical_applications",
+        description="""Quantum Information Science & Technologies for Biomedical Applications (NIH Highlighted Topic 57; expires April 9, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/57""")
+    NIH_HT_58_nutritional_influences_neurodevelopmental_disorders_in_children = PermissibleValue(
+        text="NIH_HT_58_nutritional_influences_neurodevelopmental_disorders_in_children",
+        description="""Understanding Nutritional Influences on Neurodevelopmental Disorders in Children (NIH Highlighted Topic 58; expires March 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/58""")
+    NIH_HT_59_otitis_media_workforce_development = PermissibleValue(
+        text="NIH_HT_59_otitis_media_workforce_development",
+        description="""Accelerating Otitis Media Research and Workforce Development (NIH Highlighted Topic 59; expires May 26, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/59""")
+    NIH_HT_60_glp_1s_implications_nutritional_status_metabolic = PermissibleValue(
+        text="NIH_HT_60_glp_1s_implications_nutritional_status_metabolic",
+        description="""GLP-1s: Implications for Nutritional Status and Metabolic Health Outcomes (NIH Highlighted Topic 60; expires April 24, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/60""")
+    NIH_HT_61_hidradenitis_suppurativa = PermissibleValue(
+        text="NIH_HT_61_hidradenitis_suppurativa",
+        description="""Accelerating Hidradenitis Suppurativa Research (NIH Highlighted Topic 61; expires April 7, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/61""")
+    NIH_HT_62_new_approach_methodologies_nams_dietary_supplement = PermissibleValue(
+        text="NIH_HT_62_new_approach_methodologies_nams_dietary_supplement",
+        description="""New Approach Methodologies (NAMs) for Dietary Supplement and Nutrition research (NIH Highlighted Topic 62; expires May 20, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/62""")
+    NIH_HT_66_scientific_rigor_transparency_replicability = PermissibleValue(
+        text="NIH_HT_66_scientific_rigor_transparency_replicability",
+        description="""Enhancing Scientific Rigor, Transparency and Replicability (NIH Highlighted Topic 66; expires April 27, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/66""")
+    NIH_HT_67_cause_treatment_rare_skin_diseases = PermissibleValue(
+        text="NIH_HT_67_cause_treatment_rare_skin_diseases",
+        description="""Advancing Research into the Cause and Treatment of Rare Skin Diseases (NIH Highlighted Topic 67; expires April 2, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/67""")
+    NIH_HT_68_childhood_adolescent_young_adult_aya_cancer = PermissibleValue(
+        text="NIH_HT_68_childhood_adolescent_young_adult_aya_cancer",
+        description="""Advancing Childhood and Adolescent & Young Adult (AYA) Cancer Research (NIH Highlighted Topic 68; expires April 15, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/68""")
+    NIH_HT_69_health_extreme_weather_critical_to_address = PermissibleValue(
+        text="NIH_HT_69_health_extreme_weather_critical_to_address",
+        description="""Health and Extreme Weather: Advancing Critical Research to Address the Direct and Indirect Health Impacts of Weather-Related Natural Disasters and Emerging Weather-Related Harms (NIH Highlighted Topic 69; expires May 1, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/69""")
+    NIH_HT_70_chatbots_their_usage = PermissibleValue(
+        text="NIH_HT_70_chatbots_their_usage",
+        description="""Research on Chatbots and their Usage (NIH Highlighted Topic 70; expires April 15, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/70""")
+    NIH_HT_71_tackling_acquisition_language_in_kids_talk = PermissibleValue(
+        text="NIH_HT_71_tackling_acquisition_language_in_kids_talk",
+        description="""Tackling Acquisition of Language in Kids (TALK) (NIH Highlighted Topic 71; expires April 21, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/71""")
+    NIH_HT_72_cure_acquired_neuropathy = PermissibleValue(
+        text="NIH_HT_72_cure_acquired_neuropathy",
+        description="""Advancing Toward a Cure for Acquired Neuropathy (NIH Highlighted Topic 72; expires April 6, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/72""")
+    NIH_HT_73_behavioral_cognitive_signals_aging_in_real = PermissibleValue(
+        text="NIH_HT_73_behavioral_cognitive_signals_aging_in_real",
+        description="""Behavioral and Cognitive Signals of Aging in Real-World Contexts (NIH Highlighted Topic 73; expires June 24, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/73""")
+    NIH_HT_74_oral_health_aging = PermissibleValue(
+        text="NIH_HT_74_oral_health_aging",
+        description="""Oral Health and Aging (NIH Highlighted Topic 74; expires June 5, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/74""")
+    NIH_HT_76_role_post_translational_modifications_in_human = PermissibleValue(
+        text="NIH_HT_76_role_post_translational_modifications_in_human",
+        description="""Research on the Role of Post-Translational Modifications in Human Health and Disease (NIH Highlighted Topic 76; expires June 26, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/76""")
+    NIH_HT_78_food_is_medicine = PermissibleValue(
+        text="NIH_HT_78_food_is_medicine",
+        description="""Food Is Medicine (NIH Highlighted Topic 78; expires June 3, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/78""")
+    NIH_HT_79_data_usage_utility_to_advance_biomedical = PermissibleValue(
+        text="NIH_HT_79_data_usage_utility_to_advance_biomedical",
+        description="""Enhancing Data Usage and Utility to Advance Biomedical Research (NIH Highlighted Topic 79; expires June 24, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/79""")
+    NIH_HT_82_breaking_barriers_integrating_immunology_neuroscience_to = PermissibleValue(
+        text="NIH_HT_82_breaking_barriers_integrating_immunology_neuroscience_to",
+        description="""Breaking Barriers: Integrating Immunology and Neuroscience to Transform AD/ADRD Research and Bring a Better Understanding of the Aging Brain (NIH Highlighted Topic 82; expires May 1, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/82""")
+    NIH_HT_83_biology_physics_informed_explainable_ai_across = PermissibleValue(
+        text="NIH_HT_83_biology_physics_informed_explainable_ai_across",
+        description="""Biology- and Physics-Informed Explainable AI Across the Lifespan (NIH Highlighted Topic 83; expires June 2, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/83""")
+    NIH_HT_84_postnatal_human_developmental_stages_transitions_relationships = PermissibleValue(
+        text="NIH_HT_84_postnatal_human_developmental_stages_transitions_relationships",
+        description="""Postnatal Human Developmental Stages and Transitions: Relationships to Aging Changes and Outcomes over the Life Course (NIH Highlighted Topic 84; expires May 22, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/84""")
+    NIH_HT_85_improve_funded_maternal_health_centers_excellence = PermissibleValue(
+        text="NIH_HT_85_improve_funded_maternal_health_centers_excellence",
+        description="""Enhancing the IMPROVE-funded Maternal Health Centers of Excellence (NIH Highlighted Topic 85; expires April 7, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/85""")
+    NIH_HT_86_biomarker_discovery_validation_alcohol_related_cardiovascular = PermissibleValue(
+        text="NIH_HT_86_biomarker_discovery_validation_alcohol_related_cardiovascular",
+        description="""Biomarker Discovery and Validation for Alcohol-Related Cardiovascular Diseases (NIH Highlighted Topic 86; expires May 22, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/86""")
+    NIH_HT_88_unexplained_anemia_in_older_persons_elucidating = PermissibleValue(
+        text="NIH_HT_88_unexplained_anemia_in_older_persons_elucidating",
+        description="""Unexplained Anemia in Older Persons: Elucidating Etiologies, Improving Diagnoses, and Identifying and Testing Potential Treatment Strategies (NIH Highlighted Topic 88; expires May 11, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/88""")
+    NIH_HT_89_cellular_quiescence_senescence_cell_death_in = PermissibleValue(
+        text="NIH_HT_89_cellular_quiescence_senescence_cell_death_in",
+        description="""Cellular Quiescence, Senescence, and Cell Death in Aging and Disease (NIH Highlighted Topic 89; expires July 1, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/89""")
+    NIH_HT_90_integrating_environmental_science_engineering_with_biomedical = PermissibleValue(
+        text="NIH_HT_90_integrating_environmental_science_engineering_with_biomedical",
+        description="""Integrating Environmental Science and Engineering with Biomedical Research for Effective Exposure Prevention and Disease Intervention (NIH Highlighted Topic 90; expires June 18, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/90""")
+    NIH_HT_93_implementation_science_to_optimize_alcohol_misuse = PermissibleValue(
+        text="NIH_HT_93_implementation_science_to_optimize_alcohol_misuse",
+        description="""Implementation Science to Optimize Alcohol Misuse Prevention and Treatment in the Criminal Justice System (NIH Highlighted Topic 93; expires July 7, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/93""")
+    NIH_HT_94_increasing_engagement_in_treatment_behavioral_health = PermissibleValue(
+        text="NIH_HT_94_increasing_engagement_in_treatment_behavioral_health",
+        description="""Increasing Engagement in Treatment for Behavioral Health (NIH Highlighted Topic 94; expires July 8, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/94""")
+    NIH_HT_95_rna_metabolism_in_aging_healthy_lifespan = PermissibleValue(
+        text="NIH_HT_95_rna_metabolism_in_aging_healthy_lifespan",
+        description="""RNA Metabolism in Aging and Healthy Lifespan (NIH Highlighted Topic 95; expires July 10, 2028). https://grants.nih.gov/funding/find-a-fit-for-your-research/highlighted-topics/95""")
+
+    _defn = EnumDefinition(
+        name="NIHResearchPriorityEnum",
+        description="""NIH Highlighted Topics funding-priority areas. Tag entries/projects with the topic(s) whose research goals they advance. Snapshot: 2026-07-12.""",
+    )
+
 # Slots
 class slots:
     pass
+
+slots.gene_sets = Slot(uri=DISMECH.gene_sets, name="gene_sets", curie=DISMECH.curie('gene_sets'),
+                   model_uri=DISMECH.gene_sets, domain=None, range=Optional[Union[Union[dict, GeneSetAssociation], list[Union[dict, GeneSetAssociation]]]])
 
 slots.name = Slot(uri=DISMECH.name, name="name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.name, domain=None, range=URIRef)
@@ -7759,6 +10660,36 @@ slots.population = Slot(uri=DISMECH.population, name="population", curie=DISMECH
 
 slots.percentage = Slot(uri=DISMECH.percentage, name="percentage", curie=DISMECH.curie('percentage'),
                    model_uri=DISMECH.percentage, domain=None, range=Optional[Union[dict, Any]])
+
+slots.measure_type = Slot(uri=DISMECH.measure_type, name="measure_type", curie=DISMECH.curie('measure_type'),
+                   model_uri=DISMECH.measure_type, domain=None, range=Optional[Union[str, "PrevalenceMeasureEnum"]])
+
+slots.prevalence_class = Slot(uri=DISMECH.prevalence_class, name="prevalence_class", curie=DISMECH.curie('prevalence_class'),
+                   model_uri=DISMECH.prevalence_class, domain=None, range=Optional[Union[str, "PrevalenceClassEnum"]])
+
+slots.rate_per_100000 = Slot(uri=DISMECH.rate_per_100000, name="rate_per_100000", curie=DISMECH.curie('rate_per_100000'),
+                   model_uri=DISMECH.rate_per_100000, domain=None, range=Optional[float])
+
+slots.rate_low = Slot(uri=DISMECH.rate_low, name="rate_low", curie=DISMECH.curie('rate_low'),
+                   model_uri=DISMECH.rate_low, domain=None, range=Optional[float])
+
+slots.rate_high = Slot(uri=DISMECH.rate_high, name="rate_high", curie=DISMECH.curie('rate_high'),
+                   model_uri=DISMECH.rate_high, domain=None, range=Optional[float])
+
+slots.case_fractions = Slot(uri=DISMECH.case_fractions, name="case_fractions", curie=DISMECH.curie('case_fractions'),
+                   model_uri=DISMECH.case_fractions, domain=None, range=Optional[Union[Union[dict, GeneCaseFraction], list[Union[dict, GeneCaseFraction]]]])
+
+slots.case_fraction_percent = Slot(uri=DISMECH.case_fraction_percent, name="case_fraction_percent", curie=DISMECH.curie('case_fraction_percent'),
+                   model_uri=DISMECH.case_fraction_percent, domain=None, range=Optional[float])
+
+slots.case_fraction_low = Slot(uri=DISMECH.case_fraction_low, name="case_fraction_low", curie=DISMECH.curie('case_fraction_low'),
+                   model_uri=DISMECH.case_fraction_low, domain=None, range=Optional[float])
+
+slots.case_fraction_high = Slot(uri=DISMECH.case_fraction_high, name="case_fraction_high", curie=DISMECH.curie('case_fraction_high'),
+                   model_uri=DISMECH.case_fraction_high, domain=None, range=Optional[float])
+
+slots.cohort_size = Slot(uri=DISMECH.cohort_size, name="cohort_size", curie=DISMECH.curie('cohort_size'),
+                   model_uri=DISMECH.cohort_size, domain=None, range=Optional[int])
 
 slots.phase = Slot(uri=DISMECH.phase, name="phase", curie=DISMECH.curie('phase'),
                    model_uri=DISMECH.phase, domain=None, range=Optional[Union[str, "PhaseTerm"]])
@@ -7898,6 +10829,9 @@ slots.regulatory_endpoint_refs = Slot(uri=DISMECH.regulatory_endpoint_refs, name
 slots.interpretation = Slot(uri=DISMECH.interpretation, name="interpretation", curie=DISMECH.curie('interpretation'),
                    model_uri=DISMECH.interpretation, domain=None, range=Optional[str])
 
+slots.reports_on = Slot(uri=DISMECH.reports_on, name="reports_on", curie=DISMECH.curie('reports_on'),
+                   model_uri=DISMECH.reports_on, domain=None, range=Optional[Union[Union[dict, PhenotypeReadout], list[Union[dict, PhenotypeReadout]]]])
+
 slots.row_id = Slot(uri=DISMECH.row_id, name="row_id", curie=DISMECH.curie('row_id'),
                    model_uri=DISMECH.row_id, domain=None, range=URIRef)
 
@@ -8015,6 +10949,9 @@ slots.context = Slot(uri=DISMECH.context, name="context", curie=DISMECH.curie('c
 slots.severity = Slot(uri=DISMECH.severity, name="severity", curie=DISMECH.curie('severity'),
                    model_uri=DISMECH.severity, domain=None, range=Optional[Union[dict, Any]])
 
+slots.burden_level = Slot(uri=DISMECH.burden_level, name="burden_level", curie=DISMECH.curie('burden_level'),
+                   model_uri=DISMECH.burden_level, domain=None, range=Optional[Union[str, "ClinicalBurdenLevelEnum"]])
+
 slots.presence = Slot(uri=DISMECH.presence, name="presence", curie=DISMECH.curie('presence'),
                    model_uri=DISMECH.presence, domain=None, range=Optional[str])
 
@@ -8078,6 +11015,9 @@ slots.prevalence = Slot(uri=DISMECH.prevalence, name="prevalence", curie=DISMECH
 slots.progression = Slot(uri=DISMECH.progression, name="progression", curie=DISMECH.curie('progression'),
                    model_uri=DISMECH.progression, domain=None, range=Optional[Union[Union[dict, ProgressionInfo], list[Union[dict, ProgressionInfo]]]])
 
+slots.clinical_burden = Slot(uri=DISMECH.clinical_burden, name="clinical_burden", curie=DISMECH.curie('clinical_burden'),
+                   model_uri=DISMECH.clinical_burden, domain=None, range=Optional[Union[dict, ClinicalBurden]])
+
 slots.pathophysiology = Slot(uri=DISMECH.pathophysiology, name="pathophysiology", curie=DISMECH.curie('pathophysiology'),
                    model_uri=DISMECH.pathophysiology, domain=None, range=Optional[Union[dict[Union[str, PathophysiologyName], Union[dict, Pathophysiology]], list[Union[dict, Pathophysiology]]]])
 
@@ -8092,6 +11032,27 @@ slots.phenotypes = Slot(uri=DISMECH.phenotypes, name="phenotypes", curie=DISMECH
 
 slots.histopathology = Slot(uri=DISMECH.histopathology, name="histopathology", curie=DISMECH.curie('histopathology'),
                    model_uri=DISMECH.histopathology, domain=None, range=Optional[Union[dict[Union[str, HistopathologyFindingName], Union[dict, HistopathologyFinding]], list[Union[dict, HistopathologyFinding]]]])
+
+slots.imaging_findings = Slot(uri=DISMECH.imaging_findings, name="imaging_findings", curie=DISMECH.curie('imaging_findings'),
+                   model_uri=DISMECH.imaging_findings, domain=None, range=Optional[Union[dict[Union[str, ImagingFindingName], Union[dict, ImagingFinding]], list[Union[dict, ImagingFinding]]]])
+
+slots.modality = Slot(uri=DISMECH.modality, name="modality", curie=DISMECH.curie('modality'),
+                   model_uri=DISMECH.modality, domain=None, range=Optional[Union[str, "ImagingModalityEnum"]])
+
+slots.imaging_finding_term = Slot(uri=DISMECH.imaging_finding_term, name="imaging_finding_term", curie=DISMECH.curie('imaging_finding_term'),
+                   model_uri=DISMECH.imaging_finding_term, domain=None, range=Optional[Union[dict, ImagingFindingDescriptor]])
+
+slots.electrophysiology = Slot(uri=DISMECH.electrophysiology, name="electrophysiology", curie=DISMECH.curie('electrophysiology'),
+                   model_uri=DISMECH.electrophysiology, domain=None, range=Optional[Union[dict, ElectrophysiologyContext]])
+
+slots.electrophysiology_modality = Slot(uri=DISMECH.electrophysiology_modality, name="electrophysiology_modality", curie=DISMECH.curie('electrophysiology_modality'),
+                   model_uri=DISMECH.electrophysiology_modality, domain=None, range=Optional[Union[str, "ElectrophysiologyModalityEnum"]])
+
+slots.ictal_state = Slot(uri=DISMECH.ictal_state, name="ictal_state", curie=DISMECH.curie('ictal_state'),
+                   model_uri=DISMECH.ictal_state, domain=None, range=Optional[Union[str, "IctalStateEnum"]])
+
+slots.recording_state = Slot(uri=DISMECH.recording_state, name="recording_state", curie=DISMECH.curie('recording_state'),
+                   model_uri=DISMECH.recording_state, domain=None, range=Optional[Union[str, "EEGRecordingStateEnum"]])
 
 slots.biochemical = Slot(uri=DISMECH.biochemical, name="biochemical", curie=DISMECH.curie('biochemical'),
                    model_uri=DISMECH.biochemical, domain=None, range=Optional[Union[dict[Union[str, BiochemicalName], Union[dict, Biochemical]], list[Union[dict, Biochemical]]]])
@@ -8210,6 +11171,24 @@ slots.severity_scale = Slot(uri=DISMECH.severity_scale, name="severity_scale", c
 slots.unit = Slot(uri=DISMECH.unit, name="unit", curie=DISMECH.curie('unit'),
                    model_uri=DISMECH.unit, domain=None, range=Optional[str])
 
+slots.loinc_term = Slot(uri=DISMECH.loinc_term, name="loinc_term", curie=DISMECH.curie('loinc_term'),
+                   model_uri=DISMECH.loinc_term, domain=None, range=Optional[Union[dict, Term]])
+
+slots.lower_bound = Slot(uri=DISMECH.lower_bound, name="lower_bound", curie=DISMECH.curie('lower_bound'),
+                   model_uri=DISMECH.lower_bound, domain=None, range=Optional[float])
+
+slots.upper_bound = Slot(uri=DISMECH.upper_bound, name="upper_bound", curie=DISMECH.curie('upper_bound'),
+                   model_uri=DISMECH.upper_bound, domain=None, range=Optional[float])
+
+slots.reference_ranges = Slot(uri=DISMECH.reference_ranges, name="reference_ranges", curie=DISMECH.curie('reference_ranges'),
+                   model_uri=DISMECH.reference_ranges, domain=None, range=Optional[Union[Union[dict, ReferenceRange], list[Union[dict, ReferenceRange]]]])
+
+slots.interpretation_bands = Slot(uri=DISMECH.interpretation_bands, name="interpretation_bands", curie=DISMECH.curie('interpretation_bands'),
+                   model_uri=DISMECH.interpretation_bands, domain=None, range=Optional[Union[dict[Union[str, ReferenceRangeBandName], Union[dict, ReferenceRangeBand]], list[Union[dict, ReferenceRangeBand]]]])
+
+slots.abnormal_flag = Slot(uri=DISMECH.abnormal_flag, name="abnormal_flag", curie=DISMECH.curie('abnormal_flag'),
+                   model_uri=DISMECH.abnormal_flag, domain=None, range=Optional[Union[str, "AbnormalFlagEnum"]])
+
 slots.function = Slot(uri=DISMECH.function, name="function", curie=DISMECH.curie('function'),
                    model_uri=DISMECH.function, domain=None, range=Optional[str])
 
@@ -8315,14 +11294,53 @@ slots.target_mechanisms = Slot(uri=DISMECH.target_mechanisms, name="target_mecha
 slots.modeled_mechanisms = Slot(uri=DISMECH.modeled_mechanisms, name="modeled_mechanisms", curie=DISMECH.curie('modeled_mechanisms'),
                    model_uri=DISMECH.modeled_mechanisms, domain=None, range=Optional[Union[Union[dict, ModelMechanismLink], list[Union[dict, ModelMechanismLink]]]])
 
+slots.fidelity = Slot(uri=DISMECH.fidelity, name="fidelity", curie=DISMECH.curie('fidelity'),
+                   model_uri=DISMECH.fidelity, domain=None, range=Optional[Union[str, "ModelFidelityEnum"]])
+
+slots.limitations = Slot(uri=DISMECH.limitations, name="limitations", curie=DISMECH.curie('limitations'),
+                   model_uri=DISMECH.limitations, domain=None, range=Optional[str])
+
+slots.influences_mechanisms = Slot(uri=DISMECH.influences_mechanisms, name="influences_mechanisms", curie=DISMECH.curie('influences_mechanisms'),
+                   model_uri=DISMECH.influences_mechanisms, domain=None, range=Optional[Union[Union[dict, EnvironmentalMechanismTarget], list[Union[dict, EnvironmentalMechanismTarget]]]])
+
+slots.environmental_effect = Slot(uri=DISMECH.environmental_effect, name="environmental_effect", curie=DISMECH.curie('environmental_effect'),
+                   model_uri=DISMECH.environmental_effect, domain=None, range=Optional[Union[str, "EnvironmentalEffectEnum"]])
+
 slots.treatment_effect = Slot(uri=DISMECH.treatment_effect, name="treatment_effect", curie=DISMECH.curie('treatment_effect'),
                    model_uri=DISMECH.treatment_effect, domain=None, range=Optional[Union[str, "TreatmentEffectEnum"]])
 
 slots.pdb_structures = Slot(uri=DISMECH.pdb_structures, name="pdb_structures", curie=DISMECH.curie('pdb_structures'),
                    model_uri=DISMECH.pdb_structures, domain=None, range=Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]])
 
+slots.therapeutic_modality = Slot(uri=DISMECH.therapeutic_modality, name="therapeutic_modality", curie=DISMECH.curie('therapeutic_modality'),
+                   model_uri=DISMECH.therapeutic_modality, domain=None, range=Optional[Union[str, "TherapeuticModalityEnum"]])
+
+slots.aso_details = Slot(uri=DISMECH.aso_details, name="aso_details", curie=DISMECH.curie('aso_details'),
+                   model_uri=DISMECH.aso_details, domain=None, range=Optional[Union[dict, AntisenseOligonucleotideDetail]])
+
+slots.aso_mechanism = Slot(uri=DISMECH.aso_mechanism, name="aso_mechanism", curie=DISMECH.curie('aso_mechanism'),
+                   model_uri=DISMECH.aso_mechanism, domain=None, range=Optional[Union[str, "AsoMechanismEnum"]])
+
+slots.target_gene = Slot(uri=DISMECH.target_gene, name="target_gene", curie=DISMECH.curie('target_gene'),
+                   model_uri=DISMECH.target_gene, domain=None, range=Optional[Union[dict, GeneDescriptor]])
+
+slots.target_transcript = Slot(uri=DISMECH.target_transcript, name="target_transcript", curie=DISMECH.curie('target_transcript'),
+                   model_uri=DISMECH.target_transcript, domain=None, range=Optional[str])
+
+slots.target_exon = Slot(uri=DISMECH.target_exon, name="target_exon", curie=DISMECH.curie('target_exon'),
+                   model_uri=DISMECH.target_exon, domain=None, range=Optional[str])
+
+slots.aso_chemistry = Slot(uri=DISMECH.aso_chemistry, name="aso_chemistry", curie=DISMECH.curie('aso_chemistry'),
+                   model_uri=DISMECH.aso_chemistry, domain=None, range=Optional[Union[str, "AsoChemistryEnum"]])
+
+slots.conjugation = Slot(uri=DISMECH.conjugation, name="conjugation", curie=DISMECH.curie('conjugation'),
+                   model_uri=DISMECH.conjugation, domain=None, range=Optional[Union[str, "AsoConjugationEnum"]])
+
 slots.mechanism_confidence = Slot(uri=DISMECH.mechanism_confidence, name="mechanism_confidence", curie=DISMECH.curie('mechanism_confidence'),
                    model_uri=DISMECH.mechanism_confidence, domain=None, range=Optional[Union[str, "MechanismConfidenceEnum"]])
+
+slots.biological_scale = Slot(uri=DISMECH.biological_scale, name="biological_scale", curie=DISMECH.curie('biological_scale'),
+                   model_uri=DISMECH.biological_scale, domain=None, range=Optional[Union[str, "BiologicalScaleEnum"]])
 
 slots.accession = Slot(uri=DISMECH.accession, name="accession", curie=DISMECH.curie('accession'),
                    model_uri=DISMECH.accession, domain=None, range=URIRef)
@@ -8458,6 +11476,15 @@ slots.iuis_category = Slot(uri=DISMECH.iuis_category, name="iuis_category", curi
 slots.channelopathy_category = Slot(uri=DISMECH.channelopathy_category, name="channelopathy_category", curie=DISMECH.curie('channelopathy_category'),
                    model_uri=DISMECH.channelopathy_category, domain=None, range=Optional[Union[dict, ChannelopathyAssignment]])
 
+slots.icimd_category = Slot(uri=DISMECH.icimd_category, name="icimd_category", curie=DISMECH.curie('icimd_category'),
+                   model_uri=DISMECH.icimd_category, domain=None, range=Optional[Union[Union[dict, ICIMDAssignment], list[Union[dict, ICIMDAssignment]]]])
+
+slots.isds_skeletal_category = Slot(uri=DISMECH.isds_skeletal_category, name="isds_skeletal_category", curie=DISMECH.curie('isds_skeletal_category'),
+                   model_uri=DISMECH.isds_skeletal_category, domain=None, range=Optional[Union[Union[dict, ISDSNosologyAssignment], list[Union[dict, ISDSNosologyAssignment]]]])
+
+slots.nih_research_priority = Slot(uri=DISMECH.nih_research_priority, name="nih_research_priority", curie=DISMECH.curie('nih_research_priority'),
+                   model_uri=DISMECH.nih_research_priority, domain=None, range=Optional[Union[Union[dict, NIHResearchPriorityAssignment], list[Union[dict, NIHResearchPriorityAssignment]]]])
+
 slots.classification_value = Slot(uri=DISMECH.classification_value, name="classification_value", curie=DISMECH.curie('classification_value'),
                    model_uri=DISMECH.classification_value, domain=None, range=Optional[str])
 
@@ -8484,6 +11511,12 @@ slots.mapping_justification = Slot(uri=DISMECH.mapping_justification, name="mapp
 
 slots.definition_type = Slot(uri=DISMECH.definition_type, name="definition_type", curie=DISMECH.curie('definition_type'),
                    model_uri=DISMECH.definition_type, domain=None, range=Optional[Union[str, "DefinitionTypeEnum"]])
+
+slots.derivation_basis = Slot(uri=DISMECH.derivation_basis, name="derivation_basis", curie=DISMECH.curie('derivation_basis'),
+                   model_uri=DISMECH.derivation_basis, domain=None, range=Optional[Union[str, "DefinitionDerivationBasisEnum"]])
+
+slots.validation_status = Slot(uri=DISMECH.validation_status, name="validation_status", curie=DISMECH.curie('validation_status'),
+                   model_uri=DISMECH.validation_status, domain=None, range=Optional[Union[dict, AlgorithmValidationStatus]])
 
 slots.criteria_sets = Slot(uri=DISMECH.criteria_sets, name="criteria_sets", curie=DISMECH.curie('criteria_sets'),
                    model_uri=DISMECH.criteria_sets, domain=None, range=Optional[Union[dict[Union[str, CriteriaSetName], Union[dict, CriteriaSet]], list[Union[dict, CriteriaSet]]]])
@@ -8547,6 +11580,9 @@ slots.code = Slot(uri=DISMECH.code, name="code", curie=DISMECH.curie('code'),
 
 slots.directionality = Slot(uri=DISMECH.directionality, name="directionality", curie=DISMECH.curie('directionality'),
                    model_uri=DISMECH.directionality, domain=None, range=Optional[Union[str, "ComorbidityDirectionEnum"]])
+
+slots.effect_direction = Slot(uri=DISMECH.effect_direction, name="effect_direction", curie=DISMECH.curie('effect_direction'),
+                   model_uri=DISMECH.effect_direction, domain=None, range=Optional[Union[str, "ComorbidityEffectDirectionEnum"]])
 
 slots.composition = Slot(uri=DISMECH.composition, name="composition", curie=DISMECH.curie('composition'),
                    model_uri=DISMECH.composition, domain=None, range=Optional[Union[str, "ConditionCompositionEnum"]])
@@ -8668,6 +11704,9 @@ slots.functional_impact = Slot(uri=DISMECH.functional_impact, name="functional_i
 slots.functional_impact_category = Slot(uri=DISMECH.functional_impact_category, name="functional_impact_category", curie=DISMECH.curie('functional_impact_category'),
                    model_uri=DISMECH.functional_impact_category, domain=None, range=Optional[Union[str, "FunctionalImpactEnum"]])
 
+slots.nmd_fate = Slot(uri=DISMECH.nmd_fate, name="nmd_fate", curie=DISMECH.curie('nmd_fate'),
+                   model_uri=DISMECH.nmd_fate, domain=None, range=Optional[Union[str, "NmdFateEnum"]])
+
 slots.complementation_group = Slot(uri=DISMECH.complementation_group, name="complementation_group", curie=DISMECH.curie('complementation_group'),
                    model_uri=DISMECH.complementation_group, domain=None, range=Optional[str])
 
@@ -8695,6 +11734,60 @@ slots.tracked_issue_role = Slot(uri=DISMECH.tracked_issue_role, name="tracked_is
 slots.tracked_issue_status = Slot(uri=DISMECH.tracked_issue_status, name="tracked_issue_status", curie=DISMECH.curie('tracked_issue_status'),
                    model_uri=DISMECH.tracked_issue_status, domain=None, range=Optional[str])
 
+slots.grouping_basis = Slot(uri=DISMECH.grouping_basis, name="grouping_basis", curie=DISMECH.curie('grouping_basis'),
+                   model_uri=DISMECH.grouping_basis, domain=None, range=Optional[Union[Union[str, "GroupingBasisEnum"], list[Union[str, "GroupingBasisEnum"]]]])
+
+slots.grouping_rationale = Slot(uri=DISMECH.grouping_rationale, name="grouping_rationale", curie=DISMECH.curie('grouping_rationale'),
+                   model_uri=DISMECH.grouping_rationale, domain=None, range=Optional[str])
+
+slots.membership_criteria = Slot(uri=DISMECH.membership_criteria, name="membership_criteria", curie=DISMECH.curie('membership_criteria'),
+                   model_uri=DISMECH.membership_criteria, domain=None, range=Optional[Union[Union[dict, GroupingCriteria], list[Union[dict, GroupingCriteria]]]])
+
+slots.criteria_semantics = Slot(uri=DISMECH.criteria_semantics, name="criteria_semantics", curie=DISMECH.curie('criteria_semantics'),
+                   model_uri=DISMECH.criteria_semantics, domain=None, range=Optional[Union[str, "CriteriaSemanticsEnum"]])
+
+slots.logic = Slot(uri=DISMECH.logic, name="logic", curie=DISMECH.curie('logic'),
+                   model_uri=DISMECH.logic, domain=None, range=Optional[Union[dict, LogicalCriterion]])
+
+slots.operator = Slot(uri=DISMECH.operator, name="operator", curie=DISMECH.curie('operator'),
+                   model_uri=DISMECH.operator, domain=None, range=Optional[Union[str, "LogicalOperatorEnum"]])
+
+slots.operands = Slot(uri=DISMECH.operands, name="operands", curie=DISMECH.curie('operands'),
+                   model_uri=DISMECH.operands, domain=None, range=Optional[Union[Union[dict, LogicalCriterion], list[Union[dict, LogicalCriterion]]]])
+
+slots.criterion_predicate = Slot(uri=DISMECH.criterion_predicate, name="criterion_predicate", curie=DISMECH.curie('criterion_predicate'),
+                   model_uri=DISMECH.criterion_predicate, domain=None, range=Optional[Union[str, "CriterionPredicateEnum"]])
+
+slots.min_frequency = Slot(uri=DISMECH.min_frequency, name="min_frequency", curie=DISMECH.curie('min_frequency'),
+                   model_uri=DISMECH.min_frequency, domain=None, range=Optional[Union[str, "FrequencyEnum"]])
+
+slots.module = Slot(uri=DISMECH.module, name="module", curie=DISMECH.curie('module'),
+                   model_uri=DISMECH.module, domain=None, range=Optional[str])
+
+slots.negated = Slot(uri=DISMECH.negated, name="negated", curie=DISMECH.curie('negated'),
+                   model_uri=DISMECH.negated, domain=None, range=Optional[Union[bool, Bool]])
+
+slots.members = Slot(uri=DISMECH.members, name="members", curie=DISMECH.curie('members'),
+                   model_uri=DISMECH.members, domain=None, range=Optional[Union[Union[dict, GroupingMember], list[Union[dict, GroupingMember]]]])
+
+slots.member = Slot(uri=DISMECH.member, name="member", curie=DISMECH.curie('member'),
+                   model_uri=DISMECH.member, domain=None, range=str)
+
+slots.member_type = Slot(uri=DISMECH.member_type, name="member_type", curie=DISMECH.curie('member_type'),
+                   model_uri=DISMECH.member_type, domain=None, range=Optional[Union[str, "GroupingMemberTypeEnum"]])
+
+slots.differentiating_mechanisms = Slot(uri=DISMECH.differentiating_mechanisms, name="differentiating_mechanisms", curie=DISMECH.curie('differentiating_mechanisms'),
+                   model_uri=DISMECH.differentiating_mechanisms, domain=None, range=Optional[Union[Union[dict, DifferentiatingMechanism], list[Union[dict, DifferentiatingMechanism]]]])
+
+slots.geneSetAssociation__gene_set = Slot(uri=DISMECH.gene_set, name="geneSetAssociation__gene_set", curie=DISMECH.curie('gene_set'),
+                   model_uri=DISMECH.geneSetAssociation__gene_set, domain=None, range=Union[str, URIorCURIE])
+
+slots.geneSetAssociation__relationship = Slot(uri=DISMECH.relationship, name="geneSetAssociation__relationship", curie=DISMECH.curie('relationship'),
+                   model_uri=DISMECH.geneSetAssociation__relationship, domain=None, range=Optional[Union[str, "GeneSetRelationshipEnum"]])
+
+slots.geneSetAssociation__note = Slot(uri=DISMECH.note, name="geneSetAssociation__note", curie=DISMECH.curie('note'),
+                   model_uri=DISMECH.geneSetAssociation__note, domain=None, range=Optional[str])
+
 slots.proteinStructure__pdb_id = Slot(uri=DISMECH.pdb_id, name="proteinStructure__pdb_id", curie=DISMECH.curie('pdb_id'),
                    model_uri=DISMECH.proteinStructure__pdb_id, domain=None, range=str)
 
@@ -8715,6 +11808,9 @@ slots.proteinStructure__target_protein = Slot(uri=DISMECH.target_protein, name="
 
 slots.proteinStructure__publication = Slot(uri=DISMECH.publication, name="proteinStructure__publication", curie=DISMECH.curie('publication'),
                    model_uri=DISMECH.proteinStructure__publication, domain=None, range=Optional[str])
+
+slots.animalModel__name = Slot(uri=DISMECH.name, name="animalModel__name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.animalModel__name, domain=None, range=Optional[str])
 
 slots.CurationEvent_curation_timestamp = Slot(uri=DISMECH.curation_timestamp, name="CurationEvent_curation_timestamp", curie=DISMECH.curie('curation_timestamp'),
                    model_uri=DISMECH.CurationEvent_curation_timestamp, domain=CurationEvent, range=Union[str, XSDDateTime])
@@ -8766,6 +11862,9 @@ slots.GeneProductDescriptor_term = Slot(uri=DISMECH.term, name="GeneProductDescr
 
 slots.HistopathologyFindingDescriptor_term = Slot(uri=DISMECH.term, name="HistopathologyFindingDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.HistopathologyFindingDescriptor_term, domain=HistopathologyFindingDescriptor, range=Optional[Union[dict, Term]])
+
+slots.ImagingFindingDescriptor_term = Slot(uri=DISMECH.term, name="ImagingFindingDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.ImagingFindingDescriptor_term, domain=ImagingFindingDescriptor, range=Optional[Union[dict, Term]])
 
 slots.LifeCycleStageDescriptor_term = Slot(uri=DISMECH.term, name="LifeCycleStageDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.LifeCycleStageDescriptor_term, domain=LifeCycleStageDescriptor, range=Optional[Union[dict, Term]])
@@ -8829,6 +11928,9 @@ slots.ExperimentalPerturbation_target = Slot(uri=DISMECH.target, name="Experimen
 
 slots.ExperimentalReadout_target = Slot(uri=DISMECH.target, name="ExperimentalReadout_target", curie=DISMECH.curie('target'),
                    model_uri=DISMECH.ExperimentalReadout_target, domain=ExperimentalReadout, range=str)
+
+slots.ExperimentalReadout_direction = Slot(uri=DISMECH.direction, name="ExperimentalReadout_direction", curie=DISMECH.curie('direction'),
+                   model_uri=DISMECH.ExperimentalReadout_direction, domain=ExperimentalReadout, range=Optional[Union[dict, Any]])
 
 slots.ExperimentalReadout_interpretation = Slot(uri=DISMECH.interpretation, name="ExperimentalReadout_interpretation", curie=DISMECH.curie('interpretation'),
                    model_uri=DISMECH.ExperimentalReadout_interpretation, domain=ExperimentalReadout, range=Optional[str])
@@ -8896,11 +11998,29 @@ slots.TreatmentMechanismTarget_target = Slot(uri=DISMECH.target, name="Treatment
 slots.TreatmentMechanismTarget_evidence = Slot(uri=DISMECH.evidence, name="TreatmentMechanismTarget_evidence", curie=DISMECH.curie('evidence'),
                    model_uri=DISMECH.TreatmentMechanismTarget_evidence, domain=TreatmentMechanismTarget, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
 
+slots.EnvironmentalMechanismTarget_target = Slot(uri=DISMECH.target, name="EnvironmentalMechanismTarget_target", curie=DISMECH.curie('target'),
+                   model_uri=DISMECH.EnvironmentalMechanismTarget_target, domain=EnvironmentalMechanismTarget, range=str)
+
+slots.EnvironmentalMechanismTarget_environmental_effect = Slot(uri=DISMECH.environmental_effect, name="EnvironmentalMechanismTarget_environmental_effect", curie=DISMECH.curie('environmental_effect'),
+                   model_uri=DISMECH.EnvironmentalMechanismTarget_environmental_effect, domain=EnvironmentalMechanismTarget, range=Optional[Union[str, "EnvironmentalEffectEnum"]])
+
+slots.EnvironmentalMechanismTarget_causal_link_type = Slot(uri=DISMECH.causal_link_type, name="EnvironmentalMechanismTarget_causal_link_type", curie=DISMECH.curie('causal_link_type'),
+                   model_uri=DISMECH.EnvironmentalMechanismTarget_causal_link_type, domain=EnvironmentalMechanismTarget, range=Optional[Union[str, "CausalLinkTypeEnum"]])
+
+slots.EnvironmentalMechanismTarget_evidence = Slot(uri=DISMECH.evidence, name="EnvironmentalMechanismTarget_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.EnvironmentalMechanismTarget_evidence, domain=EnvironmentalMechanismTarget, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
 slots.ModelMechanismLink_target = Slot(uri=DISMECH.target, name="ModelMechanismLink_target", curie=DISMECH.curie('target'),
                    model_uri=DISMECH.ModelMechanismLink_target, domain=ModelMechanismLink, range=str)
 
+slots.ModelMechanismLink_relationship = Slot(uri=DISMECH.relationship, name="ModelMechanismLink_relationship", curie=DISMECH.curie('relationship'),
+                   model_uri=DISMECH.ModelMechanismLink_relationship, domain=ModelMechanismLink, range=Optional[Union[str, "ModelMechanismRelationshipEnum"]])
+
 slots.ModelMechanismLink_description = Slot(uri=DISMECH.description, name="ModelMechanismLink_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.ModelMechanismLink_description, domain=ModelMechanismLink, range=Optional[str])
+
+slots.ModelMechanismLink_readouts = Slot(uri=DISMECH.readouts, name="ModelMechanismLink_readouts", curie=DISMECH.curie('readouts'),
+                   model_uri=DISMECH.ModelMechanismLink_readouts, domain=ModelMechanismLink, range=Optional[Union[dict[Union[str, ExperimentalReadoutName], Union[dict, ExperimentalReadout]], list[Union[dict, ExperimentalReadout]]]])
 
 slots.ModelMechanismLink_evidence = Slot(uri=DISMECH.evidence, name="ModelMechanismLink_evidence", curie=DISMECH.curie('evidence'),
                    model_uri=DISMECH.ModelMechanismLink_evidence, domain=ModelMechanismLink, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
@@ -8925,6 +12045,72 @@ slots.BiomarkerReadout_interpretation = Slot(uri=DISMECH.interpretation, name="B
 
 slots.BiomarkerReadout_evidence = Slot(uri=DISMECH.evidence, name="BiomarkerReadout_evidence", curie=DISMECH.curie('evidence'),
                    model_uri=DISMECH.BiomarkerReadout_evidence, domain=BiomarkerReadout, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.PhenotypeReadout_target = Slot(uri=DISMECH.target, name="PhenotypeReadout_target", curie=DISMECH.curie('target'),
+                   model_uri=DISMECH.PhenotypeReadout_target, domain=PhenotypeReadout, range=str)
+
+slots.PhenotypeReadout_relationship = Slot(uri=DISMECH.relationship, name="PhenotypeReadout_relationship", curie=DISMECH.curie('relationship'),
+                   model_uri=DISMECH.PhenotypeReadout_relationship, domain=PhenotypeReadout, range=Union[str, "BiomarkerReadoutRelationshipEnum"])
+
+slots.PhenotypeReadout_direction = Slot(uri=DISMECH.direction, name="PhenotypeReadout_direction", curie=DISMECH.curie('direction'),
+                   model_uri=DISMECH.PhenotypeReadout_direction, domain=PhenotypeReadout, range=Optional[Union[str, "BiomarkerReadoutDirectionEnum"]])
+
+slots.PhenotypeReadout_endpoint_context = Slot(uri=DISMECH.endpoint_context, name="PhenotypeReadout_endpoint_context", curie=DISMECH.curie('endpoint_context'),
+                   model_uri=DISMECH.PhenotypeReadout_endpoint_context, domain=PhenotypeReadout, range=Optional[Union[str, "BiomarkerEndpointContextEnum"]])
+
+slots.PhenotypeReadout_interpretation = Slot(uri=DISMECH.interpretation, name="PhenotypeReadout_interpretation", curie=DISMECH.curie('interpretation'),
+                   model_uri=DISMECH.PhenotypeReadout_interpretation, domain=PhenotypeReadout, range=Optional[str])
+
+slots.PhenotypeReadout_evidence = Slot(uri=DISMECH.evidence, name="PhenotypeReadout_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.PhenotypeReadout_evidence, domain=PhenotypeReadout, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.ReferenceRangeBand_name = Slot(uri=DISMECH.name, name="ReferenceRangeBand_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.ReferenceRangeBand_name, domain=ReferenceRangeBand, range=Union[str, ReferenceRangeBandName])
+
+slots.ReferenceRangeBand_lower_bound = Slot(uri=DISMECH.lower_bound, name="ReferenceRangeBand_lower_bound", curie=DISMECH.curie('lower_bound'),
+                   model_uri=DISMECH.ReferenceRangeBand_lower_bound, domain=ReferenceRangeBand, range=Optional[float])
+
+slots.ReferenceRangeBand_upper_bound = Slot(uri=DISMECH.upper_bound, name="ReferenceRangeBand_upper_bound", curie=DISMECH.curie('upper_bound'),
+                   model_uri=DISMECH.ReferenceRangeBand_upper_bound, domain=ReferenceRangeBand, range=Optional[float])
+
+slots.ReferenceRangeBand_unit = Slot(uri=DISMECH.unit, name="ReferenceRangeBand_unit", curie=DISMECH.curie('unit'),
+                   model_uri=DISMECH.ReferenceRangeBand_unit, domain=ReferenceRangeBand, range=Optional[str])
+
+slots.ReferenceRangeBand_abnormal_flag = Slot(uri=DISMECH.abnormal_flag, name="ReferenceRangeBand_abnormal_flag", curie=DISMECH.curie('abnormal_flag'),
+                   model_uri=DISMECH.ReferenceRangeBand_abnormal_flag, domain=ReferenceRangeBand, range=Optional[Union[str, "AbnormalFlagEnum"]])
+
+slots.ReferenceRangeBand_severity = Slot(uri=DISMECH.severity, name="ReferenceRangeBand_severity", curie=DISMECH.curie('severity'),
+                   model_uri=DISMECH.ReferenceRangeBand_severity, domain=ReferenceRangeBand, range=Optional[Union[dict, Any]])
+
+slots.ReferenceRangeBand_phenotype_term = Slot(uri=DISMECH.phenotype_term, name="ReferenceRangeBand_phenotype_term", curie=DISMECH.curie('phenotype_term'),
+                   model_uri=DISMECH.ReferenceRangeBand_phenotype_term, domain=ReferenceRangeBand, range=Optional[Union[dict, PhenotypeDescriptor]])
+
+slots.ReferenceRangeBand_interpretation = Slot(uri=DISMECH.interpretation, name="ReferenceRangeBand_interpretation", curie=DISMECH.curie('interpretation'),
+                   model_uri=DISMECH.ReferenceRangeBand_interpretation, domain=ReferenceRangeBand, range=Optional[str])
+
+slots.ReferenceRange_loinc_term = Slot(uri=DISMECH.loinc_term, name="ReferenceRange_loinc_term", curie=DISMECH.curie('loinc_term'),
+                   model_uri=DISMECH.ReferenceRange_loinc_term, domain=ReferenceRange, range=Optional[Union[dict, Term]])
+
+slots.ReferenceRange_interpretation_bands = Slot(uri=DISMECH.interpretation_bands, name="ReferenceRange_interpretation_bands", curie=DISMECH.curie('interpretation_bands'),
+                   model_uri=DISMECH.ReferenceRange_interpretation_bands, domain=ReferenceRange, range=Optional[Union[dict[Union[str, ReferenceRangeBandName], Union[dict, ReferenceRangeBand]], list[Union[dict, ReferenceRangeBand]]]])
+
+slots.ReferenceRange_lower_bound = Slot(uri=DISMECH.lower_bound, name="ReferenceRange_lower_bound", curie=DISMECH.curie('lower_bound'),
+                   model_uri=DISMECH.ReferenceRange_lower_bound, domain=ReferenceRange, range=Optional[float])
+
+slots.ReferenceRange_upper_bound = Slot(uri=DISMECH.upper_bound, name="ReferenceRange_upper_bound", curie=DISMECH.curie('upper_bound'),
+                   model_uri=DISMECH.ReferenceRange_upper_bound, domain=ReferenceRange, range=Optional[float])
+
+slots.ReferenceRange_unit = Slot(uri=DISMECH.unit, name="ReferenceRange_unit", curie=DISMECH.curie('unit'),
+                   model_uri=DISMECH.ReferenceRange_unit, domain=ReferenceRange, range=Optional[str])
+
+slots.ReferenceRange_population = Slot(uri=DISMECH.population, name="ReferenceRange_population", curie=DISMECH.curie('population'),
+                   model_uri=DISMECH.ReferenceRange_population, domain=ReferenceRange, range=Optional[str])
+
+slots.ReferenceRange_evidence = Slot(uri=DISMECH.evidence, name="ReferenceRange_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.ReferenceRange_evidence, domain=ReferenceRange, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.ReferenceRange_notes = Slot(uri=DISMECH.notes, name="ReferenceRange_notes", curie=DISMECH.curie('notes'),
+                   model_uri=DISMECH.ReferenceRange_notes, domain=ReferenceRange, range=Optional[str])
 
 slots.SurrogateEndpoint_row_id = Slot(uri=DISMECH.row_id, name="SurrogateEndpoint_row_id", curie=DISMECH.curie('row_id'),
                    model_uri=DISMECH.SurrogateEndpoint_row_id, domain=SurrogateEndpoint, range=Union[str, SurrogateEndpointRowId])
@@ -8983,6 +12169,15 @@ slots.TrackedIssue_url = Slot(uri=DISMECH.url, name="TrackedIssue_url", curie=DI
 slots.TrackedIssue_title = Slot(uri=DISMECH.title, name="TrackedIssue_title", curie=DISMECH.curie('title'),
                    model_uri=DISMECH.TrackedIssue_title, domain=TrackedIssue, range=Optional[str])
 
+slots.ClinicalBurden_burden_level = Slot(uri=DISMECH.burden_level, name="ClinicalBurden_burden_level", curie=DISMECH.curie('burden_level'),
+                   model_uri=DISMECH.ClinicalBurden_burden_level, domain=ClinicalBurden, range=Union[str, "ClinicalBurdenLevelEnum"])
+
+slots.ClinicalBurden_rationale = Slot(uri=DISMECH.rationale, name="ClinicalBurden_rationale", curie=DISMECH.curie('rationale'),
+                   model_uri=DISMECH.ClinicalBurden_rationale, domain=ClinicalBurden, range=Optional[str])
+
+slots.ClinicalBurden_evidence = Slot(uri=DISMECH.evidence, name="ClinicalBurden_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.ClinicalBurden_evidence, domain=ClinicalBurden, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
 slots.HistopathologyFinding_name = Slot(uri=DISMECH.name, name="HistopathologyFinding_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.HistopathologyFinding_name, domain=HistopathologyFinding, range=Union[str, HistopathologyFindingName])
 
@@ -8998,6 +12193,27 @@ slots.HistopathologyFinding_diagnostic = Slot(uri=DISMECH.diagnostic, name="Hist
 slots.HistopathologyFinding_context = Slot(uri=DISMECH.context, name="HistopathologyFinding_context", curie=DISMECH.curie('context'),
                    model_uri=DISMECH.HistopathologyFinding_context, domain=HistopathologyFinding, range=Optional[str])
 
+slots.ImagingFinding_name = Slot(uri=DISMECH.name, name="ImagingFinding_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.ImagingFinding_name, domain=ImagingFinding, range=Union[str, ImagingFindingName])
+
+slots.ImagingFinding_description = Slot(uri=DISMECH.description, name="ImagingFinding_description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.ImagingFinding_description, domain=ImagingFinding, range=Optional[str])
+
+slots.ImagingFinding_modality = Slot(uri=DISMECH.modality, name="ImagingFinding_modality", curie=DISMECH.curie('modality'),
+                   model_uri=DISMECH.ImagingFinding_modality, domain=ImagingFinding, range=Optional[Union[str, "ImagingModalityEnum"]])
+
+slots.ImagingFinding_located_in = Slot(uri=DISMECH.located_in, name="ImagingFinding_located_in", curie=DISMECH.curie('located_in'),
+                   model_uri=DISMECH.ImagingFinding_located_in, domain=ImagingFinding, range=Optional[Union[dict, AnatomicalEntityDescriptor]])
+
+slots.ImagingFinding_phenotype_term = Slot(uri=DISMECH.phenotype_term, name="ImagingFinding_phenotype_term", curie=DISMECH.curie('phenotype_term'),
+                   model_uri=DISMECH.ImagingFinding_phenotype_term, domain=ImagingFinding, range=Optional[Union[dict, PhenotypeDescriptor]])
+
+slots.ImagingFinding_diagnostic = Slot(uri=DISMECH.diagnostic, name="ImagingFinding_diagnostic", curie=DISMECH.curie('diagnostic'),
+                   model_uri=DISMECH.ImagingFinding_diagnostic, domain=ImagingFinding, range=Optional[Union[bool, Bool]])
+
+slots.ImagingFinding_context = Slot(uri=DISMECH.context, name="ImagingFinding_context", curie=DISMECH.curie('context'),
+                   model_uri=DISMECH.ImagingFinding_context, domain=ImagingFinding, range=Optional[str])
+
 slots.Disease_name = Slot(uri=DISMECH.name, name="Disease_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.Disease_name, domain=Disease, range=Union[str, DiseaseName])
 
@@ -9008,6 +12224,12 @@ slots.Disease_creation_date = Slot(uri=DISMECH.creation_date, name="Disease_crea
 slots.Disease_updated_date = Slot(uri=DISMECH.updated_date, name="Disease_updated_date", curie=DISMECH.curie('updated_date'),
                    model_uri=DISMECH.Disease_updated_date, domain=Disease, range=Optional[str],
                    pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.AnimalModel_publication = Slot(uri=DISMECH.publication, name="AnimalModel_publication", curie=DISMECH.curie('publication'),
+                   model_uri=DISMECH.AnimalModel_publication, domain=AnimalModel, range=Optional[str])
+
+slots.AnimalModel_modeled_mechanisms = Slot(uri=DISMECH.modeled_mechanisms, name="AnimalModel_modeled_mechanisms", curie=DISMECH.curie('modeled_mechanisms'),
+                   model_uri=DISMECH.AnimalModel_modeled_mechanisms, domain=AnimalModel, range=Optional[Union[Union[dict, ModelMechanismLink], list[Union[dict, ModelMechanismLink]]]])
 
 slots.ICDOMorphologyAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="ICDOMorphologyAssignment_classification_value", curie=DISMECH.curie('classification_value'),
                    model_uri=DISMECH.ICDOMorphologyAssignment_classification_value, domain=ICDOMorphologyAssignment, range=Union[str, "ICDOMorphologyEnum"])
@@ -9027,11 +12249,29 @@ slots.IUISAssignment_classification_value = Slot(uri=DISMECH.classification_valu
 slots.ChannelopathyAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="ChannelopathyAssignment_classification_value", curie=DISMECH.curie('classification_value'),
                    model_uri=DISMECH.ChannelopathyAssignment_classification_value, domain=ChannelopathyAssignment, range=Union[str, "ChannelopathyOrganSystemEnum"])
 
+slots.ICIMDAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="ICIMDAssignment_classification_value", curie=DISMECH.curie('classification_value'),
+                   model_uri=DISMECH.ICIMDAssignment_classification_value, domain=ICIMDAssignment, range=Union[str, "ICIMDEnum"])
+
+slots.ISDSNosologyAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="ISDSNosologyAssignment_classification_value", curie=DISMECH.curie('classification_value'),
+                   model_uri=DISMECH.ISDSNosologyAssignment_classification_value, domain=ISDSNosologyAssignment, range=Union[str, "ISDSNosologyGroupEnum"])
+
+slots.NIHResearchPriorityAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="NIHResearchPriorityAssignment_classification_value", curie=DISMECH.curie('classification_value'),
+                   model_uri=DISMECH.NIHResearchPriorityAssignment_classification_value, domain=NIHResearchPriorityAssignment, range=Union[str, "NIHResearchPriorityEnum"])
+
 slots.Definition_name = Slot(uri=DISMECH.name, name="Definition_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.Definition_name, domain=Definition, range=Union[str, DefinitionName])
 
 slots.Definition_definition_type = Slot(uri=DISMECH.definition_type, name="Definition_definition_type", curie=DISMECH.curie('definition_type'),
                    model_uri=DISMECH.Definition_definition_type, domain=Definition, range=Union[str, "DefinitionTypeEnum"])
+
+slots.Definition_attaches_to = Slot(uri=DISMECH.attaches_to, name="Definition_attaches_to", curie=DISMECH.curie('attaches_to'),
+                   model_uri=DISMECH.Definition_attaches_to, domain=Definition, range=Optional[Union[str, list[str]]])
+
+slots.AlgorithmValidationStatus_status = Slot(uri=DISMECH.status, name="AlgorithmValidationStatus_status", curie=DISMECH.curie('status'),
+                   model_uri=DISMECH.AlgorithmValidationStatus_status, domain=AlgorithmValidationStatus, range=Union[str, "AlgorithmValidationStatusEnum"])
+
+slots.AlgorithmValidationStatus_rationale = Slot(uri=DISMECH.rationale, name="AlgorithmValidationStatus_rationale", curie=DISMECH.curie('rationale'),
+                   model_uri=DISMECH.AlgorithmValidationStatus_rationale, domain=AlgorithmValidationStatus, range=Optional[str])
 
 slots.CriteriaSet_name = Slot(uri=DISMECH.name, name="CriteriaSet_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.CriteriaSet_name, domain=CriteriaSet, range=Union[str, CriteriaSetName])
@@ -9103,3 +12343,25 @@ slots.Discussion_kind = Slot(uri=DISMECH.kind, name="Discussion_kind", curie=DIS
 
 slots.Discussion_status = Slot(uri=DISMECH.status, name="Discussion_status", curie=DISMECH.curie('status'),
                    model_uri=DISMECH.Discussion_status, domain=Discussion, range=Optional[Union[str, "DiscussionStatusEnum"]])
+
+slots.Grouping_name = Slot(uri=DISMECH.name, name="Grouping_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.Grouping_name, domain=Grouping, range=Union[str, GroupingName])
+
+slots.Grouping_creation_date = Slot(uri=DISMECH.creation_date, name="Grouping_creation_date", curie=DISMECH.curie('creation_date'),
+                   model_uri=DISMECH.Grouping_creation_date, domain=Grouping, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.Grouping_members = Slot(uri=DISMECH.members, name="Grouping_members", curie=DISMECH.curie('members'),
+                   model_uri=DISMECH.Grouping_members, domain=Grouping, range=Union[Union[dict, "GroupingMember"], list[Union[dict, "GroupingMember"]]])
+
+slots.GroupingCriteria_description = Slot(uri=DISMECH.description, name="GroupingCriteria_description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.GroupingCriteria_description, domain=GroupingCriteria, range=str)
+
+slots.GroupingMember_member = Slot(uri=DISMECH.member, name="GroupingMember_member", curie=DISMECH.curie('member'),
+                   model_uri=DISMECH.GroupingMember_member, domain=GroupingMember, range=str)
+
+slots.GroupingMember_member_type = Slot(uri=DISMECH.member_type, name="GroupingMember_member_type", curie=DISMECH.curie('member_type'),
+                   model_uri=DISMECH.GroupingMember_member_type, domain=GroupingMember, range=Optional[Union[str, "GroupingMemberTypeEnum"]])
+
+slots.DifferentiatingMechanism_description = Slot(uri=DISMECH.description, name="DifferentiatingMechanism_description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.DifferentiatingMechanism_description, domain=DifferentiatingMechanism, range=str)
