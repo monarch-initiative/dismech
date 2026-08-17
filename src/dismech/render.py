@@ -2105,6 +2105,7 @@ def render_disorder(
     html = _strip_line_end_whitespace(
         template.render(
             disorder=disorder,
+            classification_spec=_classification_display_spec(),
             yaml_content=yaml_content,
             source_file=source_file,
             mermaid_code=mermaid_code,
@@ -4653,6 +4654,54 @@ def _load_classification_enums() -> dict:
                 **source_meta,
             }
     return enums
+
+
+def _classification_display_spec(schema: dict | None = None) -> list[dict]:
+    """Ordered display spec for the disorder page's Classifications card.
+
+    Derived from ``DiseaseClassifications`` in the schema rather than hardcoded
+    in the template, so a newly added classification slot renders without a
+    template edit — the previous hardcoded list had silently drifted, leaving
+    ICIMD, ISDS and NIH assignments curated but invisible.
+
+    Labels come from each slot's LinkML ``title``. Slots that declare a
+    ``slot_group`` are nested under that group, which is the one job LinkML
+    slot groups are actually for ("slot groups do not change the semantics of a
+    model but are a useful way of visually grouping related slots").
+    """
+    if schema is None:
+        # Called once per rendered page; _load_schema re-parses ~270KB of YAML
+        # (~61 ms), which is ~90 s over a full build, so memoize the derived
+        # spec rather than the schema. Treat the result as read-only.
+        return _default_classification_display_spec()
+    slots = schema.get("slots") or {}
+    classifications = (schema.get("classes") or {}).get("DiseaseClassifications") or {}
+
+    def label_for(slot_name: str) -> str:
+        slot_def = slots.get(slot_name) or {}
+        return slot_def.get("title") or slot_name.replace("_", " ").title()
+
+    spec: list[dict] = []
+    group_index: dict[str, dict] = {}
+    for slot_name in classifications.get("slots") or []:
+        entry = {"slot": slot_name, "label": label_for(slot_name)}
+        group_name = (slots.get(slot_name) or {}).get("slot_group")
+        if not group_name:
+            spec.append({"label": entry["label"], "members": [entry]})
+            continue
+        group = group_index.get(group_name)
+        if group is None:
+            group = {"label": label_for(group_name), "members": []}
+            group_index[group_name] = group
+            spec.append(group)
+        group["members"].append(entry)
+    return spec
+
+
+@cache
+def _default_classification_display_spec() -> list[dict]:
+    """Memoized spec for the committed schema. Read-only; do not mutate."""
+    return _classification_display_spec(_load_schema())
 
 
 def _collect_exposure_classifications(disorder: dict) -> dict[str, list]:

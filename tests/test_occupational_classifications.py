@@ -464,6 +464,56 @@ def test_exposure_classifications_reach_the_rendered_enum_pages(
     assert route_html.count("Benzene Exposure Disorder") >= 2
 
 
+def test_every_disease_classification_slot_is_renderable() -> None:
+    """The Classifications card is driven by the schema, not a hardcoded list.
+
+    Regression guard: the template used to enumerate classification slots by
+    hand, and had silently drifted — ``icimd_category`` (74 entries),
+    ``isds_skeletal_category`` (168) and ``nih_research_priority`` (16) were
+    curated but rendered nowhere. Anything in ``DiseaseClassifications`` must
+    appear in the display spec, and must carry a human label.
+    """
+    from dismech.render import _classification_display_spec, _load_schema
+
+    schema = _load_schema()
+    declared = (schema["classes"]["DiseaseClassifications"])["slots"]
+    spec = _classification_display_spec(schema)
+
+    rendered = [m["slot"] for group in spec for m in group["members"]]
+    assert sorted(rendered) == sorted(declared), (
+        "every DiseaseClassifications slot must be in the render spec; "
+        f"missing={sorted(set(declared) - set(rendered))}"
+    )
+
+    for group in spec:
+        assert group["label"], "a classification group has no label"
+        for member in group["members"]:
+            label = member["label"]
+            assert label and label != member["slot"], (
+                f"{member['slot']} needs a LinkML `title` for its display label; "
+                f"got {label!r}"
+            )
+
+
+def test_classification_spec_nests_by_slot_group() -> None:
+    """slot_group's one legitimate job is presentation — use it for that."""
+    from dismech.render import _classification_display_spec
+
+    spec = _classification_display_spec()
+    by_label = {group["label"]: group for group in spec}
+
+    occupational = by_label["Occupational Disease"]
+    assert [m["slot"] for m in occupational["members"]] == [
+        "ilo_agent_category",
+        "ilo_disease_category",
+        "eu_occupational_category",
+    ]
+
+    # Ungrouped slots stand alone, one member each, labelled by their own title.
+    harrisons = by_label["Harrison's Part"]
+    assert [m["slot"] for m in harrisons["members"]] == ["harrisons_chapter"]
+
+
 def _load_enum(module_stem: str, enum_name: str) -> dict:
     """Read an enum straight from its classifications/ module.
 

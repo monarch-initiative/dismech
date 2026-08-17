@@ -28,6 +28,12 @@ classifications:
 All `classification_value` slots are enum-typed: free-text values will
 fail schema validation. Use the controlled keys below.
 
+Every slot in `DiseaseClassifications` renders on the disorder page
+automatically — the Classifications card is generated from the schema,
+labelled by each slot's LinkML `title`, and grouped by `slot_group`. You
+do not need to touch the template when curating, and a slot you populate
+will never silently fail to appear.
+
 ## Harrison's Part (`harrisons_chapter`)
 
 Despite the slot name, the controlled vocabulary lives at the **Part**

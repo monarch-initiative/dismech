@@ -283,6 +283,25 @@ Recording these keeps a future curator from assuming they were overlooked.
 - **ISCO-08 occupations and NAICS/SIC industries.** These classify jobs and
   industries, not diseases or agents.
 
+## How the Classifications card renders
+
+The disorder page's Classifications card is **driven by the schema**, not by a
+hardcoded list in the template: `_classification_display_spec()` reads
+`DiseaseClassifications`, takes each slot's display label from its LinkML
+`title`, and nests slots that declare a `slot_group` under that group. Adding a
+new classification slot therefore renders with no template edit.
+
+This replaced a hand-maintained list that had drifted — `icimd_category` (74
+entries), `isds_skeletal_category` (168) and `nih_research_priority` (16) were
+being curated but rendered nowhere. A test asserts every
+`DiseaseClassifications` slot appears in the spec and carries a `title`, so the
+gap cannot silently reopen.
+
+It is also the one job LinkML slot groups are legitimately for: the three
+occupational slots render as sub-rows under a single "Occupational Disease"
+heading, with the sub-label suppressed for groups of one so a lone slot does not
+repeat its own heading.
+
 ## Validation
 
 ```bash
