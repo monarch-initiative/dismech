@@ -1963,6 +1963,26 @@ If a claim is well-established but you cannot find a quotable snippet:
 | "Reference not found" | PMID doesn't exist | Verify PMID on PubMed |
 | Low similarity score | Wrong PMID for the paper | Check abstract matches topic |
 
+**Square brackets in a snippet.** Bracketed spans are removed from the *snippet*
+before matching but never from the cached text, so a bracket in the middle of a
+quote can break an otherwise verbatim match. Which brackets survive is set by
+`literal_bracket_patterns` in `conf/reference_validator_config.yaml`, read by
+both the gating validator and `just count-verified-snippets`:
+
+- **kept** — an all-caps abbreviation defined in line (`[APTT]`, `[GERD]`,
+  `[RR]`) and any bracketed span containing a percent sign (`[28, 62%]`,
+  `[95% CI 1.22-2.31]`). Quote these verbatim; do not truncate the sentence
+  around them (issue #8597).
+- **stripped** — inline numeric citation markers (`[12]`, `[3,4]`) and curator
+  glosses (`[IL-6]`, `[sic, correct designation is R501X]`). This is the
+  intended escape hatch: an editorial insertion is ignored, and a citation
+  marker interrupting the source sentence does not have to be transcribed.
+
+If you hit "not found as substring" on a quote you copied verbatim,
+`just count-verified-snippets` will name the stripped span in its reason rather
+than leaving you hunting for a paraphrase you never wrote. Adding a pattern
+affects every cached reference, so replay the whole KB before changing one.
+
 ### 6. A Title Is Not a Finding
 
 Quoting the cited paper's **title** as the snippet passes every check we have —
@@ -2177,7 +2197,7 @@ entry merge without a git conflict. Both PRs are green against their own base,
 and only the post-merge push build on `main` goes red.
 
 ```bash
-just check-duplicate-keys                              # whole KB (~8s, offline)
+just check-duplicate-keys                              # kb/ + schema + conf (~12s, offline)
 just check-duplicate-keys kb/disorders/Asthma.yaml     # specific files
 ```
 
