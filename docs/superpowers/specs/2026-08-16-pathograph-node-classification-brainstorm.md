@@ -193,7 +193,12 @@ overlap can be surfaced as a QC warning instead.
 
 ## Next step
 
-Two things, in order:
+Started: [`docs/superpowers/pathograph_node_classes.txt`](../pathograph_node_classes.txt) — the tree as a plain text file, leaves being real `<node name> [Disease]`
+pairs, representatives only. No schema, no enum, nothing in `kb/` depends on it.
+Its `DOESN'T FIT` section is where the design is already failing and is the most
+useful part to argue with.
+
+Then, in order:
 
 1. **Migrate `role` mechanically where it is derivable** — normalise casing
    (3 variants of `trigger` today), compute cascade position and C2 from the
