@@ -363,7 +363,6 @@ describe('name boost tiers', () => {
         assert.ok(nameBoost('autism', 'autism spectrum disorder') > nameBoost('autism', 'autism, susceptibility to, x-linked 3'));
     });
 
-
     it('a name with no match at all gets no boost', () => {
         assert.equal(nameBoost('asthma', 'marfan syndrome'), 1);
     });
