@@ -34,6 +34,7 @@ prefixes:
   NCIT: http://purl.obolibrary.org/obo/NCIT_
   OPL: http://purl.obolibrary.org/obo/OPL_
   GENO: http://purl.obolibrary.org/obo/GENO_
+  SO: http://purl.obolibrary.org/obo/SO_
   PATO: http://purl.obolibrary.org/obo/PATO_
   ECTO: http://purl.obolibrary.org/obo/ECTO_
   ExO: http://purl.obolibrary.org/obo/ExO_
@@ -606,30 +607,334 @@ enums:
         description: The allelic event type has not been determined.
   FunctionalImpactEnum:
     description: >-
-      Directional or qualitative functional consequence of a variant or
-      genetic context.
+      Functional consequence of a genetic variant or allele on the product of
+      its own gene. This is the *variant/allele* axis: it records what a lesion
+      does to that gene's product, independent of dose, of the allele in trans,
+      and of the disease that results.
+
+      Three neighbouring axes are deliberately NOT modeled here:
+
+      * the activity state of a pathway, process, or molecular function
+        regardless of cause (viral protein, epigenetic silencing, autocrine
+        loop) — that is `Descriptor.modifier` / ModifierEnum;
+      * the kind of molecular event (missense, frameshift, deletion) — that is
+        `GeneticContext.allelic_events` / AllelicEventEnum;
+      * whether a premature-termination lesion is degraded or translated —
+        that is `GeneticContext.nmd_fate` / NmdFateEnum, which frequently
+        DETERMINES which value here applies and must never be conflated with
+        it. A truncating variant is not automatically loss of function.
+
+      The values form a hierarchy via `is_a`. Use the most specific value the
+      evidence supports and fall back to a parent when it does not
+      discriminate: LOSS_OF_FUNCTION is a legitimate answer when complete and
+      partial have not been separated, and is NOT a synonym for complete loss.
+
+      DOMINANT_NEGATIVE is a sibling of, not a kind of, LOSS_OF_FUNCTION. The
+      variant product gains an interfering activity; the loss appears at the
+      level of the complex or pathway rather than of the product itself
+      (Muller's antimorph, and the placement SO uses). Do not reclassify it as
+      a severe loss of function on the grounds that the net effect on pathway
+      output is a loss.
+
+      WHEN TO SPLIT AN ENTRY. dismech curates at the knowledge level, so a
+      graded molecular continuum stays one entry with a qualifier. Split into
+      `has_subtypes`, or into separate Disease entries, only when a distinct
+      molecular effect forms a CLUSTER with distinct clinical outcomes. COL1A1
+      is the worked case: null alleles (haploinsufficiency, mild OI type I) and
+      triple-helix glycine substitutions (dominant negative, lethal or severe
+      OI type II/III) are two clusters with opposite severity, so they warrant
+      separate subtypes. PAH residual activity is by contrast a continuum whose
+      class boundaries are clinical thresholds, so it stays one entry carrying
+      COMPLETE_LOSS_OF_FUNCTION and PARTIAL_LOSS_OF_FUNCTION on separate
+      genetic contexts.
     permissible_values:
       LOSS_OF_FUNCTION:
         title: Loss of function
-        description: Complete or partial reduction of normal gene product function.
-      GAIN_OF_FUNCTION:
-        title: Gain of function
-        description: Increased, novel, or constitutive gene product function.
+        meaning: SO:0002054
+        aliases:
+        - loss_of_function_variant  # canonical SO:0002054 label
+        description: >-
+          The gene product has reduced or abolished normal biological function
+          relative to the reference. Use this parent when the evidence does not
+          separate complete from partial loss.
+        examples:
+        - value: PTCH1 truncating and missense variants in Gorlin syndrome
+          description: >-
+            A heterogeneous allelic series curated as a single mechanism claim
+            (loss of PTCH1 repression of Hedgehog signalling) without resolving
+            individual alleles into complete versus partial loss.
+      COMPLETE_LOSS_OF_FUNCTION:
+        title: Complete loss of function
+        is_a: LOSS_OF_FUNCTION
+        meaning: SO:0002055
+        aliases:
+        - null_mutation  # canonical SO:0002055 label
+        description: >-
+          No gene product is produced, or the product retains no detectable
+          normal function. The amorphic or null allele.
+        examples:
+        - value: PAH null alleles in classic phenylketonuria
+          description: >-
+            Near-zero residual phenylalanine hydroxylase activity, the severe
+            end of the PAH allelic series. Supersedes the free-text
+            `functional_impact: complete_or_near_complete_loss_of_PAH_activity`
+            in Phenylketonuria.yaml.
+        - value: GJB2 NM_004004.6:c.35delG
+          description: >-
+            Frameshift in the single coding exon of connexin 26; the canonical
+            severe DFNB1 allele against which the p.Val37Ile hypomorph is read
+            when the two are in trans.
       PARTIAL_LOSS_OF_FUNCTION:
         title: Partial loss of function
-        description: Hypomorphic reduction of normal gene product function.
-      DOMINANT_NEGATIVE:
-        title: Dominant negative
-        description: Mutant product interferes with the remaining wild-type product.
+        is_a: LOSS_OF_FUNCTION
+        meaning: SO:0001561
+        aliases:
+        - polypeptide_partial_loss_of_function  # canonical SO:0001561 label
+        description: >-
+          Normal function is reduced but not abolished. The hypomorphic allele.
+        comments:
+        - >-
+          A hypomorph may be clinically silent on its own and disease-
+          contributing only in trans with a more severe allele, and its
+          population frequency can therefore exceed the frequency threshold
+          computed from the prevalence of the classical form of the disease.
+          Those are properties of the genotype and of the disease entity, not
+          of this value. Record them in the genetic-context description or on
+          the relevant subtype; do not change the impact category to express
+          them.
+        examples:
+        - value: BTD NM_000060.2:c.1330G>C p.(Asp444His)
+          description: >-
+            About 50% of normal biotinidase activity when homozygous, which is
+            asymptomatic; 10-30% in trans with a severe allele, giving partial
+            biotinidase deficiency. gnomAD allele frequency ~4% in non-Finnish
+            Europeans, far above what the prevalence of profound biotinidase
+            deficiency would allow for a severe allele.
+        - value: GJB2 NM_004004.6:c.109G>A p.(Val37Ile)
+          description: >-
+            Hypomorphic connexin 26 allele giving mild-to-moderate,
+            age-progressive hearing loss with incomplete penetrance. Allele
+            frequency up to ~10% in East Asian populations.
+      GAIN_OF_FUNCTION:
+        title: Gain of function
+        meaning: SO:0002053
+        aliases:
+        - gain_of_function_variant  # canonical SO:0002053 label
+        description: >-
+          The gene product exhibits an activity the reference product does not,
+          or exhibits the reference activity at increased level or outside its
+          normal spatiotemporal context. Use this parent when the evidence does
+          not discriminate among the children below.
+        examples:
+        - value: USP8 missense variants in corticotroph adenoma
+          description: >-
+            Reported as activating (disrupted 14-3-3 binding, increased EGFR
+            deubiquitination) without an assay separating increased native
+            activity from a novel one, so the entry sits at the parent value.
       HYPERMORPHIC:
         title: Hypermorphic
-        description: Increased normal gene product activity.
+        is_a: GAIN_OF_FUNCTION
+        # No SO term for the general hypermorph; SO:0002392
+        # (increased_enzyme_activity_variant) is narrower and enzyme-specific.
+        description: >-
+          An increased level of the same activity the reference product has,
+          including constitutive or ligand-independent activation of that
+          activity. The activity is qualitatively unchanged.
+        examples:
+        - value: FGFR3 p.(Gly380Arg) in achondroplasia
+          description: >-
+            Ligand-independent constitutive activation of the same receptor
+            tyrosine kinase activity carried by the reference product.
       NEOMORPHIC:
         title: Neomorphic
-        description: Novel gene product activity not present in the wild type.
+        is_a: GAIN_OF_FUNCTION
+        # No SO term for neomorphic variants (verified 2026-08-17).
+        description: >-
+          An activity qualitatively different from any activity of the
+          reference product.
+        examples:
+        - value: IDH1 p.(Arg132His)
+          description: >-
+            The mutant enzyme acquires a catalytic activity the wild type does
+            not have, reducing alpha-ketoglutarate to the oncometabolite
+            2-hydroxyglutarate. The textbook neomorph, and the discriminator
+            against HYPERMORPHIC.
+      ECTOPIC_EXPRESSION:
+        title: Ectopic expression
+        is_a: GAIN_OF_FUNCTION
+        # No SO term for ectopic-expression variants (verified 2026-08-17).
+        description: >-
+          The reference activity is expressed in a cell type, tissue, or
+          developmental stage in which the reference product is not normally
+          active, or at a pathologically increased level, while the product
+          itself is structurally normal. Typically driven by a regulatory or
+          structural lesion rather than by a coding change.
+        comments:
+        - >-
+          The discriminator against HYPERMORPHIC is whether the PRODUCT changed.
+          If the protein is normal and only its expression pattern or level
+          moved, this is the correct value. Aromatase_Excess_Syndrome is
+          currently tagged HYPERMORPHIC while its own description states that
+          "the aromatase protein itself is structurally normal; its expression
+          is pathologically increased and broadened across tissues" — that entry
+          is a retagging candidate for this value.
+        examples:
+        - value: SHH ZRS enhancer point variants in preaxial polydactyly
+          description: >-
+            Gain of ectopic anterior SHH expression in the limb bud; the SHH
+            protein is unchanged. Referenced by the
+            limb_digit_patterning_serial_homology module.
+        - value: CYP19A1 rearrangements in aromatase excess syndrome
+          description: >-
+            Duplications, deletions, and inversions place a structurally normal
+            aromatase coding region under constitutively active or heterologous
+            promoters, broadening expression across tissues.
+      TOXIC_GAIN_OF_FUNCTION:
+        title: Toxic gain of function
+        is_a: GAIN_OF_FUNCTION
+        # No SO term for toxic/aggregation gain of function (verified 2026-08-17).
+        description: >-
+          The product acquires a cytotoxic property, typically through
+          misfolding, aggregation, or sequestration, that the reference product
+          does not have. The pathogenic activity is the toxicity itself, not a
+          change in the product's normal function.
+        comments:
+        - >-
+          The decisive evidence is usually that ablating the gene does NOT
+          reproduce the disease, which rules out loss of function as the
+          mechanism.
+        examples:
+        - value: SOD1 variants in amyotrophic lateral sclerosis
+          description: >-
+            Misfolded SOD1 species are toxic to motor neurons; Sod1-null mice
+            do not develop an ALS-like motor neuron disease, so the mechanism
+            is not loss of dismutase activity.
+        - value: HTT CAG repeat expansion in Huntington disease
+          description: >-
+            Expanded polyglutamine huntingtin aggregates and acquires toxic
+            properties absent from the reference protein.
+      DOMINANT_NEGATIVE:
+        title: Dominant negative
+        meaning: SO:0002052
+        aliases:
+        - dominant_negative_variant  # canonical SO:0002052 label
+        description: >-
+          The variant product interferes with the function of the product of
+          the reference allele, or with another subunit of a complex in which
+          it participates. Muller's antimorph. Deliberately not defined in
+          terms of a percentage loss of function or of diploid dose.
+        comments:
+        - >-
+          Multimeric assembly is the usual enabling condition: a mutant subunit
+          is incorporated into a complex and poisons it, so the effect scales
+          with complex stoichiometry rather than with allele dose. This is why
+          a dominant-negative allele is typically MORE severe than a null in
+          the same gene, which is a useful discriminator when curating an
+          allelic series.
+        examples:
+        - value: COL1A1 glycine substitutions in the triple-helical domain
+          description: >-
+            Mutant pro-alpha1(I) chains incorporate into the collagen I triple
+            helix and disrupt it, causing severe or lethal osteogenesis
+            imperfecta (types II/III) — more severe than a COL1A1 null allele,
+            which gives mild type I. The paired clusters that justify separate
+            subtypes.
+        - value: KCNC1 NM_004976.5:c.959G>A p.(Arg320His) in MEAK / progressive myoclonic epilepsy type 7
+          description: >-
+            Kv3.1 subunits assemble as tetramers, so mutant subunits
+            co-assemble with wild-type subunits and suppress the fast
+            delayed-rectifier potassium current.
+      UNDETERMINED_NON_LOSS_OF_FUNCTION:
+        title: Undetermined non-loss-of-function
+        # Semantically the union GAIN_OF_FUNCTION or DOMINANT_NEGATIVE; no SO
+        # term exists. Aligns with the GenCC harmonized mechanism value of the
+        # same name.
+        description: >-
+          The mechanism is demonstrably not loss of function, but the evidence
+          does not distinguish gain of function from dominant negative. Strictly
+          more informative than UNKNOWN, and should be preferred over it
+          whenever the non-loss-of-function claim is itself supported.
+        comments:
+        - >-
+          The two evidence patterns that license this value are a co-expression
+          experiment showing a damaging effect of the mutant allele in the
+          presence of wild type, and the absence of a phenotype in carriers of
+          bona fide loss-of-function variants in the same gene.
       UNKNOWN:
         title: Unknown
-        description: Functional impact is not known.
+        meaning: SO:0002220
+        aliases:
+        - function_uncertain_variant  # canonical SO:0002220 label
+        description: >-
+          The functional impact has not been determined. Use only when the
+          direction of effect is genuinely open; prefer
+          UNDETERMINED_NON_LOSS_OF_FUNCTION when loss of function has been
+          excluded.
+        examples:
+        - value: CDH23 variants in pituitary adenoma predisposition 5
+          description: >-
+            A reported gene-disease association whose direction of molecular
+            effect has not been established.
+  NmdFateEnum:
+    description: >-
+      Fate of a transcript carrying a premature termination codon: degraded by
+      nonsense-mediated decay, or translated into a truncated product.
+
+      This is a separate axis from FunctionalImpactEnum and from
+      AllelicEventEnum, and is the axis that most often DETERMINES the
+      functional impact of a truncating lesion. A premature termination codon
+      upstream of the last exon-exon junction usually triggers decay of the
+      transcript, giving no product and therefore complete loss of function; a
+      premature termination codon that escapes decay yields a truncated protein
+      that may instead act as a dominant negative or a gain of function.
+      Recording the two axes separately, rather than as a cross-product of
+      event type and fate, follows the same convention as AllelicEventEnum.
+
+      Consequently the historical term "protein-truncating variant" should not
+      be treated as equivalent to loss of function; a nonsense or frameshift
+      lesion carries no functional-impact claim until its fate is known.
+    permissible_values:
+      NMD_TRIGGERING:
+        title: NMD-triggering
+        meaning: SO:0002319
+        aliases:
+        - NMD_triggering_variant  # canonical SO:0002319 label
+        description: >-
+          The premature termination codon triggers nonsense-mediated decay, so
+          little or no product is made from the allele.
+        examples:
+        - value: COL1A1 nonsense and frameshift alleles in osteogenesis imperfecta type I
+          description: >-
+            Transcript decay yields haploinsufficiency and the mild OI
+            phenotype, in contrast to the dominant-negative glycine
+            substitutions in the same gene.
+      NMD_ESCAPING:
+        title: NMD-escaping
+        meaning: SO:0002320
+        aliases:
+        - NMD_escaping_variant  # canonical SO:0002320 label
+        description: >-
+          The premature termination codon escapes nonsense-mediated decay —
+          typically because it lies in the last exon or close downstream of the
+          final exon-exon junction — so a truncated product is made.
+        examples:
+        - value: CALR exon 9 frameshift variants in myeloproliferative neoplasms
+          description: >-
+            The lesion lies in the terminal exon and escapes decay; the
+            resulting mutant C-terminus activates the thrombopoietin receptor
+            MPL. A truncating variant whose functional impact is NEOMORPHIC
+            rather than any kind of loss of function.
+      NMD_UNDETERMINED:
+        title: NMD fate undetermined
+        description: >-
+          The lesion introduces a premature termination codon but its fate has
+          not been established, whether by transcript assay or by position
+          relative to the last exon-exon junction.
+      NOT_APPLICABLE:
+        title: Not applicable
+        description: >-
+          The variant does not introduce a premature termination codon, so
+          nonsense-mediated decay is not in question.
   ModifierEnum:
     description: >-
       Qualifiers for direction, intensity, functional impact, or pathological state of
@@ -4378,6 +4683,17 @@ slots:
   functional_impact_category:
     description: Controlled functional impact category for a genetic context.
     range: FunctionalImpactEnum
+  nmd_fate:
+    description: >-
+      Whether a premature-termination lesion in this genetic context triggers
+      or escapes nonsense-mediated decay. Separate from
+      `functional_impact_category`, which it frequently determines: a
+      decay-triggering lesion gives no product and so complete loss of
+      function, while a decay-escaping one yields a truncated product that may
+      act as a dominant negative or a gain of function. Leave unset when the
+      context is not about a truncating lesion, or use NOT_APPLICABLE to say so
+      explicitly.
+    range: NmdFateEnum
   complementation_group:
     description: >-
       Complementation group designation (e.g., FA-A, FA-D1, BBS1).
@@ -5009,6 +5325,7 @@ classes:
       - zygosity
       - functional_impact
       - functional_impact_category
+      - nmd_fate
       - complementation_group
       - description
       - notes

@@ -1,0 +1,105 @@
+history_version: 1
+target:
+  kind: schema
+  slug: functional_impact_enum
+  path: src/dismech/schema/dismech.yaml
+session:
+  id: 2026-08-17T230039Z-claude-code-79ec87
+  timestamp: '2026-08-17T23:00:39Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: needs_followup
+  sections:
+  - FunctionalImpactEnum
+  - NmdFateEnum
+  - GeneticContext
+  - prefixes
+  - oak_config
+  summary: Make FunctionalImpactEnum hierarchical, bind to SO, add NmdFateEnum
+  details: |
+    Restructured FunctionalImpactEnum from a flat 7-value list into a hierarchy
+    (LinkML permissible-value is_a), bound eight values to the Sequence Ontology
+    functional_effect_variant branch (SO:0001536), and added a separate NmdFateEnum
+    plus a nmd_fate slot on GeneticContext.
+
+    Motivation. Prompted by a GenCC request (Sept 2026 call) to identify an ontology
+    home for harmonized mechanism-of-pathogenicity terms. Auditing dismech's own
+    enum against that vocabulary surfaced four internal incoherences, three of them
+    evidenced by existing KB content rather than hypothesized:
+
+    1. Flat list with implicit hierarchy. PARTIAL_LOSS_OF_FUNCTION was a sibling of
+       LOSS_OF_FUNCTION and HYPERMORPHIC/NEOMORPHIC siblings of GAIN_OF_FUNCTION, so
+       a query for loss-of-function missed the hypomorphs.
+    2. No complete-loss value. LOSS_OF_FUNCTION served as both parent and 'complete'.
+       Phenylketonuria.yaml shows the cost: a curator hand-rolled the free-text
+       functional_impact values complete_or_near_complete_loss_of_PAH_activity and
+       partial_loss_of_PAH_activity because the controlled value did not exist.
+    3. No value for ectopic or overexpression gain. Aromatase_Excess_Syndrome is
+       tagged HYPERMORPHIC while its own description states the aromatase protein is
+       structurally normal and only its expression is increased and broadened.
+    4. No ontology bindings at all.
+
+    Changes to FunctionalImpactEnum:
+    - LOSS_OF_FUNCTION (SO:0002054) parents COMPLETE_LOSS_OF_FUNCTION (new,
+      SO:0002055) and PARTIAL_LOSS_OF_FUNCTION (SO:0001561).
+    - GAIN_OF_FUNCTION (SO:0002053) parents HYPERMORPHIC, NEOMORPHIC,
+      ECTOPIC_EXPRESSION (new) and TOXIC_GAIN_OF_FUNCTION (new). No SO term exists
+      for any of these four; recorded as comments.
+    - DOMINANT_NEGATIVE (SO:0002052) deliberately remains a top-level sibling rather
+      than a kind of loss of function: the variant product gains an interfering
+      activity and the loss appears at the level of the complex, not the product
+      (Muller's antimorph, matching SO's own placement).
+    - UNDETERMINED_NON_LOSS_OF_FUNCTION added for the GenCC-aligned state where loss
+      of function is excluded but gain of function and dominant negative are not
+      separated. Semantically the union of the latter two.
+    - UNKNOWN bound to SO:0002220 (function_uncertain_variant).
+
+    NmdFateEnum and GeneticContext.nmd_fate. NMD fate is not a functional impact; it
+    is the axis that most often determines one. Modelled as four values
+    (NMD_TRIGGERING SO:0002319, NMD_ESCAPING SO:0002320, NMD_UNDETERMINED,
+    NOT_APPLICABLE) on a separate slot rather than as eight cross-product values,
+    following the anti-cross-product convention already stated in AllelicEventEnum's
+    description. Documents that 'protein-truncating variant' is not a synonym for
+    loss of function.
+
+    Canonical examples. Each value carries one or two structured examples, chosen so
+    that one gene demonstrates several axes: COL1A1 null alleles (NMD-triggering,
+    haploinsufficiency, mild OI type I) versus COL1A1 triple-helix glycine
+    substitutions (dominant negative, severe or lethal OI II/III). Others include
+    BTD p.(Asp444His) and GJB2 p.(Val37Ile) for partial loss, PAH nulls for complete
+    loss, FGFR3 p.(Gly380Arg) for hypermorphic, IDH1 p.(Arg132His) for neomorphic,
+    SHH ZRS and CYP19A1 rearrangements for ectopic expression, SOD1 and HTT for toxic
+    gain of function, KCNC1 p.(Arg320His) for dominant negative, and CALR exon 9 for
+    NMD escape.
+
+    The enum description now also records the entry-splitting rule: a graded
+    molecular continuum stays one entry with a qualifier, and a split into
+    has_subtypes is warranted only when a distinct molecular effect forms a cluster
+    with distinct clinical outcomes. COL1A1 is the split case, PAH the non-split one.
+
+    Supporting changes: SO added to the schema prefixes block (the dataclass
+    generator errors on an undeclared CURIE prefix; the pydantic generator does not)
+    and to conf/oak_config.yaml as sqlite:obo:so. Both generated Python models
+    regenerated. cache/so/terms.csv was produced by linkml-term-validator, not
+    hand-written.
+
+    Validation: linkml-term-validator validate-schema passes with all eight SO
+    CURIEs resolved and labels matching; linkml-validate reports 'No issues found'
+    for all 21 kb/disorders files that use functional_impact or
+    functional_impact_category; pytest -k 'schema or enum or slot or data' gives
+    33307 passed, 1399 deselected; check-cache-order and term_cache_integrity both
+    OK.
+
+    Outcome recorded as needs_followup because two content migrations are
+    deliberately left for a separate pass: retagging Aromatase_Excess_Syndrome from
+    HYPERMORPHIC to ECTOPIC_EXPRESSION, and migrating the five remaining free-text
+    functional_impact values in Phenylketonuria.yaml, Tetrahydrobiopterin_Deficiency.yaml
+    and Spondylometaphyseal_Dysplasia_Kozlowski_Type.yaml onto the controlled values.
