@@ -66,10 +66,12 @@ membership_criteria:
     A member is a Disease entry whose phenotype is restricted to hair and nail
     ectodermal appendages: it must carry a hair-deficiency phenotype
     (alopecia, sparse hair, or sparse scalp hair) and a nail dystrophy
-    phenotype, and it must be caused by one of the three established PHNED
-    genes. The defining sparing of sweat glands and dentition is asserted on
-    each member with `frequency: EXCLUDED` phenotypes but is deliberately not
-    encoded as a `negated` leaf here; see `notes` for why.
+    phenotype, it must be caused by one of the three established PHNED genes,
+    and it must NOT have the sweat-gland and dental involvement that defines
+    the hypohidrotic ectodermal dysplasias. The sparing is asserted on each
+    member with `frequency: EXCLUDED` phenotypes and is encoded here as
+    `negated` leaves; see `notes` for a caveat on how the advisory evaluator
+    currently reads those.
   criteria_semantics: NECESSARY
   logic:
     operator: AND
@@ -98,6 +100,29 @@ membership_criteria:
         term:
           id: HP:0008404
           label: Nail dystrophy
+    - criterion_predicate: HAS_PHENOTYPE
+      negated: true
+      description: >-
+        Sweat-gland function is spared — the member must NOT have hypohidrosis.
+        This is the cardinal contrast with the hypohidrotic ectodermal
+        dysplasias (EDA/EDAR/EDARADD), where hypohidrosis carries the principal
+        morbidity.
+      phenotype_term:
+        preferred_term: Hypohidrosis
+        term:
+          id: HP:0000966
+          label: Hypohidrosis
+    - criterion_predicate: HAS_PHENOTYPE
+      negated: true
+      description: >-
+        Dentition is spared — the member must NOT have hypodontia. Tooth
+        agenesis belongs to the hypohidrotic and TP63-related ectodermal
+        dysplasias.
+      phenotype_term:
+        preferred_term: Hypodontia
+        term:
+          id: HP:0000668
+          label: Hypodontia
     - operator: OR
       description: Caused by one of the three established PHNED genes.
       operands:
@@ -239,15 +264,25 @@ notes: >-
   different disease with different zygosity, a dominant-negative mechanism, and
   no nail involvement.
 
-  Why the sparing of teeth and sweat glands is not a `negated` criteria leaf.
-  Each member records the sparing explicitly, as phenotypes with `frequency:
-  EXCLUDED` and `modifier: ABSENT` on HP:0000966 Hypohidrosis and HP:0000668
-  Hypodontia. That is the KB's established way to carry an informative negative.
-  It cannot currently be lifted into a `negated: true` HAS_PHENOTYPE leaf here,
-  because `evaluate_grouping` collects every `phenotype_term` HP id from a
-  member without consulting `frequency`, so an EXCLUDED phenotype is
-  indistinguishable from a present one at criteria-evaluation time. A negated
-  Hypohidrosis leaf would therefore evaluate to NOT_SATISFIED for all three
-  members and report three spurious contradictions. The criteria above are
-  positive only; the exclusion is stated in the criteria `description` and
-  enforced by curation review rather than by the evaluator.
+  How the sparing of teeth and sweat glands is encoded. Each member records the
+  sparing explicitly, as phenotypes with `frequency: EXCLUDED` and `modifier:
+  ABSENT` on HP:0000966 Hypohidrosis and HP:0000668 Hypodontia — the KB's
+  established way to carry an informative negative. The same two exclusions are
+  lifted into the NECESSARY criteria above as `negated: true` HAS_PHENOTYPE
+  leaves, following the `negated` leaf convention used by
+  `Inherited_Arrhythmia_Syndromes` (structurally normal heart) and
+  `Inborn_Errors_of_Immunity` (not an acquired immunodeficiency).
+
+  Known caveat in the advisory evaluator. `extract_disease_facts` collects every
+  `phenotype_term` HP id from a member without consulting the sibling
+  `frequency`, so an EXCLUDED phenotype is currently indistinguishable from a
+  present one at criteria-evaluation time (`modifier: ABSENT` is not read at
+  all). As a result these two negated leaves evaluate to NOT_SATISFIED for all
+  three members, and `just check-groupings` will report them as contradictions
+  even though each member asserts exactly the sparing the criteria require. This
+  is a property of the evaluator, not of the curation: the membership assertions
+  and the member-level EXCLUDED phenotypes agree. Nothing gates on it —
+  `check-groupings` is not part of `just qc` or CI, and
+  `test_grouping_evaluation_runs` is explicitly advisory — so the criteria are
+  written to say what is true and a later evaluation pass can flag the
+  evaluator gap if it matters.
