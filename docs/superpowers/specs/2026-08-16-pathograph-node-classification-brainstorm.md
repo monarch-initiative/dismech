@@ -144,6 +144,89 @@ those nodes have no pathophysiology edges at all and exist only as targets of
 (`ESTABLISHED` 373 / `PROVISIONAL` 348 / `HYPOTHETICAL` 89). A node is
 `PATHWAY_EFFECT` whether or not the pathway claim is solid.
 
+## Ontology grounding: evidence for the class, not a second axis
+
+GO / CL / UBERON / CHEBI should **not** become a parallel classification. One
+slot stays authoritative; the terms do three jobs *for* it — **seed** it,
+**check** it, and **find bundles** in it.
+
+Measured against the 3,704 nodes that already carry a curated
+`biological_scale` (using it as a stand-in class label):
+
+| grounding present | n | MOL | CEL | TIS | ORG |
+|---|---:|---:|---:|---:|---:|
+| GO MF | 313 | **91%** | 8% | 0% | 1% |
+| gene | 582 | **81%** | 14% | 3% | 2% |
+| GO MF + gene | 59 | **98%** | 2% | 0% | 0% |
+| CL + UBERON | 131 | 3% | 18% | **70%** | 8% |
+| UBERON alone | 250 | 2% | 2% | **63%** | 34% |
+| GO BP + CL | 666 | 13% | **61%** | 20% | 6% |
+| **GO BP alone** | 501 | 40% | 24% | 13% | 23% |
+| nothing at all | 629 | 12% | 5% | 20% | **62%** |
+
+Two results matter.
+
+**GO MF is near-definitional for MOLECULAR** (91%, and 98% with a gene), and
+UBERON pulls hard toward TISSUE. Those are *slot-level* signals — you only need
+to know which slot is filled.
+
+**GO BP presence carries no signal at all** (40/24/13/23 — barely different from
+the corpus baseline). That is not a defect; GO BP legitimately spans every tier,
+from `protein ubiquitination` to `blood coagulation`. It means BP is a
+*term-level* signal: you need the identity of the term, not its presence.
+
+**And GO BP term identity does separate — for about half the vocabulary.** Of
+the 58 GO BP terms used ≥8× on labelled nodes, 29 are ≥70% one scale:
+
+| clean | | genuinely ambiguous | |
+|---|---|---|---|
+| `GO:0006914` autophagy | 92% CELLULAR | `GO:0006954` inflammatory response | 47% |
+| `GO:0016567` protein ubiquitination | 92% MOLECULAR | `GO:0007399` nervous system development | 37% |
+| `GO:0001913` T cell mediated cytotoxicity | 92% CELLULAR | `GO:0007596` blood coagulation | 43% |
+| `GO:0030182` neuron differentiation | 88% CELLULAR | `GO:0007224` smoothened signaling pathway | 47% |
+| `GO:0006325` chromatin organization | 84% MOLECULAR | `GO:0006487` protein N-linked glycosylation | 44% |
+
+The ambiguous column is ambiguous for a real reason — inflammation genuinely
+happens at cellular, tissue, and organism scale. Don't force those; they are
+exactly where the class has to come from the curator.
+
+### Seeding is far cheaper than classifying nodes
+
+The KB uses **2,073 distinct GO BP terms** across 12,158 BP annotations, but the
+head is short: the top 200 terms cover **55.6%** of all annotations and the top
+500 cover **75.6%**. Add 398 MF, 476 CL, 542 UBERON, 338 CHEBI terms.
+
+So the tractable job is *classify a few hundred ontology terms once and
+propagate*, not *classify 12,290 nodes*. That also makes the seed auditable in
+one file rather than spread across 2,000 YAML entries.
+
+### The same signal is the debundling instrument
+
+This is what the classification is *for*. Take the GO BP terms that are
+scale-pure, and flag any node whose own class disagrees with its term's usual
+class. **55 of the 333 labelled nodes carrying a confident GO term disagree —
+17%**, and they read as genuine bundles:
+
+- *SCN5A Sodium-Channel Loss of Function* [Atrial_Standstill] — curated
+  MOLECULAR, annotated `GO:0061337 cardiac conduction` (usually TISSUE).
+  Splits into the channel lesion and the conduction failure.
+- *Loss of Cardiomyocyte KATP Conductance* — curated CELLULAR, annotated
+  `potassium ion transmembrane transport` (usually MOLECULAR).
+- *White-Matter Oxidative Stress* [Alexander_Disease] — curated TISSUE,
+  annotated `response to oxidative stress` (usually CELLULAR).
+
+A node needing two classes is a node making two claims. The value of the
+classification is that it *names which two*, so the split is obvious rather than
+a judgement call.
+
+### One detector that does NOT work
+
+"Node carries a molecular-tier term **and** a UBERON term" looks like a
+cross-tier bundle detector. It fires on 368 nodes (3.0%) and is mostly wrong:
+*"PRRX1/OTX2 Loss of Function in First-Arch Neural Crest"* and *"ANK2
+Haploinsufficiency in Neurons"* are single molecular claims with a site
+qualifier. **UBERON is usually doing location duty, not tier duty.** Rejected.
+
 ## Overlap with existing sections — worth deciding early
 
 Tiers 1 and 2 duplicate the `genetic:` and `environmental:` sections, which are
@@ -174,10 +257,11 @@ overlap can be surfaced as a QC warning instead.
 - **QC with teeth.** A tier-6 node upstream of a tier-3 node is a probable
   mis-drawn edge. A tier-8 OUTCOME node with outgoing `causes` edges is
   probably a phenotype in the wrong section.
-- **Bundle detection.** Same trick the `biological_scale` survey used: forcing
-  one value per node surfaces nodes doing two jobs (~41% of that survey's
-  sample were split candidates). *"Amyloid Fibril Formation and Extracellular
-  Deposition"* is tier 3 and tier 6 in one name.
+- **Debundling — the primary payoff.** Forcing one class per node surfaces
+  nodes doing two jobs (~41% of the `biological_scale` survey's sample were
+  split candidates), and the GO-disagreement detector above finds them
+  mechanically rather than by eye. Bundling is a curation state, not a flaw in
+  the classification: a node that resists a single class is the tool working.
 
 ## Open questions
 
@@ -188,8 +272,11 @@ overlap can be surfaced as a QC warning instead.
   nearly the same thing would be worse than either alone — most likely
   `node_class` supersedes `biological_scale` and the 3,704 existing values
   migrate mechanically.
-- **Adoption.** `biological_scale` sits at 30.1% after being added. Plan for a
-  similar ceiling, and seed from existing values rather than from zero.
+- **Adoption.** `biological_scale` sits at 30.1% after being added. But the
+  ontology-seeding result above changes the arithmetic: seed from the term
+  vocabulary (a few hundred terms) rather than from the 30% of nodes already
+  hand-tagged, and coverage is bounded by grounding coverage (69% carry a GO BP
+  term) instead of by curator throughput.
 
 ## Next step
 
