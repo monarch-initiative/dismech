@@ -24,4 +24,4 @@ numbers can be regenerated rather than trusted.
 | Experiment | Question | Runs |
 |---|---|---|
 | [`interannotator/`](interannotator/) | How much of a dismech entry is determined by the evidence, and how much by the curator? Each run curates one disease twice, independently, and measures where the versions agree. | 1 |
-| [`mapping-alignment/`](mapping-alignment/) | Where dismech, MONDO, and the external vocabularies are checked against each other rather than in isolation, do they agree — and where they conflict, can a probabilistic reasoner say which assertion to give up? | 2 |
+| [`mapping-alignment/`](mapping-alignment/) | Where dismech, MONDO, and the external vocabularies are checked against each other rather than in isolation, do they agree — and where they conflict, can a probabilistic reasoner say which assertion to give up? | 3 |

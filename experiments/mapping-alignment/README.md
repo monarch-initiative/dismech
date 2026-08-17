@@ -43,7 +43,15 @@ a groupby cannot find it.
 | Run | Question | Headline |
 |---|---|---|
 | [`2026-08-17-subtype-hierarchy/`](2026-08-17-subtype-hierarchy/) | Does MONDO agree with the subsumptions dismech asserts via `has_subtypes`? | 88.7% agreement (1,018/1,148). 1 genuine contradiction; 118 apparent MONDO gaps, all consistent to add. |
+| [`2026-08-17-grouping-membership/`](2026-08-17-grouping-membership/) | Does MONDO agree that the members of an `exactMatch`-mapped grouping fall under its term? | 89.4% agreement (93/104). 0 contradictions; 8 more apparent MONDO gaps. |
 | [`2026-08-17-cross-source/`](2026-08-17-cross-source/) | Do dismech's direct ICD/NCIT mappings agree with MONDO's own xrefs? | 7 disagreements, 6 of them granularity. Negative result for the solver. |
+
+Two structurally independent checks of the same underlying question agree
+closely — 88.7% and 89.4%, same failure mode, one contradiction between them.
+That consistency is itself a result: dismech's curated structure agrees with
+MONDO wherever MONDO has an opinion, and where it disagrees the gap is almost
+always on MONDO's side. Between them the two runs yield **126 candidate MONDO
+enrichment proposals** derived from independent curation.
 
 ## Tooling
 
@@ -51,15 +59,16 @@ a groupby cannot find it.
 |---|---|---|
 | [`scripts/hierarchy_audit.py`](scripts/hierarchy_audit.py) | no | Classify every grounded parent/subtype pair against MONDO's closure. |
 | [`scripts/solve_conflicts.py`](scripts/solve_conflicts.py) | yes | Hand each non-agreeing pair to boomer with the dismech, MONDO, and mapping constraints that bear on it. |
+| [`scripts/grouping_audit.py`](scripts/grouping_audit.py) | no | Check members of `exactMatch`-mapped groupings against the grouping's MONDO term. |
 | [`scripts/crosssource_audit.py`](scripts/crosssource_audit.py) | no | Compare direct external mappings against MONDO's xrefs for the same vocabulary. |
 
-Two of the three need no solver at all. `solve_conflicts.py` takes
+Three of the four need no solver at all. `solve_conflicts.py` takes
 `--boomer-src` pointing at a `boomer-py` checkout; **nothing in the repo depends
 on boomer**, and no dependency was added. That is deliberate — boomer-py is an
 early-stage project (~25 commits at time of writing) and this experiment does not
 justify taking it on as a dependency.
 
-All three read a local semantic-sql MONDO build at `~/.data/oaklib/mondo.db`. It
+All four read a local semantic-sql MONDO build at `~/.data/oaklib/mondo.db`. It
 is a fixed snapshot, so re-run before acting on any finding.
 
 ## Methodological notes carried forward
