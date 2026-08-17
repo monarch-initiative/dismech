@@ -49,6 +49,7 @@ year: '2018'
 doi: 10.1001/jamaneurol.2017.2065
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Neurologic Phenotypes Associated With Mutations in <i>RTN4IP1</i> (<i>OPA10</i>) in Children and Young Adults

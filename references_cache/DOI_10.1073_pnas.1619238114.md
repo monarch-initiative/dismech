@@ -1,8 +1,6 @@
 ---
 reference_id: DOI:10.1073/pnas.1619238114
-title: "Congenital myopathy results from misregulation of a muscle Ca
-                    <sup>2+</sup>
-                    channel by mutant Stac3"
+title: "Congenital myopathy results from misregulation of a muscle Ca <sup>2+</sup> channel by mutant Stac3"
 authors:
 - Jeremy W. Linsley
 - I-Uen Hsu
@@ -20,11 +18,10 @@ year: '2017'
 doi: 10.1073/pnas.1619238114
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
-# Congenital myopathy results from misregulation of a muscle Ca
-                    <sup>2+</sup>
-                    channel by mutant Stac3
+# Congenital myopathy results from misregulation of a muscle Ca <sup>2+</sup> channel by mutant Stac3
 **Authors:** Jeremy W. Linsley, I-Uen Hsu, Linda Groom, Viktor Yarotskyy, Manuela Lavorato, Eric J. Horstick, Drew Linsley, Wenjia Wang, Clara Franzini-Armstrong, Robert T. Dirksen, John Y. Kuwada
 **Journal:** Proceedings of the National Academy of Sciences (2017)
 **DOI:** [10.1073/pnas.1619238114](https://doi.org/10.1073/pnas.1619238114)
