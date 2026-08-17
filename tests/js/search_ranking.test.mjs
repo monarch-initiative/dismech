@@ -385,7 +385,7 @@ describe('search config stays in sync across the browsers', () => {
         return {
             tokenSplit: grab(/const SEARCH_TOKEN_SPLIT = .*/g),
             tokenize: grab(/tokenize: \(text\) =>.*/g),
-            boostTiers: grab(/^ *(if \(nameLower|const coverage|const boundary|return 1;).*/gm),
+            boostTiers: grab(/^ *(if \(nameLower|const coverage|return 1;).*/gm),
         };
     }
 
@@ -411,8 +411,15 @@ describe('search config stays in sync across the browsers', () => {
         // numbers so a retuned constant cannot land in one copy only.
         // In source order: the exact-match tier (50), the prefix tier (floor 3,
         // scale 30), the substring tier (base 1, scale 2), the no-match tier (1).
+        const expected = ['50', '3', '30', '1', '2', '1'];
         const numbers = configs[0][1].boostTiers.join(' ').match(/\d+(\.\d+)?/g);
-        assert.deepEqual(numbers, ['50', '3', '30', '1', '2', '1'], `got ${JSON.stringify(numbers)}`);
+        assert.deepEqual(numbers, expected, `app/index.html: got ${JSON.stringify(numbers)}`);
+
+        // ...and that nameBoost() above, which is a transcription of that same
+        // logic, was retuned along with it. Without this the guard would stay
+        // green while the transcription and the browsers drifted apart.
+        const transcribed = nameBoost.toString().match(/\d+(\.\d+)?/g);
+        assert.deepEqual(transcribed, expected, `nameBoost(): got ${JSON.stringify(transcribed)}`);
     });
 });
 
