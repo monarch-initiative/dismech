@@ -31,38 +31,42 @@ tags: [SCHEMA_EVOLUTION, PATHOGRAPH, PATHOPHYSIOLOGY, BRAINSTORM]
      nutritional                   deficiency or excess
      physiological stressor        fasting, fever, catabolic stress
 
-3. MOLECULAR_EFFECT           what the lesion does to a molecule
-     protein function change       "HMGCS2 Catalytic Loss"
-     misfolding / aggregation      amyloid oligomers, tau tangles
+3. MOLECULAR_ACTIVITY_EFFECT  what the gene product can no longer do
+     catalytic activity            "HMGCS2 Catalytic Loss"
+     channel conductance           "SCN5A Sodium-Channel Loss of Function"
+     transport activity            "Loss of GLUT2 Transporter Function"
+     receptor / adaptor activity   "STAT3 dominant-negative dysfunction"
+
+4. MOLECULAR_SUBSTANCE_EFFECT which molecules are now in the wrong amount or form
      metabolite accumulation       "Reactive valine-derived intermediate accumulation"
      metabolite depletion          "Low L-Serine and Downstream Metabolites"
-     transport / channel defect    "Sodium channel dysfunction"
+     misfolding / aggregation      "ADan Misfolding and Beta-Sheet Oligomerization"
 
-4. PATHWAY_EFFECT             signalling and flux
+5. PATHWAY_EFFECT             signalling and flux
      signalling up / down          "FSHR Signaling Resistance"
      metabolic flux block          "Impaired leucine degradation"
      transcriptional program       HIF stabilisation, NF-kB activation
 
-5. CELLULAR_EFFECT
+6. CELLULAR_EFFECT
      cell death                    apoptosis, necrosis, pyroptosis
      proliferation / growth
      differentiation / identity    "Testis differentiation in 46,XX gonads"
      organelle dysfunction         mitochondrial, lysosomal, ER stress
      stress response / senescence
 
-6. TISSUE_ORGAN_EFFECT
+7. TISSUE_ORGAN_EFFECT
      inflammation
      fibrosis / remodelling
      structure formed              thrombus, granuloma, atheroma, cyst, amyloid deposit
      degeneration / atrophy
      barrier failure
 
-7. SYSTEMIC_EFFECT            whole-body physiology
+8. SYSTEMIC_EFFECT            whole-body physiology
      organ failure
      metabolic crisis              "Acute hypoketotic metabolic decompensation"
      systemic derangement          hyperammonaemia, cytokine storm
 
-8. OUTCOME                    what happens to the patient
+9. OUTCOME                    what happens to the patient
      clinical manifestation, disability, death
 
 --- not tiers; these cut across all of the above ---
@@ -95,6 +99,80 @@ The one soft join is TISSUE (4.57) vs ORGANISM (4.74), which barely separate.
 That is the argument for splitting tier 7 (SYSTEMIC) from tier 8 (OUTCOME):
 "organ failure" and "the patient decompensates" are currently collapsed into
 one `ORGANISM` bucket doing two jobs.
+
+## Splitting MOLECULAR into ACTIVITY and SUBSTANCE
+
+The original sketch had one `MOLECULAR_EFFECT` tier. The corpus says it is two,
+and GO's own structure names the missing level: **gene → molecular function →
+biological process**. The middle term — *what the gene product can no longer do*
+— had no class.
+
+Mean topological depth by grounding, over all 12,290 nodes:
+
+| grounding | n | mean depth | median |
+|---|---:|---:|---:|
+| gene present (genomic lesion) | 1,985 | 0.94 | 0.0 |
+| **GO MF present (activity)** | 647 | **0.81** | 0.0 |
+| **CHEBI present (substance)** | 496 | **1.78** | 1.0 |
+| CL only (cellular) | 4,567 | 2.25 | 1.0 |
+| UBERON present (tissue) | 2,819 | 2.43 | 2.0 |
+| no grounding at all | 1,713 | 2.94 | 2.0 |
+
+A full causal step separates activity from substance. And restricting to nodes
+curators themselves tagged `biological_scale: MOLECULAR`, MF nodes sit at
+**0.87** and CHEBI nodes at **1.90** — that one tag was already covering two
+tiers.
+
+Curators had also improvised the class without a slot to put it in: **31 nodes
+are literally named `<GENE> molecular function deficiency`**, and 394 node names
+(3.4%) are activity-shaped overall (`catalytic loss`, `channel dysfunction`,
+`transporter deficiency`, `loss/gain of function`).
+
+**But the new tier does not go between GENOMIC and SUBSTANCE.** Gene-grounded
+nodes sit at 0.94 and MF-grounded at 0.81 — statistically the same place.
+GENOMIC and ACTIVITY are **alternative entry points**, not sequential steps: an
+entry opens either on the lesion or on the broken activity, rarely both. Same
+pattern as the SHH/holoprosencephaly case, where the entry opens at pathway
+level and the allele stays in `genetic:`.
+
+This relocates part of the earlier tree. `HMGCS2 Catalytic Loss` and `SRD5A2
+Loss of Function` were filed under GENOMIC; they are activity claims. GENOMIC
+keeps only genome-level content — dosage, structural variants, imprinting,
+silencing, transcriptional regulation.
+
+## The GO seed table works
+
+[`pathograph_node_class_go_seed.tsv`](../pathograph_node_class_go_seed.tsv)
+hand-classifies the **top 200 GO BP terms** (55.6% of all BP annotations) into
+the nine classes, with a `confidence` column so genuinely ambiguous terms
+(`inflammatory response`, `nervous system development`) are marked `LOW` and
+suggest rather than seed.
+
+Result over all 12,290 pathophysiology nodes:
+
+| | nodes | share |
+|---|---:|---:|
+| carry ≥1 seeded GO BP term | 5,382 | 43.8% |
+| carry ≥1 HIGH-confidence term | 4,675 | 38.0% |
+| **→ single unambiguous class (seeded)** | **4,235** | **34.5%** |
+| **→ conflicting classes (debundle candidate)** | **440** | **3.6%** |
+| + `has GO MF or gene` rule | +1,448 | → 49.8% combined |
+
+**200 decisions classified or flagged ~5,700 nodes.** Seeded distribution:
+CELLULAR 43.4%, TISSUE 19.7%, PATHWAY 13.9%, GENOMIC 8.5%, SUBSTANCE 6.2%,
+ACTIVITY 4.5%, SYSTEMIC 3.9%.
+
+The 440 conflicts are a second debundling detector, and unlike the earlier one
+it needs no curated class at all — a node whose *own* GO annotations span two
+classes is making two claims:
+
+- *Impaired Oligodendrocyte Precursor Proliferation and …* — CELLULAR + TISSUE
+- *Neutrophil Oxidative and Proteolytic Injury* [ARDS] — CELLULAR + SUBSTANCE
+- *Cortical Excitation-Inhibition Imbalance* — CELLULAR + PATHWAY
+- *Failure of Poly(ADP-Ribose) Turnover under Stress* — CELLULAR + GENOMIC
+
+Note how many say "and" in the name. Extending the table from 200 to 500 terms
+would reach 75.6% of BP annotations for roughly 300 more decisions.
 
 ## What this replaces
 
@@ -291,7 +369,7 @@ Then, in order:
    (3 variants of `trigger` today), compute cascade position and C2 from the
    edges, and see how much of the 2,322 tagged nodes is left over. That number
    sizes the real curation job.
-2. **Classify ~100 nodes against the 8+2 tree** to find the contested joins,
+2. **Classify ~100 nodes against the 9+2 tree** to find the contested joins,
    reusing the three-pass structure from
    [the `biological_scale` survey](../../../projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md).
 
