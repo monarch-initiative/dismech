@@ -109,10 +109,12 @@ function buildIndex(data, schema) {
         fields: searchableFields,
         idField: '_id',
         storeFields: ['name'],
+        // Keep in sync with app/index.html: apostrophes are separators, so
+        // "Parkinson's" indexes as "parkinson".
         tokenize: (text) =>
             text
                 .toLowerCase()
-                .split(/[\s\-_/,;:()]+/)
+                .split(/[\s\-_/,;:()'’]+/)
                 .filter((t) => t.length > 1),
         searchOptions: {
             boost: schema.fieldBoosts || {},
@@ -137,8 +139,12 @@ function search(miniSearch, data, query) {
         boostDocument: (_id, _term, storedFields) => {
             const nameLower = (storedFields?.name || '').toLowerCase();
             if (nameLower === queryLower) return 50;
-            if (nameLower.startsWith(queryLower)) return 10;
-            if (nameLower.includes(queryLower)) return 3;
+            // Keep in sync with app/index.html: each tier is scaled by how much
+            // of the name the query accounts for, with floors that keep the
+            // tiers ordered by boost (prefix >= 3 >= substring).
+            const coverage = queryLower.length / nameLower.length;
+            if (nameLower.startsWith(queryLower)) return Math.max(3, 30 * coverage);
+            if (nameLower.includes(queryLower)) return 1 + 2 * coverage;
             return 1;
         },
     });
@@ -241,6 +247,77 @@ describe('partial prefix queries rank the right disorder first', () => {
             );
         });
     }
+});
+
+// ---------------------------------------------------------------------------
+// Ranking rules, pinned against a fixture corpus
+//
+// The suites above run against the committed app/data.js, which is only
+// refreshed by the generate-pages bot. On main it therefore lags the KB by
+// however many disorders have been curated since the last page build, so a
+// ranking regression introduced by a new entry stays invisible here and only
+// surfaces later, in the bot's own PR. These cases use a fixture corpus
+// instead, so they hold however stale the snapshot is.
+//
+// The corpus is a miniature of the real one: enough sibling entries sharing a
+// stem for term frequencies to behave as they do at full size. A two-document
+// fixture will not do — with that little text MiniSearch's own term weighting
+// swamps the name boost, and the case stops measuring the rule it names.
+// ---------------------------------------------------------------------------
+
+const FIXTURE_CORPUS = [
+    {
+        name: "Parkinson's Disease",
+        description:
+            'A progressive neurodegenerative movement disorder with parkinsonism, rest tremor, rigidity and bradykinesia.',
+    },
+    {
+        name: 'Parkinson Disease, Mitochondrial',
+        description:
+            'Maternally inherited parkinsonism caused by mitochondrial DNA variants; presents with parkinson features and parkinsonian gait.',
+    },
+    {
+        name: 'PRKN-Related Juvenile Parkinson Disease',
+        description:
+            'Early-onset parkinsonism caused by biallelic PRKN variants; parkinsonian features with dystonia.',
+    },
+    {
+        name: 'Infantile Parkinsonism-Dystonia',
+        description: 'Dopamine transporter deficiency causing parkinsonism and dystonia in infancy.',
+    },
+    { name: 'Multiple Sclerosis', description: 'A demyelinating disease of the central nervous system.' },
+    { name: 'Asthma', description: 'A chronic inflammatory airway disease with wheeze and reversible obstruction.' },
+    { name: 'Marfan Syndrome', description: 'A connective tissue disorder caused by FBN1 variants.' },
+    { name: 'Huntington Disease', description: 'A trinucleotide repeat neurodegenerative disorder with chorea.' },
+];
+
+describe('ranking rules (fixture corpus)', () => {
+    let fixtureIndex;
+
+    before(() => {
+        fixtureIndex = buildIndex(FIXTURE_CORPUS, schema);
+    });
+
+    // Both of these fail on the pre-2026-08 configuration, where "Parkinson's"
+    // was a single token (so "Parkinson" could only reach it as a downweighted
+    // prefix match) and every prefix match got a flat boost regardless of how
+    // much of the name the query accounted for.
+    for (const query of ['Parkinson', 'Parkin']) {
+        it(`"${query}" ranks the canonical entry above a longer same-prefix sibling`, () => {
+            const results = search(fixtureIndex, FIXTURE_CORPUS, query);
+            assert.ok(results.length > 0, `No results for "${query}"`);
+            assert.equal(
+                results[0].name,
+                "Parkinson's Disease",
+                `Expected "Parkinson's Disease" first, got "${results[0].name}" (score: ${results[0].score})`
+            );
+        });
+    }
+
+    it('an exact name match still wins outright', () => {
+        const results = search(fixtureIndex, FIXTURE_CORPUS, 'Asthma');
+        assert.equal(results[0].name, 'Asthma', `got "${results[0].name}"`);
+    });
 });
 
 describe('name field is boosted above other fields', () => {
