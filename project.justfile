@@ -14,7 +14,7 @@ mondo_db := env_var_or_default("MONDO_DB_PATH", x'${HOME}/.data/oaklib/mondo.db'
 # Wrapper script that patches linkml-reference-validator for network resilience
 ref_validator := "scripts/run_reference_validator.sh"
 # Wrapper script that applies the SAME patches to deep-research-client, which
-# since 0.2.9+ calls linkml-reference-validator in-process to check a report's
+# since 0.2.9 calls linkml-reference-validator in-process to check a report's
 # references -- so it too reads and writes references_cache/ and must not run
 # unpatched. Notably it needs the issue #7697 delimiter-aware frontmatter read:
 # a truncated read surfaces as a false "unresolved reference", and curators are

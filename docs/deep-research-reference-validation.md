@@ -42,6 +42,16 @@ for anything that validates; go through the wrapper or the recipes.
   metadata to judge, is uncertain and reported as neither. The thresholds were
   fixed empirically upstream against real report/bibliography pairs.
 
+The verdict is **asymmetric on purpose**, and it is worth knowing which way. A
+high score is good evidence a reference belongs; a low score only counts as
+evidence when there was an abstract it could have matched in. A record that
+resolved to a title and a MeSH list and nothing else is never called off topic,
+however little it shares — convicting on controlled vocabulary alone would flag
+papers that are squarely on topic. So `off_topic: 0` does not mean "every
+citation was weighed and cleared"; part of it is "some had nothing to convict
+on." `relevance_assessed` minus `on_topic` minus `off_topic` is the size of that
+undecided remainder.
+
 The relevance check **costs nothing extra** — no additional lookups, since it
 reads records the existence check already fetched. It is on by default; disable
 it with `--validation-no-relevance` on a research run, or
@@ -80,7 +90,8 @@ reference_validation:
   quotes_valid: 8
   quotes_unsupported: 1
   unsupported_quote_references:
-  - PMID:31234567
+  - PMID:26543210
+  quotes_not_checkable: 2
   relevance_assessed: 22
   on_topic: 19
   off_topic: 1
@@ -105,6 +116,16 @@ been checked; `off_topic`/`off_topic_references` appear only when something was
 flagged, so a report with `relevance_assessed` and `on_topic` but no `off_topic`
 is a clean relevance pass. `relevance_assessed` + `on_topic` are absent entirely
 if relevance checking was disabled.
+
+Note that the two failure lists never overlap: a quote attributed to a reference
+that did not resolve is not *contradicted* by its source, it simply has no source
+to check against, so it is counted under `quotes_not_checkable` rather than
+`quotes_unsupported`. `unsupported_quote_references` therefore only ever names
+references that *did* resolve. The example above shows both — one quote checked
+against a real paper and not found in it, and two quotes stranded on the two
+unresolved identifiers. `quotes_checked` counts only the ones there was something
+to check against, so the example's eleven quoted claims appear as `9` plus a
+separate `quotes_not_checkable: 2`, not as a total of eleven.
 
 **`needs_review: true` is the one flag to grep for.** It is set whenever any
 identifier failed to resolve, *or* any quote failed to match, *or* any reference
