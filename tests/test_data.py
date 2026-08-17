@@ -75,6 +75,7 @@ ALLOWED_REFERENCE_PREFIXES = (
     "CIVIC_ASSERTION:",
     "CIVIC_EID:",
     "ICEES:",  # ICEES KG comorbidity pairs
+    "ICTRP:",  # WHO ICTRP trial registrations (ChiCTR, ISRCTN, EUCTR, JPRN, ...)
     "NCIT:",  # NCI Thesaurus predicate edges (e.g. NCIT:P302 therapeutic use)
     "metabolights:",  # dataset accession; skip_prefixes in the validator config
 )
