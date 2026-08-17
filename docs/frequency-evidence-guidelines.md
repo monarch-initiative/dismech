@@ -205,6 +205,64 @@ explanation: |
 Consider whether the qualifier belongs on the parent phenotype at all, or
 whether it should be modeled with a `subtype:` foreign key.
 
+### Anti-pattern 5 — Frequency band inherited across a scope boundary
+
+Anti-pattern 4 is about a band derived from a population *narrower* than the
+entry. This is the mirror image, and it is the more common one: a band quoted
+from a source scoped *more broadly* than the entry it lands on.
+
+```yaml
+# WRONG — in Osteogenesis_Imperfecta_Type_I.yaml
+- name: Bone Pain
+  frequency: FREQUENT            # claims 30-79% of OI type I
+  evidence:
+  - reference: ORPHA:666         # ORPHA:666 is "Osteogenesis imperfecta" — all types
+    supports: SUPPORT
+    snippet: "HP:0002653 | Bone pain | Frequent (79-30%)"
+```
+
+`ORPHA:666` bands describe the whole OI spectrum, in which the severe types
+contribute most of the burden; type I is the mildest form. The band is real and
+the quote is verbatim, so **every check in this repo passes** — snippet
+verification, term validation, and schema validation all see a well-formed
+record. Only a curator reading the source's scope can catch it. The same applies
+to a `kb/groupings/` union, an umbrella `Disease` entry, a MONDO grouping term,
+or a `has_subtypes` parent: a band measured over the union is not a band for any
+one member.
+
+**The rule.** Before adopting a `frequency:` from a source, ask what population
+the source measured. If it is broader than the entry (or than the `subtype:` the
+record is scoped to), you may not adopt the band unchanged. Choose one of:
+
+1. **Scope the record instead** — if the entry defines `has_subtypes` and the
+   band genuinely belongs to one of them, set the `subtype:` foreign key rather
+   than restricting the scope in prose. `subtype:` is checked by
+   `tests/test_data.py`; a `notes:` string is not. Note `subtype:` is
+   single-valued, so a restriction naming several subtypes ("primarily in RDEB",
+   covering three of four) cannot be expressed this way — keep it in `notes:`.
+2. **Keep the band, demote the evidence** — when a *narrower*, quantitative
+   source disagrees with the broad band, keep the narrow band and cite the broad
+   row as `supports: PARTIAL` with an `explanation` naming the conflict
+   outright.
+3. **Drop the band** — when the only source for it is the broader entity, omit
+   `frequency:` and record the reason where a reader will meet it: the cited
+   row's `explanation` (best — it sits next to the band you declined to adopt)
+   or the phenotype's `notes:`. This is the default; per Pattern D, a missing
+   frequency is honest.
+
+Do **not** keep the band and merely note the mismatch in prose. That leaves a
+machine-readable quantitative claim the KB cannot defend, annotated by a string
+nothing reads.
+
+**Worked precedents already in the KB:**
+
+| Entry / phenotype | Choice | Why |
+|---|---|---|
+| `Marfan_Syndrome` → `Spontaneous Pneumothorax` | 2 — keep narrow band | `ORPHA:558` says "Very frequent (99-80%)"; PMID:25765122 measures 5–11%. Band stays `OCCASIONAL`, ORPHA row cited `PARTIAL` with the conflict stated. |
+| `Dystrophic_Epidermolysis_Bullosa` → `Cutaneous Squamous Cell Carcinoma` | 1 — scope it | `VERY_FREQUENT` comes from National EB Registry cumulative risk in severe generalized RDEB (90.1% by 55), not DEB as a whole, so the record carries `subtype: RDEB-sev gen`. |
+| `Dystrophic_Epidermolysis_Bullosa` → `Osteoporosis` | 3 — drop it | The only source is a GeneReviews management sentence that states no rate. Band omitted; `notes:` records the reason. |
+| `Osteogenesis_Imperfecta_Type_I` → `Hyperhidrosis` | 3 — drop it | `ORPHA:666`'s "Frequent (79-30%)" row is cited for the association only; the evidence `explanation` states that no type-I band is asserted because the band reflects the whole OI spectrum. |
+
 ## Quick checklist
 
 When you assign or change a `frequency:` value, verify:
