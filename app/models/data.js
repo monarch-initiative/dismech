@@ -679,6 +679,51 @@ window.searchData = [
     "source_file": "kb/modules/immune_checkpoint_blockade.yaml"
   },
   {
+    "model_key": "Sick_Sinus_Syndrome_2,_Autosomal_Dominant--computational-model-fabbri-severi-human-sinoatrial-node-cell-model-with-hcn4-mutation-induced-i-f-changes--0",
+    "name": "Fabbri-Severi human sinoatrial node cell model with HCN4 mutation-induced I_f changes",
+    "description": "A published in-silico risk-stratification study of SSS2. In-vitro biophysical data for HCN4 loss-of-function alleles were used to compute the charge carried by I_f during diastolic depolarization of a prerecorded human sinoatrial node action potential, and that quantity was used to drive the Fabbri-Severi model of a human sinoatrial node pacemaker cell. It is the computational counterpart of the funny-current node in this entry: it makes the qualitative claim (less diastolic I_f, slower firing) quantitative and allele-specific.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:37760888",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Sick Sinus Syndrome 2, Autosomal Dominant",
+    "disease_id": "MONDO:0008102",
+    "category": "Mendelian",
+    "parents": [
+      "Familial Sick Sinus Syndrome",
+      "Channelopathy"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Reduced Funny Current and Slowed Diastolic Depolarization"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The diastolic funny-current charge computed by action-potential clamp predicts both the simulated pacemaker rate of a human sinoatrial node cell model and the resting or minimum heart rate of HCN4 mutation carriers, making it a candidate risk-stratification measure for HCN4 loss-of-function sinus bradycardia."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:37760888"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-08-17T00:00:00Z",
+    "page_url": "../../pages/disorders/Sick_Sinus_Syndrome_2,_Autosomal_Dominant.html#computational-model-fabbri-severi-human-sinoatrial-node-cell-model-with-hcn4-mutation-induced-i-f-changes",
+    "source_file": "kb/disorders/Sick_Sinus_Syndrome_2_Autosomal_Dominant.yaml"
+  },
+  {
     "model_key": "Phenylketonuria--computational-model-harvey-whole-body-pku-model--2",
     "name": "Harvey Whole-Body PKU Model",
     "description": "Sex-specific whole-body model for organ-resolved IEM biomarker prediction.",
@@ -2127,8 +2172,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 44,
-  "total_source_entries": 17,
+  "total_models": 45,
+  "total_source_entries": 18,
   "total_model_types": 7,
   "total_runnable": 4,
   "total_with_repository": 20
