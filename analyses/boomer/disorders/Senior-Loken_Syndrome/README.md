@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Senior-Loken_Syndrome.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SLSN1 | `MONDO:0009962` | Senior-Loken syndrome 1 | `AGREES` |
-| SLSN5 | `MONDO:0012225` | Senior-Loken syndrome 5 | `AGREES` |
-| SLSN6 | `MONDO:0012433` | Senior-Loken syndrome 6 | `AGREES` |
-| SLSN7 | `MONDO:0013326` | Senior-Loken syndrome 7 | `AGREES` |
-| SLSN8 | `MONDO:0014579` | Senior-Loken syndrome 8 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SLSN1 | `MONDO:0009962` | Senior-Loken syndrome 1 | `AGREES` | silent (DOID) |
+| SLSN5 | `MONDO:0012225` | Senior-Loken syndrome 5 | `AGREES` | silent (DOID, MESH) |
+| SLSN6 | `MONDO:0012433` | Senior-Loken syndrome 6 | `AGREES` | silent (DOID, MESH) |
+| SLSN7 | `MONDO:0013326` | Senior-Loken syndrome 7 | `AGREES` | silent (DOID) |
+| SLSN8 | `MONDO:0014579` | Senior-Loken syndrome 8 | `AGREES` | silent (DOID) |
 
 ## What boomer did
 

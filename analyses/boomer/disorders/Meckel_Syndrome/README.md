@@ -8,20 +8,20 @@ Boomer grounding analysis for [`kb/disorders/Meckel_Syndrome.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Meckel syndrome, type 1 | `MONDO:0009571` | Meckel syndrome, type 1 | `AGREES` |
-| Meckel syndrome, type 2 | `MONDO:0011296` | Meckel syndrome, type 2 | `AGREES` |
-| Meckel syndrome, type 3 | `MONDO:0011821` | Meckel syndrome, type 3 | `AGREES` |
-| Meckel syndrome, type 4 | `MONDO:0012626` | Meckel syndrome, type 4 | `AGREES` |
-| Meckel syndrome, type 5 | `MONDO:0012695` | Meckel syndrome, type 5 | `AGREES` |
-| Meckel syndrome, type 6 | `MONDO:0012848` | Meckel syndrome, type 6 | `AGREES` |
-| Meckel syndrome, type 8 | `MONDO:0013482` | Meckel syndrome, type 8 | `AGREES` |
-| Meckel syndrome, type 9 | `MONDO:0013630` | Meckel syndrome, type 9 | `AGREES` |
-| Meckel syndrome, type 10 | `MONDO:0013609` | Meckel syndrome, type 10 | `AGREES` |
-| Meckel syndrome, type 11 | `MONDO:0014164` | Meckel syndrome, type 11 | `AGREES` |
-| Meckel syndrome 13 | `MONDO:0033044` | Meckel syndrome 13 | `AGREES` |
-| Meckel syndrome 14 | `MONDO:0030819` | meckel syndrome 14 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Meckel syndrome, type 1 | `MONDO:0009571` | Meckel syndrome, type 1 | `AGREES` | ✓ DOID |
+| Meckel syndrome, type 2 | `MONDO:0011296` | Meckel syndrome, type 2 | `AGREES` | ✓ DOID |
+| Meckel syndrome, type 3 | `MONDO:0011821` | Meckel syndrome, type 3 | `AGREES` | ✓ DOID |
+| Meckel syndrome, type 4 | `MONDO:0012626` | Meckel syndrome, type 4 | `AGREES` | ✓ DOID |
+| Meckel syndrome, type 5 | `MONDO:0012695` | Meckel syndrome, type 5 | `AGREES` | ✓ DOID |
+| Meckel syndrome, type 6 | `MONDO:0012848` | Meckel syndrome, type 6 | `AGREES` | ✓ DOID |
+| Meckel syndrome, type 8 | `MONDO:0013482` | Meckel syndrome, type 8 | `AGREES` | ✓ DOID |
+| Meckel syndrome, type 9 | `MONDO:0013630` | Meckel syndrome, type 9 | `AGREES` | — no shared vocabulary |
+| Meckel syndrome, type 10 | `MONDO:0013609` | Meckel syndrome, type 10 | `AGREES` | — no shared vocabulary |
+| Meckel syndrome, type 11 | `MONDO:0014164` | Meckel syndrome, type 11 | `AGREES` | — no shared vocabulary |
+| Meckel syndrome 13 | `MONDO:0033044` | Meckel syndrome 13 | `AGREES` | ✓ DOID |
+| Meckel syndrome 14 | `MONDO:0030819` | meckel syndrome 14 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

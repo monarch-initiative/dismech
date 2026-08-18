@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Fibrosarcoma.yaml`](../../../../kb/
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Infantile Fibrosarcoma | `MONDO:0004557` | congenital fibrosarcoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Infantile Fibrosarcoma | `MONDO:0004557` | congenital fibrosarcoma | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

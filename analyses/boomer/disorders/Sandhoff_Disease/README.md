@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Sandhoff_Disease.yaml`](../../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Infantile Sandhoff disease | `MONDO:0017721` | Sandhoff disease, infantile form | `AGREES` |
-| Juvenile Sandhoff disease | `MONDO:0017722` | Sandhoff disease, juvenile form | `AGREES` |
-| Adult Sandhoff disease | `MONDO:0017723` | Sandhoff disease, adult form | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Infantile Sandhoff disease | `MONDO:0017721` | Sandhoff disease, infantile form | `AGREES` | ✓ ORDO |
+| Juvenile Sandhoff disease | `MONDO:0017722` | Sandhoff disease, juvenile form | `AGREES` | ✓ ORDO |
+| Adult Sandhoff disease | `MONDO:0017723` | Sandhoff disease, adult form | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

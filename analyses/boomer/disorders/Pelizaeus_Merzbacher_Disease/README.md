@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Pelizaeus_Merzbacher_Disease.yaml`]
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Classic Pelizaeus-Merzbacher Disease | `MONDO:0017222` | Pelizaeus-Merzbacher disease, classic form | `AGREES` |
-| Connatal Pelizaeus-Merzbacher Disease | `MONDO:0017221` | Pelizaeus-Merzbacher disease, connatal form | `AGREES` |
-| Transitional Pelizaeus-Merzbacher Disease | `MONDO:0017223` | Pelizaeus-Merzbacher disease, transitional form | `AGREES` |
-| Female Carrier Pelizaeus-Merzbacher Disease | `MONDO:0017224` | Pelizaeus-Merzbacher disease in female carriers | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Classic Pelizaeus-Merzbacher Disease | `MONDO:0017222` | Pelizaeus-Merzbacher disease, classic form | `AGREES` | ✓ ORDO, icd11f |
+| Connatal Pelizaeus-Merzbacher Disease | `MONDO:0017221` | Pelizaeus-Merzbacher disease, connatal form | `AGREES` | ✓ ORDO, icd11f |
+| Transitional Pelizaeus-Merzbacher Disease | `MONDO:0017223` | Pelizaeus-Merzbacher disease, transitional form | `AGREES` | ✓ ORDO, icd11f |
+| Female Carrier Pelizaeus-Merzbacher Disease | `MONDO:0017224` | Pelizaeus-Merzbacher disease in female carriers | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 

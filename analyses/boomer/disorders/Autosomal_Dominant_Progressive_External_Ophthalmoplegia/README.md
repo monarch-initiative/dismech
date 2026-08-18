@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Autosomal_Dominant_Progressive_Exte
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PEOA1 | `MONDO:0024528` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 1 | `AGREES` |
-| PEOA2 | `MONDO:0012238` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 2 | `AGREES` |
-| PEOA3 | `MONDO:0012241` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 3 | `AGREES` |
-| PEOA4 | `MONDO:0012415` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 4 | `AGREES` |
-| PEOA5 | `MONDO:0013117` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 5 | `AGREES` |
-| PEOA6 | `MONDO:0014062` | mitochondrial DNA deletion syndrome with progressive myopathy | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PEOA1 | `MONDO:0024528` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 1 | `AGREES` | — no shared vocabulary |
+| PEOA2 | `MONDO:0012238` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 2 | `AGREES` | silent (MESH) |
+| PEOA3 | `MONDO:0012241` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 3 | `AGREES` | silent (MESH) |
+| PEOA4 | `MONDO:0012415` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 4 | `AGREES` | silent (MESH) |
+| PEOA5 | `MONDO:0013117` | progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 5 | `AGREES` | silent (MESH) |
+| PEOA6 | `MONDO:0014062` | mitochondrial DNA deletion syndrome with progressive myopathy | `SILENT` | silent (ORDO) |
 
 ## What boomer did
 

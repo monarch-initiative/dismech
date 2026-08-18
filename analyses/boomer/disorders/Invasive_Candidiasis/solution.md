@@ -1,16 +1,20 @@
 
  ## dismech-Invasive_Candidiasis
- * 60 combinations
- * 56 satisfiable combinations
+ * 92 combinations
+ * 90 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.5 confidence
- * 0.6591653720999999 prior probability
- * 0.12461225617697626 posterior probability
- * 0.0257 seconds elapsed
+ * 0.25 confidence
+ * 0.5368943153590255 prior probability
+ * 0.04764356328756145 posterior probability
+ * 0.0441 seconds elapsed
 Grounding:
- * True dismech:Invasive_Candidiasis (Invasive Candidiasis (dismech entry)) ≡ MONDO:0044067 (candidiasis, invasive) :: prior: 0.9 posterior: 0.9350209095597362
- * False dismech:Invasive_Candidiasis (Invasive Candidiasis (dismech entry)) ⊆ MONDO:0044067 (candidiasis, invasive) :: prior: 0.07 posterior: 0.005479269052884924
- * False MONDO:0044067 (candidiasis, invasive) ⊆ dismech:Invasive_Candidiasis (Invasive Candidiasis (dismech entry)) :: prior: 0.03 posterior: 0.0022514227772531567
- * True dismech:Invasive_Candidiasis#Candidemia (Invasive Candidiasis / Candidemia (dismech subtype)) ≡ MONDO:0044070 (candidemia) :: prior: 0.9 posterior: 0.9350209095597362
- * False dismech:Invasive_Candidiasis#Candidemia (Invasive Candidiasis / Candidemia (dismech subtype)) ⊆ MONDO:0044070 (candidemia) :: prior: 0.07 posterior: 0.005479269052884925
- * False MONDO:0044070 (candidemia) ⊆ dismech:Invasive_Candidiasis#Candidemia (Invasive Candidiasis / Candidemia (dismech subtype)) :: prior: 0.03 posterior: 0.002251422777253156
+ * True dismech:Invasive_Candidiasis (Invasive Candidiasis (dismech entry)) ≡ MONDO:0044067 (candidiasis, invasive) :: prior: 0.9 posterior: 0.9674196363939683
+ * False dismech:Invasive_Candidiasis (Invasive Candidiasis (dismech entry)) ⊆ MONDO:0044067 (candidiasis, invasive) :: prior: 0.07 posterior: 0.004045362876199386
+ * False MONDO:0044067 (candidiasis, invasive) ⊆ dismech:Invasive_Candidiasis (Invasive Candidiasis (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * True MONDO:0044067 (candidiasis, invasive) ≡ MESH:D058365 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0044067 (candidiasis, invasive) ≡ NCIT:C116813 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0044067 (candidiasis, invasive) ≡ ORDO:636945 :: prior: 0.95 posterior: 0.95
+ * True dismech:Invasive_Candidiasis#Candidemia (Invasive Candidiasis / Candidemia (dismech subtype)) ≡ MONDO:0044070 (candidemia) :: prior: 0.9 posterior: 0.967419636393967
+ * False dismech:Invasive_Candidiasis#Candidemia (Invasive Candidiasis / Candidemia (dismech subtype)) ⊆ MONDO:0044070 (candidemia) :: prior: 0.07 posterior: 0.004045362876199382
+ * False MONDO:0044070 (candidemia) ⊆ dismech:Invasive_Candidiasis#Candidemia (Invasive Candidiasis / Candidemia (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233105
+ * True MONDO:0044070 (candidemia) ≡ MESH:D058387 :: prior: 0.95 posterior: 0.95

@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Lissencephaly_Spectrum_Disorders.ya
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Classic/LIS1 | `MONDO:0015146` | classic lissencephaly | `AGREES` |
-| ARX-related | `MONDO:0010268` | X-linked lissencephaly with abnormal genitalia | `AGREES` |
-| RELN-related | `MONDO:0019450` | lissencephaly with cerebellar hypoplasia | `AGREES` |
-| Cobblestone | `MONDO:0018869` | cobblestone lissencephaly | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Classic/LIS1 | `MONDO:0015146` | classic lissencephaly | `AGREES` | ✓ ORDO |
+| ARX-related | `MONDO:0010268` | X-linked lissencephaly with abnormal genitalia | `AGREES` | ✓ DOID, ORDO |
+| RELN-related | `MONDO:0019450` | lissencephaly with cerebellar hypoplasia | `AGREES` | ✓ ORDO |
+| Cobblestone | `MONDO:0018869` | cobblestone lissencephaly | `AGREES` | ✓ MESH, ORDO |
 
 ## What boomer did
 

@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Hemochromatosis.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0021001` | hemochromatosis type 1 | `AGREES` |
-| Type 2A | `MONDO:0011216` | hemochromatosis type 2A | `AGREES` |
-| Type 2B | `MONDO:0013220` | hemochromatosis type 2B | `AGREES` |
-| Type 3 | `MONDO:0011417` | hemochromatosis type 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0021001` | hemochromatosis type 1 | `AGREES` | ✓ DOID, NCIT |
+| Type 2A | `MONDO:0011216` | hemochromatosis type 2A | `AGREES` | ✓ DOID |
+| Type 2B | `MONDO:0013220` | hemochromatosis type 2B | `AGREES` | ✓ DOID |
+| Type 3 | `MONDO:0011417` | hemochromatosis type 3 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

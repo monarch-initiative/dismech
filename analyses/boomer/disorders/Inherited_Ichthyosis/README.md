@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Inherited_Ichthyosis.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Ichthyosis Vulgaris | `MONDO:0024304` | ichthyosis vulgaris | `AGREES` |
-| X-Linked Ichthyosis | `MONDO:0010622` | recessive X-linked ichthyosis | `AGREES` |
-| Autosomal Recessive Congenital Ichthyosis | `MONDO:0017265` | autosomal recessive congenital ichthyosis | `AGREES` |
-| Keratinopathic Ichthyosis | `MONDO:0017266` | keratinopathic ichthyosis | `AGREES` |
-| Netherton Syndrome | `MONDO:0009735` | Netherton syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Ichthyosis Vulgaris | `MONDO:0024304` | ichthyosis vulgaris | `AGREES` | — no shared vocabulary |
+| X-Linked Ichthyosis | `MONDO:0010622` | recessive X-linked ichthyosis | `AGREES` | ✓ ICD10CM, ORDO |
+| Autosomal Recessive Congenital Ichthyosis | `MONDO:0017265` | autosomal recessive congenital ichthyosis | `AGREES` | ✓ ORDO |
+| Keratinopathic Ichthyosis | `MONDO:0017266` | keratinopathic ichthyosis | `AGREES` | ✓ ORDO |
+| Netherton Syndrome | `MONDO:0009735` | Netherton syndrome | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

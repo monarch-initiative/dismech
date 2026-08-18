@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/NDP_Related_Vitreoretinopathy.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Norrie disease | `MONDO:0010691` | Norrie disease | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Norrie disease | `MONDO:0010691` | Norrie disease | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

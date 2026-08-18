@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/MITF_Waardenburg_Tietz_Spectrum.yam
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| WS2A | `MONDO:0008671` | Waardenburg syndrome type 2A | `AGREES` |
-| Tietz | `MONDO:0007077` | Tietz syndrome | `SILENT` |
-| COMMAD | `MONDO:0015014` | coloboma, osteopetrosis, microphthalmia, macrocephaly, albinism, and deafness | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| WS2A | `MONDO:0008671` | Waardenburg syndrome type 2A | `AGREES` | ✓ DOID, NCIT |
+| Tietz | `MONDO:0007077` | Tietz syndrome | `SILENT` | silent (DOID, MESH, ORDO) |
+| COMMAD | `MONDO:0015014` | coloboma, osteopetrosis, microphthalmia, macrocephaly, albinism, and deafness | `SILENT` | silent (ORDO) |
 
 ## What boomer did
 

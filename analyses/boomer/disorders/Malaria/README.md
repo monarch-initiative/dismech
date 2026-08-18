@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Malaria.yaml`](../../../../kb/disor
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Plasmodium falciparum malaria | `MONDO:0005920` | Plasmodium falciparum malaria | `AGREES` |
-| Plasmodium vivax malaria | `MONDO:0005921` | Plasmodium vivax malaria | `AGREES` |
-| Cerebral malaria | `MONDO:0005625` | cerebral malaria | `AGREES` |
-| Recurrent vivax malaria | `MONDO:0005921` | Plasmodium vivax malaria | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Plasmodium falciparum malaria | `MONDO:0005920` | Plasmodium falciparum malaria | `AGREES` | ✓ DOID, MESH, NCIT |
+| Plasmodium vivax malaria | `MONDO:0005921` | Plasmodium vivax malaria | `AGREES` | ✓ DOID, MESH, NCIT |
+| Cerebral malaria | `MONDO:0005625` | cerebral malaria | `AGREES` | ✓ DOID, MESH, NCIT |
+| Recurrent vivax malaria | `MONDO:0005921` | Plasmodium vivax malaria | `AGREES` | ✓ DOID, MESH, NCIT |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/adrenoleukodystrophy.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Childhood cerebral adrenoleukodystrophy | `MONDO:0010247` | X-linked cerebral adrenoleukodystrophy | `AGREES` |
-| Adrenomyeloneuropathy | `MONDO:0015339` | adrenomyeloneuropathy | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Childhood cerebral adrenoleukodystrophy | `MONDO:0010247` | X-linked cerebral adrenoleukodystrophy | `AGREES` | ✓ ORDO, icd11f |
+| Adrenomyeloneuropathy | `MONDO:0015339` | adrenomyeloneuropathy | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 

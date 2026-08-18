@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Paroxysmal_Familial_Ventricular_Fib
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0011376` | ventricular fibrillation, paroxysmal familial, type 1 | `AGREES` |
-| Type 2 | `MONDO:0013063` | ventricular fibrillation, paroxysmal familial, 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0011376` | ventricular fibrillation, paroxysmal familial, type 1 | `AGREES` | — no shared vocabulary |
+| Type 2 | `MONDO:0013063` | ventricular fibrillation, paroxysmal familial, 2 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

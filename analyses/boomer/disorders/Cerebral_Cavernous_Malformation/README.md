@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Cerebral_Cavernous_Malformation.yam
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Familial cerebral cavernous malformation | `MONDO:0031037` | famililal cerebral cavernous malformations | `AGREES` |
-| CCM1 | `MONDO:0020724` | cerebral cavernous malformation 1 | `AGREES` |
-| CCM2 | `MONDO:0011304` | cerebral cavernous malformation 2 | `AGREES` |
-| CCM3 | `MONDO:0011305` | cerebral cavernous malformation 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Familial cerebral cavernous malformation | `MONDO:0031037` | famililal cerebral cavernous malformations | `AGREES` | — no shared vocabulary |
+| CCM1 | `MONDO:0020724` | cerebral cavernous malformation 1 | `AGREES` | ✓ DOID |
+| CCM2 | `MONDO:0011304` | cerebral cavernous malformation 2 | `AGREES` | ✓ DOID |
+| CCM3 | `MONDO:0011305` | cerebral cavernous malformation 3 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

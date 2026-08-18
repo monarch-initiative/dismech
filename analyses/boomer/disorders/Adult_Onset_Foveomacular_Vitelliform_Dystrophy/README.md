@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Adult_Onset_Foveomacular_Vitellifor
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PRPH2-related | `MONDO:0024561` | vitelliform macular dystrophy 3 | `AGREES` |
-| IMPG1-related | `MONDO:0014508` | vitelliform macular dystrophy 4 | `AGREES` |
-| IMPG2-related | `MONDO:0014509` | vitelliform macular dystrophy 5 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PRPH2-related | `MONDO:0024561` | vitelliform macular dystrophy 3 | `AGREES` | — no shared vocabulary |
+| IMPG1-related | `MONDO:0014508` | vitelliform macular dystrophy 4 | `AGREES` | — no shared vocabulary |
+| IMPG2-related | `MONDO:0014509` | vitelliform macular dystrophy 5 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

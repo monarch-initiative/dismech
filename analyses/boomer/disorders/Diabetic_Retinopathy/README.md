@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Diabetic_Retinopathy.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Nonproliferative Diabetic Retinopathy | `MONDO:0001661` | background diabetic retinopathy | `AGREES` |
-| Severe Nonproliferative Diabetic Retinopathy | `MONDO:0004687` | severe nonproliferative diabetic retinopathy | `AGREES` |
-| Proliferative Diabetic Retinopathy | `MONDO:0001660` | proliferative diabetic retinopathy | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Nonproliferative Diabetic Retinopathy | `MONDO:0001661` | background diabetic retinopathy | `AGREES` | ✓ DOID, NCIT |
+| Severe Nonproliferative Diabetic Retinopathy | `MONDO:0004687` | severe nonproliferative diabetic retinopathy | `AGREES` | ✓ DOID, icd11f |
+| Proliferative Diabetic Retinopathy | `MONDO:0001660` | proliferative diabetic retinopathy | `AGREES` | ✓ DOID, NCIT, icd11f |
 
 ## What boomer did
 

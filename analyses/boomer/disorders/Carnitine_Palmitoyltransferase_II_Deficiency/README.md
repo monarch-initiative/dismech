@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Carnitine_Palmitoyltransferase_II_D
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Myopathic | `MONDO:0009704` | carnitine palmitoyl transferase II deficiency, myopathic form | `AGREES` |
-| Severe infantile | `MONDO:0010914` | carnitine palmitoyl transferase II deficiency, severe infantile form | `AGREES` |
-| Lethal neonatal | `MONDO:0012136` | carnitine palmitoyl transferase II deficiency, neonatal form | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Myopathic | `MONDO:0009704` | carnitine palmitoyl transferase II deficiency, myopathic form | `AGREES` | ✓ ORDO |
+| Severe infantile | `MONDO:0010914` | carnitine palmitoyl transferase II deficiency, severe infantile form | `AGREES` | ✓ ORDO |
+| Lethal neonatal | `MONDO:0012136` | carnitine palmitoyl transferase II deficiency, neonatal form | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

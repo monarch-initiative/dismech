@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/BEST1_Bestrophinopathies.yaml`](../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| BVMD | `MONDO:0007931` | vitelliform macular dystrophy 2 | `AGREES` |
-| ARB | `MONDO:0012733` | autosomal recessive bestrophinopathy | `SILENT` |
-| ADVIRC | `MONDO:0008662` | autosomal dominant vitreoretinochoroidopathy | `SILENT` |
-| MRCS | `MONDO:0033644` | microcornea, rod-cone dystrophy, cataract, and posterior staphyloma 1 | `SILENT` |
-| BEST1-RP | `MONDO:0019200` | retinitis pigmentosa | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| BVMD | `MONDO:0007931` | vitelliform macular dystrophy 2 | `AGREES` | — no shared vocabulary |
+| ARB | `MONDO:0012733` | autosomal recessive bestrophinopathy | `SILENT` | silent (DOID, MESH) |
+| ADVIRC | `MONDO:0008662` | autosomal dominant vitreoretinochoroidopathy | `SILENT` | silent (DOID, MESH) |
+| MRCS | `MONDO:0033644` | microcornea, rod-cone dystrophy, cataract, and posterior staphyloma 1 | `SILENT` | — no shared vocabulary |
+| BEST1-RP | `MONDO:0019200` | retinitis pigmentosa | `SILENT` | silent (DOID, MESH, NCIT) |
 
 ## What boomer did
 

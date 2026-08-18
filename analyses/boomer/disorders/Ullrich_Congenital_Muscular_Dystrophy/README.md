@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Ullrich_Congenital_Muscular_Dystrop
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| UCMD1A | `MONDO:0009681` | Ullrich congenital muscular dystrophy 1A | `AGREES` |
-| UCMD1B | `MONDO:0958235` | Ullrich congenital muscular dystrophy 1B | `AGREES` |
-| UCMD1C | `MONDO:0958236` | Ullrich congenital muscular dystrophy 1C | `AGREES` |
-| UCMD2 | `MONDO:0014654` | Ullrich congenital muscular dystrophy 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| UCMD1A | `MONDO:0009681` | Ullrich congenital muscular dystrophy 1A | `AGREES` | ✓ DOID |
+| UCMD1B | `MONDO:0958235` | Ullrich congenital muscular dystrophy 1B | `AGREES` | ✓ DOID |
+| UCMD1C | `MONDO:0958236` | Ullrich congenital muscular dystrophy 1C | `AGREES` | ✓ DOID |
+| UCMD2 | `MONDO:0014654` | Ullrich congenital muscular dystrophy 2 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

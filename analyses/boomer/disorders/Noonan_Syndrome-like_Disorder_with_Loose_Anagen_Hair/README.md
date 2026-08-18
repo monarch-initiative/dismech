@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Noonan_Syndrome-like_Disorder_with_
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| NSLH1 | `MONDO:0054637` | Noonan syndrome-like disorder with loose anagen hair 1 | `AGREES` |
-| NSLH2 | `MONDO:0054588` | Noonan syndrome-like disorder with loose anagen hair 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| NSLH1 | `MONDO:0054637` | Noonan syndrome-like disorder with loose anagen hair 1 | `AGREES` | ✓ DOID, NCIT |
+| NSLH2 | `MONDO:0054588` | Noonan syndrome-like disorder with loose anagen hair 2 | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

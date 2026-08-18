@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Glycogen_Storage_Disease_Type_IV.ya
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| APBD | `MONDO:0009897` | adult polyglucosan body disease | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| APBD | `MONDO:0009897` | adult polyglucosan body disease | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

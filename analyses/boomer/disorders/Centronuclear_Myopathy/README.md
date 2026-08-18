@@ -8,18 +8,24 @@ Boomer grounding analysis for [`kb/disorders/Centronuclear_Myopathy.yaml`](../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| XLMTM | `MONDO:0010683` | X-linked myotubular myopathy | `AGREES` |
-| AD-CNM | `MONDO:0008048` | autosomal dominant centronuclear myopathy | `AGREES` |
-| AR-CNM | `MONDO:0009709` | myopathy, centronuclear, 2 | `AGREES` |
-| RYR1-CNM | `MONDO:0015705` | autosomal recessive centronuclear myopathy | `AGREES` |
-| SPEG-CNM | `MONDO:0014418` | myopathy, centronuclear, 5 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| XLMTM | `MONDO:0010683` | X-linked myotubular myopathy | `AGREES` | ✓ DOID, ICD10CM, ORDO |
+| AD-CNM | `MONDO:0008048` | autosomal dominant centronuclear myopathy | `AGREES` | ✓ DOID, ORDO |
+| AR-CNM | `MONDO:0009709` | myopathy, centronuclear, 2 | `AGREES` | ✓ DOID |
+| RYR1-CNM | `MONDO:0015705` | autosomal recessive centronuclear myopathy | `AGREES` | ✓ DOID, ORDO, icd11f |
+| SPEG-CNM | `MONDO:0014418` | myopathy, centronuclear, 5 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0008048` ≡ `DOID:0111223`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

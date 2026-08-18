@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Sclerosing_Cholangitis.yaml`](../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Primary sclerosing cholangitis | `MONDO:0013433` | primary sclerosing cholangitis | `AGREES` |
-| Secondary sclerosing cholangitis | `MONDO:0018647` | secondary sclerosing cholangitis | `AGREES` |
-| IgG4-related sclerosing cholangitis | `MONDO:0018645` | IgG4-related sclerosing cholangitis | `AGREES` |
-| Neonatal ichthyosis-sclerosing cholangitis syndrome | `MONDO:0011874` | neonatal ichthyosis-sclerosing cholangitis syndrome | `AGREES` |
-| Isolated neonatal sclerosing cholangitis | `MONDO:0018816` | isolated neonatal sclerosing cholangitis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Primary sclerosing cholangitis | `MONDO:0013433` | primary sclerosing cholangitis | `AGREES` | ✓ DOID, ORDO |
+| Secondary sclerosing cholangitis | `MONDO:0018647` | secondary sclerosing cholangitis | `AGREES` | ✓ ORDO |
+| IgG4-related sclerosing cholangitis | `MONDO:0018645` | IgG4-related sclerosing cholangitis | `AGREES` | ✓ ORDO |
+| Neonatal ichthyosis-sclerosing cholangitis syndrome | `MONDO:0011874` | neonatal ichthyosis-sclerosing cholangitis syndrome | `AGREES` | ✓ ORDO |
+| Isolated neonatal sclerosing cholangitis | `MONDO:0018816` | isolated neonatal sclerosing cholangitis | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/COFS_Syndrome.yaml`](../../../../kb
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| COFS1 | `MONDO:0008955` | cerebrooculofacioskeletal syndrome 1 | `AGREES` |
-| COFS2 | `MONDO:0012553` | cerebrooculofacioskeletal syndrome 2 | `AGREES` |
-| COFS3 | `MONDO:0014696` | cerebrooculofacioskeletal syndrome 3 | `AGREES` |
-| COFS4 | `MONDO:0012554` | cerebrooculofacioskeletal syndrome 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| COFS1 | `MONDO:0008955` | cerebrooculofacioskeletal syndrome 1 | `AGREES` | ✓ DOID, NCIT |
+| COFS2 | `MONDO:0012553` | cerebrooculofacioskeletal syndrome 2 | `AGREES` | ✓ DOID |
+| COFS3 | `MONDO:0014696` | cerebrooculofacioskeletal syndrome 3 | `AGREES` | ✓ DOID |
+| COFS4 | `MONDO:0012554` | cerebrooculofacioskeletal syndrome 4 | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

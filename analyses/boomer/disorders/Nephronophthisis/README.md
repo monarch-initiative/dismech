@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Nephronophthisis.yaml`](../../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| NPHP1-related | `MONDO:0009728` | nephronophthisis 1 | `AGREES` |
-| CEP164-related | `MONDO:0013917` | nephronophthisis 15 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| NPHP1-related | `MONDO:0009728` | nephronophthisis 1 | `AGREES` | ✓ DOID, NCIT, ORDO |
+| CEP164-related | `MONDO:0013917` | nephronophthisis 15 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

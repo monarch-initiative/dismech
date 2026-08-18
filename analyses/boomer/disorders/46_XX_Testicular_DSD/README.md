@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/46_XX_Testicular_DSD.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SRY-positive | `MONDO:0100250` | 46,XX sex reversal 1 | `AGREES` |
-| SRXX2 | `MONDO:0010218` | 46,XX sex reversal 2 | `AGREES` |
-| SRXX3 | `MONDO:0010442` | 46,XX sex reversal 3 | `AGREES` |
-| SRXX4 | `MONDO:0060489` | 46,XX sex reversal 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SRY-positive | `MONDO:0100250` | 46,XX sex reversal 1 | `AGREES` | ✓ DOID, NCIT |
+| SRXX2 | `MONDO:0010218` | 46,XX sex reversal 2 | `AGREES` | ✓ DOID |
+| SRXX3 | `MONDO:0010442` | 46,XX sex reversal 3 | `AGREES` | ✓ DOID |
+| SRXX4 | `MONDO:0060489` | 46,XX sex reversal 4 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

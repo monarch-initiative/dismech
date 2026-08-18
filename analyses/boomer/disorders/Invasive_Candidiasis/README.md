@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Invasive_Candidiasis.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Candidemia | `MONDO:0044070` | candidemia | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Candidemia | `MONDO:0044070` | candidemia | `AGREES` | ✓ MESH |
 
 ## What boomer did
 

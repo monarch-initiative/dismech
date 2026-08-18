@@ -8,15 +8,15 @@ Boomer grounding analysis for [`kb/disorders/Multiple_Epiphyseal_Dysplasia.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| EDM1 | `MONDO:0007561` | multiple epiphyseal dysplasia type 1 | `AGREES` |
-| EDM2 | `MONDO:0010844` | epiphyseal dysplasia, multiple, 2 | `AGREES` |
-| EDM3 | `MONDO:0010964` | epiphyseal dysplasia, multiple, 3 | `AGREES` |
-| EDM5 | `MONDO:0011765` | multiple epiphyseal dysplasia type 5 | `AGREES` |
-| EDM6 | `MONDO:0013591` | epiphyseal dysplasia, multiple, 6 | `AGREES` |
-| rMED | `MONDO:0009189` | multiple epiphyseal dysplasia type 4 | `AGREES` |
-| EDM7 | `MONDO:0054680` | epiphyseal dysplasia, multiple, 7 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| EDM1 | `MONDO:0007561` | multiple epiphyseal dysplasia type 1 | `AGREES` | ✓ DOID, ORDO, icd11f |
+| EDM2 | `MONDO:0010844` | epiphyseal dysplasia, multiple, 2 | `AGREES` | ✓ DOID |
+| EDM3 | `MONDO:0010964` | epiphyseal dysplasia, multiple, 3 | `AGREES` | ✓ DOID |
+| EDM5 | `MONDO:0011765` | multiple epiphyseal dysplasia type 5 | `AGREES` | ✓ DOID, ORDO, icd11f |
+| EDM6 | `MONDO:0013591` | epiphyseal dysplasia, multiple, 6 | `AGREES` | ✓ DOID |
+| rMED | `MONDO:0009189` | multiple epiphyseal dysplasia type 4 | `AGREES` | ✓ DOID, ORDO, icd11f |
+| EDM7 | `MONDO:0054680` | epiphyseal dysplasia, multiple, 7 | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Odonto-Onycho-Dermal_Dysplasia.yaml
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SSPS | `MONDO:0009145` | Schöpf-Schulz-Passarge syndrome | `SILENT` |
-| STHAG4 | `MONDO:0007881` | tooth agenesis, selective, 4 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SSPS | `MONDO:0009145` | Schöpf-Schulz-Passarge syndrome | `SILENT` | silent (MESH, OMIM, ORDO) |
+| STHAG4 | `MONDO:0007881` | tooth agenesis, selective, 4 | `SILENT` | silent (MESH, OMIM) |
 
 ## What boomer did
 

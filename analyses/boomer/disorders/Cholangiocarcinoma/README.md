@@ -8,15 +8,21 @@ Boomer grounding analysis for [`kb/disorders/Cholangiocarcinoma.yaml`](../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Intrahepatic | `MONDO:0003210` | intrahepatic cholangiocarcinoma | `AGREES` |
-| Perihilar | `MONDO:0003345` | hilar cholangiocarcinoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Intrahepatic | `MONDO:0003210` | intrahepatic cholangiocarcinoma | `AGREES` | ✓ DOID, NCIT |
+| Perihilar | `MONDO:0003345` | hilar cholangiocarcinoma | `AGREES` | ✓ DOID, MESH, NCIT |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0003210` ≡ `icd11f:387909164`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

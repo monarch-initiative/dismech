@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Microcephalic_Osteodysplastic_Primo
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MOPD III | `MONDO:0008873` | microcephalic osteodysplastic primordial dwarfism, type 3 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MOPD III | `MONDO:0008873` | microcephalic osteodysplastic primordial dwarfism, type 3 | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Friedreich_Ataxia.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| FARR | `MONDO:0800301` | Friedreich ataxia with retained reflexes | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| FARR | `MONDO:0800301` | Friedreich ataxia with retained reflexes | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

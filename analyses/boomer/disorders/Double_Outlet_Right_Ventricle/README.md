@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Double_Outlet_Right_Ventricle.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Subaortic VSD | `MONDO:0018498` | double outlet right ventricle with subaortic or doubly committed ventricular septal defect | `AGREES` |
-| DORV-Fallot | `MONDO:0020386` | double outlet right ventricle with subaortic or doubly committed ventricular septal defect with pulmonary stenosis | `AGREES` |
-| Subpulmonary VSD | `MONDO:0020387` | double outlet right ventricle with subpulmonary ventricular septal defect | `AGREES` |
-| Doubly committed VSD | `MONDO:0018498` | double outlet right ventricle with subaortic or doubly committed ventricular septal defect | `AGREES` |
-| Non-committed VSD | `MONDO:0020388` | double outlet right ventricle with non-committed subpulmonary ventricular septal defect | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Subaortic VSD | `MONDO:0018498` | double outlet right ventricle with subaortic or doubly committed ventricular septal defect | `AGREES` | ✓ ORDO |
+| DORV-Fallot | `MONDO:0020386` | double outlet right ventricle with subaortic or doubly committed ventricular septal defect with pulmonary stenosis | `AGREES` | ✓ ORDO |
+| Subpulmonary VSD | `MONDO:0020387` | double outlet right ventricle with subpulmonary ventricular septal defect | `AGREES` | ✓ ORDO, icd11f |
+| Doubly committed VSD | `MONDO:0018498` | double outlet right ventricle with subaortic or doubly committed ventricular septal defect | `AGREES` | ✓ ORDO |
+| Non-committed VSD | `MONDO:0020388` | double outlet right ventricle with non-committed subpulmonary ventricular septal defect | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 

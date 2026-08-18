@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Axenfeld-Rieger_syndrome.yaml`](../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Axenfeld-Rieger Syndrome Type 1 (RIEG1) | `MONDO:0008386` | Axenfeld-Rieger syndrome type 1 | `AGREES` |
-| Axenfeld-Rieger Syndrome Type 2 (RIEG2) | `MONDO:0011097` | Axenfeld-Rieger syndrome type 2 | `AGREES` |
-| Axenfeld-Rieger Syndrome Type 3 (RIEG3) | `MONDO:0011233` | Axenfeld-Rieger syndrome type 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Axenfeld-Rieger Syndrome Type 1 (RIEG1) | `MONDO:0008386` | Axenfeld-Rieger syndrome type 1 | `AGREES` | ✓ DOID, NCIT |
+| Axenfeld-Rieger Syndrome Type 2 (RIEG2) | `MONDO:0011097` | Axenfeld-Rieger syndrome type 2 | `AGREES` | ✓ DOID |
+| Axenfeld-Rieger Syndrome Type 3 (RIEG3) | `MONDO:0011233` | Axenfeld-Rieger syndrome type 3 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

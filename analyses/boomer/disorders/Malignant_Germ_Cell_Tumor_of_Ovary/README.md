@@ -8,19 +8,25 @@ Boomer grounding analysis for [`kb/disorders/Malignant_Germ_Cell_Tumor_of_Ovary.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Dysgerminoma | `MONDO:0003481` | dysgerminoma of ovary | `AGREES` |
-| Yolk Sac Tumor | `MONDO:0006344` | ovarian yolk sac tumor | `AGREES` |
-| Immature Teratoma | `MONDO:0018369` | immature ovarian teratoma | `AGREES` |
-| Embryonal Carcinoma | `MONDO:0003581` | ovarian embryonal carcinoma | `AGREES` |
-| Non-Gestational Choriocarcinoma | `MONDO:0004322` | non-gestational ovarian choriocarcinoma | `AGREES` |
-| Mixed Malignant Germ Cell Tumor | `MONDO:0003710` | ovarian mixed germ cell neoplasm | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Dysgerminoma | `MONDO:0003481` | dysgerminoma of ovary | `AGREES` | ✓ NCIT |
+| Yolk Sac Tumor | `MONDO:0006344` | ovarian yolk sac tumor | `AGREES` | ✓ DOID, NCIT |
+| Immature Teratoma | `MONDO:0018369` | immature ovarian teratoma | `AGREES` | ✓ DOID, NCIT |
+| Embryonal Carcinoma | `MONDO:0003581` | ovarian embryonal carcinoma | `AGREES` | ✓ NCIT |
+| Non-Gestational Choriocarcinoma | `MONDO:0004322` | non-gestational ovarian choriocarcinoma | `AGREES` | ✓ DOID, NCIT |
+| Mixed Malignant Germ Cell Tumor | `MONDO:0003710` | ovarian mixed germ cell neoplasm | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0018369` ≡ `NCIT:C39995`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

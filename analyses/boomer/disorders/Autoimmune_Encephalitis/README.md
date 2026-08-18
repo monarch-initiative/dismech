@@ -8,11 +8,19 @@ Boomer grounding analysis for [`kb/disorders/Autoimmune_Encephalitis.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Anti-NMDA Receptor Encephalitis | `MONDO:0021081` | anti-NMDA receptor encephalitis | `SILENT` |
-| LGI1-Antibody Encephalitis | `MONDO:0015592` | limbic encephalitis with LGI1 antibodies | `SILENT` |
-| CASPR2-Antibody Encephalitis | `MONDO:0017179` | limbic encephalitis with caspr2 antibodies | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Anti-NMDA Receptor Encephalitis | `MONDO:0021081` | anti-NMDA receptor encephalitis | `SILENT` | ✓ NCIT, ORDO |
+| LGI1-Antibody Encephalitis | `MONDO:0015592` | limbic encephalitis with LGI1 antibodies | `SILENT` | — no shared vocabulary |
+| CASPR2-Antibody Encephalitis | `MONDO:0017179` | limbic encephalitis with caspr2 antibodies | `SILENT` | — no shared vocabulary |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **Anti-NMDA Receptor Encephalitis** — NCIT (NCIT:C94853), ORDO (ORDO:217253)
 
 ## What boomer did
 

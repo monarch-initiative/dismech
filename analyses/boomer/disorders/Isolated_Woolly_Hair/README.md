@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Isolated_Woolly_Hair.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| ARWH1 | `MONDO:0800312` | wooly hair, autosomal recessive 1, with or without hypotrichosis | `AGREES` |
-| ARWH2 | `MONDO:0008686` | isolated familial wooly hair disorder | `SAME_TERM` |
-| ADWH | `MONDO:0020717` | autosomal dominant wooly hair | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| ARWH1 | `MONDO:0800312` | wooly hair, autosomal recessive 1, with or without hypotrichosis | `AGREES` | — no shared vocabulary |
+| ARWH2 | `MONDO:0008686` | isolated familial wooly hair disorder | `SAME_TERM` | ✓ DOID, ORDO |
+| ADWH | `MONDO:0020717` | autosomal dominant wooly hair | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

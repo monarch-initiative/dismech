@@ -1,22 +1,30 @@
 
  ## dismech-Isolated_Woolly_Hair
- * 66 combinations
- * 54 satisfiable combinations
+ * 639 combinations
+ * 621 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.125 confidence
- * 0.04827766530841457 prior probability
- * 0.006729399293846414 posterior probability
- * 0.0266 seconds elapsed
+ * 0.032028389540537404 prior probability
+ * 0.0023682765491576684 posterior probability
+ * 30.8041 seconds elapsed
 Grounding:
- * False dismech:Isolated_Woolly_Hair (Isolated Woolly Hair (dismech entry)) ≡ MONDO:0008686 (isolated familial wooly hair disorder) :: prior: 0.9 posterior: 0.5034750398301362
- * False dismech:Isolated_Woolly_Hair (Isolated Woolly Hair (dismech entry)) ⊆ MONDO:0008686 (isolated familial wooly hair disorder) :: prior: 0.07 posterior: 0.0021415413440239867
- * False MONDO:0008686 (isolated familial wooly hair disorder) ⊆ dismech:Isolated_Woolly_Hair (Isolated Woolly Hair (dismech entry)) :: prior: 0.03 posterior: 0.01870704926312399
- * True dismech:Isolated_Woolly_Hair#ARWH2 (Isolated Woolly Hair / ARWH2 (dismech subtype)) ≡ MONDO:0008686 (isolated familial wooly hair disorder) :: prior: 0.9 posterior: 0.477969072615661
- * False dismech:Isolated_Woolly_Hair#ARWH2 (Isolated Woolly Hair / ARWH2 (dismech subtype)) ⊆ MONDO:0008686 (isolated familial wooly hair disorder) :: prior: 0.07 posterior: 0.04552719157584657
- * False MONDO:0008686 (isolated familial wooly hair disorder) ⊆ dismech:Isolated_Woolly_Hair#ARWH2 (Isolated Woolly Hair / ARWH2 (dismech subtype)) :: prior: 0.03 posterior: 0.0008273662457767698
+ * False dismech:Isolated_Woolly_Hair (Isolated Woolly Hair (dismech entry)) ≡ MONDO:0008686 (isolated familial wooly hair disorder) :: prior: 0.9 posterior: 0.48900196875478996
+ * False dismech:Isolated_Woolly_Hair (Isolated Woolly Hair (dismech entry)) ⊆ MONDO:0008686 (isolated familial wooly hair disorder) :: prior: 0.07 posterior: 0.0032760443333522977
+ * False MONDO:0008686 (isolated familial wooly hair disorder) ⊆ dismech:Isolated_Woolly_Hair (Isolated Woolly Hair (dismech entry)) :: prior: 0.03 posterior: 0.01675552282344907
+ * True dismech:Isolated_Woolly_Hair#ARWH2 (Isolated Woolly Hair / ARWH2 (dismech subtype)) ≡ MONDO:0008686 (isolated familial wooly hair disorder) :: prior: 0.9 posterior: 0.46697155723892647
+ * False dismech:Isolated_Woolly_Hair#ARWH2 (Isolated Woolly Hair / ARWH2 (dismech subtype)) ⊆ MONDO:0008686 (isolated familial wooly hair disorder) :: prior: 0.07 posterior: 0.04077777776746198
+ * False MONDO:0008686 (isolated familial wooly hair disorder) ⊆ dismech:Isolated_Woolly_Hair#ARWH2 (Isolated Woolly Hair / ARWH2 (dismech subtype)) :: prior: 0.03 posterior: 0.001284200905203926
+ * True MONDO:0008686 (isolated familial wooly hair disorder) ≡ DOID:0111572 :: prior: 0.95 posterior: 0.9977963171735209
+ * True MONDO:0008686 (isolated familial wooly hair disorder) ≡ MESH:C536745 :: prior: 0.95 posterior: 0.9977963171735209
+ * True MONDO:0008686 (isolated familial wooly hair disorder) ≡ ORDO:170 :: prior: 0.95 posterior: 0.9977963171735209
+ * True MONDO:0008686 (isolated familial wooly hair disorder) ≡ DOID:0111572 :: prior: 0.95 posterior: 0.9977963171735209
+ * True MONDO:0008686 (isolated familial wooly hair disorder) ≡ MESH:C536745 :: prior: 0.95 posterior: 0.9977963171735209
+ * True MONDO:0008686 (isolated familial wooly hair disorder) ≡ ORDO:170 :: prior: 0.95 posterior: 0.9977963171735209
  * True dismech:Isolated_Woolly_Hair#ARWH1 (Isolated Woolly Hair / ARWH1 (dismech subtype)) ≡ MONDO:0800312 (wooly hair, autosomal recessive 1, with or without hypotrichosis) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Isolated_Woolly_Hair#ARWH1 (Isolated Woolly Hair / ARWH1 (dismech subtype)) ⊆ MONDO:0800312 (wooly hair, autosomal recessive 1, with or without hypotrichosis) :: prior: 0.07 posterior: 0.004045362876199384
  * False MONDO:0800312 (wooly hair, autosomal recessive 1, with or without hypotrichosis) ⊆ dismech:Isolated_Woolly_Hair#ARWH1 (Isolated Woolly Hair / ARWH1 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
- * True dismech:Isolated_Woolly_Hair#ADWH (Isolated Woolly Hair / ADWH (dismech subtype)) ≡ MONDO:0020717 (autosomal dominant wooly hair) :: prior: 0.9 posterior: 0.967419636393967
- * False dismech:Isolated_Woolly_Hair#ADWH (Isolated Woolly Hair / ADWH (dismech subtype)) ⊆ MONDO:0020717 (autosomal dominant wooly hair) :: prior: 0.07 posterior: 0.004045362876199384
- * False MONDO:0020717 (autosomal dominant wooly hair) ⊆ dismech:Isolated_Woolly_Hair#ADWH (Isolated Woolly Hair / ADWH (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * True dismech:Isolated_Woolly_Hair#ADWH (Isolated Woolly Hair / ADWH (dismech subtype)) ≡ MONDO:0020717 (autosomal dominant wooly hair) :: prior: 0.9 posterior: 0.9674196363939671
+ * False dismech:Isolated_Woolly_Hair#ADWH (Isolated Woolly Hair / ADWH (dismech subtype)) ⊆ MONDO:0020717 (autosomal dominant wooly hair) :: prior: 0.07 posterior: 0.004045362876199383
+ * False MONDO:0020717 (autosomal dominant wooly hair) ⊆ dismech:Isolated_Woolly_Hair#ADWH (Isolated Woolly Hair / ADWH (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233096
+ * True MONDO:0020717 (autosomal dominant wooly hair) ≡ DOID:0111573 :: prior: 0.95 posterior: 0.9500000000000001
+ * True MONDO:0020717 (autosomal dominant wooly hair) ≡ OMIM:194300 :: prior: 0.95 posterior: 0.9500000000000001

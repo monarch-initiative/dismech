@@ -8,17 +8,17 @@ Boomer grounding analysis for [`kb/disorders/Adult_Refsum_Disease.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0100258` | phytanoyl-CoA hydroxylase deficiency | `REVERSED` |
-| Type 2 | `MONDO:0100307` | adult Refsum disease due to PEX7 defect | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0100258` | phytanoyl-CoA hydroxylase deficiency | `REVERSED` | — no shared vocabulary |
+| Type 2 | `MONDO:0100307` | adult Refsum disease due to PEX7 defect | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Adult_Refsum_Disease` ≡ `MONDO:0009958`
+- `dismech:Adult_Refsum_Disease#Type 1` ≡ `MONDO:0100258`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

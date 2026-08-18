@@ -8,24 +8,30 @@ Boomer grounding analysis for [`kb/disorders/Hermansky_Pudlak_Syndrome.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| HPS-1 | `MONDO:0008748` | Hermansky-Pudlak syndrome 1 | `AGREES` |
-| HPS-2 | `MONDO:0011997` | Hermansky-Pudlak syndrome 2 | `AGREES` |
-| HPS-3 | `MONDO:0013555` | Hermansky-Pudlak syndrome 3 | `AGREES` |
-| HPS-4 | `MONDO:0013556` | Hermansky-Pudlak syndrome 4 | `AGREES` |
-| HPS-5 | `MONDO:0013557` | Hermansky-Pudlak syndrome 5 | `AGREES` |
-| HPS-6 | `MONDO:0013558` | Hermansky-Pudlak syndrome 6 | `AGREES` |
-| HPS-7 | `MONDO:0013559` | Hermansky-Pudlak syndrome 7 | `AGREES` |
-| HPS-8 | `MONDO:0013560` | Hermansky-Pudlak syndrome 8 | `AGREES` |
-| HPS-9 | `MONDO:0013606` | Hermansky-Pudlak syndrome 9 | `AGREES` |
-| HPS-10 | `MONDO:0014885` | Hermansky-Pudlak syndrome 10 | `AGREES` |
-| HPS-11 | `MONDO:0030903` | Hermansky-Pudlak syndrome 11 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| HPS-1 | `MONDO:0008748` | Hermansky-Pudlak syndrome 1 | `AGREES` | ✓ DOID, NCIT |
+| HPS-2 | `MONDO:0011997` | Hermansky-Pudlak syndrome 2 | `AGREES` | ✓ DOID, NCIT, ORDO |
+| HPS-3 | `MONDO:0013555` | Hermansky-Pudlak syndrome 3 | `AGREES` | ✓ DOID |
+| HPS-4 | `MONDO:0013556` | Hermansky-Pudlak syndrome 4 | `AGREES` | ✓ DOID |
+| HPS-5 | `MONDO:0013557` | Hermansky-Pudlak syndrome 5 | `AGREES` | ✓ DOID |
+| HPS-6 | `MONDO:0013558` | Hermansky-Pudlak syndrome 6 | `AGREES` | ✓ DOID, NCIT |
+| HPS-7 | `MONDO:0013559` | Hermansky-Pudlak syndrome 7 | `AGREES` | ✓ DOID, ORDO |
+| HPS-8 | `MONDO:0013560` | Hermansky-Pudlak syndrome 8 | `AGREES` | ✓ DOID |
+| HPS-9 | `MONDO:0013606` | Hermansky-Pudlak syndrome 9 | `AGREES` | ✓ DOID |
+| HPS-10 | `MONDO:0014885` | Hermansky-Pudlak syndrome 10 | `AGREES` | ✓ ORDO |
+| HPS-11 | `MONDO:0030903` | Hermansky-Pudlak syndrome 11 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0011997` ≡ `ORDO:664500`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

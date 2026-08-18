@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Undetermined_Early_Onset_Epileptic_
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| DEE13 | `MONDO:0013801` | developmental and epileptic encephalopathy, 13 | `AGREES` |
-| DEE21 | `MONDO:0014360` | developmental and epileptic encephalopathy, 21 | `AGREES` |
-| DEE24 | `MONDO:0014377` | developmental and epileptic encephalopathy, 24 | `AGREES` |
-| DEE25 | `MONDO:0014392` | developmental and epileptic encephalopathy, 25 | `AGREES` |
-| DEE26 | `MONDO:0014477` | developmental and epileptic encephalopathy, 26 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| DEE13 | `MONDO:0013801` | developmental and epileptic encephalopathy, 13 | `AGREES` | — no shared vocabulary |
+| DEE21 | `MONDO:0014360` | developmental and epileptic encephalopathy, 21 | `AGREES` | — no shared vocabulary |
+| DEE24 | `MONDO:0014377` | developmental and epileptic encephalopathy, 24 | `AGREES` | — no shared vocabulary |
+| DEE25 | `MONDO:0014392` | developmental and epileptic encephalopathy, 25 | `AGREES` | — no shared vocabulary |
+| DEE26 | `MONDO:0014477` | developmental and epileptic encephalopathy, 26 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

@@ -18,7 +18,17 @@ everything here should regenerate.
 
 | Kind | What it analyses |
 |---|---|
-| [`boomer/`](boomer/) | Whether dismech's curated structure is logically consistent with MONDO's, resolved with the BOOMER probabilistic ontology-alignment solver. |
+| [`boomer/`](boomer/) | Whether dismech's curated structure is logically consistent with MONDO's and with the external vocabularies MONDO confirms equivalencies into, resolved with the BOOMER probabilistic ontology-alignment solver. |
+
+## Running things
+
+Each kind has its own recipes in [`justfile`](justfile) — `cd analyses && just --list`.
+
+It is deliberately **not** wired into the repo's top-level justfile. Nothing here
+runs in CI, and every recipe needs local semantic-sql ontology builds under
+`~/.data/oaklib/` (plus, for the solver recipes, a `boomer-py` checkout).
+Advertising them at the root would put recipes in `just --list` that fail for
+most people. `just check-deps` reports which builds are present.
 
 ## How this differs from the neighbouring trees
 

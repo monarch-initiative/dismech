@@ -8,18 +8,21 @@ Boomer grounding analysis for [`kb/disorders/Familial_Renal_Glucosuria.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SLC5A2-Related | `MONDO:0009297` | familial renal glucosuria | `SAME_TERM` |
-| PDZK1IP1-Related | `MONDO:0009297` | familial renal glucosuria | `SAME_TERM` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SLC5A2-Related | `MONDO:0009297` | familial renal glucosuria | `SAME_TERM` | ✓ DOID, MESH, OMIM, ORDO, icd11f |
+| PDZK1IP1-Related | `MONDO:0009297` | familial renal glucosuria | `SAME_TERM` | ✓ DOID, MESH, OMIM, ORDO, icd11f |
 
 ## What boomer did
 
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
+- `MONDO:0009297` ≡ `DOID:0070613`
+- `MONDO:0009297` ≡ `DOID:0070613`
+- `MONDO:0009297` ≡ `DOID:0070613`
 - `dismech:Familial_Renal_Glucosuria` ≡ `MONDO:0009297`
-- `dismech:Familial_Renal_Glucosuria#SLC5A2-Related` ≡ `MONDO:0009297`
+- `dismech:Familial_Renal_Glucosuria#PDZK1IP1-Related` ≡ `MONDO:0009297`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

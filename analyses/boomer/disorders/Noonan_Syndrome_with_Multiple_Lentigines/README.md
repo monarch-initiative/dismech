@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Noonan_Syndrome_with_Multiple_Lenti
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| LPRD1 | `MONDO:0100082` | LEOPARD syndrome 1 | `AGREES` |
-| LPRD2 | `MONDO:0012691` | LEOPARD syndrome 2 | `AGREES` |
-| LPRD3 | `MONDO:0013380` | LEOPARD syndrome 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| LPRD1 | `MONDO:0100082` | LEOPARD syndrome 1 | `AGREES` | ✓ DOID |
+| LPRD2 | `MONDO:0012691` | LEOPARD syndrome 2 | `AGREES` | ✓ DOID |
+| LPRD3 | `MONDO:0013380` | LEOPARD syndrome 3 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

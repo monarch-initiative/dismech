@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Transverse_Myelitis.yaml`](../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Acute TM | `MONDO:0015342` | acute transverse myelitis | `SILENT` |
-| Idiopathic ATM | `MONDO:0015344` | idiopathic acute transverse myelitis | `SILENT` |
-| MOG-IgG ATM | `MONDO:0035666` | acute transverse myelitis with anti-MOG antibodies | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Acute TM | `MONDO:0015342` | acute transverse myelitis | `SILENT` | — no shared vocabulary |
+| Idiopathic ATM | `MONDO:0015344` | idiopathic acute transverse myelitis | `SILENT` | — no shared vocabulary |
+| MOG-IgG ATM | `MONDO:0035666` | acute transverse myelitis with anti-MOG antibodies | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

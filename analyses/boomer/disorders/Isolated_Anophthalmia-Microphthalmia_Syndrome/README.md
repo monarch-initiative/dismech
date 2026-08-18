@@ -8,18 +8,18 @@ Boomer grounding analysis for [`kb/disorders/Isolated_Anophthalmia-Microphthalmi
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Colobomatous microphthalmia | `MONDO:0000170` | microphthalmia, isolated, with coloboma | `AGREES` |
-| Posterior microphthalmia | `MONDO:0005514` | nanophthalmia | `AGREES` |
-| MCOP1 | `MONDO:0009631` | isolated microphthalmia 1 | `SILENT` |
-| MCOP2 | `MONDO:0012409` | isolated microphthalmia 2 | `AGREES` |
-| MCOP3 | `MONDO:0012604` | isolated microphthalmia 3 | `AGREES` |
-| MCOP4 | `MONDO:0013130` | isolated microphthalmia 4 | `AGREES` |
-| MCOP5 | `MONDO:0012605` | isolated microphthalmia 5 | `SILENT` |
-| MCOP6 | `MONDO:0013293` | isolated microphthalmia 6 | `AGREES` |
-| MCOP7 | `MONDO:0013377` | isolated microphthalmia 7 | `AGREES` |
-| MCOP8 | `MONDO:0014050` | isolated microphthalmia 8 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Colobomatous microphthalmia | `MONDO:0000170` | microphthalmia, isolated, with coloboma | `AGREES` | ✓ ORDO |
+| Posterior microphthalmia | `MONDO:0005514` | nanophthalmia | `AGREES` | ✓ ORDO |
+| MCOP1 | `MONDO:0009631` | isolated microphthalmia 1 | `SILENT` | — no shared vocabulary |
+| MCOP2 | `MONDO:0012409` | isolated microphthalmia 2 | `AGREES` | — no shared vocabulary |
+| MCOP3 | `MONDO:0012604` | isolated microphthalmia 3 | `AGREES` | — no shared vocabulary |
+| MCOP4 | `MONDO:0013130` | isolated microphthalmia 4 | `AGREES` | — no shared vocabulary |
+| MCOP5 | `MONDO:0012605` | isolated microphthalmia 5 | `SILENT` | silent (ORDO) |
+| MCOP6 | `MONDO:0013293` | isolated microphthalmia 6 | `AGREES` | — no shared vocabulary |
+| MCOP7 | `MONDO:0013377` | isolated microphthalmia 7 | `AGREES` | — no shared vocabulary |
+| MCOP8 | `MONDO:0014050` | isolated microphthalmia 8 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

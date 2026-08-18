@@ -8,13 +8,25 @@ Boomer grounding analysis for [`kb/disorders/Acute_Lymphoblastic_Leukemia.yaml`]
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Ph-positive | `MONDO:0035940` | B-lymphoblastic leukemia/lymphoma with t(9;22)(q34.1;q11.2) | `SILENT` |
-| KMT2A-rearranged | `MONDO:0035941` | B-lymphoblastic leukemia/lymphoma with t(v;11q23.3) | `SILENT` |
-| ETV6-RUNX1 | `MONDO:0035942` | B-lymphoblastic leukemia/lymphoma with t(12;21)(p13.2;q22.1) | `SILENT` |
-| High hyperdiploidy | `MONDO:0035943` | B-lymphoblastic leukemia/lymphoma with hyperdiploidy | `SILENT` |
-| Hypodiploidy | `MONDO:0035944` | B-lymphoblastic leukemia/lymphoma with hypodiploidy | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Ph-positive | `MONDO:0035940` | B-lymphoblastic leukemia/lymphoma with t(9;22)(q34.1;q11.2) | `SILENT` | ✓ DOID, ORDO |
+| KMT2A-rearranged | `MONDO:0035941` | B-lymphoblastic leukemia/lymphoma with t(v;11q23.3) | `SILENT` | ✓ ORDO |
+| ETV6-RUNX1 | `MONDO:0035942` | B-lymphoblastic leukemia/lymphoma with t(12;21)(p13.2;q22.1) | `SILENT` | ✓ ORDO |
+| High hyperdiploidy | `MONDO:0035943` | B-lymphoblastic leukemia/lymphoma with hyperdiploidy | `SILENT` | ✓ DOID, ORDO |
+| Hypodiploidy | `MONDO:0035944` | B-lymphoblastic leukemia/lymphoma with hypodiploidy | `SILENT` | ✓ DOID, ORDO |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **Ph-positive** — DOID (DOID:0080643), ORDO (ORDO:585909)
+- **KMT2A-rearranged** — ORDO (ORDO:585918)
+- **ETV6-RUNX1** — ORDO (ORDO:585929)
+- **High hyperdiploidy** — DOID (DOID:0080646), ORDO (ORDO:585936)
+- **Hypodiploidy** — DOID (DOID:0080647), ORDO (ORDO:585942)
 
 ## What boomer did
 

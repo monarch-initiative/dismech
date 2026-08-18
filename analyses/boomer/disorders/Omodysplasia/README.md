@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Omodysplasia.yaml`](../../../../kb/
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| OMOD1 | `MONDO:0009779` | autosomal recessive omodysplasia | `AGREES` |
-| OMOD2 | `MONDO:0008123` | autosomal dominant omodysplasia | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| OMOD1 | `MONDO:0009779` | autosomal recessive omodysplasia | `AGREES` | ✓ DOID, ORDO, icd11f |
+| OMOD2 | `MONDO:0008123` | autosomal dominant omodysplasia | `AGREES` | ✓ DOID, ORDO, icd11f |
 
 ## What boomer did
 

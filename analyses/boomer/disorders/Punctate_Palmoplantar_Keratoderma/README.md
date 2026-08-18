@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Punctate_Palmoplantar_Keratoderma.y
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1A | `MONDO:0019332` | punctate palmoplantar keratoderma type 1 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1A | `MONDO:0019332` | punctate palmoplantar keratoderma type 1 | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

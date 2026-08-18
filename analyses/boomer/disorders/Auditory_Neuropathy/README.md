@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Auditory_Neuropathy.yaml`](../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| AUNA1 | `MONDO:0012196` | autosomal dominant auditory neuropathy 1 | `AGREES` |
-| AUNA2 | `MONDO:0957279` | auditory neuropathy, autosomal dominant 2 | `AGREES` |
-| AUNA3 | `MONDO:0859235` | auditory neuropathy, autosomal dominant 3 | `AGREES` |
-| DFNB9 | `MONDO:0010986` | autosomal recessive nonsyndromic hearing loss 9 | `AGREES` |
-| AUNX1 | `MONDO:0010378` | X-linked hereditary sensory and autonomic neuropathy with hearing loss | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| AUNA1 | `MONDO:0012196` | autosomal dominant auditory neuropathy 1 | `AGREES` | silent (MESH) |
+| AUNA2 | `MONDO:0957279` | auditory neuropathy, autosomal dominant 2 | `AGREES` | — no shared vocabulary |
+| AUNA3 | `MONDO:0859235` | auditory neuropathy, autosomal dominant 3 | `AGREES` | — no shared vocabulary |
+| DFNB9 | `MONDO:0010986` | autosomal recessive nonsyndromic hearing loss 9 | `AGREES` | — no shared vocabulary |
+| AUNX1 | `MONDO:0010378` | X-linked hereditary sensory and autonomic neuropathy with hearing loss | `AGREES` | silent (MESH) |
 
 ## What boomer did
 

@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Pericarditis.yaml`](../../../../kb/
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Recurrent pericarditis idiopathic | `MONDO:0016662` | idiopathic recurrent pericarditis | `SILENT` |
-| Constrictive pericarditis | `MONDO:0006711` | constrictive pericarditis | `AGREES` |
-| Tuberculous pericarditis | `MONDO:0005903` | pericardial tuberculosis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Recurrent pericarditis idiopathic | `MONDO:0016662` | idiopathic recurrent pericarditis | `SILENT` | — no shared vocabulary |
+| Constrictive pericarditis | `MONDO:0006711` | constrictive pericarditis | `AGREES` | ✓ DOID, MESH, NCIT, icd11f |
+| Tuberculous pericarditis | `MONDO:0005903` | pericardial tuberculosis | `AGREES` | ✓ MESH, icd11f |
 
 ## What boomer did
 

@@ -8,17 +8,31 @@ Boomer grounding analysis for [`kb/disorders/Frontotemporal_Dementia.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Behavioral Variant FTD | `MONDO:0017160` | behavioral variant of frontotemporal dementia | `AGREES` |
-| Semantic Variant PPA | `MONDO:0010857` | semantic dementia | `AGREES` |
-| Nonfluent Variant PPA | `MONDO:0015059` | progressive non-fluent aphasia | `AGREES` |
-| FTD with Motor Neuron Disease | `MONDO:0017161` | frontotemporal dementia with motor neuron disease | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Behavioral Variant FTD | `MONDO:0017160` | behavioral variant of frontotemporal dementia | `AGREES` | ✓ ORDO |
+| Semantic Variant PPA | `MONDO:0010857` | semantic dementia | `AGREES` | ✓ DOID, ORDO |
+| Nonfluent Variant PPA | `MONDO:0015059` | progressive non-fluent aphasia | `AGREES` | ✓ DOID, ORDO |
+| FTD with Motor Neuron Disease | `MONDO:0017161` | frontotemporal dementia with motor neuron disease | `SILENT` | ✓ icd11f |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **FTD with Motor Neuron Disease** — icd11f (icd11f:1171850356)
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0010857` ≡ `DOID:0051060`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 1 subtype(s) are `SILENT`: MONDO asserts no path between the
 terms in either direction. That is consistent (nothing is violated) but

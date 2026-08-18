@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Feingold_Syndrome.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0008115` | Feingold syndrome type 1 | `AGREES` |
-| Type 2 | `MONDO:0013691` | Feingold syndrome type 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0008115` | Feingold syndrome type 1 | `AGREES` | ✓ ORDO |
+| Type 2 | `MONDO:0013691` | Feingold syndrome type 2 | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

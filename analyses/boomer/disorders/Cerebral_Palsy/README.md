@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Cerebral_Palsy.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Spastic | `MONDO:0000396` | spastic cerebral palsy | `AGREES` |
-| Dyskinetic | `MONDO:0022697` | athetoid cerebral palsy | `AGREES` |
-| Ataxic | `MONDO:0000397` | ataxic cerebral palsy | `AGREES` |
-| Mixed | `MONDO:0000400` | mixed cerebral palsy | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Spastic | `MONDO:0000396` | spastic cerebral palsy | `AGREES` | ✓ DOID, NCIT, icd11f |
+| Dyskinetic | `MONDO:0022697` | athetoid cerebral palsy | `AGREES` | ✓ DOID, ICD10CM, NCIT |
+| Ataxic | `MONDO:0000397` | ataxic cerebral palsy | `AGREES` | ✓ DOID, ICD10CM, NCIT, icd11f |
+| Mixed | `MONDO:0000400` | mixed cerebral palsy | `AGREES` | ✓ DOID, NCIT, icd11f |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Schwannomatosis.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SMARCB1-related | `MONDO:0024517` | SMARCB1-related schwannomatosis | `AGREES` |
-| LZTR1-related | `MONDO:0014299` | LZTR1-related schwannomatosis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SMARCB1-related | `MONDO:0024517` | SMARCB1-related schwannomatosis | `AGREES` | ✓ DOID, NCIT |
+| LZTR1-related | `MONDO:0014299` | LZTR1-related schwannomatosis | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

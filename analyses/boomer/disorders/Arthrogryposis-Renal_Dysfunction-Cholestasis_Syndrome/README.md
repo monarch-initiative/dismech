@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Arthrogryposis-Renal_Dysfunction-Ch
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| ARCS1 | `MONDO:0008822` | arthrogryposis, renal dysfunction, and cholestasis 1 | `AGREES` |
-| ARCS2 | `MONDO:0013255` | arthrogryposis, renal dysfunction, and cholestasis 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| ARCS1 | `MONDO:0008822` | arthrogryposis, renal dysfunction, and cholestasis 1 | `AGREES` | ✓ DOID |
+| ARCS2 | `MONDO:0013255` | arthrogryposis, renal dysfunction, and cholestasis 2 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

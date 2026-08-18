@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Pyruvate_Dehydrogenase_Deficiency.y
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| E1-alpha deficiency | `MONDO:0010717` | pyruvate dehydrogenase E1-alpha deficiency | `AGREES` |
-| E1-beta deficiency | `MONDO:0013580` | pyruvate dehydrogenase E1-beta deficiency | `AGREES` |
-| E2 deficiency | `MONDO:0009502` | pyruvate dehydrogenase E2 deficiency | `AGREES` |
-| E3 deficiency | `MONDO:0009529` | pyruvate dehydrogenase E3 deficiency | `AGREES` |
-| E3-binding protein deficiency | `MONDO:0009503` | pyruvate dehydrogenase E3-binding protein deficiency | `AGREES` |
-| PDH phosphatase deficiency | `MONDO:0012120` | pyruvate dehydrogenase phosphatase deficiency | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| E1-alpha deficiency | `MONDO:0010717` | pyruvate dehydrogenase E1-alpha deficiency | `AGREES` | ✓ ORDO |
+| E1-beta deficiency | `MONDO:0013580` | pyruvate dehydrogenase E1-beta deficiency | `AGREES` | ✓ ORDO |
+| E2 deficiency | `MONDO:0009502` | pyruvate dehydrogenase E2 deficiency | `AGREES` | ✓ ORDO |
+| E3 deficiency | `MONDO:0009529` | pyruvate dehydrogenase E3 deficiency | `AGREES` | ✓ ORDO |
+| E3-binding protein deficiency | `MONDO:0009503` | pyruvate dehydrogenase E3-binding protein deficiency | `AGREES` | ✓ ORDO |
+| PDH phosphatase deficiency | `MONDO:0012120` | pyruvate dehydrogenase phosphatase deficiency | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 

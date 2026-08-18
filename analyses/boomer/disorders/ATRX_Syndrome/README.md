@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/ATRX_Syndrome.yaml`](../../../../kb
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Alpha-Thalassemia X-Linked Intellectual Disability Syndrome | `MONDO:0010519` | alpha thalassemia-X-linked intellectual disability syndrome | `AGREES` |
-| Intellectual Disability-Hypotonic Facies Syndrome, X-Linked 1 | `MONDO:0010663` | intellectual disability-hypotonic facies syndrome, X-linked, 1 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Alpha-Thalassemia X-Linked Intellectual Disability Syndrome | `MONDO:0010519` | alpha thalassemia-X-linked intellectual disability syndrome | `AGREES` | — no shared vocabulary |
+| Intellectual Disability-Hypotonic Facies Syndrome, X-Linked 1 | `MONDO:0010663` | intellectual disability-hypotonic facies syndrome, X-linked, 1 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

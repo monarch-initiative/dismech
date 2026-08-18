@@ -8,15 +8,15 @@ Boomer grounding analysis for [`kb/disorders/Hereditary_Angioedema.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| C1-INH deficiency | `MONDO:0033946` | hereditary angioedema with C1Inh deficiency | `AGREES` |
-| Type 1 | `MONDO:0015053` | hereditary angioedema type 1 | `AGREES` |
-| Type 2 | `MONDO:0015054` | hereditary angioedema type 2 | `AGREES` |
-| Normal C1-INH | `MONDO:0100567` | hereditary angioedema with normal C1Inh | `AGREES` |
-| F12-related normal C1-INH | `MONDO:0012526` | hereditary angioedema type 3 | `AGREES` |
-| PLG-related normal C1-INH | `MONDO:0035220` | PLG-related hereditary angioedema with normal C1inh | `AGREES` |
-| Other normal C1-INH | `MONDO:0035734` | hereditary angioedema with normal C1inh not related to F12 or PLG variant | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| C1-INH deficiency | `MONDO:0033946` | hereditary angioedema with C1Inh deficiency | `AGREES` | ✓ DOID, ORDO |
+| Type 1 | `MONDO:0015053` | hereditary angioedema type 1 | `AGREES` | ✓ ORDO |
+| Type 2 | `MONDO:0015054` | hereditary angioedema type 2 | `AGREES` | ✓ ORDO |
+| Normal C1-INH | `MONDO:0100567` | hereditary angioedema with normal C1Inh | `AGREES` | ✓ ORDO |
+| F12-related normal C1-INH | `MONDO:0012526` | hereditary angioedema type 3 | `AGREES` | ✓ DOID, MESH, ORDO |
+| PLG-related normal C1-INH | `MONDO:0035220` | PLG-related hereditary angioedema with normal C1inh | `AGREES` | ✓ ORDO |
+| Other normal C1-INH | `MONDO:0035734` | hereditary angioedema with normal C1inh not related to F12 or PLG variant | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

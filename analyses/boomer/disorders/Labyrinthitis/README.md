@@ -8,16 +8,22 @@ Boomer grounding analysis for [`kb/disorders/Labyrinthitis.yaml`](../../../../kb
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Viral labyrinthitis | `MONDO:0001507` | viral labyrinthitis | `AGREES` |
-| Bacterial (suppurative) labyrinthitis | `MONDO:0001739` | purulent labyrinthitis | `AGREES` |
-| Serous labyrinthitis | `MONDO:0002006` | serous labyrinthitis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Viral labyrinthitis | `MONDO:0001507` | viral labyrinthitis | `AGREES` | ✓ DOID |
+| Bacterial (suppurative) labyrinthitis | `MONDO:0001739` | purulent labyrinthitis | `AGREES` | ✓ DOID, icd11f |
+| Serous labyrinthitis | `MONDO:0002006` | serous labyrinthitis | `AGREES` | ✓ DOID |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0002008` ≡ `DOID:3930`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

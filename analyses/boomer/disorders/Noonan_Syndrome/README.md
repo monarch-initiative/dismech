@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Noonan_Syndrome.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Noonan Syndrome 1 (PTPN11-related) | `MONDO:0008104` | Noonan syndrome 1 | `AGREES` |
-| Noonan Syndrome with Multiple Lentigines | `MONDO:0007893` | Noonan syndrome with multiple lentigines | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Noonan Syndrome 1 (PTPN11-related) | `MONDO:0008104` | Noonan syndrome 1 | `AGREES` | ✓ DOID, NCIT |
+| Noonan Syndrome with Multiple Lentigines | `MONDO:0007893` | Noonan syndrome with multiple lentigines | `SILENT` | silent (DOID, MESH, NCIT, ORDO, icd11f) |
 
 ## What boomer did
 

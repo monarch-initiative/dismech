@@ -8,24 +8,38 @@ Boomer grounding analysis for [`kb/disorders/46_XX_Gonadal_Dysgenesis.yaml`](../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| ODG1 | `MONDO:0024463` | ovarian dysgenesis 1 | `AGREES` |
-| ODG2 | `MONDO:0010349` | ovarian dysgenesis 2 | `AGREES` |
-| ODG3 | `MONDO:0013689` | ovarian dysgenesis 3 | `AGREES` |
-| ODG4 | `MONDO:0014520` | 46,XX ovarian dysgenesis-short stature syndrome | `SILENT` |
-| ODG5 | `MONDO:0054666` | ovarian dysgenesis 5 | `AGREES` |
-| ODG6 | `MONDO:0054850` | ovarian dysgenesis 6 | `AGREES` |
-| ODG7 | `MONDO:0020857` | ovarian dysgenesis 7 | `AGREES` |
-| ODG8 | `MONDO:0032590` | ovarian dysgenesis 8 | `AGREES` |
-| ODG9 | `MONDO:0030506` | ovarian dysgenesis 9 | `AGREES` |
-| ODG10 | `MONDO:0030736` | ovarian dysgenesis 10 | `AGREES` |
-| ODG11 | `MONDO:0971176` | ovarian dysgenesis 11 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| ODG1 | `MONDO:0024463` | ovarian dysgenesis 1 | `AGREES` | ✓ DOID |
+| ODG2 | `MONDO:0010349` | ovarian dysgenesis 2 | `AGREES` | ✓ DOID |
+| ODG3 | `MONDO:0013689` | ovarian dysgenesis 3 | `AGREES` | ✓ DOID |
+| ODG4 | `MONDO:0014520` | 46,XX ovarian dysgenesis-short stature syndrome | `SILENT` | ✓ DOID |
+| ODG5 | `MONDO:0054666` | ovarian dysgenesis 5 | `AGREES` | ✓ DOID |
+| ODG6 | `MONDO:0054850` | ovarian dysgenesis 6 | `AGREES` | ✓ DOID |
+| ODG7 | `MONDO:0020857` | ovarian dysgenesis 7 | `AGREES` | ✓ DOID |
+| ODG8 | `MONDO:0032590` | ovarian dysgenesis 8 | `AGREES` | ✓ DOID |
+| ODG9 | `MONDO:0030506` | ovarian dysgenesis 9 | `AGREES` | ✓ DOID |
+| ODG10 | `MONDO:0030736` | ovarian dysgenesis 10 | `AGREES` | ✓ DOID |
+| ODG11 | `MONDO:0971176` | ovarian dysgenesis 11 | `AGREES` | — no shared vocabulary |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **ODG4** — DOID (DOID:0080496)
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0010349` ≡ `DOID:0080494`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 1 subtype(s) are `SILENT`: MONDO asserts no path between the
 terms in either direction. That is consistent (nothing is violated) but

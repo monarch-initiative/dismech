@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Central_Nervous_System_Germ_Cell_Tu
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Central Nervous System Germinoma | `MONDO:0002999` | central nervous system germinoma | `AGREES` |
-| Central Nervous System Nongerminomatous Germ Cell Tumor | `MONDO:0020574` | central nervous system nongerminomatous germ cell tumor | `AGREES` |
-| Central Nervous System Teratoma | `MONDO:0002718` | central nervous system teratoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Central Nervous System Germinoma | `MONDO:0002999` | central nervous system germinoma | `AGREES` | ✓ DOID, NCIT |
+| Central Nervous System Nongerminomatous Germ Cell Tumor | `MONDO:0020574` | central nervous system nongerminomatous germ cell tumor | `AGREES` | ✓ NCIT |
+| Central Nervous System Teratoma | `MONDO:0002718` | central nervous system teratoma | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

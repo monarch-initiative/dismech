@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Benign_Familial_Infantile_Epilepsy.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PRRT2-related BFIE | `MONDO:0011593` | seizures, benign familial infantile, 2 | `AGREES` |
-| ICCA | `MONDO:0011178` | infantile convulsions and choreoathetosis | `SILENT` |
-| SCN2A-related BFNIS | `MONDO:0011904` | seizures, benign familial infantile, 3 | `AGREES` |
-| SCN8A-related BFIS | `MONDO:0014903` | seizures, benign familial infantile, 5 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PRRT2-related BFIE | `MONDO:0011593` | seizures, benign familial infantile, 2 | `AGREES` | ✓ DOID |
+| ICCA | `MONDO:0011178` | infantile convulsions and choreoathetosis | `SILENT` | silent (ORDO) |
+| SCN2A-related BFNIS | `MONDO:0011904` | seizures, benign familial infantile, 3 | `AGREES` | ✓ DOID |
+| SCN8A-related BFIS | `MONDO:0014903` | seizures, benign familial infantile, 5 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

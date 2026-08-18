@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Small_Intestine_Cancer.yaml`](../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Adenocarcinoma | `MONDO:0003198` | small intestine adenocarcinoma | `AGREES` |
-| Neuroendocrine Tumor | `MONDO:0002995` | small intestine neuroendocrine tumor, well differentiated, low or intermediate grade | `SILENT` |
-| Lymphoma | `MONDO:0001852` | small intestine lymphoma | `AGREES` |
-| Sarcoma | `MONDO:0003360` | small intestine leiomyosarcoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Adenocarcinoma | `MONDO:0003198` | small intestine adenocarcinoma | `AGREES` | ✓ DOID, NCIT, icd11f |
+| Neuroendocrine Tumor | `MONDO:0002995` | small intestine neuroendocrine tumor, well differentiated, low or intermediate grade | `SILENT` | silent (NCIT) |
+| Lymphoma | `MONDO:0001852` | small intestine lymphoma | `AGREES` | ✓ DOID, NCIT |
+| Sarcoma | `MONDO:0003360` | small intestine leiomyosarcoma | `AGREES` | ✓ DOID, NCIT, icd11f |
 
 ## What boomer did
 

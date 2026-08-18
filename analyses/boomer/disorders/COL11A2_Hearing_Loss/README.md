@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/COL11A2_Hearing_Loss.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| DFNA13 | `MONDO:0011159` | autosomal dominant nonsyndromic hearing loss 13 | `SAME_TERM` |
-| DFNB53 | `MONDO:0012333` | autosomal recessive nonsyndromic hearing loss 53 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| DFNA13 | `MONDO:0011159` | autosomal dominant nonsyndromic hearing loss 13 | `SAME_TERM` | ✓ DOID, OMIM |
+| DFNB53 | `MONDO:0012333` | autosomal recessive nonsyndromic hearing loss 53 | `SILENT` | silent (DOID, MESH, OMIM) |
 
 ## What boomer did
 

@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Pyruvate_Carboxylase_Deficiency_Dis
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type A | `MONDO:0018141` | pyruvate carboxylase deficiency, infantile form | `AGREES` |
-| Type B | `MONDO:0018142` | pyruvate carboxylase deficiency, severe neonatal type | `AGREES` |
-| Type C | `MONDO:0018143` | pyruvate carboxylase deficiency, benign type | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type A | `MONDO:0018141` | pyruvate carboxylase deficiency, infantile form | `AGREES` | ✓ ORDO |
+| Type B | `MONDO:0018142` | pyruvate carboxylase deficiency, severe neonatal type | `AGREES` | ✓ ORDO |
+| Type C | `MONDO:0018143` | pyruvate carboxylase deficiency, benign type | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

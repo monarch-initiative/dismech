@@ -8,17 +8,23 @@ Boomer grounding analysis for [`kb/disorders/Autoimmune_Polyendocrinopathy.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0009411` | autoimmune polyendocrine syndrome type 1 | `AGREES` |
-| Type 2 | `MONDO:0010012` | autoimmune polyendocrinopathy type 2 | `AGREES` |
-| Type 3 | `MONDO:0016422` | autoimmune polyendocrinopathy type 3 | `AGREES` |
-| Type 4 | `MONDO:0016423` | autoimmune polyendocrinopathy type 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0009411` | autoimmune polyendocrine syndrome type 1 | `AGREES` | ✓ DOID, NCIT, ORDO |
+| Type 2 | `MONDO:0010012` | autoimmune polyendocrinopathy type 2 | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| Type 3 | `MONDO:0016422` | autoimmune polyendocrinopathy type 3 | `AGREES` | ✓ ORDO, icd11f |
+| Type 4 | `MONDO:0016423` | autoimmune polyendocrinopathy type 4 | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0017278` ≡ `NCIT:C129726`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

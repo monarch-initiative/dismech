@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Polycystic_Kidney_Disease.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Autosomal Dominant PKD (ADPKD) | `MONDO:0004691` | autosomal dominant polycystic kidney disease | `AGREES` |
-| Autosomal Recessive PKD (ARPKD) | `MONDO:0009889` | autosomal recessive polycystic kidney disease | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Autosomal Dominant PKD (ADPKD) | `MONDO:0004691` | autosomal dominant polycystic kidney disease | `AGREES` | ✓ DOID, MESH, NCIT |
+| Autosomal Recessive PKD (ARPKD) | `MONDO:0009889` | autosomal recessive polycystic kidney disease | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

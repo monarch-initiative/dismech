@@ -8,10 +8,18 @@ Boomer grounding analysis for [`kb/disorders/Diffuse_Astrocytoma.yaml`](../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| IDH-mutant | `MONDO:0956994` | astrocytoma, IDH-mutant, grade 2 | `SILENT` |
-| DMG H3K27-altered | `MONDO:1060171` | diffuse midline glioma, H3 K27-altered | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| IDH-mutant | `MONDO:0956994` | astrocytoma, IDH-mutant, grade 2 | `SILENT` | ✓ NCIT |
+| DMG H3K27-altered | `MONDO:1060171` | diffuse midline glioma, H3 K27-altered | `SILENT` | silent (NCIT) |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **IDH-mutant** — NCIT (NCIT:C129271)
 
 ## What boomer did
 

@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/GABRG2-Related_Epilepsy.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| DEE74 | `MONDO:0032725` | developmental and epileptic encephalopathy, 74 | `SAME_TERM` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| DEE74 | `MONDO:0032725` | developmental and epileptic encephalopathy, 74 | `SAME_TERM` | ✓ DOID, OMIM |
 
 ## What boomer did
 

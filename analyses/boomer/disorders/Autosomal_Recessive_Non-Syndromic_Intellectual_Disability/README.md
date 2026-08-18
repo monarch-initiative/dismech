@@ -8,18 +8,18 @@ Boomer grounding analysis for [`kb/disorders/Autosomal_Recessive_Non-Syndromic_I
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MRT1 | `MONDO:0009580` | intellectual disability, autosomal recessive 1 | `AGREES` |
-| MRT2 | `MONDO:0011828` | intellectual disability, autosomal recessive 2 | `AGREES` |
-| MRT3 | `MONDO:0012037` | intellectual disability, autosomal recessive 3 | `AGREES` |
-| MRT5 | `MONDO:0012613` | intellectual disability, autosomal recessive 5 | `AGREES` |
-| MRT6 | `MONDO:0012614` | intellectual disability, autosomal recessive 6 | `AGREES` |
-| MRT7 | `MONDO:0012615` | intellectual disability, autosomal recessive 7 | `AGREES` |
-| MRT13 | `MONDO:0013173` | intellectual disability, autosomal recessive 13 | `AGREES` |
-| MRT15 | `MONDO:0013624` | Rafiq syndrome | `AGREES` |
-| MRT18 | `MONDO:0013651` | intellectual disability, autosomal recessive 18 | `AGREES` |
-| MRT57 | `MONDO:0014962` | intellectual disability, autosomal recessive 57 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MRT1 | `MONDO:0009580` | intellectual disability, autosomal recessive 1 | `AGREES` | ✓ DOID |
+| MRT2 | `MONDO:0011828` | intellectual disability, autosomal recessive 2 | `AGREES` | ✓ DOID |
+| MRT3 | `MONDO:0012037` | intellectual disability, autosomal recessive 3 | `AGREES` | ✓ DOID |
+| MRT5 | `MONDO:0012613` | intellectual disability, autosomal recessive 5 | `AGREES` | ✓ DOID |
+| MRT6 | `MONDO:0012614` | intellectual disability, autosomal recessive 6 | `AGREES` | ✓ DOID |
+| MRT7 | `MONDO:0012615` | intellectual disability, autosomal recessive 7 | `AGREES` | ✓ DOID |
+| MRT13 | `MONDO:0013173` | intellectual disability, autosomal recessive 13 | `AGREES` | ✓ DOID |
+| MRT15 | `MONDO:0013624` | Rafiq syndrome | `AGREES` | ✓ DOID |
+| MRT18 | `MONDO:0013651` | intellectual disability, autosomal recessive 18 | `AGREES` | ✓ DOID |
+| MRT57 | `MONDO:0014962` | intellectual disability, autosomal recessive 57 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

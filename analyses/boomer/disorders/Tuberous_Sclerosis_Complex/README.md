@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Tuberous_Sclerosis_Complex.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| TSC2 | `MONDO:0013199` | tuberous sclerosis 2 | `AGREES` |
-| TSC1 | `MONDO:0008612` | tuberous sclerosis 1 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| TSC2 | `MONDO:0013199` | tuberous sclerosis 2 | `AGREES` | ✓ DOID, NCIT |
+| TSC1 | `MONDO:0008612` | tuberous sclerosis 1 | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

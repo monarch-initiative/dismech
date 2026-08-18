@@ -8,17 +8,23 @@ Boomer grounding analysis for [`kb/disorders/Familial_Hyperaldosteronism.yaml`](
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type I | `MONDO:0007080` | glucocorticoid-remediable aldosteronism | `AGREES` |
-| Type II | `MONDO:0011576` | familial hyperaldosteronism type II | `AGREES` |
-| Type III | `MONDO:0013359` | familial hyperaldosteronism type III | `AGREES` |
-| Type IV | `MONDO:0014875` | hyperaldosteronism, familial, type IV | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type I | `MONDO:0007080` | glucocorticoid-remediable aldosteronism | `AGREES` | ✓ ORDO |
+| Type II | `MONDO:0011576` | familial hyperaldosteronism type II | `AGREES` | ✓ NCIT, ORDO |
+| Type III | `MONDO:0013359` | familial hyperaldosteronism type III | `AGREES` | ✓ ORDO |
+| Type IV | `MONDO:0014875` | hyperaldosteronism, familial, type IV | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0016525` ≡ `ORDO:235936`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/ALDH18A1_De_Barsy_Spectrum.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SPG9A | `MONDO:0011006` | hereditary spastic paraplegia 9A | `AGREES` |
-| SPG9B | `MONDO:0014702` | autosomal recessive complex spastic paraplegia type 9B | `AGREES` |
-| ARCL3A | `MONDO:0009053` | ALDH18A1-related de Barsy syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SPG9A | `MONDO:0011006` | hereditary spastic paraplegia 9A | `AGREES` | — no shared vocabulary |
+| SPG9B | `MONDO:0014702` | autosomal recessive complex spastic paraplegia type 9B | `AGREES` | — no shared vocabulary |
+| ARCL3A | `MONDO:0009053` | ALDH18A1-related de Barsy syndrome | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

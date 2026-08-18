@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Stromal_Corneal_Dystrophy.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MCD | `MONDO:0009020` | macular corneal dystrophy | `AGREES` |
-| SCCD | `MONDO:0007374` | Schnyder corneal dystrophy | `AGREES` |
-| CSCD | `MONDO:0012401` | congenital stromal corneal dystrophy | `AGREES` |
-| GCD1 | `MONDO:0007377` | granular corneal dystrophy type I | `AGREES` |
-| GCD2 | `MONDO:0011855` | granular corneal dystrophy type II | `AGREES` |
-| LCD1 | `MONDO:0007380` | lattice corneal dystrophy type I | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MCD | `MONDO:0009020` | macular corneal dystrophy | `AGREES` | ✓ DOID, ORDO, icd11f |
+| SCCD | `MONDO:0007374` | Schnyder corneal dystrophy | `AGREES` | ✓ DOID, ORDO |
+| CSCD | `MONDO:0012401` | congenital stromal corneal dystrophy | `AGREES` | ✓ DOID, ORDO, icd11f |
+| GCD1 | `MONDO:0007377` | granular corneal dystrophy type I | `AGREES` | ✓ ORDO |
+| GCD2 | `MONDO:0011855` | granular corneal dystrophy type II | `AGREES` | ✓ ORDO |
+| LCD1 | `MONDO:0007380` | lattice corneal dystrophy type I | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

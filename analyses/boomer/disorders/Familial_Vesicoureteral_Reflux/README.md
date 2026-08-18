@@ -8,17 +8,17 @@ Boomer grounding analysis for [`kb/disorders/Familial_Vesicoureteral_Reflux.yaml
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| VUR1 | `MONDO:0008653` | vesicoureteral reflux 1 | `AGREES` |
-| VUR2 | `MONDO:0012573` | vesicoureteral reflux 2 | `AGREES` |
-| VUR3 | `MONDO:0013356` | vesicoureteral reflux 3 | `AGREES` |
-| VUR4 | `MONDO:0013682` | vesicoureteral reflux 4 | `AGREES` |
-| VUR5 | `MONDO:0013683` | vesicoureteral reflux 5 | `AGREES` |
-| VUR6 | `MONDO:0013684` | vesicoureteral reflux 6 | `AGREES` |
-| VUR7 | `MONDO:0014161` | vesicoureteral reflux 7 | `AGREES` |
-| VUR8 | `MONDO:0014422` | vesicoureteral reflux 8 | `AGREES` |
-| VURX | `MONDO:0010755` | vesicoureteral reflux, X-linked | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| VUR1 | `MONDO:0008653` | vesicoureteral reflux 1 | `AGREES` | — no shared vocabulary |
+| VUR2 | `MONDO:0012573` | vesicoureteral reflux 2 | `AGREES` | — no shared vocabulary |
+| VUR3 | `MONDO:0013356` | vesicoureteral reflux 3 | `AGREES` | — no shared vocabulary |
+| VUR4 | `MONDO:0013682` | vesicoureteral reflux 4 | `AGREES` | — no shared vocabulary |
+| VUR5 | `MONDO:0013683` | vesicoureteral reflux 5 | `AGREES` | — no shared vocabulary |
+| VUR6 | `MONDO:0013684` | vesicoureteral reflux 6 | `AGREES` | — no shared vocabulary |
+| VUR7 | `MONDO:0014161` | vesicoureteral reflux 7 | `AGREES` | — no shared vocabulary |
+| VUR8 | `MONDO:0014422` | vesicoureteral reflux 8 | `AGREES` | — no shared vocabulary |
+| VURX | `MONDO:0010755` | vesicoureteral reflux, X-linked | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

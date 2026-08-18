@@ -8,11 +8,21 @@ Boomer grounding analysis for [`kb/disorders/Mycosis_Fungoides.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Folliculotropic | `MONDO:0015808` | folliculotropic mycosis fungoides | `SILENT` |
-| Localized Pagetoid Reticulosis | `MONDO:0015809` | localized pagetoid reticulosis | `SILENT` |
-| Granulomatous Slack Skin | `MONDO:0018031` | granulomatous slack skin disease | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Folliculotropic | `MONDO:0015808` | folliculotropic mycosis fungoides | `SILENT` | ✓ NCIT, icd11f |
+| Localized Pagetoid Reticulosis | `MONDO:0015809` | localized pagetoid reticulosis | `SILENT` | ✓ MESH, NCIT |
+| Granulomatous Slack Skin | `MONDO:0018031` | granulomatous slack skin disease | `SILENT` | ✓ NCIT |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **Folliculotropic** — NCIT (NCIT:C35685), icd11f (icd11f:1335995469)
+- **Localized Pagetoid Reticulosis** — MESH (MESH:D056267), NCIT (NCIT:C35794)
+- **Granulomatous Slack Skin** — NCIT (NCIT:C35464)
 
 ## What boomer did
 

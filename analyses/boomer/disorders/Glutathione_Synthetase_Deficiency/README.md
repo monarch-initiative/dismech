@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Glutathione_Synthetase_Deficiency.y
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| With 5-Oxoprolinuria | `MONDO:0009947` | glutathione synthetase deficiency with 5-oxoprolinuria | `AGREES` |
-| Without 5-Oxoprolinuria | `MONDO:0009284` | glutathione synthetase deficiency without 5-oxoprolinuria | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| With 5-Oxoprolinuria | `MONDO:0009947` | glutathione synthetase deficiency with 5-oxoprolinuria | `AGREES` | ✓ DOID, ORDO |
+| Without 5-Oxoprolinuria | `MONDO:0009284` | glutathione synthetase deficiency without 5-oxoprolinuria | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

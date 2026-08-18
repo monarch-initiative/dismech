@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Nemaline_Myopathy.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Severe Congenital Nemaline Myopathy | `MONDO:0015735` | severe congenital nemaline myopathy | `AGREES` |
-| Typical Nemaline Myopathy | `MONDO:0015737` | typical nemaline myopathy | `AGREES` |
-| Childhood-Onset Nemaline Myopathy | `MONDO:0015738` | childhood-onset nemaline myopathy | `AGREES` |
-| Adult-Onset Nemaline Myopathy | `MONDO:0015739` | adult-onset nemaline myopathy | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Severe Congenital Nemaline Myopathy | `MONDO:0015735` | severe congenital nemaline myopathy | `AGREES` | ✓ ORDO, icd11f |
+| Typical Nemaline Myopathy | `MONDO:0015737` | typical nemaline myopathy | `AGREES` | ✓ ORDO, icd11f |
+| Childhood-Onset Nemaline Myopathy | `MONDO:0015738` | childhood-onset nemaline myopathy | `AGREES` | ✓ ORDO |
+| Adult-Onset Nemaline Myopathy | `MONDO:0015739` | adult-onset nemaline myopathy | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 

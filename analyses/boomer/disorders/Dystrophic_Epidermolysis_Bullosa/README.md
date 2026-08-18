@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Dystrophic_Epidermolysis_Bullosa.ya
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| DDEB | `MONDO:0007549` | generalized dominant dystrophic epidermolysis bullosa | `AGREES` |
-| RDEB-sev gen | `MONDO:0009179` | recessive dystrophic epidermolysis bullosa | `AGREES` |
-| RDEB-intermediate | `MONDO:0019522` | recessive dystrophic epidermolysis bullosa-generalized other | `AGREES` |
-| RDEB-Inversa | `MONDO:0019310` | recessive dystrophic epidermolysis bullosa inversa | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| DDEB | `MONDO:0007549` | generalized dominant dystrophic epidermolysis bullosa | `AGREES` | ✓ DOID, ORDO |
+| RDEB-sev gen | `MONDO:0009179` | recessive dystrophic epidermolysis bullosa | `AGREES` | ✓ DOID, ORDO |
+| RDEB-intermediate | `MONDO:0019522` | recessive dystrophic epidermolysis bullosa-generalized other | `AGREES` | ✓ ORDO |
+| RDEB-Inversa | `MONDO:0019310` | recessive dystrophic epidermolysis bullosa inversa | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 

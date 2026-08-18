@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Chromosome_Xq_Duplication.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Xq28 (MECP2) | `MONDO:0010283` | syndromic X-linked intellectual disability Lubs type | `AGREES` |
-| Xq26.3-q27.1 (SOX3) | `MONDO:0010712` | panhypopituitarism, X-linked | `SILENT` |
-| Xq25 (STAG2) | `MONDO:0010507` | Xq25 microduplication syndrome | `AGREES` |
-| Xq25-q26 | `MONDO:0010252` | intellectual disability, X-linked, with panhypopituitarism | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Xq28 (MECP2) | `MONDO:0010283` | syndromic X-linked intellectual disability Lubs type | `AGREES` | ✓ ORDO |
+| Xq26.3-q27.1 (SOX3) | `MONDO:0010712` | panhypopituitarism, X-linked | `SILENT` | silent (MESH) |
+| Xq25 (STAG2) | `MONDO:0010507` | Xq25 microduplication syndrome | `AGREES` | ✓ ORDO |
+| Xq25-q26 | `MONDO:0010252` | intellectual disability, X-linked, with panhypopituitarism | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

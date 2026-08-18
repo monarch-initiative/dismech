@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Thymic_Neuroendocrine_Carcinoma.yam
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Typical carcinoid | `MONDO:0016976` | well-differentiated thymic neuroendocrine carcinoma | `AGREES` |
-| Atypical carcinoid | `MONDO:0016977` | moderately-differentiated thymic neuroendocrine carcinoma | `AGREES` |
-| LCNEC | `MONDO:0003047` | thymic large cell neuroendocrine carcinoma | `AGREES` |
-| Small cell carcinoma | `MONDO:0004122` | thymus small cell carcinoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Typical carcinoid | `MONDO:0016976` | well-differentiated thymic neuroendocrine carcinoma | `AGREES` | ✓ ORDO, icd11f |
+| Atypical carcinoid | `MONDO:0016977` | moderately-differentiated thymic neuroendocrine carcinoma | `AGREES` | ✓ ORDO, icd11f |
+| LCNEC | `MONDO:0003047` | thymic large cell neuroendocrine carcinoma | `AGREES` | ✓ NCIT |
+| Small cell carcinoma | `MONDO:0004122` | thymus small cell carcinoma | `AGREES` | ✓ NCIT |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Citrullinemia_Type_I.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Acute neonatal | `MONDO:0016600` | acute neonatal citrullinemia type I | `AGREES` |
-| Late-onset | `MONDO:0016601` | adult-onset citrullinemia type I | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Acute neonatal | `MONDO:0016600` | acute neonatal citrullinemia type I | `AGREES` | ✓ ORDO |
+| Late-onset | `MONDO:0016601` | adult-onset citrullinemia type I | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

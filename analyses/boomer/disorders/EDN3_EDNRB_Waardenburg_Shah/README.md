@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/EDN3_EDNRB_Waardenburg_Shah.yaml`](
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Waardenburg Syndrome Type 4A | `MONDO:0010192` | Waardenburg syndrome type 4A | `AGREES` |
-| Waardenburg Syndrome Type 4B | `MONDO:0013201` | Waardenburg syndrome type 4B | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Waardenburg Syndrome Type 4A | `MONDO:0010192` | Waardenburg syndrome type 4A | `AGREES` | — no shared vocabulary |
+| Waardenburg Syndrome Type 4B | `MONDO:0013201` | Waardenburg syndrome type 4B | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

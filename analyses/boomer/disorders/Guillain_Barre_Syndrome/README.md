@@ -8,12 +8,20 @@ Boomer grounding analysis for [`kb/disorders/Guillain_Barre_Syndrome.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Acute Inflammatory Demyelinating Polyradiculoneuropathy | `MONDO:0020347` | acute inflammatory demyelinating polyradiculoneuropathy | `AGREES` |
-| Acute Motor Axonal Neuropathy | `MONDO:0020349` | acute motor axonal neuropathy | `AGREES` |
-| Acute Motor and Sensory Axonal Neuropathy | `MONDO:0020348` | acute motor and sensory axonal neuropathy | `AGREES` |
-| Miller Fisher Syndrome | `MONDO:0005851` | Miller Fisher syndrome | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Acute Inflammatory Demyelinating Polyradiculoneuropathy | `MONDO:0020347` | acute inflammatory demyelinating polyradiculoneuropathy | `AGREES` | ✓ NCIT, ORDO |
+| Acute Motor Axonal Neuropathy | `MONDO:0020349` | acute motor axonal neuropathy | `AGREES` | ✓ NCIT, ORDO |
+| Acute Motor and Sensory Axonal Neuropathy | `MONDO:0020348` | acute motor and sensory axonal neuropathy | `AGREES` | ✓ NCIT, ORDO |
+| Miller Fisher Syndrome | `MONDO:0005851` | Miller Fisher syndrome | `SILENT` | ✓ DOID, MESH, ORDO |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **Miller Fisher Syndrome** — DOID (DOID:12889), MESH (MESH:D019846), ORDO (ORDO:98919)
 
 ## What boomer did
 

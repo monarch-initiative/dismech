@@ -8,16 +8,16 @@ Boomer grounding analysis for [`kb/disorders/Non-Syndromic_X-Linked_Intellectual
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MRX21 | `MONDO:0010256` | intellectual disability, X-linked 21 | `AGREES` |
-| MRX30 | `MONDO:0010361` | intellectual disability, X-linked 30 | `AGREES` |
-| MRX41 | `MONDO:0010451` | intellectual disability, X-linked 41 | `AGREES` |
-| MRX58 | `MONDO:0010266` | intellectual disability, X-linked 58 | `AGREES` |
-| MRX9 | `MONDO:0010660` | intellectual disability, X-linked 9 | `AGREES` |
-| MRX63 | `MONDO:0010313` | intellectual disability, X-linked 63 | `AGREES` |
-| FRAXE | `MONDO:0010659` | FRAXE intellectual disability | `AGREES` |
-| ARX-related | `MONDO:0010317` | intellectual disability, X-linked, with or without seizures, ARX-related | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MRX21 | `MONDO:0010256` | intellectual disability, X-linked 21 | `AGREES` | ✓ DOID |
+| MRX30 | `MONDO:0010361` | intellectual disability, X-linked 30 | `AGREES` | ✓ DOID |
+| MRX41 | `MONDO:0010451` | intellectual disability, X-linked 41 | `AGREES` | ✓ DOID |
+| MRX58 | `MONDO:0010266` | intellectual disability, X-linked 58 | `AGREES` | ✓ DOID |
+| MRX9 | `MONDO:0010660` | intellectual disability, X-linked 9 | `AGREES` | ✓ DOID |
+| MRX63 | `MONDO:0010313` | intellectual disability, X-linked 63 | `AGREES` | ✓ DOID |
+| FRAXE | `MONDO:0010659` | FRAXE intellectual disability | `AGREES` | silent (DOID, ORDO) |
+| ARX-related | `MONDO:0010317` | intellectual disability, X-linked, with or without seizures, ARX-related | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Adams-Oliver_Syndrome.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| AOS1 | `MONDO:0024506` | Adams-Oliver syndrome 1 | `AGREES` |
-| AOS2 | `MONDO:0013635` | Adams-Oliver syndrome 2 | `AGREES` |
-| AOS3 | `MONDO:0013895` | Adams-Oliver syndrome 3 | `AGREES` |
-| AOS4 | `MONDO:0014124` | Adams-Oliver syndrome 4 | `AGREES` |
-| AOS5 | `MONDO:0014459` | Adams-Oliver syndrome 5 | `AGREES` |
-| AOS6 | `MONDO:0014703` | Adams-Oliver syndrome 6 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| AOS1 | `MONDO:0024506` | Adams-Oliver syndrome 1 | `AGREES` | — no shared vocabulary |
+| AOS2 | `MONDO:0013635` | Adams-Oliver syndrome 2 | `AGREES` | — no shared vocabulary |
+| AOS3 | `MONDO:0013895` | Adams-Oliver syndrome 3 | `AGREES` | ✓ DOID |
+| AOS4 | `MONDO:0014124` | Adams-Oliver syndrome 4 | `AGREES` | — no shared vocabulary |
+| AOS5 | `MONDO:0014459` | Adams-Oliver syndrome 5 | `AGREES` | — no shared vocabulary |
+| AOS6 | `MONDO:0014703` | Adams-Oliver syndrome 6 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

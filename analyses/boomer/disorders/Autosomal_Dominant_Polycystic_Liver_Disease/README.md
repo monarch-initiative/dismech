@@ -8,15 +8,21 @@ Boomer grounding analysis for [`kb/disorders/Autosomal_Dominant_Polycystic_Liver
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PCLD1 | `MONDO:0008265` | polycystic liver disease 1 | `AGREES` |
-| PCLD2 | `MONDO:0014860` | polycystic liver disease 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PCLD1 | `MONDO:0008265` | polycystic liver disease 1 | `AGREES` | ✓ DOID |
+| PCLD2 | `MONDO:0014860` | polycystic liver disease 2 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0000447` ≡ `icd11f:423904268`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Myoclonus_Dystonia_Syndrome.yaml`](
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SGCE-related myoclonus-dystonia | `MONDO:0008044` | myoclonic dystonia 11 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SGCE-related myoclonus-dystonia | `MONDO:0008044` | myoclonic dystonia 11 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

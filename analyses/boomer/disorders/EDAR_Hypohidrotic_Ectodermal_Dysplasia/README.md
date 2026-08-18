@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/EDAR_Hypohidrotic_Ectodermal_Dyspla
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| AR | `MONDO:0016619` | autosomal recessive hypohidrotic ectodermal dysplasia | `AGREES` |
-| AD | `MONDO:0015884` | autosomal dominant hypohidrotic ectodermal dysplasia | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| AR | `MONDO:0016619` | autosomal recessive hypohidrotic ectodermal dysplasia | `AGREES` | ✓ ORDO, icd11f |
+| AD | `MONDO:0015884` | autosomal dominant hypohidrotic ectodermal dysplasia | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 

@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Juvenile_Idiopathic_Arthritis.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Oligoarticular | `MONDO:0019433` | oligoarticular juvenile idiopathic arthritis | `AGREES` |
-| Polyarticular RF-negative | `MONDO:0018456` | polyarticular juvenile idiopathic arthritis | `AGREES` |
-| Polyarticular RF-positive | `MONDO:0018456` | polyarticular juvenile idiopathic arthritis | `AGREES` |
-| Enthesitis-related | `MONDO:0019437` | enthesitis-related juvenile idiopathic arthritis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Oligoarticular | `MONDO:0019433` | oligoarticular juvenile idiopathic arthritis | `AGREES` | ✓ NCIT, ORDO, icd11f |
+| Polyarticular RF-negative | `MONDO:0018456` | polyarticular juvenile idiopathic arthritis | `AGREES` | ✓ ORDO |
+| Polyarticular RF-positive | `MONDO:0018456` | polyarticular juvenile idiopathic arthritis | `AGREES` | ✓ ORDO |
+| Enthesitis-related | `MONDO:0019437` | enthesitis-related juvenile idiopathic arthritis | `AGREES` | ✓ NCIT, ORDO, icd11f |
 
 ## What boomer did
 

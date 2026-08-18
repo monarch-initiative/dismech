@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Usher_Syndrome.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| USH1 | `MONDO:0010168` | Usher syndrome type 1 | `AGREES` |
-| USH2 | `MONDO:0016484` | Usher syndrome type 2 | `AGREES` |
-| USH3 | `MONDO:0016485` | Usher syndrome type 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| USH1 | `MONDO:0010168` | Usher syndrome type 1 | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| USH2 | `MONDO:0016484` | Usher syndrome type 2 | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| USH3 | `MONDO:0016485` | Usher syndrome type 3 | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
 
 ## What boomer did
 

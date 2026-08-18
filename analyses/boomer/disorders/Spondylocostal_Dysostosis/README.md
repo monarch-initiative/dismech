@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Spondylocostal_Dysostosis.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SCDO1 | `MONDO:0020692` | spondylocostal dysostosis 1, autosomal recessive | `AGREES` |
-| SCDO2 | `MONDO:0012097` | spondylocostal dysostosis 2, autosomal recessive | `AGREES` |
-| SCDO3 | `MONDO:0012349` | spondylocostal dysostosis 3, autosomal recessive | `AGREES` |
-| SCDO4 | `MONDO:0013366` | spondylocostal dysostosis 4, autosomal recessive | `AGREES` |
-| SCDO5 | `MONDO:0007389` | spondylocostal dysostosis 5 | `AGREES` |
-| SCDO6 | `MONDO:0014694` | spondylocostal dysostosis 6, autosomal recessive | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SCDO1 | `MONDO:0020692` | spondylocostal dysostosis 1, autosomal recessive | `AGREES` | ✓ DOID |
+| SCDO2 | `MONDO:0012097` | spondylocostal dysostosis 2, autosomal recessive | `AGREES` | ✓ DOID |
+| SCDO3 | `MONDO:0012349` | spondylocostal dysostosis 3, autosomal recessive | `AGREES` | ✓ DOID |
+| SCDO4 | `MONDO:0013366` | spondylocostal dysostosis 4, autosomal recessive | `AGREES` | ✓ DOID |
+| SCDO5 | `MONDO:0007389` | spondylocostal dysostosis 5 | `AGREES` | ✓ DOID |
+| SCDO6 | `MONDO:0014694` | spondylocostal dysostosis 6, autosomal recessive | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

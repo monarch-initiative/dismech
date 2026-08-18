@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Tetrahydrobiopterin_Deficiency.yaml
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PTPS Deficiency | `MONDO:0009863` | BH4-deficient hyperphenylalaninemia A | `AGREES` |
-| DHPR Deficiency | `MONDO:0009862` | dihydropteridine reductase deficiency | `AGREES` |
-| GTPCH Deficiency | `MONDO:0100186` | GTP cyclohydrolase I deficiency with hyperphenylalaninemia | `AGREES` |
-| PCD Deficiency | `MONDO:0009908` | pterin-4 alpha-carbinolamine dehydratase 1 deficiency | `AGREES` |
-| SPR Deficiency | `MONDO:0012994` | dopa-responsive dystonia due to sepiapterin reductase deficiency | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PTPS Deficiency | `MONDO:0009863` | BH4-deficient hyperphenylalaninemia A | `AGREES` | ✓ ORDO |
+| DHPR Deficiency | `MONDO:0009862` | dihydropteridine reductase deficiency | `AGREES` | ✓ ORDO |
+| GTPCH Deficiency | `MONDO:0100186` | GTP cyclohydrolase I deficiency with hyperphenylalaninemia | `AGREES` | ✓ ORDO |
+| PCD Deficiency | `MONDO:0009908` | pterin-4 alpha-carbinolamine dehydratase 1 deficiency | `AGREES` | ✓ ORDO |
+| SPR Deficiency | `MONDO:0012994` | dopa-responsive dystonia due to sepiapterin reductase deficiency | `SILENT` | silent (ORDO) |
 
 ## What boomer did
 

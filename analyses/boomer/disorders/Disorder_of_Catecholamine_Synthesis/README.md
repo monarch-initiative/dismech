@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Disorder_of_Catecholamine_Synthesis
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Aromatic L-amino acid decarboxylase deficiency | `MONDO:0012084` | aromatic L-amino acid decarboxylase deficiency | `AGREES` |
-| Tyrosine hydroxylase deficiency | `MONDO:0011551` | TH-deficient dopa-responsive dystonia | `SILENT` |
-| Autosomal recessive GTP cyclohydrolase I deficiency | `MONDO:0100184` | GTP cyclohydrolase I deficiency | `SILENT` |
-| Sepiapterin reductase deficiency | `MONDO:0012994` | dopa-responsive dystonia due to sepiapterin reductase deficiency | `SILENT` |
-| DNAJC12-related monoamine synthesis disorder | `MONDO:0044304` | hyperphenylalaninemia due to DNAJC12 deficiency | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Aromatic L-amino acid decarboxylase deficiency | `MONDO:0012084` | aromatic L-amino acid decarboxylase deficiency | `AGREES` | ✓ ORDO, icd11f |
+| Tyrosine hydroxylase deficiency | `MONDO:0011551` | TH-deficient dopa-responsive dystonia | `SILENT` | silent (ORDO) |
+| Autosomal recessive GTP cyclohydrolase I deficiency | `MONDO:0100184` | GTP cyclohydrolase I deficiency | `SILENT` | — no shared vocabulary |
+| Sepiapterin reductase deficiency | `MONDO:0012994` | dopa-responsive dystonia due to sepiapterin reductase deficiency | `SILENT` | silent (ORDO) |
+| DNAJC12-related monoamine synthesis disorder | `MONDO:0044304` | hyperphenylalaninemia due to DNAJC12 deficiency | `SILENT` | silent (ORDO) |
 
 ## What boomer did
 

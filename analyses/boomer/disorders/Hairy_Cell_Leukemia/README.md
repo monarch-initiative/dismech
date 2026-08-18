@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Hairy_Cell_Leukemia.yaml`](../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Refractory | `MONDO:0004110` | refractory hairy cell leukemia | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Refractory | `MONDO:0004110` | refractory hairy cell leukemia | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

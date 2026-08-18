@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Stargardt_Disease.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| ABCA4-Related Cone-Rod Dystrophy (CORD3) | `MONDO:0011395` | cone-rod dystrophy 3 | `SILENT` |
-| ABCA4-Related Retinitis Pigmentosa (RP19) | `MONDO:0011137` | retinitis pigmentosa 19 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| ABCA4-Related Cone-Rod Dystrophy (CORD3) | `MONDO:0011395` | cone-rod dystrophy 3 | `SILENT` | silent (DOID, MESH) |
+| ABCA4-Related Retinitis Pigmentosa (RP19) | `MONDO:0011137` | retinitis pigmentosa 19 | `SILENT` | silent (DOID, MESH) |
 
 ## What boomer did
 

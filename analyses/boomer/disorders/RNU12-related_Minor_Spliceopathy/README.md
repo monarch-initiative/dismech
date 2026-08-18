@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/RNU12-related_Minor_Spliceopathy.ya
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CDAGS | `MONDO:0011287` | craniosynostosis-anal anomalies-porokeratosis syndrome | `AGREES` |
-| SCAR33 | `MONDO:0859360` | spinocerebellar ataxia, autosomal recessive 33 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CDAGS | `MONDO:0011287` | craniosynostosis-anal anomalies-porokeratosis syndrome | `AGREES` | — no shared vocabulary |
+| SCAR33 | `MONDO:0859360` | spinocerebellar ataxia, autosomal recessive 33 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

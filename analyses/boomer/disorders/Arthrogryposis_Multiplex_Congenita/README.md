@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Arthrogryposis_Multiplex_Congenita.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Amyoplasia pattern | `MONDO:0044629` | congenital amyoplasia | `SILENT` |
-| Distal arthrogryposis pattern | `MONDO:0019942` | distal arthrogryposis | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Amyoplasia pattern | `MONDO:0044629` | congenital amyoplasia | `SILENT` | silent (ORDO) |
+| Distal arthrogryposis pattern | `MONDO:0019942` | distal arthrogryposis | `SILENT` | silent (DOID, ORDO, icd11f) |
 
 ## What boomer did
 

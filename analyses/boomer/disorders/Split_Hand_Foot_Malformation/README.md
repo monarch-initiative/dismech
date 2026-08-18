@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Split_Hand_Foot_Malformation.yaml`]
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SHFM1 | `MONDO:0008464` | split hand-foot malformation 1 | `AGREES` |
-| SHFM3 | `MONDO:0009525` | split hand-foot malformation 3 | `AGREES` |
-| SHFM4 | `MONDO:0011535` | split hand-foot malformation 4 | `AGREES` |
-| SHFM5 | `MONDO:0011709` | split hand-foot malformation 5 | `AGREES` |
-| SHFM6 | `MONDO:0009157` | split hand-foot malformation 6 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SHFM1 | `MONDO:0008464` | split hand-foot malformation 1 | `AGREES` | ✓ DOID, NCIT |
+| SHFM3 | `MONDO:0009525` | split hand-foot malformation 3 | `AGREES` | ✓ DOID, NCIT |
+| SHFM4 | `MONDO:0011535` | split hand-foot malformation 4 | `AGREES` | ✓ DOID |
+| SHFM5 | `MONDO:0011709` | split hand-foot malformation 5 | `AGREES` | ✓ DOID, NCIT |
+| SHFM6 | `MONDO:0009157` | split hand-foot malformation 6 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

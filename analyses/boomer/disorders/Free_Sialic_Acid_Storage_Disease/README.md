@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Free_Sialic_Acid_Storage_Disease.ya
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Infantile Free Sialic Acid Storage Disease | `MONDO:0010027` | free sialic acid storage disease, infantile form | `AGREES` |
-| Salla Disease | `MONDO:0011449` | Salla disease | `AGREES` |
-| Intermediate Severe Salla Disease | `MONDO:0017737` | intermediate severe Salla disease | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Infantile Free Sialic Acid Storage Disease | `MONDO:0010027` | free sialic acid storage disease, infantile form | `AGREES` | ✓ ORDO |
+| Salla Disease | `MONDO:0011449` | Salla disease | `AGREES` | ✓ ORDO |
+| Intermediate Severe Salla Disease | `MONDO:0017737` | intermediate severe Salla disease | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

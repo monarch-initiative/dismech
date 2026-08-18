@@ -8,17 +8,24 @@ Boomer grounding analysis for [`kb/disorders/Inherited_Retinal_Dystrophy.yaml`](
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| RP | `MONDO:0019200` | retinitis pigmentosa | `AGREES` |
-| LCA | `MONDO:0018998` | Leber congenital amaurosis | `AGREES` |
-| Cone-Rod Dystrophy | `MONDO:0015993` | cone-rod dystrophy | `AGREES` |
-| Choroideremia | `MONDO:0010557` | choroideremia | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| RP | `MONDO:0019200` | retinitis pigmentosa | `AGREES` | ✓ MESH, NCIT, ORDO |
+| LCA | `MONDO:0018998` | Leber congenital amaurosis | `AGREES` | ✓ ORDO |
+| Cone-Rod Dystrophy | `MONDO:0015993` | cone-rod dystrophy | `AGREES` | ✓ MESH, ORDO |
+| Choroideremia | `MONDO:0010557` | choroideremia | `AGREES` | silent (DOID, ICD10CM, MESH, NCIT, ORDO) |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0019118` ≡ `DOID:8501`
+- `MONDO:0019118` ≡ `NCIT:C35625`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

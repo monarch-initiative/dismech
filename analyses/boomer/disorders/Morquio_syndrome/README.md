@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Morquio_syndrome.yaml`](../../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type A | `MONDO:0009659` | mucopolysaccharidosis type 4A | `AGREES` |
-| Type B | `MONDO:0009660` | mucopolysaccharidosis type 4B | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type A | `MONDO:0009659` | mucopolysaccharidosis type 4A | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| Type B | `MONDO:0009660` | mucopolysaccharidosis type 4B | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
 
 ## What boomer did
 

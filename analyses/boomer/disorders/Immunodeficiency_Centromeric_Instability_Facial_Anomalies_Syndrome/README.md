@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Immunodeficiency_Centromeric_Instab
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| ICF1 | `MONDO:0009454` | immunodeficiency-centromeric instability-facial anomalies syndrome 1 | `AGREES` |
-| ICF2 | `MONDO:0013553` | immunodeficiency-centromeric instability-facial anomalies syndrome 2 | `AGREES` |
-| ICF3 | `MONDO:0014828` | immunodeficiency-centromeric instability-facial anomalies syndrome 3 | `AGREES` |
-| ICF4 | `MONDO:0014829` | immunodeficiency-centromeric instability-facial anomalies syndrome 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| ICF1 | `MONDO:0009454` | immunodeficiency-centromeric instability-facial anomalies syndrome 1 | `AGREES` | ✓ DOID |
+| ICF2 | `MONDO:0013553` | immunodeficiency-centromeric instability-facial anomalies syndrome 2 | `AGREES` | ✓ DOID |
+| ICF3 | `MONDO:0014828` | immunodeficiency-centromeric instability-facial anomalies syndrome 3 | `AGREES` | ✓ DOID |
+| ICF4 | `MONDO:0014829` | immunodeficiency-centromeric instability-facial anomalies syndrome 4 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

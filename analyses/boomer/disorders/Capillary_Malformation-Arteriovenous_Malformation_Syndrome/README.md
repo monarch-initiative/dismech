@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Capillary_Malformation-Arteriovenou
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CM-AVM1 | `MONDO:0020783` | capillary malformation-arteriovenous malformation 1 | `AGREES` |
-| CM-AVM2 | `MONDO:0020785` | capillary malformation-arteriovenous malformation 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CM-AVM1 | `MONDO:0020783` | capillary malformation-arteriovenous malformation 1 | `AGREES` | ✓ ORDO |
+| CM-AVM2 | `MONDO:0020785` | capillary malformation-arteriovenous malformation 2 | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

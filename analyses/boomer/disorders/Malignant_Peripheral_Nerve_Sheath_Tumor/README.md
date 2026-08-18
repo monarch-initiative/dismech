@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Malignant_Peripheral_Nerve_Sheath_T
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Epithelioid | `MONDO:0004540` | epithelioid malignant peripheral nerve sheath tumor | `AGREES` |
-| Malignant Triton Tumor | `MONDO:0016757` | malignant triton tumor | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Epithelioid | `MONDO:0004540` | epithelioid malignant peripheral nerve sheath tumor | `AGREES` | ✓ DOID, NCIT |
+| Malignant Triton Tumor | `MONDO:0016757` | malignant triton tumor | `AGREES` | ✓ DOID, NCIT, ORDO |
 
 ## What boomer did
 

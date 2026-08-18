@@ -8,13 +8,22 @@ Boomer grounding analysis for [`kb/disorders/PTEN_Hamartoma_Tumor_Syndrome.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Cowden syndrome | `MONDO:0016063` | Cowden disease | `SILENT` |
-| Bannayan-Riley-Ruvalcaba syndrome | `MONDO:0007924` | Bannayan-Riley-Ruvalcaba syndrome | `AGREES` |
-| Proteus-like syndrome | `MONDO:0017571` | Proteus-like syndrome | `AGREES` |
-| Lhermitte-Duclos disease | `MONDO:0019002` | Lhermitte-Duclos disease | `SILENT` |
-| SOLAMEN syndrome | `MONDO:0015293` | segmental outgrowth-lipomatosis-arteriovenous malformation-epidermal nevus syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Cowden syndrome | `MONDO:0016063` | Cowden disease | `SILENT` | ✓ NCIT, ORDO |
+| Bannayan-Riley-Ruvalcaba syndrome | `MONDO:0007924` | Bannayan-Riley-Ruvalcaba syndrome | `AGREES` | ✓ NCIT, ORDO |
+| Proteus-like syndrome | `MONDO:0017571` | Proteus-like syndrome | `AGREES` | ✓ NCIT, ORDO |
+| Lhermitte-Duclos disease | `MONDO:0019002` | Lhermitte-Duclos disease | `SILENT` | ✓ ORDO |
+| SOLAMEN syndrome | `MONDO:0015293` | segmental outgrowth-lipomatosis-arteriovenous malformation-epidermal nevus syndrome | `AGREES` | ✓ ORDO |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **Cowden syndrome** — NCIT (NCIT:C3076), ORDO (ORDO:201)
+- **Lhermitte-Duclos disease** — ORDO (ORDO:65285)
 
 ## What boomer did
 

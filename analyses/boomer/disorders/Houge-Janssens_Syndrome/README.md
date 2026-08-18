@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Houge-Janssens_Syndrome.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Houge-Janssens syndrome type 2 (PPP2R1A) | `MONDO:0014605` | Houge-Janssens syndrome 2 | `AGREES` |
-| Houge-Janssens syndrome type 3 (PPP2CA) | `MONDO:0032697` | Houge-Janssens syndrome 3 | `AGREES` |
-| Houge-Janssens syndrome type 4 (PPP2R5C) | `MONDO:0978293` | Houge-Janssens syndrome 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Houge-Janssens syndrome type 2 (PPP2R1A) | `MONDO:0014605` | Houge-Janssens syndrome 2 | `AGREES` | — no shared vocabulary |
+| Houge-Janssens syndrome type 3 (PPP2CA) | `MONDO:0032697` | Houge-Janssens syndrome 3 | `AGREES` | — no shared vocabulary |
+| Houge-Janssens syndrome type 4 (PPP2R5C) | `MONDO:0978293` | Houge-Janssens syndrome 4 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

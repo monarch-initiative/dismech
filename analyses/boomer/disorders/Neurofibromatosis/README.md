@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Neurofibromatosis.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| NF1 | `MONDO:0018975` | neurofibromatosis type 1 | `AGREES` |
-| NF2 | `MONDO:0007039` | NF2-related schwannomatosis | `AGREES` |
-| Schwannomatosis | `MONDO:0008075` | schwannomatosis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| NF1 | `MONDO:0018975` | neurofibromatosis type 1 | `AGREES` | ✓ DOID, ICD10CM, MESH, NCIT |
+| NF2 | `MONDO:0007039` | NF2-related schwannomatosis | `AGREES` | ✓ ICD10CM, NCIT |
+| Schwannomatosis | `MONDO:0008075` | schwannomatosis | `AGREES` | ✓ ICD10CM |
 
 ## What boomer did
 

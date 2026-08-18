@@ -8,13 +8,21 @@ Boomer grounding analysis for [`kb/disorders/Peripheral_T_Cell_Lymphoma.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PTCL-NOS | `MONDO:0004964` | peripheral T-cell lymphoma, not otherwise specified | `SILENT` |
-| TFH Angioimmunoblastic-Type | `MONDO:0004977` | angioimmunoblastic T-cell lymphoma | `AGREES` |
-| TFH Follicular-Type | `MONDO:0958095` | Nodal T-follicular helper cell lymphoma, follicular type | `AGREES` |
-| ALK-Positive ALCL | `MONDO:0017602` | ALK-positive anaplastic large cell lymphoma | `AGREES` |
-| ALK-Negative ALCL | `MONDO:0017603` | ALK-negative anaplastic large cell lymphoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PTCL-NOS | `MONDO:0004964` | peripheral T-cell lymphoma, not otherwise specified | `SILENT` | ✓ NCIT |
+| TFH Angioimmunoblastic-Type | `MONDO:0004977` | angioimmunoblastic T-cell lymphoma | `AGREES` | ✓ DOID, NCIT, ORDO |
+| TFH Follicular-Type | `MONDO:0958095` | Nodal T-follicular helper cell lymphoma, follicular type | `AGREES` | ✓ NCIT, ORDO |
+| ALK-Positive ALCL | `MONDO:0017602` | ALK-positive anaplastic large cell lymphoma | `AGREES` | ✓ NCIT, ORDO |
+| ALK-Negative ALCL | `MONDO:0017603` | ALK-negative anaplastic large cell lymphoma | `AGREES` | ✓ NCIT, ORDO |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **PTCL-NOS** — NCIT (NCIT:C4340)
 
 ## What boomer did
 

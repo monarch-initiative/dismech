@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Dowling-Degos_Disease.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| DDD1 | `MONDO:0024534` | Dowling-Degos disease 1 | `AGREES` |
-| DDD2 | `MONDO:0014130` | Dowling-Degos disease 2 | `AGREES` |
-| DDD4 | `MONDO:0014307` | Dowling-Degos disease 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| DDD1 | `MONDO:0024534` | Dowling-Degos disease 1 | `AGREES` | — no shared vocabulary |
+| DDD2 | `MONDO:0014130` | Dowling-Degos disease 2 | `AGREES` | — no shared vocabulary |
+| DDD4 | `MONDO:0014307` | Dowling-Degos disease 4 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

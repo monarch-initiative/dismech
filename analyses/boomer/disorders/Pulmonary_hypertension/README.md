@@ -8,14 +8,20 @@ Boomer grounding analysis for [`kb/disorders/Pulmonary_hypertension.yaml`](../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Pulmonary Arterial Hypertension (PAH) | `MONDO:0015924` | pulmonary arterial hypertension | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Pulmonary Arterial Hypertension (PAH) | `MONDO:0015924` | pulmonary arterial hypertension | `AGREES` | ✓ icd11f |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0015924` ≡ `ORDO:182090`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

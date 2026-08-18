@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Central_Areolar_Choroidal_Dystrophy
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CACD1 | `MONDO:0024539` | choroidal dystrophy, central areolar, 1 | `AGREES` |
-| CACD2 | `MONDO:0013137` | choroidal dystrophy, central areolar 2 | `AGREES` |
-| CACD3 | `MONDO:0013151` | choroidal dystrophy, central areolar, 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CACD1 | `MONDO:0024539` | choroidal dystrophy, central areolar, 1 | `AGREES` | — no shared vocabulary |
+| CACD2 | `MONDO:0013137` | choroidal dystrophy, central areolar 2 | `AGREES` | — no shared vocabulary |
+| CACD3 | `MONDO:0013151` | choroidal dystrophy, central areolar, 3 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

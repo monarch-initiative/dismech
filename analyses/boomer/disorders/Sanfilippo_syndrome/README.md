@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Sanfilippo_syndrome.yaml`](../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MPS IIIA | `MONDO:0009655` | mucopolysaccharidosis type 3A | `AGREES` |
-| MPS IIIB | `MONDO:0009656` | mucopolysaccharidosis type 3B | `AGREES` |
-| MPS IIIC | `MONDO:0009657` | mucopolysaccharidosis type 3C | `AGREES` |
-| MPS IIID | `MONDO:0009658` | mucopolysaccharidosis type 3D | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MPS IIIA | `MONDO:0009655` | mucopolysaccharidosis type 3A | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| MPS IIIB | `MONDO:0009656` | mucopolysaccharidosis type 3B | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| MPS IIIC | `MONDO:0009657` | mucopolysaccharidosis type 3C | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| MPS IIID | `MONDO:0009658` | mucopolysaccharidosis type 3D | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Lafora_Disease.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| EPM2A-related Lafora disease | `MONDO:0958199` | myoclonic epilepsy of Lafora 1 | `AGREES` |
-| NHLRC1-related Lafora disease | `MONDO:0800306` | myoclonic epilepsy of Lafora 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| EPM2A-related Lafora disease | `MONDO:0958199` | myoclonic epilepsy of Lafora 1 | `AGREES` | ✓ DOID |
+| NHLRC1-related Lafora disease | `MONDO:0800306` | myoclonic epilepsy of Lafora 2 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

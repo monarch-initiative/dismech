@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Maple_Syrup_Urine_Disease.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type IA | `MONDO:0023691` | maple syrup urine disease type 1A | `AGREES` |
-| Type IB | `MONDO:0023692` | maple syrup urine disease type 1B | `AGREES` |
-| Type II | `MONDO:0023693` | maple syrup urine disease type 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type IA | `MONDO:0023691` | maple syrup urine disease type 1A | `AGREES` | ✓ DOID |
+| Type IB | `MONDO:0023692` | maple syrup urine disease type 1B | `AGREES` | ✓ DOID |
+| Type II | `MONDO:0023693` | maple syrup urine disease type 2 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

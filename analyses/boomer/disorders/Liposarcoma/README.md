@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Liposarcoma.yaml`](../../../../kb/d
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| WDLPS | `MONDO:0005103` | well-differentiated liposarcoma | `AGREES` |
-| DDLPS | `MONDO:0020563` | dedifferentiated liposarcoma | `AGREES` |
-| MLPS | `MONDO:0013280` | myxoid liposarcoma | `AGREES` |
-| PLPS | `MONDO:0020562` | pleomorphic liposarcoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| WDLPS | `MONDO:0005103` | well-differentiated liposarcoma | `AGREES` | ✓ ORDO |
+| DDLPS | `MONDO:0020563` | dedifferentiated liposarcoma | `AGREES` | ✓ DOID, NCIT, ORDO |
+| MLPS | `MONDO:0013280` | myxoid liposarcoma | `AGREES` | ✓ DOID, MESH, NCIT |
+| PLPS | `MONDO:0020562` | pleomorphic liposarcoma | `AGREES` | ✓ DOID, NCIT, ORDO |
 
 ## What boomer did
 

@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Chronic_Mucocutaneous_Candidiasis.y
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| STAT1 GOF | `MONDO:0013599` | autoimmune enteropathy and endocrinopathy - susceptibility to chronic infections syndrome | `AGREES` |
-| IL17RA deficiency | `MONDO:0013500` | immunodeficiency 51 | `AGREES` |
-| IL17RC deficiency | `MONDO:0014642` | candidiasis, familial, 9 | `AGREES` |
-| IL17F deficiency | `MONDO:0013503` | candidiasis, familial, 6 | `AGREES` |
-| ACT1 deficiency | `MONDO:0014230` | candidiasis, familial, 8 | `AGREES` |
-| APECED | `MONDO:0009411` | autoimmune polyendocrine syndrome type 1 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| STAT1 GOF | `MONDO:0013599` | autoimmune enteropathy and endocrinopathy - susceptibility to chronic infections syndrome | `AGREES` | silent (DOID, ORDO) |
+| IL17RA deficiency | `MONDO:0013500` | immunodeficiency 51 | `AGREES` | silent (DOID) |
+| IL17RC deficiency | `MONDO:0014642` | candidiasis, familial, 9 | `AGREES` | — no shared vocabulary |
+| IL17F deficiency | `MONDO:0013503` | candidiasis, familial, 6 | `AGREES` | — no shared vocabulary |
+| ACT1 deficiency | `MONDO:0014230` | candidiasis, familial, 8 | `AGREES` | — no shared vocabulary |
+| APECED | `MONDO:0009411` | autoimmune polyendocrine syndrome type 1 | `SILENT` | silent (DOID, NCIT, ORDO) |
 
 ## What boomer did
 

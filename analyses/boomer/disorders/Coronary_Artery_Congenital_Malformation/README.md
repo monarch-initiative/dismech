@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Coronary_Artery_Congenital_Malforma
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| AAOCA | `MONDO:0020426` | malposition of the coronary ostium | `AGREES` |
-| ALCAPA | `MONDO:0000811` | anomalous left coronary artery from the pulmonary artery | `AGREES` |
-| Coronary Artery Fistula | `MONDO:0016081` | coronary arterial fistulas | `AGREES` |
-| Congenital Coronary Atresia | `MONDO:0020423` | stenosis or atrophy of the coronary ostium | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| AAOCA | `MONDO:0020426` | malposition of the coronary ostium | `AGREES` | ✓ ORDO |
+| ALCAPA | `MONDO:0000811` | anomalous left coronary artery from the pulmonary artery | `AGREES` | ✓ DOID |
+| Coronary Artery Fistula | `MONDO:0016081` | coronary arterial fistulas | `AGREES` | ✓ ORDO |
+| Congenital Coronary Atresia | `MONDO:0020423` | stenosis or atrophy of the coronary ostium | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

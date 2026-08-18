@@ -8,16 +8,26 @@ Boomer grounding analysis for [`kb/disorders/Choroiditis.yaml`](../../../../kb/d
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Ocular Toxoplasmosis | `MONDO:0005879` | ocular toxoplasmosis | `SILENT` |
-| Tubercular Choroiditis | `MONDO:0006876` | ocular tuberculosis | `SILENT` |
-| Presumed Ocular Histoplasmosis Syndrome | `MONDO:0001263` | histoplasmosis retinitis | `SILENT` |
-| Birdshot Chorioretinopathy | `MONDO:0011599` | birdshot chorioretinopathy | `SILENT` |
-| Multifocal Choroiditis with Panuveitis | `MONDO:0023833` | multifocal choroiditis | `AGREES` |
-| Punctate Inner Choroidopathy | `MONDO:0035584` | punctate inner choroidopathy | `SILENT` |
-| Serpiginous Choroiditis | `MONDO:0018152` | serpiginous choroiditis | `AGREES` |
-| Sympathetic Ophthalmia | `MONDO:0019198` | sympathetic ophthalmia | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Ocular Toxoplasmosis | `MONDO:0005879` | ocular toxoplasmosis | `SILENT` | silent (MESH) |
+| Tubercular Choroiditis | `MONDO:0006876` | ocular tuberculosis | `SILENT` | silent (DOID, MESH) |
+| Presumed Ocular Histoplasmosis Syndrome | `MONDO:0001263` | histoplasmosis retinitis | `SILENT` | silent (DOID) |
+| Birdshot Chorioretinopathy | `MONDO:0011599` | birdshot chorioretinopathy | `SILENT` | ✓ ORDO, icd11f |
+| Multifocal Choroiditis with Panuveitis | `MONDO:0023833` | multifocal choroiditis | `AGREES` | ✓ icd11f |
+| Punctate Inner Choroidopathy | `MONDO:0035584` | punctate inner choroidopathy | `SILENT` | ✓ ORDO, icd11f |
+| Serpiginous Choroiditis | `MONDO:0018152` | serpiginous choroiditis | `AGREES` | ✓ ORDO, icd11f |
+| Sympathetic Ophthalmia | `MONDO:0019198` | sympathetic ophthalmia | `SILENT` | ✓ icd11f |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **Birdshot Chorioretinopathy** — ORDO (ORDO:179), icd11f (icd11f:1954035043)
+- **Punctate Inner Choroidopathy** — ORDO (ORDO:580951), icd11f (icd11f:1322994548)
+- **Sympathetic Ophthalmia** — icd11f (icd11f:1639718137)
 
 ## What boomer did
 

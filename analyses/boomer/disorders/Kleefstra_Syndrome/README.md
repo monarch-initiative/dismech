@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Kleefstra_Syndrome.yaml`](../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Kleefstra syndrome 1 | `MONDO:0027407` | Kleefstra syndrome 1 | `AGREES` |
-| Kleefstra syndrome due to 9q34 microdeletion | `MONDO:0019896` | Kleefstra syndrome due to 9q34 microdeletion | `AGREES` |
-| Kleefstra syndrome due to a point mutation | `MONDO:0016865` | Kleefstra syndrome due to a point mutation | `AGREES` |
-| Kleefstra syndrome 2 | `MONDO:0054701` | Kleefstra syndrome 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Kleefstra syndrome 1 | `MONDO:0027407` | Kleefstra syndrome 1 | `AGREES` | ✓ DOID |
+| Kleefstra syndrome due to 9q34 microdeletion | `MONDO:0019896` | Kleefstra syndrome due to 9q34 microdeletion | `AGREES` | ✓ ORDO |
+| Kleefstra syndrome due to a point mutation | `MONDO:0016865` | Kleefstra syndrome due to a point mutation | `AGREES` | ✓ ORDO |
+| Kleefstra syndrome 2 | `MONDO:0054701` | Kleefstra syndrome 2 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

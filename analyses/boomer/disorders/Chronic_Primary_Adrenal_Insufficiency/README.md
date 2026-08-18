@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Chronic_Primary_Adrenal_Insufficien
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Autoimmune Adrenalitis | `MONDO:0100480` | autoimmune primary adrenal insufficiency | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Autoimmune Adrenalitis | `MONDO:0100480` | autoimmune primary adrenal insufficiency | `AGREES` | ✓ NCIT, ORDO |
 
 ## What boomer did
 

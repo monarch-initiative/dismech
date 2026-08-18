@@ -8,29 +8,29 @@ Boomer grounding analysis for [`kb/disorders/Fanconi_Anemia.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| FA-A | `MONDO:0009215` | Fanconi anemia complementation group A | `AGREES` |
-| FA-B | `MONDO:0010351` | Fanconi anemia complementation group B | `AGREES` |
-| FA-C | `MONDO:0009213` | Fanconi anemia complementation group C | `AGREES` |
-| FA-D1 | `MONDO:0011584` | Fanconi anemia complementation group D1 | `AGREES` |
-| FA-D2 | `MONDO:0009214` | Fanconi anemia complementation group D2 | `AGREES` |
-| FA-E | `MONDO:0010953` | Fanconi anemia complementation group E | `AGREES` |
-| FA-F | `MONDO:0011325` | Fanconi anemia complementation group F | `AGREES` |
-| FA-G | `MONDO:0013565` | Fanconi anemia complementation group G | `AGREES` |
-| FA-I | `MONDO:0012186` | Fanconi anemia complementation group I | `AGREES` |
-| FA-J | `MONDO:0012187` | Fanconi anemia complementation group J | `AGREES` |
-| FA-L | `MONDO:0013566` | Fanconi anemia complementation group L | `AGREES` |
-| FA-N | `MONDO:0012565` | Fanconi anemia complementation group N | `AGREES` |
-| FA-O | `MONDO:0013248` | Fanconi anemia complementation group O | `AGREES` |
-| FA-P | `MONDO:0013499` | Fanconi anemia complementation group P | `AGREES` |
-| FA-Q | `MONDO:0014108` | Fanconi anemia complementation group Q | `AGREES` |
-| FA-R | `MONDO:0014986` | Fanconi anemia complementation group R | `AGREES` |
-| FA-S | `MONDO:0054748` | Fanconi anemia, complementation group S | `AGREES` |
-| FA-T | `MONDO:0014638` | Fanconi anemia complementation group T | `AGREES` |
-| FA-U | `MONDO:0014987` | Fanconi anemia complementation group U | `AGREES` |
-| FA-V | `MONDO:0014985` | Fanconi anemia complementation group V | `AGREES` |
-| FA-W | `MONDO:0044325` | Fanconi anemia, complementation group W | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| FA-A | `MONDO:0009215` | Fanconi anemia complementation group A | `AGREES` | ✓ DOID, NCIT |
+| FA-B | `MONDO:0010351` | Fanconi anemia complementation group B | `AGREES` | ✓ DOID, NCIT |
+| FA-C | `MONDO:0009213` | Fanconi anemia complementation group C | `AGREES` | ✓ DOID, NCIT |
+| FA-D1 | `MONDO:0011584` | Fanconi anemia complementation group D1 | `AGREES` | ✓ DOID, NCIT |
+| FA-D2 | `MONDO:0009214` | Fanconi anemia complementation group D2 | `AGREES` | ✓ DOID, NCIT |
+| FA-E | `MONDO:0010953` | Fanconi anemia complementation group E | `AGREES` | ✓ DOID, NCIT |
+| FA-F | `MONDO:0011325` | Fanconi anemia complementation group F | `AGREES` | ✓ DOID, NCIT |
+| FA-G | `MONDO:0013565` | Fanconi anemia complementation group G | `AGREES` | ✓ DOID, NCIT |
+| FA-I | `MONDO:0012186` | Fanconi anemia complementation group I | `AGREES` | ✓ DOID, NCIT |
+| FA-J | `MONDO:0012187` | Fanconi anemia complementation group J | `AGREES` | ✓ DOID, NCIT |
+| FA-L | `MONDO:0013566` | Fanconi anemia complementation group L | `AGREES` | ✓ DOID |
+| FA-N | `MONDO:0012565` | Fanconi anemia complementation group N | `AGREES` | ✓ DOID |
+| FA-O | `MONDO:0013248` | Fanconi anemia complementation group O | `AGREES` | ✓ DOID |
+| FA-P | `MONDO:0013499` | Fanconi anemia complementation group P | `AGREES` | ✓ DOID |
+| FA-Q | `MONDO:0014108` | Fanconi anemia complementation group Q | `AGREES` | ✓ DOID |
+| FA-R | `MONDO:0014986` | Fanconi anemia complementation group R | `AGREES` | ✓ DOID |
+| FA-S | `MONDO:0054748` | Fanconi anemia, complementation group S | `AGREES` | ✓ DOID |
+| FA-T | `MONDO:0014638` | Fanconi anemia complementation group T | `AGREES` | ✓ DOID |
+| FA-U | `MONDO:0014987` | Fanconi anemia complementation group U | `AGREES` | ✓ DOID |
+| FA-V | `MONDO:0014985` | Fanconi anemia complementation group V | `AGREES` | ✓ DOID |
+| FA-W | `MONDO:0044325` | Fanconi anemia, complementation group W | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

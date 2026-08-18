@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Leigh_Syndrome.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MILS | `MONDO:0016814` | maternally-inherited Leigh syndrome | `AGREES` |
-| French-Canadian | `MONDO:0009069` | congenital lactic acidosis, Saguenay-Lac-Saint-Jean type | `AGREES` |
-| Leigh with cardiomyopathy | `MONDO:0019083` | Leigh syndrome with cardiomyopathy | `AGREES` |
-| Adult | `MONDO:0008069` | necrotizing encephalomyelopathy, subacute, of Leigh, adult | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MILS | `MONDO:0016814` | maternally-inherited Leigh syndrome | `AGREES` | silent (MESH, ORDO) |
+| French-Canadian | `MONDO:0009069` | congenital lactic acidosis, Saguenay-Lac-Saint-Jean type | `AGREES` | silent (DOID, MESH, OMIM, ORDO) |
+| Leigh with cardiomyopathy | `MONDO:0019083` | Leigh syndrome with cardiomyopathy | `AGREES` | ✓ icd11f |
+| Adult | `MONDO:0008069` | necrotizing encephalomyelopathy, subacute, of Leigh, adult | `AGREES` | silent (MESH, OMIM) |
 
 ## What boomer did
 

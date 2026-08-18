@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Cystinosis.yaml`](../../../../kb/di
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Nephropathic infantile cystinosis | `MONDO:0100151` | nephropathic cystinosis | `AGREES` |
-| Nephropathic juvenile cystinosis | `MONDO:0009066` | juvenile nephropathic cystinosis | `AGREES` |
-| Non-nephropathic ocular cystinosis | `MONDO:0009064` | ocular cystinosis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Nephropathic infantile cystinosis | `MONDO:0100151` | nephropathic cystinosis | `AGREES` | ✓ NCIT |
+| Nephropathic juvenile cystinosis | `MONDO:0009066` | juvenile nephropathic cystinosis | `AGREES` | ✓ ORDO, icd11f |
+| Non-nephropathic ocular cystinosis | `MONDO:0009064` | ocular cystinosis | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

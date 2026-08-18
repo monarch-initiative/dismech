@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Frontonasal_Dysplasia.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Frontorhiny | `MONDO:0007636` | frontorhiny | `AGREES` |
-| Frontonasal dysplasia with alopecia and genital anomaly | `MONDO:0013268` | frontonasal dysplasia with alopecia and genital anomaly | `AGREES` |
-| Frontonasal dysplasia - severe microphthalmia - severe facial clefting syndrome | `MONDO:0013271` | frontonasal dysplasia - severe microphthalmia - severe facial clefting syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Frontorhiny | `MONDO:0007636` | frontorhiny | `AGREES` | ✓ DOID, ORDO |
+| Frontonasal dysplasia with alopecia and genital anomaly | `MONDO:0013268` | frontonasal dysplasia with alopecia and genital anomaly | `AGREES` | ✓ DOID, ORDO |
+| Frontonasal dysplasia - severe microphthalmia - severe facial clefting syndrome | `MONDO:0013271` | frontonasal dysplasia - severe microphthalmia - severe facial clefting syndrome | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

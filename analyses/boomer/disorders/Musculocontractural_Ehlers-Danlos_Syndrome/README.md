@@ -8,15 +8,21 @@ Boomer grounding analysis for [`kb/disorders/Musculocontractural_Ehlers-Danlos_S
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| mcEDS-CHST14 | `MONDO:0020681` | Ehlers-Danlos syndrome, musculocontractural type 1 | `AGREES` |
-| mcEDS-DSE | `MONDO:0014236` | Ehlers-Danlos syndrome, musculocontractural type 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| mcEDS-CHST14 | `MONDO:0020681` | Ehlers-Danlos syndrome, musculocontractural type 1 | `AGREES` | — no shared vocabulary |
+| mcEDS-DSE | `MONDO:0014236` | Ehlers-Danlos syndrome, musculocontractural type 2 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0014236` ≡ `DOID:0080737`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Acrodysostosis.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0007044` | Acrodysostosis 1 with or without hormone resistance | `AGREES` |
-| Type 2 | `MONDO:0013822` | acrodysostosis 2 with or without hormone resistance | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0007044` | Acrodysostosis 1 with or without hormone resistance | `AGREES` | — no shared vocabulary |
+| Type 2 | `MONDO:0013822` | acrodysostosis 2 with or without hormone resistance | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

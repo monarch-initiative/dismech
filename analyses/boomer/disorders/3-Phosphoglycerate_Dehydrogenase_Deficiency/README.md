@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/3-Phosphoglycerate_Dehydrogenase_De
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Neu-Laxova | `MONDO:0009736` | Neu-Laxova syndrome 1 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Neu-Laxova | `MONDO:0009736` | Neu-Laxova syndrome 1 | `SILENT` | silent (DOID, OMIM, ORDO) |
 
 ## What boomer did
 

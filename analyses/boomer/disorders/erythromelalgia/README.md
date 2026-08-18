@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/erythromelalgia.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Primary erythromelalgia | `MONDO:0007571` | primary erythermalgia | `AGREES` |
-| Secondary erythromelalgia | `MONDO:0035149` | secondary erythromelalgia | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Primary erythromelalgia | `MONDO:0007571` | primary erythermalgia | `AGREES` | ✓ NCIT, icd11f |
+| Secondary erythromelalgia | `MONDO:0035149` | secondary erythromelalgia | `AGREES` | ✓ icd11f |
 
 ## What boomer did
 

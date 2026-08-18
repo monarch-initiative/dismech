@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Warburg_Micro_Syndrome.yaml`](../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| WARBM1 | `MONDO:0010822` | Warburg micro syndrome 1 | `AGREES` |
-| WARBM2 | `MONDO:0013641` | Warburg micro syndrome 2 | `AGREES` |
-| WARBM3 | `MONDO:0013638` | Warburg micro syndrome 3 | `AGREES` |
-| WARBM4 | `MONDO:0014296` | Warburg micro syndrome 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| WARBM1 | `MONDO:0010822` | Warburg micro syndrome 1 | `AGREES` | ✓ DOID |
+| WARBM2 | `MONDO:0013641` | Warburg micro syndrome 2 | `AGREES` | ✓ DOID |
+| WARBM3 | `MONDO:0013638` | Warburg micro syndrome 3 | `AGREES` | ✓ DOID |
+| WARBM4 | `MONDO:0014296` | Warburg micro syndrome 4 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Pilocytic_Astrocytoma.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Childhood | `MONDO:0004000` | childhood pilocytic astrocytoma | `AGREES` |
-| Cerebellar | `MONDO:0003168` | cerebellar pilocytic astrocytoma | `AGREES` |
-| Pilomyxoid | `MONDO:0016692` | pilomyxoid astrocytoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Childhood | `MONDO:0004000` | childhood pilocytic astrocytoma | `AGREES` | ✓ DOID, NCIT |
+| Cerebellar | `MONDO:0003168` | cerebellar pilocytic astrocytoma | `AGREES` | ✓ NCIT |
+| Pilomyxoid | `MONDO:0016692` | pilomyxoid astrocytoma | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

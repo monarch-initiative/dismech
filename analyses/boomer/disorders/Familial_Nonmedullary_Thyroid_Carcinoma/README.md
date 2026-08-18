@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Familial_Nonmedullary_Thyroid_Carci
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| TCO | `MONDO:0011312` | thyroid carcinoma, nonmedullary, with or without cell oxyphilia | `AGREES` |
-| fPTC-PRN | `MONDO:0011578` | familial papillary thyroid carcinoma with renal papillary neoplasia | `AGREES` |
-| NMTC1 | `MONDO:0008567` | thyroid cancer, nonmedullary, 1 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| TCO | `MONDO:0011312` | thyroid carcinoma, nonmedullary, with or without cell oxyphilia | `AGREES` | — no shared vocabulary |
+| fPTC-PRN | `MONDO:0011578` | familial papillary thyroid carcinoma with renal papillary neoplasia | `AGREES` | ✓ ORDO |
+| NMTC1 | `MONDO:0008567` | thyroid cancer, nonmedullary, 1 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

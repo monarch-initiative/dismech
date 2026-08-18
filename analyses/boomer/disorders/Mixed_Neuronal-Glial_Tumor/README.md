@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Mixed_Neuronal-Glial_Tumor.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Ganglioglioma | `MONDO:0016733` | ganglioglioma | `AGREES` |
-| Gangliocytoma | `MONDO:0016730` | gangliocytoma | `AGREES` |
-| DNET | `MONDO:0005505` | dysembryoplastic neuroepithelial tumor | `AGREES` |
-| Papillary Glioneuronal Tumor | `MONDO:0016735` | papillary glioneuronal tumor | `AGREES` |
-| Rosette-forming Glioneuronal Tumor | `MONDO:0016736` | rosette-forming glioneuronal tumor of fourth ventricule | `AGREES` |
-| Desmoplastic Infantile Ganglioglioma | `MONDO:0022965` | desmoplastic infantile ganglioglioma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Ganglioglioma | `MONDO:0016733` | ganglioglioma | `AGREES` | ✓ NCIT, ORDO, icd11f |
+| Gangliocytoma | `MONDO:0016730` | gangliocytoma | `AGREES` | ✓ NCIT, ORDO |
+| DNET | `MONDO:0005505` | dysembryoplastic neuroepithelial tumor | `AGREES` | ✓ NCIT, ORDO |
+| Papillary Glioneuronal Tumor | `MONDO:0016735` | papillary glioneuronal tumor | `AGREES` | ✓ NCIT, ORDO |
+| Rosette-forming Glioneuronal Tumor | `MONDO:0016736` | rosette-forming glioneuronal tumor of fourth ventricule | `AGREES` | ✓ NCIT, ORDO |
+| Desmoplastic Infantile Ganglioglioma | `MONDO:0022965` | desmoplastic infantile ganglioglioma | `AGREES` | ✓ NCIT |
 
 ## What boomer did
 

@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Appendiceal_Neoplasm.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Adenocarcinoma | `MONDO:0006087` | appendix adenocarcinoma | `AGREES` |
-| Goblet Cell Adenocarcinoma | `MONDO:0018017` | goblet cell carcinoma | `AGREES` |
-| Neuroendocrine Tumor | `MONDO:0015066` | neuroendocrine tumor of the appendix, well differentiated, low or intermediate grade | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Adenocarcinoma | `MONDO:0006087` | appendix adenocarcinoma | `AGREES` | ✓ NCIT |
+| Goblet Cell Adenocarcinoma | `MONDO:0018017` | goblet cell carcinoma | `AGREES` | ✓ NCIT |
+| Neuroendocrine Tumor | `MONDO:0015066` | neuroendocrine tumor of the appendix, well differentiated, low or intermediate grade | `AGREES` | ✓ NCIT |
 
 ## What boomer did
 

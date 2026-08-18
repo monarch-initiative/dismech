@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Familial_Sleep_Related_Hypermotor_E
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0010899` | autosomal dominant nocturnal frontal lobe epilepsy 1 | `AGREES` |
-| Type 2 | `MONDO:0011297` | autosomal dominant nocturnal frontal lobe epilepsy 2 | `AGREES` |
-| Type 3 | `MONDO:0011545` | autosomal dominant nocturnal frontal lobe epilepsy 3 | `AGREES` |
-| Type 4 | `MONDO:0012474` | autosomal dominant nocturnal frontal lobe epilepsy 4 | `AGREES` |
-| Type 5 | `MONDO:0014002` | autosomal dominant nocturnal frontal lobe epilepsy 5 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0010899` | autosomal dominant nocturnal frontal lobe epilepsy 1 | `AGREES` | ✓ DOID |
+| Type 2 | `MONDO:0011297` | autosomal dominant nocturnal frontal lobe epilepsy 2 | `AGREES` | ✓ DOID |
+| Type 3 | `MONDO:0011545` | autosomal dominant nocturnal frontal lobe epilepsy 3 | `AGREES` | ✓ DOID |
+| Type 4 | `MONDO:0012474` | autosomal dominant nocturnal frontal lobe epilepsy 4 | `AGREES` | ✓ DOID |
+| Type 5 | `MONDO:0014002` | autosomal dominant nocturnal frontal lobe epilepsy 5 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

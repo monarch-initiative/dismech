@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Limb-Girdle_Muscular_Dystrophy_Auto
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| LGMD-D1 | `MONDO:0021018` | autosomal dominant limb-girdle muscular dystrophy type 1D (DNAJB6) | `AGREES` |
-| LGMD-D2 | `MONDO:0012034` | autosomal dominant limb-girdle muscular dystrophy type 1F | `AGREES` |
-| LGMD-D3 | `MONDO:0012193` | autosomal dominant limb-girdle muscular dystrophy type 1G | `AGREES` |
-| LGMD-D4 | `MONDO:0029133` | muscular dystrophy, limb-girdle, autosomal dominant 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| LGMD-D1 | `MONDO:0021018` | autosomal dominant limb-girdle muscular dystrophy type 1D (DNAJB6) | `AGREES` | ✓ DOID, ORDO |
+| LGMD-D2 | `MONDO:0012034` | autosomal dominant limb-girdle muscular dystrophy type 1F | `AGREES` | ✓ DOID, ORDO |
+| LGMD-D3 | `MONDO:0012193` | autosomal dominant limb-girdle muscular dystrophy type 1G | `AGREES` | ✓ DOID, ORDO |
+| LGMD-D4 | `MONDO:0029133` | muscular dystrophy, limb-girdle, autosomal dominant 4 | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Thomsen_and_Becker_disease.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Thomsen disease | `MONDO:0008055` | myotonia congenita, autosomal dominant | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Thomsen disease | `MONDO:0008055` | myotonia congenita, autosomal dominant | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

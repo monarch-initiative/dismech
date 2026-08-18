@@ -8,15 +8,15 @@ Boomer grounding analysis for [`kb/disorders/Familial_Partial_Lipodystrophy.yaml
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| FPLD1 | `MONDO:0012072` | familial partial lipodystrophy, Kobberling type | `AGREES` |
-| FPLD2 | `MONDO:0007906` | familial partial lipodystrophy, Dunnigan type | `AGREES` |
-| FPLD3 | `MONDO:0011448` | PPARG-related familial partial lipodystrophy | `AGREES` |
-| FPLD4 | `MONDO:0013478` | PLIN1-related familial partial lipodystrophy | `AGREES` |
-| FPLD5 | `MONDO:0014098` | CIDEC-related familial partial lipodystrophy | `AGREES` |
-| FPLD6 | `MONDO:0014431` | LIPE-related familial partial lipodystrophy | `AGREES` |
-| AKT2 | `MONDO:0019192` | AKT2-related familial partial lipodystrophy | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| FPLD1 | `MONDO:0012072` | familial partial lipodystrophy, Kobberling type | `AGREES` | ✓ DOID, ORDO |
+| FPLD2 | `MONDO:0007906` | familial partial lipodystrophy, Dunnigan type | `AGREES` | ✓ DOID, ORDO, icd11f |
+| FPLD3 | `MONDO:0011448` | PPARG-related familial partial lipodystrophy | `AGREES` | ✓ DOID, ORDO |
+| FPLD4 | `MONDO:0013478` | PLIN1-related familial partial lipodystrophy | `AGREES` | ✓ DOID, ORDO |
+| FPLD5 | `MONDO:0014098` | CIDEC-related familial partial lipodystrophy | `AGREES` | ✓ DOID, ORDO |
+| FPLD6 | `MONDO:0014431` | LIPE-related familial partial lipodystrophy | `AGREES` | ✓ DOID, ORDO |
+| AKT2 | `MONDO:0019192` | AKT2-related familial partial lipodystrophy | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

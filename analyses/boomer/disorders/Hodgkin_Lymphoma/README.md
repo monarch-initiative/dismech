@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Hodgkin_Lymphoma.yaml`](../../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Classic HL | `MONDO:0009348` | classic Hodgkin lymphoma | `AGREES` |
-| NLPHL | `MONDO:0044778` | nodular lymphocyte predominant Hodgkin lymphoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Classic HL | `MONDO:0009348` | classic Hodgkin lymphoma | `AGREES` | ✓ NCIT, ORDO, icd11f |
+| NLPHL | `MONDO:0044778` | nodular lymphocyte predominant Hodgkin lymphoma | `AGREES` | ✓ ICD10CM, ORDO, icd11f |
 
 ## What boomer did
 

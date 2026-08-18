@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Brown-Vialetto-Van_Laere_Syndrome.y
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Brown-Vialetto-van Laere syndrome 1 | `MONDO:0024537` | Brown-Vialetto-van Laere syndrome 1 | `AGREES` |
-| Brown-Vialetto-van Laere syndrome 2 | `MONDO:0013867` | Brown-Vialetto-van Laere syndrome 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Brown-Vialetto-van Laere syndrome 1 | `MONDO:0024537` | Brown-Vialetto-van Laere syndrome 1 | `AGREES` | ✓ DOID, ORDO |
+| Brown-Vialetto-van Laere syndrome 2 | `MONDO:0013867` | Brown-Vialetto-van Laere syndrome 2 | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

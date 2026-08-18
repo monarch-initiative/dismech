@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Weill-Marchesani_Syndrome.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| WMS1 | `MONDO:0010194` | Weill-Marchesani syndrome 1 | `AGREES` |
-| WMS2 | `MONDO:0012013` | Weill-Marchesani syndrome 2, dominant | `AGREES` |
-| WMS3 | `MONDO:0013899` | Weill-Marchesani syndrome 3 | `AGREES` |
-| WMS4 | `MONDO:0013176` | Weill-Marchesani 4 syndrome, recessive | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| WMS1 | `MONDO:0010194` | Weill-Marchesani syndrome 1 | `AGREES` | silent (DOID) |
+| WMS2 | `MONDO:0012013` | Weill-Marchesani syndrome 2, dominant | `AGREES` | silent (DOID, ORDO) |
+| WMS3 | `MONDO:0013899` | Weill-Marchesani syndrome 3 | `AGREES` | silent (DOID) |
+| WMS4 | `MONDO:0013176` | Weill-Marchesani 4 syndrome, recessive | `AGREES` | silent (DOID, MESH, ORDO) |
 
 ## What boomer did
 
