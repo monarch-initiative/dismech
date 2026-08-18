@@ -838,6 +838,16 @@ check-term-cache-integrity:
 check-duplicate-keys *files:
     uv run python scripts/check_duplicate_yaml_keys.py "$@"
 
+# Audit ICIMD (classifications.icimd_category) assignments against the live
+# ICIMD browse tree: resolve each entry's causative gene to its authoritative
+# ICIMD node and confirm the assigned enum value encodes the same branch (via
+# conf/icimd_crosswalk.tsv). Advisory by default; --strict fails on any
+# cross-category mismatch. Degrades to an advisory pass when offline. Uses only
+# the freely-citable ICIMD codes, not IEMbase's licensed content.
+[group('QC')]
+check-icimd-assignments *args:
+    uv run python scripts/check_icimd_assignments.py {{args}}
+
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
 # A baseline grandfathers the pre-existing backlog; this fails only on new ones.
