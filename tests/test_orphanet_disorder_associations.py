@@ -169,6 +169,16 @@ def test_serialize_renders_status_and_related_disorders_sections(
 
     text_2950 = orphanet_source.serialize("2950").render()
     assert "**Status:** Deprecated entity; Inactive" in text_2950
+    # The committed KB snippet quotes these two lines as one contiguous span
+    # across the blank line between them (see ZRS-Related_Limb_Malformation.yaml's
+    # ORPHA:2950 evidence item) -- pin the adjacency, not just each line in
+    # isolation, so a renderer change that inserted a section between them
+    # would be caught here instead of only at the next reference-validation run.
+    assert (
+        "**ORPHA:2950** — Triphalangeal thumb-polysyndactyly syndrome "
+        "(Malformation syndrome, Disorder)\n\n"
+        "**Status:** Deprecated entity; Inactive"
+    ) in text_2950
     assert (
         "| ORPHA:2950 | Triphalangeal thumb-polysyndactyly syndrome | Moved to | "
         "ORPHA:988 | Tibial hemimelia-polysyndactyly-triphalangeal thumb "
