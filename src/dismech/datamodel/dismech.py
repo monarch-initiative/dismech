@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-08-17T21:35:53
+# Generation date: 2026-08-18T01:46:20
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1205,6 +1205,7 @@ class GeneticContext(YAMLRoot):
     complementation_group: Optional[str] = None
     description: Optional[str] = None
     notes: Optional[str] = None
+    genetic_evidence: Optional[Union[Union[dict, "EvidenceItem"], list[Union[dict, "EvidenceItem"]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self.gene is not None and not isinstance(self.gene, GeneDescriptor):
@@ -1245,6 +1246,10 @@ class GeneticContext(YAMLRoot):
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
+
+        if not isinstance(self.genetic_evidence, list):
+            self.genetic_evidence = [self.genetic_evidence] if self.genetic_evidence is not None else []
+        self.genetic_evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.genetic_evidence]
 
         super().__post_init__(**kwargs)
 
@@ -11595,6 +11600,9 @@ slots.association_signals = Slot(uri=DISMECH.association_signals, name="associat
 
 slots.literature_evidence = Slot(uri=DISMECH.literature_evidence, name="literature_evidence", curie=DISMECH.curie('literature_evidence'),
                    model_uri=DISMECH.literature_evidence, domain=None, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.genetic_evidence = Slot(uri=DISMECH.genetic_evidence, name="genetic_evidence", curie=DISMECH.curie('genetic_evidence'),
+                   model_uri=DISMECH.genetic_evidence, domain=None, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
 
 slots.hypotheses = Slot(uri=DISMECH.hypotheses, name="hypotheses", curie=DISMECH.curie('hypotheses'),
                    model_uri=DISMECH.hypotheses, domain=None, range=Optional[Union[Union[dict, ComorbidityHypothesis], list[Union[dict, ComorbidityHypothesis]]]])

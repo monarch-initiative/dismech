@@ -1,0 +1,84 @@
+history_version: 1
+target:
+  kind: schema
+  slug: functional_impact_enum
+  path: src/dismech/schema/dismech.yaml
+session:
+  id: 2026-08-18T015102Z-claude-code-ec376f
+  timestamp: '2026-08-18T01:51:02Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - GeneticContext
+  - genetic_evidence
+  summary: Add optional genetic_evidence slot to GeneticContext
+  details: |-
+    Adds an optional multivalued genetic_evidence slot (range EvidenceItem) to
+    GeneticContext, so a genetic claim -- which gene, which functional impact
+    category, which zygosity, variant origin, or NMD fate -- can carry its own
+    citation.
+
+    Motivation. Follow-up to the FunctionalImpactEnum restructure. Comparison with
+    the Alliance of Genome Resources curation schema (agr_curation_schema) showed
+    that every Alliance allele-level claim is reified as an evidence-bearing
+    SlotAnnotation; AlleleFunctionalImpactSlotAnnotation is named in the
+    SlotAnnotation base class notes as the canonical use case, "attributing one of
+    many functional impacts of an allele to a publication". dismech had no
+    equivalent: functional_impact_category was a bare enum on GeneticContext, in a
+    KB whose evidence SOP demands a cited snippet for essentially every other claim.
+
+    The gap was specific rather than total. PhenotypeContext already carries
+    evidence, but its slot_usage scopes it explicitly to "the frequency, severity,
+    or onset claims made in this specific context"; Pathophysiology's evidence
+    supports the mechanism node. Neither is the right place to cite "this variant is
+    loss of function". So the change buys precision, not reach.
+
+    Design decisions taken and rejected:
+
+    - REJECTED a FunctionalImpactAssertion wrapper class carrying a phenotype_term
+      for phenotype-scoped impact claims (the Alliance pattern). dismech nests the
+      other way round -- PhenotypeContext carries genetic_context, subtype, sex,
+      population and age_range -- so phenotype scoping is already expressed by
+      placing the GeneticContext inside that phenotype's context block. A
+      phenotype_term one level below would name the same phenotype twice. The
+      Alliance needs it only because their functional impact hangs off the allele
+      with no phenotype-context construct at all.
+
+    - REJECTED reusing the shared evidence slot with a slot_usage override of
+      "recommended: false". linkml-data-qc builds its recommended-slot set from the
+      TOP-LEVEL slot definition by name (linkml_data_qc/introspector.py, a set
+      comprehension over sv.all_slots() filtered on sv.get_slot(s).recommended) and
+      ignores per-class slot_usage entirely. Measured: with the override in place,
+      Gorlin_Syndrome moved from 82.2 percent (286/348) to 81.7 percent (286/350)
+      and a "pathophysiology[].genetic_context.evidence: 0.0 percent (0/2)" row
+      appeared. That would have added an unfilled recommended slot to all 82
+      genetic_context blocks in the KB and moved every compliance score, which this
+      change was explicitly required not to do.
+
+    - CHOSEN: a distinct genetic_evidence slot, matching the existing
+      literature_evidence precedent (same range, same multivalued and
+      inlined_as_list shape, likewise not recommended). Not being in the global
+      recommended set, it is invisible to compliance scoring.
+
+    Deliberately NOT done: genetic_context is single-valued on both Pathophysiology
+    and PhenotypeContext, so a mechanism node with two genes carrying different
+    impacts still cannot be expressed. That is a separate problem whose fix is
+    making genetic_context multivalued, not adding an assertion wrapper.
+
+    Validation: Gorlin_Syndrome compliance is byte-identical to the pre-change
+    baseline at 82.2 percent (286/348) global and 82.3 percent weighted, with no
+    genetic_context evidence row; a probe file adding genetic_evidence to a real
+    GeneticContext validates clean; linkml-validate reports no issues for all 21
+    kb/disorders files using functional_impact or functional_impact_category;
+    linkml-term-validator validate-schema passes; pytest -k "schema or enum or slot"
+    gives 82 passed. Both generated models regenerated (12-line diff, confirming the
+    large diff in the preceding regeneration commit was pre-existing drift).
