@@ -15,14 +15,8 @@ Boomer grounding analysis for [`kb/disorders/Adult_Refsum_Disease.yaml`](../../.
 
 ## What boomer did
 
-Boomer could **not** accept every mapping at once and retracted the following
-identity claim(s) to restore consistency:
-
-- `dismech:Adult_Refsum_Disease` ≡ `MONDO:0009958`
-
-A retraction means these assertions are jointly unsatisfiable, not that the
-retracted mapping is necessarily the wrong one. Which assertion to give up is a
-curation decision.
+All identity mappings were accepted together - dismech's subtype hierarchy, the
+mappings, and MONDO's hierarchy are jointly consistent for this entry.
 
 1 subtype(s) are `SILENT`: MONDO asserts no path between the
 terms in either direction. That is consistent (nothing is violated) but

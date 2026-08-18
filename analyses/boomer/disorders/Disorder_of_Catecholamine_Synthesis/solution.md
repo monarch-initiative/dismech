@@ -4,9 +4,9 @@
  * 1449 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.015625 confidence
- * 0.11376483696041388 prior probability
+ * 0.11376483696041391 prior probability
  * 7.949765848026162e-05 posterior probability
- * 31.0969 seconds elapsed
+ * 40.5024 seconds elapsed
 Grounding:
  * True dismech:Disorder_of_Catecholamine_Synthesis (Disorder of Catecholamine Synthesis (dismech entry)) ≡ MONDO:0017759 (disorder of catecholamine synthesis) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Disorder_of_Catecholamine_Synthesis (Disorder of Catecholamine Synthesis (dismech entry)) ⊆ MONDO:0017759 (disorder of catecholamine synthesis) :: prior: 0.07 posterior: 0.004045362876199384
@@ -14,8 +14,8 @@ Grounding:
  * True MONDO:0017759 (disorder of catecholamine synthesis) ≡ ORDO:309830 :: prior: 0.95 posterior: 0.95
  * True MONDO:0017759 (disorder of catecholamine synthesis) ≡ icd11f:1382276026 :: prior: 0.95 posterior: 0.95
  * True dismech:Disorder_of_Catecholamine_Synthesis#Aromatic L-amino acid decarboxylase deficiency (Disorder of Catecholamine Synthesis / Aromatic L-amino acid decarboxylase deficiency (dismech subtype)) ≡ MONDO:0012084 (aromatic L-amino acid decarboxylase deficiency) :: prior: 0.9 posterior: 0.9674196363939783
- * False dismech:Disorder_of_Catecholamine_Synthesis#Aromatic L-amino acid decarboxylase deficiency (Disorder of Catecholamine Synthesis / Aromatic L-amino acid decarboxylase deficiency (dismech subtype)) ⊆ MONDO:0012084 (aromatic L-amino acid decarboxylase deficiency) :: prior: 0.07 posterior: 0.004045362876199507
- * False MONDO:0012084 (aromatic L-amino acid decarboxylase deficiency) ⊆ dismech:Disorder_of_Catecholamine_Synthesis#Aromatic L-amino acid decarboxylase deficiency (Disorder of Catecholamine Synthesis / Aromatic L-amino acid decarboxylase deficiency (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233842
+ * False dismech:Disorder_of_Catecholamine_Synthesis#Aromatic L-amino acid decarboxylase deficiency (Disorder of Catecholamine Synthesis / Aromatic L-amino acid decarboxylase deficiency (dismech subtype)) ⊆ MONDO:0012084 (aromatic L-amino acid decarboxylase deficiency) :: prior: 0.07 posterior: 0.004045362876199505
+ * False MONDO:0012084 (aromatic L-amino acid decarboxylase deficiency) ⊆ dismech:Disorder_of_Catecholamine_Synthesis#Aromatic L-amino acid decarboxylase deficiency (Disorder of Catecholamine Synthesis / Aromatic L-amino acid decarboxylase deficiency (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223384
  * True MONDO:0012084 (aromatic L-amino acid decarboxylase deficiency) ≡ DOID:0090123 :: prior: 0.95 posterior: 0.9500000000000153
  * True MONDO:0012084 (aromatic L-amino acid decarboxylase deficiency) ≡ ICD10CM:E70.81 :: prior: 0.95 posterior: 0.9500000000000153
  * True MONDO:0012084 (aromatic L-amino acid decarboxylase deficiency) ≡ MESH:C537437 :: prior: 0.95 posterior: 0.9500000000000153
@@ -33,8 +33,8 @@ Grounding:
  * False dismech:Disorder_of_Catecholamine_Synthesis#Autosomal recessive GTP cyclohydrolase I deficiency (Disorder of Catecholamine Synthesis / Autosomal recessive GTP cyclohydrolase I deficiency (dismech subtype)) ⊆ MONDO:0100184 (GTP cyclohydrolase I deficiency) :: prior: 0.07 posterior: 0.004045362876199384
  * False MONDO:0100184 (GTP cyclohydrolase I deficiency) ⊆ dismech:Disorder_of_Catecholamine_Synthesis#Autosomal recessive GTP cyclohydrolase I deficiency (Disorder of Catecholamine Synthesis / Autosomal recessive GTP cyclohydrolase I deficiency (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
  * True dismech:Disorder_of_Catecholamine_Synthesis#Sepiapterin reductase deficiency (Disorder of Catecholamine Synthesis / Sepiapterin reductase deficiency (dismech subtype)) ≡ MONDO:0012994 (dopa-responsive dystonia due to sepiapterin reductase deficiency) :: prior: 0.9 posterior: 0.9674196363939664
- * False dismech:Disorder_of_Catecholamine_Synthesis#Sepiapterin reductase deficiency (Disorder of Catecholamine Synthesis / Sepiapterin reductase deficiency (dismech subtype)) ⊆ MONDO:0012994 (dopa-responsive dystonia due to sepiapterin reductase deficiency) :: prior: 0.07 posterior: 0.0040453628761993755
- * False MONDO:0012994 (dopa-responsive dystonia due to sepiapterin reductase deficiency) ⊆ dismech:Disorder_of_Catecholamine_Synthesis#Sepiapterin reductase deficiency (Disorder of Catecholamine Synthesis / Sepiapterin reductase deficiency (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233074
+ * False dismech:Disorder_of_Catecholamine_Synthesis#Sepiapterin reductase deficiency (Disorder of Catecholamine Synthesis / Sepiapterin reductase deficiency (dismech subtype)) ⊆ MONDO:0012994 (dopa-responsive dystonia due to sepiapterin reductase deficiency) :: prior: 0.07 posterior: 0.004045362876199375
+ * False MONDO:0012994 (dopa-responsive dystonia due to sepiapterin reductase deficiency) ⊆ dismech:Disorder_of_Catecholamine_Synthesis#Sepiapterin reductase deficiency (Disorder of Catecholamine Synthesis / Sepiapterin reductase deficiency (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233072
  * True MONDO:0012994 (dopa-responsive dystonia due to sepiapterin reductase deficiency) ≡ DOID:0111168 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0012994 (dopa-responsive dystonia due to sepiapterin reductase deficiency) ≡ MESH:C562657 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0012994 (dopa-responsive dystonia due to sepiapterin reductase deficiency) ≡ OMIM:612716 :: prior: 0.95 posterior: 0.9499999999999991

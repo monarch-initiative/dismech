@@ -4,25 +4,25 @@
  * 126 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0625 confidence
- * 0.31939668239871105 prior probability
- * 0.002515134762034208 posterior probability
- * 0.0497 seconds elapsed
+ * 0.3371409425319728 prior probability
+ * 0.002559015635656959 posterior probability
+ * 0.0534 seconds elapsed
 Grounding:
- * True dismech:Zimmermann_Laband_Syndrome (Zimmermann-Laband Syndrome (dismech entry)) ≡ MONDO:0000200 (Zimmermann-Laband syndrome) :: prior: 0.9 posterior: 0.9674196363939683
- * False dismech:Zimmermann_Laband_Syndrome (Zimmermann-Laband Syndrome (dismech entry)) ⊆ MONDO:0000200 (Zimmermann-Laband syndrome) :: prior: 0.07 posterior: 0.004045362876199388
- * False MONDO:0000200 (Zimmermann-Laband syndrome) ⊆ dismech:Zimmermann_Laband_Syndrome (Zimmermann-Laband Syndrome (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233111
- * True MONDO:0000200 (Zimmermann-Laband syndrome) ≡ MESH:C536725 :: prior: 0.95 posterior: 0.95
- * True MONDO:0000200 (Zimmermann-Laband syndrome) ≡ ORDO:3473 :: prior: 0.95 posterior: 0.95
- * True MONDO:0000200 (Zimmermann-Laband syndrome) ≡ icd11f:8285962 :: prior: 0.95 posterior: 0.95
+ * True dismech:Zimmermann_Laband_Syndrome (Zimmermann-Laband Syndrome (dismech entry)) ≡ MONDO:0000200 (Zimmermann-Laband syndrome) :: prior: 0.95 posterior: 0.9842979442467181
+ * False dismech:Zimmermann_Laband_Syndrome (Zimmermann-Laband Syndrome (dismech entry)) ⊆ MONDO:0000200 (Zimmermann-Laband syndrome) :: prior: 0.07 posterior: 0.001949656369475674
+ * False MONDO:0000200 (Zimmermann-Laband syndrome) ⊆ dismech:Zimmermann_Laband_Syndrome (Zimmermann-Laband Syndrome (dismech entry)) :: prior: 0.03 posterior: 0.0008011106437168086
+ * True MONDO:0000200 (Zimmermann-Laband syndrome) ≡ MESH:C536725 :: prior: 0.95 posterior: 0.9499999999999992
+ * True MONDO:0000200 (Zimmermann-Laband syndrome) ≡ ORDO:3473 :: prior: 0.95 posterior: 0.9499999999999992
+ * True MONDO:0000200 (Zimmermann-Laband syndrome) ≡ icd11f:8285962 :: prior: 0.95 posterior: 0.9499999999999992
  * True dismech:Zimmermann_Laband_Syndrome#ZLS1 (Zimmermann-Laband Syndrome / ZLS1 (dismech subtype)) ≡ MONDO:0024526 (Zimmermann-Laband syndrome 1) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Zimmermann_Laband_Syndrome#ZLS1 (Zimmermann-Laband Syndrome / ZLS1 (dismech subtype)) ⊆ MONDO:0024526 (Zimmermann-Laband syndrome 1) :: prior: 0.07 posterior: 0.004045362876199383
  * False MONDO:0024526 (Zimmermann-Laband syndrome 1) ⊆ dismech:Zimmermann_Laband_Syndrome#ZLS1 (Zimmermann-Laband Syndrome / ZLS1 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233105
  * True MONDO:0024526 (Zimmermann-Laband syndrome 1) ≡ OMIM:135500 :: prior: 0.95 posterior: 0.95
  * True dismech:Zimmermann_Laband_Syndrome#ZLS2 (Zimmermann-Laband Syndrome / ZLS2 (dismech subtype)) ≡ MONDO:0014646 (Zimmermann-Laband syndrome 2) :: prior: 0.9 posterior: 0.967419636393967
- * False dismech:Zimmermann_Laband_Syndrome#ZLS2 (Zimmermann-Laband Syndrome / ZLS2 (dismech subtype)) ⊆ MONDO:0014646 (Zimmermann-Laband syndrome 2) :: prior: 0.07 posterior: 0.004045362876199383
+ * False dismech:Zimmermann_Laband_Syndrome#ZLS2 (Zimmermann-Laband Syndrome / ZLS2 (dismech subtype)) ⊆ MONDO:0014646 (Zimmermann-Laband syndrome 2) :: prior: 0.07 posterior: 0.004045362876199382
  * False MONDO:0014646 (Zimmermann-Laband syndrome 2) ⊆ dismech:Zimmermann_Laband_Syndrome#ZLS2 (Zimmermann-Laband Syndrome / ZLS2 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233105
  * True MONDO:0014646 (Zimmermann-Laband syndrome 2) ≡ OMIM:616455 :: prior: 0.95 posterior: 0.95
  * True dismech:Zimmermann_Laband_Syndrome#ZLS3 (Zimmermann-Laband Syndrome / ZLS3 (dismech subtype)) ≡ MONDO:0032854 (Zimmermann-Laband syndrome 3) :: prior: 0.9 posterior: 0.967419636393967
- * False dismech:Zimmermann_Laband_Syndrome#ZLS3 (Zimmermann-Laband Syndrome / ZLS3 (dismech subtype)) ⊆ MONDO:0032854 (Zimmermann-Laband syndrome 3) :: prior: 0.07 posterior: 0.004045362876199383
+ * False dismech:Zimmermann_Laband_Syndrome#ZLS3 (Zimmermann-Laband Syndrome / ZLS3 (dismech subtype)) ⊆ MONDO:0032854 (Zimmermann-Laband syndrome 3) :: prior: 0.07 posterior: 0.004045362876199382
  * False MONDO:0032854 (Zimmermann-Laband syndrome 3) ⊆ dismech:Zimmermann_Laband_Syndrome#ZLS3 (Zimmermann-Laband Syndrome / ZLS3 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233105
  * True MONDO:0032854 (Zimmermann-Laband syndrome 3) ≡ OMIM:618658 :: prior: 0.95 posterior: 0.95

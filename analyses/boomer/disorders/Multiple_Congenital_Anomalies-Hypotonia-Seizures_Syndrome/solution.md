@@ -6,7 +6,7 @@
  * 0.06250000000000001 confidence
  * 0.2347859111238211 prior probability
  * 0.0018488551674003845 posterior probability
- * 0.3025 seconds elapsed
+ * 0.3468 seconds elapsed
 Grounding:
  * True dismech:Multiple_Congenital_Anomalies-Hypotonia-Seizures_Syndrome (Multiple Congenital Anomalies-Hypotonia-Seizures Syndrome (dismech entry)) ≡ MONDO:0100247 (multiple congenital anomalies-hypotonia-seizures syndrome) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Multiple_Congenital_Anomalies-Hypotonia-Seizures_Syndrome (Multiple Congenital Anomalies-Hypotonia-Seizures Syndrome (dismech entry)) ⊆ MONDO:0100247 (multiple congenital anomalies-hypotonia-seizures syndrome) :: prior: 0.07 posterior: 0.004045362876199384
@@ -21,7 +21,7 @@ Grounding:
  * True MONDO:0013563 (multiple congenital anomalies-hypotonia-seizures syndrome 1) ≡ ORDO:280633 :: prior: 0.95 posterior: 0.9499999999999991
  * True dismech:Multiple_Congenital_Anomalies-Hypotonia-Seizures_Syndrome#MCAHS2 (Multiple Congenital Anomalies-Hypotonia-Seizures Syndrome / MCAHS2 (dismech subtype)) ≡ MONDO:0010466 (multiple congenital anomalies-hypotonia-seizures syndrome 2) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Multiple_Congenital_Anomalies-Hypotonia-Seizures_Syndrome#MCAHS2 (Multiple Congenital Anomalies-Hypotonia-Seizures Syndrome / MCAHS2 (dismech subtype)) ⊆ MONDO:0010466 (multiple congenital anomalies-hypotonia-seizures syndrome 2) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0010466 (multiple congenital anomalies-hypotonia-seizures syndrome 2) ⊆ dismech:Multiple_Congenital_Anomalies-Hypotonia-Seizures_Syndrome#MCAHS2 (Multiple Congenital Anomalies-Hypotonia-Seizures Syndrome / MCAHS2 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * False MONDO:0010466 (multiple congenital anomalies-hypotonia-seizures syndrome 2) ⊆ dismech:Multiple_Congenital_Anomalies-Hypotonia-Seizures_Syndrome#MCAHS2 (Multiple Congenital Anomalies-Hypotonia-Seizures Syndrome / MCAHS2 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0010466 (multiple congenital anomalies-hypotonia-seizures syndrome 2) ≡ DOID:0080139 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010466 (multiple congenital anomalies-hypotonia-seizures syndrome 2) ≡ OMIM:300868 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010466 (multiple congenital anomalies-hypotonia-seizures syndrome 2) ≡ ORDO:300496 :: prior: 0.95 posterior: 0.95

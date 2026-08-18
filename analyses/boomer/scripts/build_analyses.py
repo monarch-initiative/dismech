@@ -75,6 +75,19 @@ EXTERNAL_DBS = {
 
 # prior that a curated mapping means identity, and the competing readings
 P_IDENTITY = 0.90
+
+# A curated `mappings.mondo_mappings` predicate overrides the default identity
+# prior for the entry's own disease_term. dismech's disease_term is a grounding,
+# so absent any statement we assume identity -- but where a curator has said
+# explicitly that the relationship is narrower/broader, asserting identity anyway
+# would manufacture a contradiction out of correct curation.
+PREDICATE_PRIORS = {
+    "skos:exactMatch": 0.95,
+    "skos:closeMatch": 0.70,
+    "skos:narrowMatch": 0.05,  # MONDO term is NARROWER than the dismech entry
+    "skos:broadMatch": 0.05,  # MONDO term is BROADER
+    "skos:relatedMatch": 0.30,
+}
 P_NARROWER = 0.07
 P_BROADER = 0.03
 
@@ -245,6 +258,15 @@ def collect(kb_glob, mondo, external):
         parent_term = term_id(data.get("disease_term"))
         if not parent_term or not parent_term.startswith("MONDO:"):
             continue
+        # a curated predicate on the entry's own disease_term, if stated
+        curated_predicate = next(
+            (
+                m.get("mapping_predicate")
+                for m in (data.get("mappings") or {}).get("mondo_mappings") or []
+                if term_id(m) == parent_term and m.get("mapping_predicate")
+            ),
+            None,
+        )
         parent_equivs = mondo.confirmed_equivalents(parent_term)
         pairs = []
         for subtype in data.get("has_subtypes") or []:
@@ -287,6 +309,7 @@ def collect(kb_glob, mondo, external):
                 "parent_equivs": {
                     v: sorted(t) for v, t in sorted(parent_equivs.items())
                 },
+                "curated_predicate": curated_predicate,
                 "pairs": pairs,
             }
 
@@ -311,6 +334,15 @@ def build_kb_dict(mondo, external, rec):
         d_parent: f"{rec['name']} (dismech entry)",
         rec["parent_term"]: rec["parent_label"],
     }
+    predicate = rec.get("curated_predicate")
+    p_identity = PREDICATE_PRIORS.get(predicate, P_IDENTITY)
+    if predicate == "skos:narrowMatch":
+        # curator has stated the MONDO term is NARROWER than this entry
+        p_narrower, p_broader = 0.03, 0.90
+    elif predicate == "skos:broadMatch":
+        p_narrower, p_broader = 0.90, 0.03
+    else:
+        p_narrower, p_broader = P_NARROWER, P_BROADER
     pfacts = [
         {
             "fact": {
@@ -318,7 +350,7 @@ def build_kb_dict(mondo, external, rec):
                 "sub": d_parent,
                 "equivalent": rec["parent_term"],
             },
-            "prob": P_IDENTITY,
+            "prob": p_identity,
         },
         {
             "fact": {
@@ -326,7 +358,7 @@ def build_kb_dict(mondo, external, rec):
                 "sub": d_parent,
                 "sup": rec["parent_term"],
             },
-            "prob": P_NARROWER,
+            "prob": p_narrower,
         },
         {
             "fact": {
@@ -334,7 +366,7 @@ def build_kb_dict(mondo, external, rec):
                 "sub": rec["parent_term"],
                 "sup": d_parent,
             },
-            "prob": P_BROADER,
+            "prob": p_broader,
         },
     ]
 
@@ -602,11 +634,16 @@ def main(argv=None):
         # the markdown renderer titles the solution from this; unset it renders "## None"
         sol.name = kb_dict["name"]
 
+        # A rejected identity claim only counts as a RETRACTION if we asserted it
+        # with confidence. Where a curator has recorded the mapping as
+        # narrow/broad/relatedMatch, the identity pfact is deliberately given a low
+        # prior and its rejection is the expected outcome, not a conflict.
         retracted = sorted(
             (f.sub, f.equivalent)
             for gp in (sol.solved_pfacts or [])
             if type(f := gp.pfact.fact).__name__ == "EquivalentTo"
             and not gp.truth_value
+            and gp.pfact.prob >= 0.5
         )
         timed_out = bool(sol.timed_out)
 

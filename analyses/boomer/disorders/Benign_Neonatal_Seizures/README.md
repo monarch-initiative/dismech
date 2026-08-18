@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/Benign_Neonatal_Seizures.yaml`](../
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0016027` ≡ `DOID:14777`
+- `MONDO:0016027` ≡ `DOID:14264`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

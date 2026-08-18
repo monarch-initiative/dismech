@@ -6,7 +6,7 @@
  * 0.0625 confidence
  * 0.260150594043015 prior probability
  * 0.0020485929832691242 posterior probability
- * 0.1809 seconds elapsed
+ * 0.2116 seconds elapsed
 Grounding:
  * True dismech:PRPS1_Deficiency_Spectrum (PRPS1 Deficiency Spectrum (dismech entry)) ≡ MONDO:0100061 (PRPS1 deficiency disorder) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:PRPS1_Deficiency_Spectrum (PRPS1 Deficiency Spectrum (dismech entry)) ⊆ MONDO:0100061 (PRPS1 deficiency disorder) :: prior: 0.07 posterior: 0.004045362876199384
@@ -19,14 +19,14 @@ Grounding:
  * True MONDO:0010533 (Arts syndrome) ≡ OMIM:301835 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0010533 (Arts syndrome) ≡ ORDO:1187 :: prior: 0.95 posterior: 0.9499999999999991
  * True dismech:PRPS1_Deficiency_Spectrum#CMTX5 (PRPS1 Deficiency Spectrum / CMTX5 (dismech subtype)) ≡ MONDO:0010699 (Charcot-Marie-Tooth disease X-linked recessive 5) :: prior: 0.9 posterior: 0.9674196363939683
- * False dismech:PRPS1_Deficiency_Spectrum#CMTX5 (PRPS1 Deficiency Spectrum / CMTX5 (dismech subtype)) ⊆ MONDO:0010699 (Charcot-Marie-Tooth disease X-linked recessive 5) :: prior: 0.07 posterior: 0.004045362876199387
+ * False dismech:PRPS1_Deficiency_Spectrum#CMTX5 (PRPS1 Deficiency Spectrum / CMTX5 (dismech subtype)) ⊆ MONDO:0010699 (Charcot-Marie-Tooth disease X-linked recessive 5) :: prior: 0.07 posterior: 0.0040453628761993885
  * False MONDO:0010699 (Charcot-Marie-Tooth disease X-linked recessive 5) ⊆ dismech:PRPS1_Deficiency_Spectrum#CMTX5 (PRPS1 Deficiency Spectrum / CMTX5 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233111
  * True MONDO:0010699 (Charcot-Marie-Tooth disease X-linked recessive 5) ≡ DOID:0110210 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010699 (Charcot-Marie-Tooth disease X-linked recessive 5) ≡ OMIM:311070 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010699 (Charcot-Marie-Tooth disease X-linked recessive 5) ≡ ORDO:99014 :: prior: 0.95 posterior: 0.95
  * True dismech:PRPS1_Deficiency_Spectrum#DFN2 (PRPS1 Deficiency Spectrum / DFN2 (dismech subtype)) ≡ MONDO:0010577 (hearing loss, X-linked 1) :: prior: 0.9 posterior: 0.9674196363939683
- * False dismech:PRPS1_Deficiency_Spectrum#DFN2 (PRPS1 Deficiency Spectrum / DFN2 (dismech subtype)) ⊆ MONDO:0010577 (hearing loss, X-linked 1) :: prior: 0.07 posterior: 0.004045362876199388
- * False MONDO:0010577 (hearing loss, X-linked 1) ⊆ dismech:PRPS1_Deficiency_Spectrum#DFN2 (PRPS1 Deficiency Spectrum / DFN2 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
+ * False dismech:PRPS1_Deficiency_Spectrum#DFN2 (PRPS1 Deficiency Spectrum / DFN2 (dismech subtype)) ⊆ MONDO:0010577 (hearing loss, X-linked 1) :: prior: 0.07 posterior: 0.004045362876199387
+ * False MONDO:0010577 (hearing loss, X-linked 1) ⊆ dismech:PRPS1_Deficiency_Spectrum#DFN2 (PRPS1 Deficiency Spectrum / DFN2 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
  * True MONDO:0010577 (hearing loss, X-linked 1) ≡ DOID:0111739 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010577 (hearing loss, X-linked 1) ≡ MESH:C564433 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010577 (hearing loss, X-linked 1) ≡ OMIM:304500 :: prior: 0.95 posterior: 0.95

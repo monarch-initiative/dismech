@@ -19,7 +19,7 @@ Boomer grounding analysis for [`kb/disorders/Amyloidosis.yaml`](../../../../kb/d
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0019438` ≡ `icd11f:1061366491`
+- `MONDO:0019438` ≡ `icd11f:113043090`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

@@ -4,13 +4,13 @@
  * 972 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.015625 confidence
- * 0.08802906219776371 prior probability
- * 6.151377270791165e-05 posterior probability
- * 2.0182 seconds elapsed
+ * 0.08802906219776375 prior probability
+ * 6.151377270791163e-05 posterior probability
+ * 2.4772 seconds elapsed
 Grounding:
  * True dismech:Congenital_Insensitivity_to_Pain (Congenital Insensitivity to Pain (dismech entry)) ≡ MONDO:0015364 (hereditary sensory and autonomic neuropathy) :: prior: 0.9 posterior: 0.9674196363939713
- * False dismech:Congenital_Insensitivity_to_Pain (Congenital Insensitivity to Pain (dismech entry)) ⊆ MONDO:0015364 (hereditary sensory and autonomic neuropathy) :: prior: 0.07 posterior: 0.004045362876199388
- * False MONDO:0015364 (hereditary sensory and autonomic neuropathy) ⊆ dismech:Congenital_Insensitivity_to_Pain (Congenital Insensitivity to Pain (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233105
+ * False dismech:Congenital_Insensitivity_to_Pain (Congenital Insensitivity to Pain (dismech entry)) ⊆ MONDO:0015364 (hereditary sensory and autonomic neuropathy) :: prior: 0.07 posterior: 0.0040453628761993885
+ * False MONDO:0015364 (hereditary sensory and autonomic neuropathy) ⊆ dismech:Congenital_Insensitivity_to_Pain (Congenital Insensitivity to Pain (dismech entry)) :: prior: 0.03 posterior: 0.001662233052223312
  * True MONDO:0015364 (hereditary sensory and autonomic neuropathy) ≡ DOID:0050548 :: prior: 0.95 posterior: 0.95
  * True MONDO:0015364 (hereditary sensory and autonomic neuropathy) ≡ MESH:D009477 :: prior: 0.95 posterior: 0.95
  * True MONDO:0015364 (hereditary sensory and autonomic neuropathy) ≡ NCIT:C125386 :: prior: 0.95 posterior: 0.95
@@ -25,20 +25,20 @@ Grounding:
  * True MONDO:0009746 (hereditary sensory and autonomic neuropathy type 4) ≡ ORDO:642 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009746 (hereditary sensory and autonomic neuropathy type 4) ≡ icd11f:1831234152 :: prior: 0.95 posterior: 0.95
  * True dismech:Congenital_Insensitivity_to_Pain#HSAN V (Congenital Insensitivity to Pain / HSAN V (dismech subtype)) ≡ MONDO:0012092 (hereditary sensory and autonomic neuropathy type 5) :: prior: 0.9 posterior: 0.9674196363939664
- * False dismech:Congenital_Insensitivity_to_Pain#HSAN V (Congenital Insensitivity to Pain / HSAN V (dismech subtype)) ⊆ MONDO:0012092 (hereditary sensory and autonomic neuropathy type 5) :: prior: 0.07 posterior: 0.004045362876199375
+ * False dismech:Congenital_Insensitivity_to_Pain#HSAN V (Congenital Insensitivity to Pain / HSAN V (dismech subtype)) ⊆ MONDO:0012092 (hereditary sensory and autonomic neuropathy type 5) :: prior: 0.07 posterior: 0.0040453628761993755
  * False MONDO:0012092 (hereditary sensory and autonomic neuropathy type 5) ⊆ dismech:Congenital_Insensitivity_to_Pain#HSAN V (Congenital Insensitivity to Pain / HSAN V (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233072
  * True MONDO:0012092 (hereditary sensory and autonomic neuropathy type 5) ≡ DOID:0070145 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0012092 (hereditary sensory and autonomic neuropathy type 5) ≡ OMIM:608654 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0012092 (hereditary sensory and autonomic neuropathy type 5) ≡ ORDO:64752 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0012092 (hereditary sensory and autonomic neuropathy type 5) ≡ icd11f:1411011731 :: prior: 0.95 posterior: 0.9499999999999991
  * True dismech:Congenital_Insensitivity_to_Pain#SCN9A AR-CIP (Congenital Insensitivity to Pain / SCN9A AR-CIP (dismech subtype)) ≡ MONDO:0009459 (channelopathy-associated congenital insensitivity to pain, autosomal recessive) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Congenital_Insensitivity_to_Pain#SCN9A AR-CIP (Congenital Insensitivity to Pain / SCN9A AR-CIP (dismech subtype)) ⊆ MONDO:0009459 (channelopathy-associated congenital insensitivity to pain, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199384
- * False MONDO:0009459 (channelopathy-associated congenital insensitivity to pain, autosomal recessive) ⊆ dismech:Congenital_Insensitivity_to_Pain#SCN9A AR-CIP (Congenital Insensitivity to Pain / SCN9A AR-CIP (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233103
- * True MONDO:0009459 (channelopathy-associated congenital insensitivity to pain, autosomal recessive) ≡ OMIM:243000 :: prior: 0.95 posterior: 0.95
- * True MONDO:0009459 (channelopathy-associated congenital insensitivity to pain, autosomal recessive) ≡ ORDO:88642 :: prior: 0.95 posterior: 0.95
+ * False dismech:Congenital_Insensitivity_to_Pain#SCN9A AR-CIP (Congenital Insensitivity to Pain / SCN9A AR-CIP (dismech subtype)) ⊆ MONDO:0009459 (channelopathy-associated congenital insensitivity to pain, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199383
+ * False MONDO:0009459 (channelopathy-associated congenital insensitivity to pain, autosomal recessive) ⊆ dismech:Congenital_Insensitivity_to_Pain#SCN9A AR-CIP (Congenital Insensitivity to Pain / SCN9A AR-CIP (dismech subtype)) :: prior: 0.03 posterior: 0.00166223305222331
+ * True MONDO:0009459 (channelopathy-associated congenital insensitivity to pain, autosomal recessive) ≡ OMIM:243000 :: prior: 0.95 posterior: 0.9500000000000001
+ * True MONDO:0009459 (channelopathy-associated congenital insensitivity to pain, autosomal recessive) ≡ ORDO:88642 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Congenital_Insensitivity_to_Pain#HSAN VII (Congenital Insensitivity to Pain / HSAN VII (dismech subtype)) ≡ MONDO:0014244 (hereditary sensory and autonomic neuropathy type 7) :: prior: 0.9 posterior: 0.9674196363939664
  * False dismech:Congenital_Insensitivity_to_Pain#HSAN VII (Congenital Insensitivity to Pain / HSAN VII (dismech subtype)) ⊆ MONDO:0014244 (hereditary sensory and autonomic neuropathy type 7) :: prior: 0.07 posterior: 0.0040453628761993755
- * False MONDO:0014244 (hereditary sensory and autonomic neuropathy type 7) ⊆ dismech:Congenital_Insensitivity_to_Pain#HSAN VII (Congenital Insensitivity to Pain / HSAN VII (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233074
+ * False MONDO:0014244 (hereditary sensory and autonomic neuropathy type 7) ⊆ dismech:Congenital_Insensitivity_to_Pain#HSAN VII (Congenital Insensitivity to Pain / HSAN VII (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233072
  * True MONDO:0014244 (hereditary sensory and autonomic neuropathy type 7) ≡ DOID:0070149 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0014244 (hereditary sensory and autonomic neuropathy type 7) ≡ NCIT:C125388 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0014244 (hereditary sensory and autonomic neuropathy type 7) ≡ OMIM:615548 :: prior: 0.95 posterior: 0.9499999999999991

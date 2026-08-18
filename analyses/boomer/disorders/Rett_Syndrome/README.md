@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/Rett_Syndrome.yaml`](../../../../kb
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Rett_Syndrome` ≡ `MONDO:0010726`
+- `dismech:Rett_Syndrome#Classic Rett Syndrome` ≡ `MONDO:0010726`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

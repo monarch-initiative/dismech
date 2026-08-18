@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/GNAO1-Related_Developmental_and_Epi
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:GNAO1-Related_Developmental_and_Epileptic_Encephalopathy` ≡ `MONDO:0014199`
+- `dismech:GNAO1-Related_Developmental_and_Epileptic_Encephalopathy#DEE17` ≡ `MONDO:0014199`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

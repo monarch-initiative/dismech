@@ -3,14 +3,14 @@
  * 852 combinations
  * 846 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.015625000000000003 confidence
- * 0.1026727653567736 prior probability
- * 7.17466367784361e-05 posterior probability
- * 1.2969 seconds elapsed
+ * 0.015625 confidence
+ * 0.10267276535677358 prior probability
+ * 7.174663677843609e-05 posterior probability
+ * 1.3655 seconds elapsed
 Grounding:
  * True dismech:BEST1_Bestrophinopathies (BEST1 Bestrophinopathies (dismech entry)) ≡ MONDO:0000390 (vitelliform macular dystrophy) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:BEST1_Bestrophinopathies (BEST1 Bestrophinopathies (dismech entry)) ⊆ MONDO:0000390 (vitelliform macular dystrophy) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0000390 (vitelliform macular dystrophy) ⊆ dismech:BEST1_Bestrophinopathies (BEST1 Bestrophinopathies (dismech entry)) :: prior: 0.03 posterior: 0.001662233052223311
+ * False MONDO:0000390 (vitelliform macular dystrophy) ⊆ dismech:BEST1_Bestrophinopathies (BEST1 Bestrophinopathies (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233107
  * True MONDO:0000390 (vitelliform macular dystrophy) ≡ DOID:0050661 :: prior: 0.95 posterior: 0.95
  * True MONDO:0000390 (vitelliform macular dystrophy) ≡ MESH:D057826 :: prior: 0.95 posterior: 0.95
  * True MONDO:0000390 (vitelliform macular dystrophy) ≡ NCIT:C118788 :: prior: 0.95 posterior: 0.95
@@ -35,7 +35,7 @@ Grounding:
  * True MONDO:0008662 (autosomal dominant vitreoretinochoroidopathy) ≡ ORDO:3086 :: prior: 0.95 posterior: 0.95
  * True MONDO:0008662 (autosomal dominant vitreoretinochoroidopathy) ≡ icd11f:96951767 :: prior: 0.95 posterior: 0.95
  * True dismech:BEST1_Bestrophinopathies#MRCS (BEST1 Bestrophinopathies / MRCS (dismech subtype)) ≡ MONDO:0033644 (microcornea, rod-cone dystrophy, cataract, and posterior staphyloma 1) :: prior: 0.9 posterior: 0.967419636393967
- * False dismech:BEST1_Bestrophinopathies#MRCS (BEST1 Bestrophinopathies / MRCS (dismech subtype)) ⊆ MONDO:0033644 (microcornea, rod-cone dystrophy, cataract, and posterior staphyloma 1) :: prior: 0.07 posterior: 0.004045362876199383
+ * False dismech:BEST1_Bestrophinopathies#MRCS (BEST1 Bestrophinopathies / MRCS (dismech subtype)) ⊆ MONDO:0033644 (microcornea, rod-cone dystrophy, cataract, and posterior staphyloma 1) :: prior: 0.07 posterior: 0.004045362876199382
  * False MONDO:0033644 (microcornea, rod-cone dystrophy, cataract, and posterior staphyloma 1) ⊆ dismech:BEST1_Bestrophinopathies#MRCS (BEST1 Bestrophinopathies / MRCS (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233105
  * True MONDO:0033644 (microcornea, rod-cone dystrophy, cataract, and posterior staphyloma 1) ≡ OMIM:619082 :: prior: 0.95 posterior: 0.95
  * True dismech:BEST1_Bestrophinopathies#BEST1-RP (BEST1 Bestrophinopathies / BEST1-RP (dismech subtype)) ≡ MONDO:0019200 (retinitis pigmentosa) :: prior: 0.9 posterior: 0.9674196363939713
