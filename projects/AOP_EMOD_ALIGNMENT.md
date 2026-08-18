@@ -1,32 +1,38 @@
 ---
-title: AOP / EMOD Framework Alignment
+title: AOP EMOD Framework Alignment
 status: IN_PROGRESS
 description: >-
-  Assess to what extent dismech's environmental-exposure and evidence modeling
-  aligns with the Adverse Outcome Pathway framework and its in-development
-  Evidence Model (EMOD), and identify dismech patterns worth contributing back.
+  Assess to what extent dismech's environmental-exposure and evidence model
+  aligns with the Adverse Outcome Pathway framework & the expanded AOP Evidence Model (EMOD),
+  with an eye towards identifying ways dismech might be expanded and enriched by incorporating AOPs,
+  ways dismech might seed development of new AOPs, and ways that AOP EMOD might adopt evidence
+  modeling approaches from dismech.
 tags: [FRAMEWORK_ALIGNMENT, EVIDENCE, EXTERNAL_COLLABORATION, ENVIRONMENTAL_EXPOSURE, SCHEMA_EVOLUTION]
 diseases:
   - Lead_Poisoning
 ---
 
-# AOP / EMOD Framework Alignment
+# AOP EMOD Framework Alignment
 
 ## Scope
 
-Issue [#8309](https://github.com/monarch-initiative/dismech/issues/8309) asks **to
-what extent** dismech's environmental-exposure modeling aligns with the Adverse
-Outcome Pathway (AOP) framework. The question is a graded description, not an
-adopt/reject decision, and the deliverable is a per-dimension assessment
-("Comment B") on that issue.
+This project started with issue [#8309](https://github.com/monarch-initiative/dismech/issues/8309), which 
+asked **to what extent** dismech's environmental-exposure and evidence modeling approaches align with the Adverse
+Outcome Pathway (AOP) framework, including the AOP Evidence Model (EMOD) expansions. An answer for the issue
+should be given in the form of a per-dimension reading of how much the dismech schema 
+and the AOP EMOD framework already align and how they diverge - not a recommendation
+to adopt or reject AOP integration with dismech. The project should be used to identify specific
+directions for dismech and AOP integration.
 
-There are **two AOP reference points**, and conflating them is the main way to get
-this wrong:
+There are **two AOP reference categories** describing the AOP framework and the data classes on a conceptual level. 
 
-| Reference point | Character | Stability |
+| Reference category | What it is | Status |
 |---|---|---|
-| The published **handbook rubric** | Authored ordinal weight-of-evidence grades | Stable, citable |
-| **EMOD** (Evidence Model) | Compositional — evidence derived from typed Observation records | In development; properties not finalized |
+| **AOP-Wiki v2.8 data model** | The current structure. The AOP Developer's Handbook presents it conceptually to humans; the bulk XML serializes it. | Stable, citable |
+| **AOP EMOD** | Proposed computable version of the framework and expansion of v2.8, adding structure to fields that are currently free text. | In development; evolving with emergent use cases |
+
+Alignment claims against the v2.8 data model can be stated flatly; some claims against
+EMOD should be marked provisional and dated.
 
 `Lead_Poisoning` is the pilot comparator entry used to ground the comparison
 against a real dismech pathograph.
