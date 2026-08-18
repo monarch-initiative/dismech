@@ -166,6 +166,35 @@ class External:
                 self.con[vocab] = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         self._anc = {}
 
+    def is_obsolete(self, vocab, curie):
+        """True / False / None (term absent from the local build).
+
+        Used to skip obsolete equivalency targets. MONDO merges propagate the
+        merged-away class's xrefs onto the survivor, so a merged class can end up
+        claiming identity with several terms in one vocabulary -- what MONDO calls
+        a "proxy merge" (monarch-initiative/mondo#6331). Where the extra targets
+        are obsolete in their source, MONDO calls it a *fake* proxy merge: the
+        conflict is an artefact of stale xrefs, not a real disagreement, and
+        feeding it to the solver was described upstream as "playing havoc with
+        our attempts to use boomer".
+        """
+        key = ("obs", vocab, curie)
+        if key not in self._anc:
+            con = self.con.get(vocab)
+            if con is None:
+                self._anc[key] = None
+            else:
+                deprecated = con.execute(
+                    "select 1 from statements where subject=? and predicate='owl:deprecated' "
+                    "limit 1",
+                    (curie,),
+                ).fetchone()
+                exists = con.execute(
+                    "select 1 from statements where subject=? limit 1", (curie,)
+                ).fetchone()
+                self._anc[key] = True if deprecated else (False if exists else None)
+        return self._anc[key]
+
     def ancestors(self, vocab, curie):
         key = (vocab, curie)
         if key not in self._anc:
@@ -364,6 +393,10 @@ def build_kb_dict(mondo, external, rec):
             if vocab not in external.con:
                 continue
             for curie in curies:
+                # an obsolete target cannot be an identity claim; including it
+                # manufactures a "fake proxy merge" conflict
+                if external.is_obsolete(vocab, curie):
+                    continue
                 ext_terms[vocab].add(curie)
                 pfacts.append(
                     {

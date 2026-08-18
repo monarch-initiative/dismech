@@ -128,23 +128,50 @@ isolation.
    means is that the grounding cannot be an *identity* claim for every sibling —
    at most one can be `exactMatch`.
 
-4. **One MONDO term claiming identity with several terms in the same external
-   vocabulary** — the class that only appears once external sources are loaded,
-   and now the largest. 35 of the 50 retracted equivalences are MONDO↔external
-   rather than dismech↔MONDO.
+4. **A MONDO "proxy merge"** — one MONDO term claiming identity with several
+   terms in the same external vocabulary. This class only appears once external
+   sources are loaded, and is now the largest: 35 of the 50 retracted
+   equivalences are MONDO↔external rather than dismech↔MONDO.
 
-   `MONDO:0012215` *myofibrillar myopathy 3* carries `skos:exactMatch` to three
-   MESH terms, three SCTID terms and two ORDO terms. If each is an identity
-   claim and the targets are distinct classes, they collapse into one another.
+   It arises from merging. When MONDO merges two of its classes, the
+   merged-away class's xrefs move to the survivor — so if the source ontology
+   never merged the corresponding terms, MONDO ends up asserting an equivalence
+   between them *by proxy*. MONDO tracks this as a known problem
+   ([mondo#6331](https://github.com/monarch-initiative/mondo/issues/6331),
+   which notes proxy merges are "playing havoc with our attempts to use
+   boomer"; see also #6385, #6386, #6429).
+
+   The worked case is `MONDO:0012215` *myofibrillar myopathy 3*, which absorbed
+   `MONDO:0008032` (LGMD type 1A) and `MONDO:0008448` (spheroid body myopathy)
+   after OMIM merged 182920 into 609200
+   ([mondo#6203](https://github.com/monarch-initiative/mondo/issues/6203)). OMIM
+   and DOID both merged, so their extra targets are obsolete; **Orphanet and
+   MeSH did not**, leaving `ORDO:268129` + `ORDO:98911` and three MeSH terms all
+   active and now implicitly equated.
+
+   That obsolete/active split is MONDO's own discriminator — #6331 calls a
+   conflict whose extra targets are obsolete a *fake* proxy merge. Applying it
+   across the eight vocabularies with local builds:
+
+   | | n |
+   |---|---|
+   | MONDO terms with >1 `exactMatch` into one checkable vocabulary | 326 |
+   | **real proxy merge** (>1 target still active in source) | **300** |
+   | "fake" (extra targets obsolete) | 26 |
+
+   Real ones by vocabulary: DOID 114, MESH 65, NCIT 45, ORDO 43, icd11f 30,
+   ICD10CM 18, OMIM 8. SCTID and UMLS/MEDGEN are excluded — no local build, so
+   they cannot be checked either way.
+
+   `build_analyses.py` skips obsolete equivalency targets for this reason. Worth
+   being clear that **this changed none of the numbers above**: the retraction
+   counts and the 50 retracted equivalences are byte-identical with and without
+   the filter, because none of the 26 fake cases involve a dismech-grounded
+   disorder. It is correct in principle and currently only makes the run faster.
 
    This is not a dismech defect at all — it is visible only because dismech
-   grounds into MONDO and this analysis then follows MONDO outward.
-   Repo-wide, **400 MONDO terms exactMatch more than one term in the same
-   vocabulary**: DOID 119, SCTID 99, MESH 69, icd11f 46, NCIT 45, ORDO 43,
-   ICD10CM 19, OMIM 8. Some are likely deliberate — MESH in particular carries
-   several supplementary-concept records per disease — so read this as
-   "inconsistent under a strict one-identity-per-vocabulary reading", not as 400
-   defects.
+   grounds into MONDO and this analysis then follows MONDO outward. The 300-term
+   list is probably more use to MONDO than to dismech.
 
 The 118 `SILENT` pairs are a separate output: not errors, but places MONDO
 asserts no relation where dismech does. Several are textbook — `MONDO:0021081`

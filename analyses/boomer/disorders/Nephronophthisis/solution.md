@@ -3,21 +3,21 @@
  * 471 combinations
  * 468 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.125 confidence
- * 0.3044046168087604 prior probability
+ * 0.12500000000000003 confidence
+ * 0.30440461680876035 prior probability
  * 0.008046821713728879 posterior probability
- * 0.8903 seconds elapsed
+ * 0.7630 seconds elapsed
 Grounding:
  * True dismech:Nephronophthisis (Nephronophthisis (dismech entry)) ≡ MONDO:0019005 (nephronophthisis) :: prior: 0.9 posterior: 0.9674196363939664
  * False dismech:Nephronophthisis (Nephronophthisis (dismech entry)) ⊆ MONDO:0019005 (nephronophthisis) :: prior: 0.07 posterior: 0.004045362876199375
- * False MONDO:0019005 (nephronophthisis) ⊆ dismech:Nephronophthisis (Nephronophthisis (dismech entry)) :: prior: 0.03 posterior: 0.001662233052223307
+ * False MONDO:0019005 (nephronophthisis) ⊆ dismech:Nephronophthisis (Nephronophthisis (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233072
  * True MONDO:0019005 (nephronophthisis) ≡ DOID:12712 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0019005 (nephronophthisis) ≡ NCIT:C123200 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0019005 (nephronophthisis) ≡ ORDO:655 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0019005 (nephronophthisis) ≡ icd11f:158151813 :: prior: 0.95 posterior: 0.9499999999999991
  * True dismech:Nephronophthisis#NPHP1-related (Nephronophthisis / NPHP1-related (dismech subtype)) ≡ MONDO:0009728 (nephronophthisis 1) :: prior: 0.9 posterior: 0.9674196363939713
  * False dismech:Nephronophthisis#NPHP1-related (Nephronophthisis / NPHP1-related (dismech subtype)) ⊆ MONDO:0009728 (nephronophthisis 1) :: prior: 0.07 posterior: 0.004045362876199388
- * False MONDO:0009728 (nephronophthisis 1) ⊆ dismech:Nephronophthisis#NPHP1-related (Nephronophthisis / NPHP1-related (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233111
+ * False MONDO:0009728 (nephronophthisis 1) ⊆ dismech:Nephronophthisis#NPHP1-related (Nephronophthisis / NPHP1-related (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
  * True MONDO:0009728 (nephronophthisis 1) ≡ DOID:0111112 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009728 (nephronophthisis 1) ≡ MESH:C537699 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009728 (nephronophthisis 1) ≡ NCIT:C74998 :: prior: 0.95 posterior: 0.95

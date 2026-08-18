@@ -19,7 +19,7 @@ Boomer grounding analysis for [`kb/disorders/SOX10_Neurocristopathy_Spectrum.yam
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:SOX10_Neurocristopathy_Spectrum` ≡ `MONDO:0013202`
+- `dismech:SOX10_Neurocristopathy_Spectrum#Waardenburg Syndrome Type 4C` ≡ `MONDO:0013202`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

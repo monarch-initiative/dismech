@@ -4,26 +4,26 @@
  * 720 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.03125 confidence
- * 0.14749838027113335 prior probability
- * 0.0003459997817725432 posterior probability
- * 1.5605 seconds elapsed
+ * 0.14749838027113343 prior probability
+ * 0.0003459997817725433 posterior probability
+ * 1.2016 seconds elapsed
 Grounding:
  * True dismech:Otopalatodigital_Spectrum_Disorders (Otopalatodigital Spectrum Disorders (dismech entry)) ≡ MONDO:0018233 (otopalatodigital syndrome spectrum disorder) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Otopalatodigital_Spectrum_Disorders (Otopalatodigital Spectrum Disorders (dismech entry)) ⊆ MONDO:0018233 (otopalatodigital syndrome spectrum disorder) :: prior: 0.07 posterior: 0.004045362876199384
- * False MONDO:0018233 (otopalatodigital syndrome spectrum disorder) ⊆ dismech:Otopalatodigital_Spectrum_Disorders (Otopalatodigital Spectrum Disorders (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233098
+ * False dismech:Otopalatodigital_Spectrum_Disorders (Otopalatodigital Spectrum Disorders (dismech entry)) ⊆ MONDO:0018233 (otopalatodigital syndrome spectrum disorder) :: prior: 0.07 posterior: 0.004045362876199383
+ * False MONDO:0018233 (otopalatodigital syndrome spectrum disorder) ⊆ dismech:Otopalatodigital_Spectrum_Disorders (Otopalatodigital Spectrum Disorders (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233096
  * True MONDO:0018233 (otopalatodigital syndrome spectrum disorder) ≡ DOID:0111782 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0018233 (otopalatodigital syndrome spectrum disorder) ≡ ORDO:364541 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Otopalatodigital_Spectrum_Disorders#OPD1 (Otopalatodigital Spectrum Disorders / OPD1 (dismech subtype)) ≡ MONDO:0010704 (otopalatodigital syndrome type 1) :: prior: 0.9 posterior: 0.9674196363939713
- * False dismech:Otopalatodigital_Spectrum_Disorders#OPD1 (Otopalatodigital Spectrum Disorders / OPD1 (dismech subtype)) ⊆ MONDO:0010704 (otopalatodigital syndrome type 1) :: prior: 0.07 posterior: 0.004045362876199389
- * False MONDO:0010704 (otopalatodigital syndrome type 1) ⊆ dismech:Otopalatodigital_Spectrum_Disorders#OPD1 (Otopalatodigital Spectrum Disorders / OPD1 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223312
+ * False dismech:Otopalatodigital_Spectrum_Disorders#OPD1 (Otopalatodigital Spectrum Disorders / OPD1 (dismech subtype)) ⊆ MONDO:0010704 (otopalatodigital syndrome type 1) :: prior: 0.07 posterior: 0.004045362876199388
+ * False MONDO:0010704 (otopalatodigital syndrome type 1) ⊆ dismech:Otopalatodigital_Spectrum_Disorders#OPD1 (Otopalatodigital Spectrum Disorders / OPD1 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233103
  * True MONDO:0010704 (otopalatodigital syndrome type 1) ≡ DOID:0111783 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010704 (otopalatodigital syndrome type 1) ≡ NCIT:C118845 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010704 (otopalatodigital syndrome type 1) ≡ OMIM:311300 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010704 (otopalatodigital syndrome type 1) ≡ ORDO:90650 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010704 (otopalatodigital syndrome type 1) ≡ icd11f:1442049882 :: prior: 0.95 posterior: 0.95
  * True dismech:Otopalatodigital_Spectrum_Disorders#OPD2 (Otopalatodigital Spectrum Disorders / OPD2 (dismech subtype)) ≡ MONDO:0010571 (otopalatodigital syndrome type 2) :: prior: 0.9 posterior: 0.9674196363939713
- * False dismech:Otopalatodigital_Spectrum_Disorders#OPD2 (Otopalatodigital Spectrum Disorders / OPD2 (dismech subtype)) ⊆ MONDO:0010571 (otopalatodigital syndrome type 2) :: prior: 0.07 posterior: 0.004045362876199389
- * False MONDO:0010571 (otopalatodigital syndrome type 2) ⊆ dismech:Otopalatodigital_Spectrum_Disorders#OPD2 (Otopalatodigital Spectrum Disorders / OPD2 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
+ * False dismech:Otopalatodigital_Spectrum_Disorders#OPD2 (Otopalatodigital Spectrum Disorders / OPD2 (dismech subtype)) ⊆ MONDO:0010571 (otopalatodigital syndrome type 2) :: prior: 0.07 posterior: 0.004045362876199388
+ * False MONDO:0010571 (otopalatodigital syndrome type 2) ⊆ dismech:Otopalatodigital_Spectrum_Disorders#OPD2 (Otopalatodigital Spectrum Disorders / OPD2 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233103
  * True MONDO:0010571 (otopalatodigital syndrome type 2) ≡ DOID:0111784 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010571 (otopalatodigital syndrome type 2) ≡ MESH:C538089 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010571 (otopalatodigital syndrome type 2) ≡ OMIM:304120 :: prior: 0.95 posterior: 0.95

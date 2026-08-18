@@ -6,10 +6,10 @@
  * 0.03125 confidence
  * 0.23403176265660214 prior probability
  * 0.0005489886645411217 posterior probability
- * 3.6409 seconds elapsed
+ * 3.5772 seconds elapsed
 Grounding:
  * True dismech:Bernard-Soulier_Syndrome (Bernard-Soulier Syndrome (dismech entry)) ≡ MONDO:0009276 (Bernard-Soulier syndrome) :: prior: 0.9 posterior: 0.9674196363939687
- * False dismech:Bernard-Soulier_Syndrome (Bernard-Soulier Syndrome (dismech entry)) ⊆ MONDO:0009276 (Bernard-Soulier syndrome) :: prior: 0.07 posterior: 0.004045362876199375
+ * False dismech:Bernard-Soulier_Syndrome (Bernard-Soulier Syndrome (dismech entry)) ⊆ MONDO:0009276 (Bernard-Soulier syndrome) :: prior: 0.07 posterior: 0.004045362876199374
  * False MONDO:0009276 (Bernard-Soulier syndrome) ⊆ dismech:Bernard-Soulier_Syndrome (Bernard-Soulier Syndrome (dismech entry)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0009276 (Bernard-Soulier syndrome) ≡ DOID:2217 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0009276 (Bernard-Soulier syndrome) ≡ MESH:D001606 :: prior: 0.95 posterior: 0.949999999999998

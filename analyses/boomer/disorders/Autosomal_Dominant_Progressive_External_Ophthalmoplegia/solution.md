@@ -4,18 +4,18 @@
  * 432 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0078125 confidence
- * 0.08774630680580094 prior probability
+ * 0.08774630680580096 prior probability
  * 1.8265554017022283e-05 posterior probability
- * 0.2333 seconds elapsed
+ * 0.2062 seconds elapsed
 Grounding:
  * True dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia (Autosomal Dominant Progressive External Ophthalmoplegia (dismech entry)) ≡ MONDO:0008003 (autosomal dominant progressive external ophthalmoplegia) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia (Autosomal Dominant Progressive External Ophthalmoplegia (dismech entry)) ⊆ MONDO:0008003 (autosomal dominant progressive external ophthalmoplegia) :: prior: 0.07 posterior: 0.004045362876199384
- * False MONDO:0008003 (autosomal dominant progressive external ophthalmoplegia) ⊆ dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia (Autosomal Dominant Progressive External Ophthalmoplegia (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233098
+ * False MONDO:0008003 (autosomal dominant progressive external ophthalmoplegia) ⊆ dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia (Autosomal Dominant Progressive External Ophthalmoplegia (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233096
  * True MONDO:0008003 (autosomal dominant progressive external ophthalmoplegia) ≡ MESH:C563575 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0008003 (autosomal dominant progressive external ophthalmoplegia) ≡ ORDO:254892 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA1 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA1 (dismech subtype)) ≡ MONDO:0024528 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 1) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA1 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA1 (dismech subtype)) ⊆ MONDO:0024528 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 1) :: prior: 0.07 posterior: 0.004045362876199383
- * False MONDO:0024528 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 1) ⊆ dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA1 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA1 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233096
+ * False dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA1 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA1 (dismech subtype)) ⊆ MONDO:0024528 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 1) :: prior: 0.07 posterior: 0.004045362876199382
+ * False MONDO:0024528 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 1) ⊆ dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA1 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA1 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233094
  * True MONDO:0024528 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 1) ≡ DOID:0111521 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0024528 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 1) ≡ OMIM:157640 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA2 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA2 (dismech subtype)) ≡ MONDO:0012238 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 2) :: prior: 0.9 posterior: 0.9674196363939683
@@ -26,7 +26,7 @@ Grounding:
  * True MONDO:0012238 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 2) ≡ OMIM:609283 :: prior: 0.95 posterior: 0.95
  * True dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA3 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA3 (dismech subtype)) ≡ MONDO:0012241 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 3) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA3 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA3 (dismech subtype)) ⊆ MONDO:0012241 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 3) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0012241 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 3) ⊆ dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA3 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA3 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
+ * False MONDO:0012241 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 3) ⊆ dismech:Autosomal_Dominant_Progressive_External_Ophthalmoplegia#PEOA3 (Autosomal Dominant Progressive External Ophthalmoplegia / PEOA3 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
  * True MONDO:0012241 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 3) ≡ DOID:0111520 :: prior: 0.95 posterior: 0.95
  * True MONDO:0012241 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 3) ≡ MESH:C563747 :: prior: 0.95 posterior: 0.95
  * True MONDO:0012241 (progressive external ophthalmoplegia with mitochondrial DNA deletions, autosomal dominant 3) ≡ OMIM:609286 :: prior: 0.95 posterior: 0.95

@@ -3,13 +3,13 @@
  * 655 combinations
  * 648 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.007812500000000003 confidence
- * 0.0714699153077424 prior probability
- * 1.4877407906577261e-05 posterior probability
- * 0.6507 seconds elapsed
+ * 0.0078125 confidence
+ * 0.07146991530774237 prior probability
+ * 1.4877407906577253e-05 posterior probability
+ * 0.5687 seconds elapsed
 Grounding:
  * True dismech:Pyruvate_Dehydrogenase_Deficiency (Pyruvate Dehydrogenase Deficiency (dismech entry)) ≡ MONDO:0019169 (pyruvate dehydrogenase deficiency) :: prior: 0.9 posterior: 0.9674196363939664
- * False dismech:Pyruvate_Dehydrogenase_Deficiency (Pyruvate Dehydrogenase Deficiency (dismech entry)) ⊆ MONDO:0019169 (pyruvate dehydrogenase deficiency) :: prior: 0.07 posterior: 0.004045362876199375
+ * False dismech:Pyruvate_Dehydrogenase_Deficiency (Pyruvate Dehydrogenase Deficiency (dismech entry)) ⊆ MONDO:0019169 (pyruvate dehydrogenase deficiency) :: prior: 0.07 posterior: 0.0040453628761993755
  * False MONDO:0019169 (pyruvate dehydrogenase deficiency) ⊆ dismech:Pyruvate_Dehydrogenase_Deficiency (Pyruvate Dehydrogenase Deficiency (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233072
  * True MONDO:0019169 (pyruvate dehydrogenase deficiency) ≡ DOID:3649 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0019169 (pyruvate dehydrogenase deficiency) ≡ NCIT:C103968 :: prior: 0.95 posterior: 0.9499999999999991
@@ -22,7 +22,7 @@ Grounding:
  * True MONDO:0010717 (pyruvate dehydrogenase E1-alpha deficiency) ≡ OMIM:312170 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010717 (pyruvate dehydrogenase E1-alpha deficiency) ≡ ORDO:79243 :: prior: 0.95 posterior: 0.95
  * True dismech:Pyruvate_Dehydrogenase_Deficiency#E1-beta deficiency (Pyruvate Dehydrogenase Deficiency / E1-beta deficiency (dismech subtype)) ≡ MONDO:0013580 (pyruvate dehydrogenase E1-beta deficiency) :: prior: 0.9 posterior: 0.9674196363939683
- * False dismech:Pyruvate_Dehydrogenase_Deficiency#E1-beta deficiency (Pyruvate Dehydrogenase Deficiency / E1-beta deficiency (dismech subtype)) ⊆ MONDO:0013580 (pyruvate dehydrogenase E1-beta deficiency) :: prior: 0.07 posterior: 0.004045362876199388
+ * False dismech:Pyruvate_Dehydrogenase_Deficiency#E1-beta deficiency (Pyruvate Dehydrogenase Deficiency / E1-beta deficiency (dismech subtype)) ⊆ MONDO:0013580 (pyruvate dehydrogenase E1-beta deficiency) :: prior: 0.07 posterior: 0.004045362876199387
  * False MONDO:0013580 (pyruvate dehydrogenase E1-beta deficiency) ⊆ dismech:Pyruvate_Dehydrogenase_Deficiency#E1-beta deficiency (Pyruvate Dehydrogenase Deficiency / E1-beta deficiency (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0013580 (pyruvate dehydrogenase E1-beta deficiency) ≡ MESH:C566729 :: prior: 0.95 posterior: 0.95
  * True MONDO:0013580 (pyruvate dehydrogenase E1-beta deficiency) ≡ OMIM:614111 :: prior: 0.95 posterior: 0.95
@@ -41,12 +41,12 @@ Grounding:
  * True MONDO:0009529 (pyruvate dehydrogenase E3 deficiency) ≡ ORDO:2394 :: prior: 0.95 posterior: 0.95
  * True dismech:Pyruvate_Dehydrogenase_Deficiency#E3-binding protein deficiency (Pyruvate Dehydrogenase Deficiency / E3-binding protein deficiency (dismech subtype)) ≡ MONDO:0009503 (pyruvate dehydrogenase E3-binding protein deficiency) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Pyruvate_Dehydrogenase_Deficiency#E3-binding protein deficiency (Pyruvate Dehydrogenase Deficiency / E3-binding protein deficiency (dismech subtype)) ⊆ MONDO:0009503 (pyruvate dehydrogenase E3-binding protein deficiency) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0009503 (pyruvate dehydrogenase E3-binding protein deficiency) ⊆ dismech:Pyruvate_Dehydrogenase_Deficiency#E3-binding protein deficiency (Pyruvate Dehydrogenase Deficiency / E3-binding protein deficiency (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
+ * False MONDO:0009503 (pyruvate dehydrogenase E3-binding protein deficiency) ⊆ dismech:Pyruvate_Dehydrogenase_Deficiency#E3-binding protein deficiency (Pyruvate Dehydrogenase Deficiency / E3-binding protein deficiency (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233111
  * True MONDO:0009503 (pyruvate dehydrogenase E3-binding protein deficiency) ≡ MESH:C565447 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009503 (pyruvate dehydrogenase E3-binding protein deficiency) ≡ OMIM:245349 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009503 (pyruvate dehydrogenase E3-binding protein deficiency) ≡ ORDO:255182 :: prior: 0.95 posterior: 0.95
  * True dismech:Pyruvate_Dehydrogenase_Deficiency#PDH phosphatase deficiency (Pyruvate Dehydrogenase Deficiency / PDH phosphatase deficiency (dismech subtype)) ≡ MONDO:0012120 (pyruvate dehydrogenase phosphatase deficiency) :: prior: 0.9 posterior: 0.9674196363939664
- * False dismech:Pyruvate_Dehydrogenase_Deficiency#PDH phosphatase deficiency (Pyruvate Dehydrogenase Deficiency / PDH phosphatase deficiency (dismech subtype)) ⊆ MONDO:0012120 (pyruvate dehydrogenase phosphatase deficiency) :: prior: 0.07 posterior: 0.0040453628761993755
+ * False dismech:Pyruvate_Dehydrogenase_Deficiency#PDH phosphatase deficiency (Pyruvate Dehydrogenase Deficiency / PDH phosphatase deficiency (dismech subtype)) ⊆ MONDO:0012120 (pyruvate dehydrogenase phosphatase deficiency) :: prior: 0.07 posterior: 0.004045362876199375
  * False MONDO:0012120 (pyruvate dehydrogenase phosphatase deficiency) ⊆ dismech:Pyruvate_Dehydrogenase_Deficiency#PDH phosphatase deficiency (Pyruvate Dehydrogenase Deficiency / PDH phosphatase deficiency (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233074
  * True MONDO:0012120 (pyruvate dehydrogenase phosphatase deficiency) ≡ MESH:C536258 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0012120 (pyruvate dehydrogenase phosphatase deficiency) ≡ OMIM:608782 :: prior: 0.95 posterior: 0.9499999999999991
