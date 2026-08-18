@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rumination Disorder · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Rumination Disorder</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Rumination Disorder</h1>
+                
+                <p class="report-subtitle">Rumination Disorder / Rumination Syndrome — Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-07-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0001301" target="_blank" rel="noopener noreferrer">MONDO:0001301</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">38 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Rumination Disorder / Rumination Syndrome — Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>Rumination disorder (synonymous in the literature with "rumination syndrome" and historically "merycism") is a disorder of gut–brain interaction/functional gastroduodenal disorder characterized by the <strong>effortless, painless, repeated regurgitation of recently ingested food</strong> into the mouth, occurring shortly after eating (typically within 10–15 minutes, ranging from immediately to up to 2 hours postprandially), where the regurgitated material is recognizable, undigested, and initially palatable, and is then re-chewed, re-swallowed, or expectorated. It is <strong>not preceded by retching or nausea</strong>, distinguishing it fundamentally from vomiting. The condition spans the lifespan — described separately in infants, in individuals with intellectual/developmental disabilities, and in otherwise cognitively normal adolescents and adults — with distinct proposed etiologic models for each group (NCBI StatPearls, NBK576404; Wikipedia "Rumination syndrome").</p>
+<p>The mechanism is now understood as a learned/acquired motor behavior: a voluntary (though usually unconscious/unperceived) contraction of the abdominal wall and thoracic musculature raises intragastric pressure above lower esophageal sphincter (LES) pressure, in the context of transient LES/upper esophageal sphincter relaxation, producing retrograde flow of gastric contents — essentially "an unintentionally acquired habit, possibly a learned adaptation of the belch reflex" (StatPearls NBK576404).</p>
+<p>Because the manifest behavior (regurgitation of food) overlaps with both <strong>eating disorders</strong> and <strong>gastrointestinal motility disorders</strong>, rumination is classified in <em>two entirely separate diagnostic systems</em> with different emphases:
+- <strong>DSM-5 / DSM-5-TR</strong>: classified among Feeding and Eating Disorders (code 307.53).
+- <strong>Rome IV</strong>: classified as a Functional Gastroduodenal Disorder (an entirely separate nosologic tradition, emphasizing the motility mechanism over psychiatric framing).</p>
+<h3>Key Identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>Code / ID</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ICD-10-CM</strong></td>
+<td>F98.21</td>
+<td>Rumination disorder of infancy and childhood</td>
+</tr>
+<tr>
+<td><strong>ICD-10-CM</strong></td>
+<td>F50.84</td>
+<td>Rumination disorder (adults; added in ICD-10-CM update aligning with DSM-5-TR)</td>
+</tr>
+<tr>
+<td><strong>ICD-10</strong></td>
+<td>P92.1</td>
+<td>Regurgitation and rumination of newborn (perinatal)</td>
+</tr>
+<tr>
+<td><strong>ICD-11</strong></td>
+<td><strong>6B85</strong></td>
+<td>Rumination-regurgitation disorder (Mental, Behavioural or Neurodevelopmental Disorders chapter; requires developmental age ≥2 years, regurgitation ≥ several times/week for ≥ several weeks)</td>
+</tr>
+<tr>
+<td><strong>ICD-11</strong></td>
+<td><strong>DD90.6</strong></td>
+<td>Adult rumination syndrome (Digestive System Diseases chapter — the Rome IV/gastroenterology-tradition entity)</td>
+</tr>
+<tr>
+<td><strong>DSM-5 / DSM-5-TR</strong></td>
+<td>307.53</td>
+<td>Rumination Disorder</td>
+</tr>
+<tr>
+<td><strong>Rome IV</strong></td>
+<td>—</td>
+<td>Functional gastroduodenal disorder; separate child/adolescent and adult criteria sets</td>
+</tr>
+<tr>
+<td><strong>MONDO</strong></td>
+<td><em>A MONDO term for "rumination syndrome" appears in general searches (frequently cited informally as <a href="http://purl.obolibrary.org/obo/MONDO_0001301" target="_blank" rel="noopener noreferrer">MONDO:0001301</a>), but this identifier could not be independently confirmed against the authoritative MONDO OBO record in this research pass — it should be verified with <code>runoak -i sqlite:obo:mondo info &lt;ID&gt; -O obo</code> before use in curation, per dismech's anti-hallucination policy.</em></td>
+<td>Needs OAK verification</td>
+</tr>
+<tr>
+<td><strong>OMIM</strong></td>
+<td>None identified</td>
+<td>Rumination disorder is not a monogenic/Mendelian condition and does not have a dedicated OMIM phenotype MIM number; it is not indexed as a single-gene disorder.</td>
+</tr>
+<tr>
+<td><strong>MeSH</strong></td>
+<td>(Not independently confirmed in this pass — MeSH heading likely "Rumination Syndrome"; verify before citing.)</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Note the <strong>important dual coding</strong> in ICD-11: <strong>6B85</strong> (mental/behavioral chapter — "rumination-regurgitation disorder," developmentally framed, ≥2 years) and <strong>DD90.6</strong> (digestive-disease chapter — "adult rumination syndrome," Rome-IV-aligned). This dual placement mirrors the DSM-5-vs-Rome-IV split and should be preserved as two related but distinct classification anchors rather than merged into one.</p>
+<h3>Synonyms</h3>
+<ul>
+<li>Rumination syndrome</li>
+<li>Merycism / mericism (from Latin <em>ruminare</em>, "to chew the cud"; term also historically used in animal physiology)</li>
+<li>Rumination disorder of infancy and childhood</li>
+<li>Adult rumination syndrome</li>
+<li>Psychogenic rumination (older, less-preferred term)</li>
+</ul>
+<h3>Data Provenance</h3>
+<p>Nearly all available evidence is <strong>aggregated disease-level clinical literature</strong>: case series, cohort studies from tertiary motility centers (e.g., Mayo Clinic, Rome Foundation cohorts), and a small number of population/school-based surveys and epidemiologic studies (e.g., the Rome Foundation Global Epidemiology Study). There is <strong>no individual-patient EHR-scale registry</strong> specific to rumination syndrome analogous to cancer or rare-disease registries; most quantitative estimates (prevalence, weight loss %, treatment response rates) derive from single-center case series of tens to low hundreds of patients, which should be treated as suggestive rather than population-representative.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>There is <strong>no known single cause</strong>; rumination syndrome is best understood as a <strong>learned, largely subconscious motor/behavioral adaptation</strong> rather than a primary structural, infectious, or classically "genetic" disease. As Wikipedia's synthesis states plainly: <em>"The cause of rumination syndrome is unknown."</em> The dominant mechanistic model (see Section 6) is behavioral-motor: voluntary abdominal-wall contraction paired with LES relaxation, which becomes an unconsciously reinforced habit.</p>
+<p>Three broadly distinct etiologic narratives exist across the age spectrum:</p>
+<ol>
+<li><strong>Infants (typical onset 3–12 months)</strong>: hypothesized links to <strong>caregiver under-stimulation, emotional neglect, or disrupted maternal–infant bonding/attachment</strong> — described historically as arising from "a certain deprivation of relations with the mother… or a disturbance in the child's relationship with the mother," with the behavior serving a self-soothing/self-stimulatory function. It has also been described in neonatal intensive care settings, where efforts toward parent–infant bonding have made the presentation rare (Vulgaris Medical; StatPearls).</li>
+<li><strong>Individuals with intellectual/developmental disabilities</strong>: proposed as <strong>self-stimulatory behavior</strong> arising from a mismatch of environmental stimulation (over- or under-stimulation), occurring at markedly elevated rates in institutionalized populations.</li>
+<li><strong>Cognitively normal adolescents/adults</strong>: proposed <strong>habit/behavioral-learning models</strong>, sometimes triggered by an antecedent illness, surgery, psychological trauma/stress, or a prior history of self-induced vomiting (bulimia nervosa) that becomes an involuntary conditioned reflex; also described following stressful life events (family bereavement, concussion) or medication changes (Wikipedia; StatPearls).</li>
+</ol>
+<h3>Risk Factors</h3>
+<p><strong>Genetic risk factors</strong>: No causal or susceptibility variant, locus, or Mendelian mechanism has been established for rumination syndrome/disorder specifically. Wikipedia notes "little evidence concerning the impact of hereditary influence," though isolated case reports describe clustering within families — insufficient to establish heritability.</p>
+<blockquote>
+<p><strong>Critical distinction to avoid Named-Entity/construct confusion:</strong> A body of behavioral-genetics literature exists on heritability of "<strong>rumination</strong>" as a <em>psychological/cognitive construct</em> — repetitive, passive, negative self-focused thinking associated with depression (the RRS "Ruminative Response Scale" literature). Twin studies report ~24–41% heritability for this cognitive rumination trait (Moksnes et al.; PMC4111768), and a GWAS (Eszlari et al., <em>Transl Psychiatry</em> 2019, PMC6423133) found gene-level (not genome-wide-significant SNP-level) associations with <strong><em>KCTD12</em></strong> and miR-383-binding genes, plus candidate-gene signals at <em>KCNJ6</em> (GIRK2), <em>CREB1</em>, and <em>BDNF</em>. <strong>This is a different disease/construct than the GI rumination-regurgitation disorder</strong> covered in this report (repetitive negative <em>thought</em> vs. repetitive food <em>regurgitation</em>) — the two share only the English word "rumination." These genetic findings should <strong>not</strong> be cited as genetic evidence for Rumination Disorder/rumination syndrome; doing so would be a textbook Named Entity Confusion error. No comparable GWAS/twin heritability data exist for the GI condition.</p>
+</blockquote>
+<p><strong>Environmental / demographic risk factors</strong>:
+- <strong>Sex</strong>: adult prevalence skews female (Rome Global Epidemiology Study: 54.5% female vs. 45.5% male); pediatric/school-based samples show more even sex distribution.
+- <strong>Age</strong>: bimodal — infant onset (3–12 months) and adolescent/adult onset; adult mean age of onset ~44.5 years per the Rome Global study, though clinical case series more often describe adolescent presentation (mean ~12.9 years, with a female-later/male-earlier onset split: males 11.0±0.8 years vs. females 13.8±0.5 years).
+- <strong>Comorbid psychiatric disease</strong>: strongly associated. In a case–control analysis, 83.3% of rumination syndrome patients had a psychiatric diagnosis (vs. controls), with anxiety (37.5%), depression (29.2%), OCD (8.3%), PTSD (8.3%), and bipolar disorder (4.2%) represented; psychiatric disorder was an independent predictor (adjusted OR = 4.47) (PubMed 33988353).
+- <strong>Comorbid eating disorder</strong>: 37.5% of rumination patients had a history of an eating disorder (anorexia nervosa 12.5%, bulimia nervosa 16.7%), an independent predictor with adjusted OR = 16.4 (PubMed 33988353) — the strongest risk factor identified in that cohort.
+- <strong>Institutionalization / intellectual disability</strong>: markedly increases risk (see epidemiology below).
+- <strong>History of trauma/abuse</strong>: cited in up to ~33% of cases in some case series (StatPearls).
+- <strong>Higher BMI</strong>: associated with adult rumination syndrome in meta-analytic characterization.
+- <strong>Concurrent GERD</strong> (secondary rumination pathway — see mechanism section).</p>
+<h3>Protective Factors</h3>
+<p>No specific genetic or pharmacologic protective factor is established. The clearest "protective" intervention is environmental/behavioral: for infant rumination linked to neglect, <strong>increased caregiver responsiveness, holding, and nurturing</strong> reduces/resolves the behavior (a mother-substitute caregiving intervention is a described historical treatment), and improved NICU bonding practices have made infant rumination syndrome rare in that setting.</p>
+<h3>Gene–Environment Interactions</h3>
+<p>No specific gene–environment interaction has been characterized for the GI disorder. The pathophysiologic model instead emphasizes a <strong>behavior–environment interaction</strong>: an underlying capacity for voluntary/learnable control of intra-abdominal pressure and sphincter tone (present in everyone, and exploited deliberately by professional "regurgitators"/some competitive eaters) becomes pathologically and involuntarily reinforced under specific psychosocial conditions (neglect, stress, post-illness state, eating-disorder history), analogous to how the LES/belch reflex can be voluntarily co-opted and then become an unconscious habit.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency (where reported)</th>
+<th>Suggested HP term*</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Regurgitation of recently ingested, undigested, recognizable food, effortless, within ~10–15 min (up to ~1–2 h) of a meal</td>
+<td>Symptom / cardinal feature</td>
+<td>Present by definition (100%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a> Regurgitation <em>(verify label match via OAK before use)</em></td>
+</tr>
+<tr>
+<td>Absence of retching/nausea preceding regurgitation</td>
+<td>Clinical sign (defining/negative criterion)</td>
+<td>By definition</td>
+<td>— (absence-of-feature; may use negation modifier on <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> Vomiting)</td>
+</tr>
+<tr>
+<td>Abdominal pain</td>
+<td>Symptom</td>
+<td>~38% (Wikipedia synthesis of case series)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> Abdominal pain</td>
+</tr>
+<tr>
+<td>Weight loss</td>
+<td>Physical sign</td>
+<td>~40–42% adults; 17–43% in pediatric cohorts (mean ~9.6 kg in one series)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" rel="noopener noreferrer">HP:0001824</a> Weight loss</td>
+</tr>
+<tr>
+<td>Reduced fecal output / constipation</td>
+<td>Symptom</td>
+<td>~21%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a> Constipation</td>
+</tr>
+<tr>
+<td>Nausea (independent of regurgitation episodes)</td>
+<td>Symptom</td>
+<td>~17%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" rel="noopener noreferrer">HP:0002018</a> Nausea</td>
+</tr>
+<tr>
+<td>Diarrhea</td>
+<td>Symptom</td>
+<td>~8%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> Diarrhea</td>
+</tr>
+<tr>
+<td>Bloating</td>
+<td>Symptom</td>
+<td>~4%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030760" target="_blank" rel="noopener noreferrer">HP:0030760</a> Abdominal bloating (verify)</td>
+</tr>
+<tr>
+<td>Dental erosion / caries, halitosis</td>
+<td>Physical sign</td>
+<td>Reported more in pediatric/refractory cases; ~3–7% in some series</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006486" target="_blank" rel="noopener noreferrer">HP:0006486</a> Dental fracture / consider <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" rel="noopener noreferrer">HP:0000670</a> Dental caries or a dedicated "dental erosion" term (verify best match)</td>
+</tr>
+<tr>
+<td>Failure to thrive / malnutrition (esp. pediatric)</td>
+<td>Physical sign</td>
+<td>Minority; more common with diagnostic delay or comorbid eating disorder</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> Failure to thrive</td>
+</tr>
+<tr>
+<td>Electrolyte disturbance</td>
+<td>Laboratory abnormality</td>
+<td>Uncommon unless refractory/comorbid eating disorder</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011036" target="_blank" rel="noopener noreferrer">HP:0011036</a> Abnormal electrolyte level (or specific ion term)</td>
+</tr>
+<tr>
+<td>School/work absenteeism, social withdrawal</td>
+<td>Behavioral/functional impact</td>
+<td>Frequently described qualitatively</td>
+<td>(Functional/QoL descriptor rather than HPO term)</td>
+</tr>
+<tr>
+<td>Comorbid anxiety</td>
+<td>Behavioral</td>
+<td>37.5% in one case-control cohort</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" rel="noopener noreferrer">HP:0000739</a> Anxiety</td>
+</tr>
+<tr>
+<td>Comorbid depression</td>
+<td>Behavioral</td>
+<td>29.2%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" rel="noopener noreferrer">HP:0000716</a> Depressivity</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>HP term suggestions are first-pass candidates based on typical HPO coverage for these common clinical concepts; </em><em>each must be independently verified via OAK (<code>runoak -i sqlite:obo:hp info &lt;ID&gt; -O obo</code>)</em>* for exact label match before use in a dismech entry, consistent with project anti-hallucination policy — none were independently confirmed against the live HPO database in this research pass.</p>
+<h3>Phenotype Characteristics</h3>
+<ul>
+<li><strong>Onset</strong>: Trimodal by age group — infancy (3–12 months), childhood/adolescence (mean ~12.9 years in adolescent case series), and adulthood (mean ~44.5 years in the Rome Global Epidemiology cohort). Onset can also be triggered acutely by an illness, surgery, or stressful event in previously asymptomatic adolescents/adults.</li>
+<li><strong>Severity</strong>: Variable — ranges from occasional, minimally impairing regurgitation to disabling, near-constant regurgitation causing marked weight loss, malnutrition (occasionally requiring enteral/jejunostomy feeding), and severe psychosocial impairment (school absenteeism).</li>
+<li><strong>Progression/course</strong>: Chronic once established; the StatPearls source states prognosis in children/adolescents is "benign, although symptoms may persist for years." Diagnostic delay is characteristic and substantial: average <strong>21–77 months</strong> to diagnosis by one estimate, or "an average of five physicians over 2.75 years" by another (Wikipedia, citing case-series data) — reflecting frequent misdiagnosis as GERD, cyclic vomiting, gastroparesis, or an eating disorder.</li>
+<li><strong>Frequency among affected individuals</strong>: Not a population-frequency concept for a single condition, but note: rumination syndrome itself as a "phenotype of a phenotype" — its prevalence is presented in Section 9.</li>
+</ul>
+<h3>Quality-of-Life Impact</h3>
+<p>Regurgitation-associated social embarrassment leads to <strong>school and work absenteeism</strong>, social withdrawal/avoidance of eating in public, and secondary <strong>anxiety and depressive symptomatology</strong>. Weight loss and diagnostic-odyssey frustration compound psychosocial burden. No disease-specific validated QoL instrument was identified in this pass (searches did not surface an EQ-5D/SF-36 rumination-syndrome-specific substudy); general GI-QoL and psychiatric comorbidity scales are used in the literature instead.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>There is no established monogenic cause, no ClinVar/HGMD pathogenic variant catalog, no defined causal gene, and no OMIM phenotype entry for rumination disorder/syndrome.</strong> This is fundamentally a learned behavioral-motor disorder of the gut-brain axis, not a Mendelian or classically "genetic" disease in the dismech schema sense.</p>
+<ul>
+<li><strong>Causal genes</strong>: None identified.</li>
+<li><strong>Pathogenic variants</strong>: None identified; not applicable.</li>
+<li><strong>Modifier genes</strong>: None specifically validated for the GI disorder. (As emphasized above, the <em>KCTD12</em>/miR-383/<em>KCNJ6</em>/<em>CREB1</em>/<em>BDNF</em> genetic-association literature pertains to the <strong>psychological rumination/depressive-thinking construct</strong>, not this condition — do not conflate.)</li>
+<li><strong>Epigenetic information</strong>: None identified specific to rumination syndrome.</li>
+<li><strong>Chromosomal abnormalities</strong>: None identified as causal; rumination behavior is <em>secondarily</em> over-represented in populations with chromosomal/neurodevelopmental conditions causing intellectual disability (e.g., trisomy 21, fragile X, and other syndromic ID), but this reflects the general enrichment of self-stimulatory/self-injurious behaviors in intellectual disability rather than a rumination-specific chromosomal etiology.</li>
+</ul>
+<p><strong>Curatorial implication for dismech</strong>: this entry will likely have a very sparse/absent <code>genetic:</code> block, and should explicitly note (in <code>notes</code> or discussion) that this is a behaviorally/psychosocially mediated condition rather than force-fitting genetic annotation. If any digenic/oligogenic or single-gene claims are later found in more targeted searches, they should be treated with high NEC suspicion given how easily "rumination" the cognitive construct is confused with "rumination" the GI disorder in literature search.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental/psychosocial factors</strong>: caregiver neglect or under/over-stimulation (infants); institutionalization (intellectual disability); psychological trauma, abuse history, stressful life events, recent illness or surgery, and medication changes (adolescents/adults).</li>
+<li><strong>Lifestyle factors</strong>: no established association with smoking, diet composition, alcohol, or exercise as primary causal/risk factors (as distinct from the <em>behavior itself</em>, which is diet-triggered — i.e., meal ingestion is the physiologic trigger for each episode, not a lifestyle risk factor for disease onset).</li>
+<li><strong>Infectious agents</strong>: none implicated.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal Chain (Primary/Idiopathic Rumination)</h3>
+<ol>
+<li><strong>Trigger</strong>: Ingestion of a meal → gastric distension.</li>
+<li><strong>Voluntary (but typically unperceived/subconscious) coordinated abdominothoracic maneuver</strong>: simultaneous <strong>contraction of the intercostal and upper abdominal wall muscles</strong> (external oblique, upper rectus abdominis) together with a <strong>thoracic "suction" maneuver and relaxation of the crural diaphragm</strong>. This raises <strong>intragastric pressure</strong> — objectively documented at <strong>&gt;30 mmHg on combined high-resolution manometry with impedance (HRIM)</strong> — occurring in a coordinated fashion rather than as isolated straining.</li>
+<li><strong>Reversal of the normal esophagogastric pressure gradient</strong>: the elevated intragastric pressure now exceeds LES pressure; concurrently, there is <strong>relaxation of the upper esophageal sphincter</strong> (and proposed relaxation of the gastric fundus/diaphragm), producing in effect a transient common cavity between stomach and oropharynx.</li>
+<li><strong>Retrograde flow / regurgitation</strong>: gastric contents flow passively up the esophagus into the mouth, where they are re-chewed, re-swallowed, or expectorated.</li>
+<li><strong>Cessation</strong>: episodes typically stop once the refluxed material becomes acidic/bilious in taste (proposed to act as an aversive stop signal), or with sleep/distraction/environmental engagement.</li>
+</ol>
+<p>Manometric/electrophysiologic correlates: gastroduodenal manometry historically demonstrated characteristic <strong>"R" (rumination) waves</strong> attributed to abrupt intra-abdominal pressure spikes; <strong>abdominal wall EMG</strong> shows activation of the abdominal-wall musculature time-locked to episodes; modern <strong>combined esophageal HRIM with impedance</strong> is considered the objective/gold-standard confirmatory test, showing reflux events reaching the proximal esophagus tightly coupled to an abdominal pressure rise &gt;30 mmHg (adults; ~25 mmHg proposed threshold in children) (Absah et al., <em>Neurogastroenterol Motil</em> 2017, PMID cited via Wiley DOI 10.1111/nmo.12954; also PMC6034670, PubMed 24366235/38385686).</p>
+<h3>"Secondary" Rumination (GERD-Associated Pathway)</h3>
+<p>A distinct proposed subtype: pre-existing gastroesophageal reflux episodes trigger a <strong>learned/reflexive abdominal straining response</strong>, effectively "hijacking" a physiologic reflux event into a rumination episode. This subgroup is mechanistically and therapeutically relevant because it may respond differently (e.g., possibly better candidates for anti-reflux surgery) than primary/idiopathic rumination.</p>
+<h3>Proposed Contributing/Associated Findings</h3>
+<ul>
+<li><strong>Delayed gastric emptying</strong> in a subset of patients.</li>
+<li><strong>Increased gastric mechanosensory perception</strong> (visceral hypersensitivity).</li>
+<li><strong>Duodenal/gastric antral eosinophilia and mast cell infiltration</strong>, and increased intraepithelial lymphocytes reported in small histopathologic comparison studies — suggesting a possible low-grade inflammatory/immune component, though causality and specificity remain unestablished (StatPearls NBK576404).</li>
+<li><strong>Autonomic/vagal tone</strong>: contrary to some hypotheses, controlled studies found rumination-syndrome patients do <strong>not</strong> show decreased postprandial vagal tone versus controls; cardiac vagal tone assessment (via ECG-derived indices) is being explored as a marker of gastric discomfort/pain perception rather than as a primary causal autonomic lesion (Fitzke/Hoshikawa et al., UCL working paper; PubMed 32383546; "The autonomic phenotype of rumination," PubMed 19272312). Diaphragmatic breathing's therapeutic benefit is <strong>not mediated by changes in vagal tone</strong>, per at least one mechanistic study (Halland et al., <em>Neurogastroenterol Motil</em> 2016) — its benefit is attributed instead to providing a <strong>competing voluntary motor pattern</strong> that displaces the acquired, largely unperceived abdominothoracic contraction sequence.</li>
+</ul>
+<h3>Cell Types / Biological Processes (for GO/CL annotation, tentative)</h3>
+<p>This is predominantly a <strong>systems-level neuromuscular/behavioral mechanism</strong> rather than a discrete cellular pathology, so GO/CL annotation is necessarily coarse:
+- Smooth muscle of the lower esophageal sphincter (relevant anatomic structure, not a defined "cell type" lesion) — relaxation/tone dysregulation.
+- Skeletal muscle: intercostal muscles, external oblique, rectus abdominis, crural diaphragm — voluntary contraction driving the pressure gradient reversal.
+- Possible antral/duodenal eosinophil and mast cell involvement (immune cell types) in a subset, of uncertain mechanistic significance — candidate CL terms: eosinophil (<a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a>), mast cell (<a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a>), if curating this histopathology finding.
+- Vagal/parasympathetic autonomic circuitry — implicated in visceral perception/discomfort signaling rather than motor execution per current evidence.</p>
+<p><strong>Biological process framing (tentative GO candidates, to be OAK-verified)</strong>: "regulation of gastric emptying," "esophageal smooth muscle relaxation," "belch reflex," "regurgitation" — HPO/GO do not have precise 1:1 process terms for "rumination behavior" itself; this is a case where the mechanism is best captured in <code>pathophysiology</code> free text plus modeled causal-edge nodes (gastric distension → abdominal wall contraction → LES/UES relaxation → pressure gradient reversal → regurgitation) rather than forced into narrow GO leaf terms.</p>
+<h3>Molecular Profiling / Advanced Technologies</h3>
+<p>No transcriptomic, proteomic, metabolomic, single-cell, or spatial-omics dataset specific to rumination syndrome was identified in this research pass. This is consistent with the condition's characterization as a functional/behavioral motility disorder rather than a molecularly profiled disease entity — a notable "gap" relative to sections 6's omics sub-bullets in the template.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary)</strong>: Stomach (fundus — pressure generation), lower esophageal sphincter, upper esophageal sphincter, esophagus (retrograde conduit), diaphragm (crural portion — relaxation permits pressure transmission), abdominal wall musculature (external oblique, rectus abdominis), intercostal muscles (thoracic component of the maneuver).</li>
+<li><strong>Secondary/complication-related organs</strong>: Oral cavity/teeth (dental erosion from repeated acid exposure), possibly duodenum (eosinophilia reported in a subset).</li>
+<li><strong>Body systems involved</strong>: Digestive system (primary); musculoskeletal system (voluntary muscles executing the maneuver); autonomic nervous system (vagal/parasympathetic signaling implicated in discomfort perception, not primary motor mechanism); psychiatric/behavioral system (learned habit, comorbid anxiety/depression).</li>
+<li><strong>Suggested UBERON terms</strong> (tentative, to be OAK-verified): <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a> stomach; <a href="http://purl.obolibrary.org/obo/UBERON_0004907" target="_blank" rel="noopener noreferrer">UBERON:0004907</a> lower esophageal sphincter; <a href="http://purl.obolibrary.org/obo/UBERON_0001043" target="_blank" rel="noopener noreferrer">UBERON:0001043</a> esophagus; <a href="http://purl.obolibrary.org/obo/UBERON_0001087" target="_blank" rel="noopener noreferrer">UBERON:0001087</a> diaphragm; <a href="http://purl.obolibrary.org/obo/UBERON_0001416" target="_blank" rel="noopener noreferrer">UBERON:0001416</a> external oblique muscle (verify exact ID); <a href="http://purl.obolibrary.org/obo/UBERON_0002378" target="_blank" rel="noopener noreferrer">UBERON:0002378</a> rectus abdominis (verify).</li>
+<li><strong>Tissue/cell level</strong>: Smooth muscle of the esophagogastric junction; striated/skeletal muscle of the abdominal wall and diaphragm; possibly gastric antral/duodenal mucosal eosinophils and mast cells (histopathologic finding in a subset).</li>
+<li><strong>Subcellular level</strong>: Not applicable/not characterized — no subcellular lesion (e.g., organelle dysfunction) is described in the literature; this is a systems/organ-level functional disorder.</li>
+<li><strong>Lateralization</strong>: Not applicable (midline, bilateral musculature involved symmetrically).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Infantile form</strong>: onset typically <strong>3–12 months of age</strong>.</li>
+<li><strong>Pediatric/adolescent form</strong>: mean onset ~12.9 years in one adolescent case series (males 11.0±0.8 years; females 13.8±0.5 years) — i.e., earlier onset in males, later in females within the adolescent-onset subgroup.</li>
+<li><strong>Adult form</strong>: mean age at onset <strong>44.5 years</strong> in the Rome Foundation Global Epidemiology Study (i.e., a distinct, later-onset adult population separate from those whose disorder began in adolescence and persisted).</li>
+<li><strong>Onset pattern</strong>: Typically insidious in infants/those with intellectual disability; in adolescents/adults can be <strong>acute</strong>, often triggered by an identifiable antecedent (illness, surgery, psychological stressor).</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li><strong>Disease course pattern</strong>: Chronic once established, without formal "staging" system (unlike oncologic or infectious diseases). No AJCC/WHO staging scheme applies.</li>
+<li><strong>Progression rate</strong>: Variable; can wax and wane with psychosocial stress.</li>
+<li><strong>Disease duration</strong>: Can be self-limited in infants (most recover within about one year, particularly with improved caregiving) but tends toward <strong>chronic, multi-year persistence</strong> if untreated in adolescents/adults, compounded by the characteristic multi-year diagnostic delay (21–77 months, or "5 physicians over 2.75 years").</li>
+<li><strong>Remission</strong>: Achievable with behavioral treatment — a 12-month follow-up study of 47 adolescents found continued symptomatic improvement, with <strong>symptom cessation for ≥6 months in 20%</strong> of patients after intensive behavioral treatment; a separate 54-adolescent cohort followed for 10 months found diaphragmatic breathing + supportive therapy produced <strong>56% substantial improvement and complete symptom cessation in an additional ~30%</strong>.</li>
+<li><strong>Critical periods for intervention</strong>: Early diagnosis (avoiding the characteristic multi-year delay) is emphasized throughout the literature as key to preventing secondary complications (weight loss, malnutrition, dental damage, psychosocial harm) and unnecessary invasive testing/treatment for presumed GERD or cyclic vomiting.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>General adult population prevalence</strong>: <strong>3.1%</strong> (Rome Foundation Global Epidemiology Study), with 54.5% female / 45.5% male among cases and mean onset age 44.5 years.</li>
+<li><strong>Infants/toddlers (0–3 years)</strong>: pooled prevalence <strong>~2.9%</strong>.</li>
+<li><strong>Children</strong>: pooled prevalence <strong>~0.1%</strong>.</li>
+<li><strong>Adolescents</strong>: pooled prevalence <strong>~1.1%</strong>; one school-based survey of 10–16-year-olds in Sri Lanka found <strong>5.1%</strong> prevalence (boys 5.1%, girls 5.0% — essentially equal by sex in that cohort) (PMC3538663).</li>
+<li><strong>Individuals with intellectual disability</strong>: markedly elevated — reported in <strong>6–10% of infants with developmental delay</strong> and <strong>8–10% of institutionalized adults with intellectual disability</strong>, with rates up to ~10% among institutionalized populations specifically.</li>
+<li><strong>General/normal-intelligence population true prevalence is likely underestimated</strong>, because affected individuals often do not seek care or are misdiagnosed (as GERD, cyclic vomiting, or an eating disorder) for years.</li>
+</ul>
+<h3>Inheritance Pattern</h3>
+<p><strong>Not a Mendelian/single-gene disorder</strong> — no defined inheritance pattern (AD/AR/X-linked/mitochondrial) applies. Any familial clustering reported in isolated case reports likely reflects shared environmental/behavioral-learning factors (e.g., modeling within a household, shared psychosocial stressors) rather than genetic transmission; "little evidence concerning the impact of hereditary influence" (Wikipedia synthesis). Penetrance, expressivity, anticipation, germline mosaicism, founder effects, and carrier frequency are <strong>not applicable</strong> concepts for this condition.</p>
+<h3>Population Demographics</h3>
+<ul>
+<li><strong>Sex ratio</strong>: Female predominance in adult-onset disease (Rome Global study: ~55:45 F:M); more balanced in pediatric/school-based samples.</li>
+<li><strong>Geographic distribution</strong>: No endemic geographic pattern identified; case series and school surveys span North America, Europe, and South Asia (e.g., Sri Lanka) without described regional clustering beyond study-site availability/ascertainment.</li>
+<li><strong>Age distribution</strong>: Bimodal/trimodal as above (infant, adolescent, adult-onset subgroups), likely representing at least partially distinct clinical entities sharing a final common regurgitation phenotype rather than one uniform age-of-onset disease.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical Criteria</h3>
+<p><strong>Rome IV (adults)</strong> — all of the following:
+1. Regurgitation of food into the mouth occurring at least 2–3 times weekly (some summaries state "at least 2-3 times monthly" — sources vary; the widely cited Rome IV wording requires "repeated regurgitation... occurring within minutes of ingesting a meal," present for the last 3 months with symptom onset ≥6 months prior).
+2. Regurgitation is <strong>not preceded by retching</strong>.
+Supportive: material is recognizable food with a pleasant/non-acidic initial taste; symptoms cease when the material becomes acidic; heartburn is absent unless concurrent GERD.</p>
+<p><strong>Rome IV pediatric (neonate/toddler, ≥2 months of age)</strong>: repetitive abdominal/diaphragmatic/tongue-muscle contractions with effortless regurgitation, <strong>plus 3 or more</strong> of: onset age 3–8 months; unresponsive to standard GERD therapy; unaccompanied by signs of distress; does not occur during sleep or during active social interaction with caregivers.</p>
+<p><strong>Rome IV pediatric (children/adolescents, ≥2 months)</strong>: repeated regurgitation/rechewing/expulsion beginning soon after meal ingestion; not occurring during sleep; not preceded by retching.</p>
+<p><strong>DSM-5 / DSM-5-TR</strong>: repeated regurgitation for ≥1 month, occurring after feeding, with rechewing/reswallowing/expectorating; occurring several times weekly (usually daily); <strong>absence of retching, nausea, disgust, or associated GI illness</strong>; not attributable to a medical condition (GERD, pyloric stenosis) or exclusively during the course of anorexia nervosa, bulimia nervosa, binge-eating disorder, or ARFID; if occurring alongside another mental disorder or medical condition, must be severe enough to warrant independent clinical attention.</p>
+<p><strong>ICD-11 (6B85, rumination-regurgitation disorder)</strong>: regurgitation behavior that is frequent (≥ several times per week) and sustained (≥ several weeks); diagnosed only at developmental age ≥2 years.</p>
+<h3>Clinical Tests / Objective Confirmation</h3>
+<ul>
+<li><strong>Combined esophageal high-resolution manometry with impedance (HRIM)</strong> is the <strong>objective gold-standard confirmatory test</strong> when clinical diagnosis is uncertain: diagnostic pattern = reflux events reaching the proximal esophagus tightly time-coupled with an <strong>abdominal pressure rise &gt;30 mmHg (adults)</strong> / <strong>~25 mmHg proposed in children</strong>, with near-simultaneous esophageal pressure rise, and (per one detailed criterion set) a gastro-esophageal sphincteric pressure gradient of ~2 mmHg immediately preceding the episode (Kessing et al., "Objective manometric criteria for the rumination syndrome," PubMed 24366235; Absah et al. 2017 review, DOI 10.1111/nmo.12954; Puoti et al. 2024, pediatric HRIM validation, PubMed 38385686).</li>
+<li><strong>Abdominal wall EMG</strong>: demonstrates time-locked activation of abdominal-wall musculature with episodes.</li>
+<li><strong>Gastroduodenal manometry</strong>: historically used, shows characteristic "R waves."</li>
+<li><strong>Upper endoscopy / cross-sectional imaging (e.g., CT enterography)</strong>: used to <strong>exclude</strong> mechanical obstruction, achalasia, or other structural disease — not diagnostic of rumination itself.</li>
+<li><strong>Gastric emptying study, esophageal pH monitoring</strong>: not required for diagnosis but used selectively to exclude/characterize concurrent GERD or gastroparesis, and notably, <strong>~20% of patients labeled "PPI-non-responsive GERD" show a rumination pattern on testing</strong> — an important diagnostic-overlap statistic.</li>
+<li><strong>Basic labs</strong>: electrolytes to screen for complications of frequent regurgitation (uncommon unless a concurrent eating disorder is present).</li>
+<li><strong>Eating-disorder screening</strong>: essential given the high rate of comorbid anorexia/bulimia nervosa (see Section 2).</li>
+</ul>
+<h3>Genetic Testing</h3>
+<p><strong>Not applicable</strong> — no genetic test, panel, WGS/WES indication, karyotype, microarray, or repeat-expansion assay is relevant to diagnosing rumination disorder/syndrome, since it is not a genetically defined condition.</p>
+<h3>Differential Diagnosis</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Key Distinguishing Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Vomiting / gastroparesis</strong></td>
+<td>Gastroparesis vomiting is intermittent, preceded by nausea/retching, occurs late postprandially (hours), and vomitus is no longer recognizable as recently ingested food (may be old/partially digested); rumination regurgitation is immediate, effortless, and the food is fresh/recognizable.</td>
+</tr>
+<tr>
+<td><strong>Cyclic vomiting syndrome</strong></td>
+<td>Discrete, stereotyped vomiting episodes with symptom-free intervals; lacks the immediate-postprandial, retching-free character of rumination.</td>
+</tr>
+<tr>
+<td><strong>Achalasia</strong></td>
+<td>Patients typically stop eating once regurgitation begins and do not habitually re-swallow the regurgitated material — a key behavioral distinguishing feature from rumination, in which re-chewing/re-swallowing is characteristic.</td>
+</tr>
+<tr>
+<td><strong>GERD</strong></td>
+<td>Rumination lacks the sour/acidic taste and heartburn typical of reflux (until late in the episode when regurgitant becomes acidic); ~20% of PPI-refractory "GERD" patients actually have rumination on HRIM testing.</td>
+</tr>
+<tr>
+<td><strong>Bulimia nervosa</strong></td>
+<td>The most common misdiagnosis/confounder — regurgitation in rumination is <strong>involuntary/reflexive</strong>, whereas bulimic purging is <strong>intentional, self-induced vomiting</strong>, often associated with body-image concerns and preceded by binge eating; the two can also co-occur (16.7% of rumination patients had bulimia nervosa history in one cohort).</td>
+</tr>
+<tr>
+<td><strong>Functional dyspepsia, esophagogastric junction outflow obstruction, aerophagia, belching disorders</strong></td>
+<td>Distinguished by symptom timing, character, and (where needed) manometric/impedance findings.</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Screening</h3>
+<p>No population-level screening program exists (this is not a condition amenable to newborn/carrier/genetic screening); "screening" in practice consists of maintaining clinical suspicion — particularly in patients labeled "PPI-refractory GERD," in institutionalized individuals with intellectual disability, and in adolescents/young adults with unexplained weight loss and postprandial regurgitation — to shorten the characteristically long diagnostic delay.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality</strong>: No literature indicates increased mortality or reduced survival associated with rumination disorder/syndrome; it is not a lethal condition per se, though severe untreated cases can cause serious malnutrition.</li>
+<li><strong>Morbidity/function</strong>: Chief morbidity is <strong>psychosocial</strong> (school/work absenteeism, social avoidance, anxiety, depression) and <strong>nutritional</strong> (weight loss in up to ~40% of adult cohorts and 17–43% of pediatric cohorts, occasionally severe enough to require enteral nutrition).</li>
+<li><strong>Disease course</strong>: Considered a <strong>reversible, acquired habit</strong> rather than a fixed structural lesion — the condition responds well to targeted behavioral intervention in the majority of patients. StatPearls: prognosis in children/adolescents is "benign, although symptoms may persist for years" without treatment.</li>
+<li><strong>Complications</strong>:</li>
+<li>Weight loss/malnutrition (more common with prolonged diagnostic delay or comorbid eating disorder).</li>
+<li>Electrolyte disturbance (uncommon, mainly in refractory/comorbid-eating-disorder cases).</li>
+<li>Dental erosion and caries (more prominent in pediatric and refractory cases).</li>
+<li>Need for nutritional support: in one retrospective cohort of 133 underweight rumination patients, <strong>23 required jejunostomy tube placement</strong>, maintained on average <strong>16 weeks</strong>, associated with a mean weight gain of <strong>38.8 pounds</strong>, supporting weight restoration and enabling engagement in behavioral therapy.</li>
+<li>Psychosocial complications: anxiety, depression, somatization, social withdrawal.</li>
+<li><strong>Prognostic factors</strong>: Response to diaphragmatic breathing/behavioral therapy is a strong positive prognostic indicator. A <strong>prior history of bulimia nervosa is associated with reduced treatment response</strong> to standard behavioral approaches (Wikipedia, citing PubMed source [9]/[14]). Longer diagnostic delay is associated with greater nutritional/psychosocial morbidity by the time treatment begins.</li>
+<li><strong>Longitudinal outcome data</strong>: A 2018 study of 47 adolescents followed for 12 months after intensive behavioral treatment found continued improvement, with <strong>symptom cessation ≥6 months in 20%</strong>, along with discontinuation of supplemental nutrition, reduced somatic symptom burden, and improved quality of life.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>First-Line: Behavioral Therapy</h3>
+<ul>
+<li><strong>Diaphragmatic breathing</strong> is the universally recommended <strong>first-line therapy</strong> across pediatric and adult guidelines. Technique: seated, one hand on chest and one on abdomen; breathe so only the abdominal hand moves; inhale through the nose over 4–6 seconds, hold 2–3 seconds, exhale slowly through pursed lips; performed proactively after meals or at the first sensation/urge to regurgitate. Mechanistically, it works by <strong>substituting a competing, voluntary motor pattern for the acquired, largely unperceived abdominothoracic contraction sequence</strong> — notably, its benefit is <strong>not mediated via changes in cardiac vagal tone</strong> (Halland et al. 2016).</li>
+<li><strong>Biofeedback-assisted training</strong>: uses visual/instrumented feedback (surface EMG or HRIM tracing) to help patients learn to suppress the postprandial rise in gastric/intra-abdominal pressure. A randomized trial found biofeedback produced a <strong>74±6% reduction in rumination events</strong> (from 29±6 to 7±2 daily episodes) versus ~1±14% with sham treatment.</li>
+<li>Behavioral modification overall is reported to <strong>eliminate the behavior in up to 66%</strong> of patients and <strong>reduce frequency by up to 55%</strong> in others (StatPearls synthesis); a separate adolescent cohort (n=54, 10-month follow-up) found diaphragmatic breathing + supportive therapy produced substantial improvement in 56% and complete cessation in an additional ~30%.</li>
+<li>Adjuncts: general relaxation training, cognitive-behavioral therapy (especially where anxiety/depression/OCD/PTSD comorbidity is present), habit-reversal training, and gum-chewing as a behavioral adjunct.</li>
+<li><strong>Suggested MAXO terms</strong> (tentative — verify via OAK before curating): <code>MAXO:0000011</code> physical therapy (not an exact fit — diaphragmatic breathing training is closer to a specific respiratory/behavioral retraining technique without an obvious precise MAXO leaf term; consider <code>MAXO:0000077</code> behavioral counseling or a biofeedback-specific term if one exists), and a general <strong>behavioral/psychotherapy</strong> MAXO/NCIT term for CBT.</li>
+</ul>
+<h3>Pharmacotherapy (Reserved for Behavior-Therapy-Refractory Cases)</h3>
+<ul>
+<li><strong>Baclofen</strong> (GABA-B agonist): <strong>10 mg three times daily</strong>, shown in a double-blind, placebo-controlled crossover RCT to reduce transient LES relaxations and improve patient-reported rumination symptoms, with <strong>symptomatic improvement in 63% of treated patients</strong>. Main limitation: sedation/drowsiness. <code>treatment_term</code>: NCIT:C15986 Pharmacotherapy; <code>therapeutic_agent</code>: baclofen (CHEBI ID to be verified, e.g., <a href="http://purl.obolibrary.org/obo/CHEBI_2972" target="_blank" rel="noopener noreferrer">CHEBI:2972</a> — confirm via OAK).</li>
+<li><strong>Buspirone</strong>: supported by extrapolation from functional dyspepsia data (improves gastric fundic relaxation); expert opinion supports a trial in refractory rumination, but no rumination-syndrome-specific RCT was identified.</li>
+<li><strong>Proton pump inhibitors and other standard antireflux medications</strong>: explicitly noted to have "little or no effect" on primary rumination — an important negative finding, useful for distinguishing rumination from GERD in a treatment-response sense.</li>
+</ul>
+<h3>Nutritional Support</h3>
+<ul>
+<li>Careful assessment of nutritional status is essential given typical diagnostic delay.</li>
+<li><strong>Jejunostomy (J-tube) feeding</strong> for underweight/malnourished patients unable to progress with behavioral therapy alone — in one cohort, 23/133 underweight patients required J-tube placement (mean duration 16 weeks), with mean weight gain of 38.8 lb, facilitating subsequent behavioral therapy engagement.</li>
+</ul>
+<h3>Surgical/Interventional (Investigational; Not Recommended as Standard)</h3>
+<ul>
+<li><strong>Nissen fundoplication</strong>: case series show mixed results — some patients (e.g., 5 cases in one series) responded well; a separate 12-patient series found upper GI symptoms <em>worsened</em> in 9/12 patients. Considered potentially more rational for <strong>"secondary" rumination</strong> (GERD-triggered rumination) than for primary/idiopathic rumination. Current consensus: role remains investigational/uncertain, and "avoidance of surgery as a therapy for rumination syndrome is recommended" in the absence of controlled data.</li>
+<li><strong>Subtotal gastrectomy with Roux-en-Y reconstruction</strong>: reported as a "last resort" in a single refractory case with concurrent delayed gastric emptying, with &gt;85% symptom resolution over 6 months and improved BMI/QoL — a single case report, not generalizable.</li>
+</ul>
+<h3>Experimental / Emerging</h3>
+<p>No dedicated ClinicalTrials.gov-registered pharmacologic trials beyond the baclofen crossover study and the NHRA "Role of Vagal Tone in Rumination Syndrome" study (NCT03912636, mechanistic, not a treatment trial) were identified; a behavioral-therapy trial (NCT05232097, "Behavioral Therapy in Patients With Rumination") is registered, focused on optimizing/validating behavioral intervention delivery rather than a novel therapeutic agent.</p>
+<h3>Treatment Strategy / Algorithm</h3>
+<ol>
+<li>Confirm diagnosis clinically (Rome IV/DSM-5), consider HRIM if uncertain or if ruling out GERD/gastroparesis.</li>
+<li>Educate and reassure (benign, learned-behavior framing); screen for and address comorbid eating disorder/psychiatric disease.</li>
+<li>First-line: diaphragmatic breathing ± biofeedback, delivered with structured behavioral/CBT support.</li>
+<li>Assess and address nutritional status; enteral (jejunostomy) feeding if significant malnutrition impedes behavioral engagement.</li>
+<li>Refractory to behavioral therapy → trial of baclofen (consider buspirone as an alternative).</li>
+<li>Surgery (fundoplication, subtotal gastrectomy) reserved as an investigational last resort in carefully selected refractory cases, particularly those with a "secondary"/GERD-driven mechanism or concurrent gastric emptying disorder.</li>
+</ol>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention</strong>: For infantile rumination linked to neglect/under-stimulation, promoting <strong>responsive, nurturing caregiving</strong> (including formal caregiver training and, historically, use of a temporary substitute caregiver to model appropriate soothing/feeding responses) is the described preventive/therapeutic approach; improved NICU bonding practices are credited with making infant rumination rare in that setting.</li>
+<li><strong>Secondary prevention (early detection)</strong>: The single most emphasized "preventive" measure in the literature is <strong>reducing diagnostic delay</strong> — maintaining clinical suspicion for rumination in patients labeled treatment-refractory GERD, cyclic vomiting, or eating disorder, thereby avoiding years of unnecessary/invasive testing and ineffective treatment (PPIs) and initiating effective behavioral therapy sooner, which limits secondary malnutrition/psychosocial harm.</li>
+<li><strong>Tertiary prevention</strong>: Behavioral therapy adherence and nutritional monitoring to prevent complications (dental erosion, malnutrition) in patients with established disease; integrated multidisciplinary care (gastroenterology + behavioral health + dietetics ± pharmacy) to prevent relapse and complication accrual.</li>
+<li><strong>Immunization</strong>: Not applicable.</li>
+<li><strong>Genetic/carrier screening, preimplantation testing</strong>: Not applicable (non-genetic condition).</li>
+<li><strong>Behavioral interventions</strong>: Central to prevention/management — see diaphragmatic breathing/biofeedback above.</li>
+<li><strong>Genetic counseling</strong>: Not applicable.</li>
+<li><strong>Public health/environmental interventions</strong>: Not a notifiable or environmentally-driven condition; no public-health-level intervention (sanitation, vector control) is relevant.</li>
+<li><strong>Prophylaxis (medication)</strong>: No prophylactic medication regimen is established; baclofen is used therapeutically once symptomatic, not prophylactically.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>This section requires an important conceptual clarification: <strong>"rumination" as normal ruminant digestive physiology is an entirely distinct phenomenon from the human disease "rumination syndrome/disorder"</strong> and the two should not be conflated in a mechanism module.</p>
+<ul>
+<li><strong>Ruminant "rumination" (physiological, not pathological)</strong>: In ruminants (cattle, sheep, goats, giraffes — a large clade within Artiodactyla with a four-chambered stomach), rumination is a <strong>normal, essential digestive process</strong>: reticular contraction plus relaxation of the distal esophageal sphincter allows a bolus of fermented "cud" to be carried by reverse peristalsis into the mouth for re-chewing/re-insalivation before re-swallowing, aiding fibrous-plant-material digestion. This is physiologic, not disease, and is actively used as an animal-health/reproduction monitoring signal in veterinary/livestock science (e.g., automated "rumination time" sensors in dairy cattle correlate with health and reproductive status; PMC11398270, PMC8547861).</li>
+<li><strong>Non-ruminant animals with a pathological/atypical rumination-like behavior</strong> (more analogous to the human disorder):</li>
+<li><strong>Great apes/other primates</strong>: involuntary regurgitation-and-reingestion behavior has been documented in <strong>gorillas</strong> and other non-human primates, often studied as an abnormal repetitive/self-directed behavior in captivity (a behavioral-welfare concern, sometimes linked to environmental impoverishment — conceptually parallel to the caregiver-neglect/under-stimulation model proposed for human infants and institutionalized individuals with intellectual disability).</li>
+<li><strong>Kangaroos</strong>: exhibit regurgitation, re-mastication, and re-swallowing behavior also termed "merycism" in that context, but described as less predictable/rhythmic than true ruminant physiology and not essential to their digestion.</li>
+<li><strong>Companion/zoo animals</strong>: a case report describes a <strong>multimodal treatment approach for "rumination syndrome" in a California sea lion (<em>Zalophus californianus</em>)</strong> (PMC12562190) — a genuinely veterinary-clinical (pathological, non-digestive-physiology) presentation, the closest documented naturally-occurring veterinary analog to the human disorder identified in this search.</li>
+<li><strong>Taxonomy note</strong>: no NCBI Taxon-specific "affected species" list beyond the above exists in a systematic disease-registry sense; OMIA (Online Mendelian Inheritance in Animals) was not found to carry a dedicated entry, consistent with this not being a genetically defined condition in any species.</li>
+<li><strong>Zoonotic potential</strong>: Not applicable — this is a behavioral/motility condition, not a transmissible disease.</li>
+</ul>
+<p><strong>Curatorial recommendation</strong>: if modeling this in dismech, keep the human disorder's <code>pathophysiology</code> chain strictly separate from ruminant digestive physiology (which is not a disease at all in that context) and, if desired, note the sea-lion/primate veterinary parallels only as a brief comparative note rather than a "natural disease in other species" <code>has_subtypes</code>-style model, since evidence density there is minimal (single case reports).</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>No dedicated genetic model organism (mouse knockout, zebrafish, Drosophila, C. elegans, yeast) exists for rumination disorder/syndrome</strong>, consistent with its non-genetic, behaviorally-mediated pathophysiology. This is an important and notable gap relative to most dismech entries.</p>
+<p>The closest experimental analogs identified are <strong>not disease models but mechanistic/physiological probes of the shared gastric-distension → visceral-perception pathway</strong>:
+- <strong>Intragastric balloon distension studies</strong> (both in animal models, e.g., awake-rat visceral-manipulation neuroimaging paradigms — bioRxiv 2024.09.17.613477 — and in human fMRI studies) show that experimenter-controlled gastric distension is temporally coincident with cerebral blood flow changes in the cerebellum, insula, and anterior cingulate gyrus, with <strong>overlapping activation patterns between animal gastric-distension paradigms and human intragastric-balloon fMRI studies</strong> — relevant to understanding gastric mechanosensation/visceral perception generally, but these are models of <strong>visceral sensory processing</strong>, not of the rumination behavior/motor sequence itself.
+- <strong>Historical human "auto-experimentation"</strong>: the 19th-century physiologist Dr. Charles-Édouard Brown-Séquard is described as having experimentally induced a personal rumination habit while testing gastric-acid responses using swallowed string-tied sponges, eventually developing habitual reflex regurgitation of meals — an early (non-systematic) human self-experiment rather than a formal model system, but historically notable.
+- <strong>Veterinary case reports</strong> (sea lion, above) function as isolated clinical analogs rather than controlled experimental models.</p>
+<p><strong>Applications/limitations</strong>: Because no genetic or induced-lesion animal model recapitulates the human behavioral syndrome, essentially all pathophysiologic and treatment-mechanism knowledge in this field derives from <strong>human clinical physiology studies</strong> (manometry/impedance, EMG, cardiac vagal tone measurement) rather than model-organism experimentation. Any future "model" claims for this condition would need scrutiny for <strong>HUMAN_MODEL_MISMATCH</strong>-type validity concerns given the essentially human-behavioral nature of the disorder.</p>
+<hr />
+<h2>Summary of Key Evidence Gaps (for Curation Planning)</h2>
+<ol>
+<li><strong>No confirmed MONDO ID, no OMIM entry</strong> — needs direct OAK/Monarch lookup before curating <code>disease_term</code>/<code>mappings</code>.</li>
+<li><strong>No verified HPO term IDs</strong> in this pass — all suggested HP terms above are first-pass candidates requiring OAK confirmation.</li>
+<li><strong>No genetic etiology</strong> — <code>genetic:</code> block should likely be omitted or explicitly annotated as not-applicable; strong NEC risk if genetic-rumination (cognitive/depressive construct) literature is mistakenly cited.</li>
+<li><strong>No animal/cellular disease model</strong> — <code>model_organisms</code> section will be essentially empty beyond noting the absence and the tangential gastric-distension neuroimaging literature.</li>
+<li>Quantitative statistics (prevalence, weight-loss %, treatment response rates) derive mostly from <strong>single-center case series</strong>, not population-representative registries — should be flagged as such in evidence <code>notes</code>/<code>explanation</code> fields.</li>
+<li>Distinguish carefully in curation between the <strong>two ICD-11 codes</strong> (6B85 mental/behavioral vs. DD90.6 digestive-disease) and the <strong>DSM-5 vs. Rome IV</strong> classification traditions, which frame the same clinical phenomenon differently and carry different comorbidity/exclusion criteria.</li>
+</ol>
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK576404/">Rumination Disorder - StatPearls - NCBI Bookshelf</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Rumination_syndrome">Rumination syndrome - Wikipedia</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21303399/">Review article: the pathophysiology, differential diagnosis and management of rumination syndrome - PubMed</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/10.1111/nmo.12954">Rumination syndrome: pathophysiology, diagnosis, and treatment - Absah et al., Neurogastroenterology &amp; Motility 2017</a></li>
+<li><a href="https://academic.oup.com/dote/article/37/9/doae041/7671046">Current state of rumination syndrome - Diseases of the Esophagus</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/38741462/">PubMed</a></li>
+<li><a href="https://www.cghjournal.org/article/S1542-3565(18)30602-5/fulltext">Diagnosis and Treatment of Rumination Syndrome - Clinical Gastroenterology and Hepatology</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38385686/">The role of high-resolution impedance manometry to identify rumination syndrome in children with unexplained foregut symptoms - PubMed</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/24366235/">Objective manometric criteria for the rumination syndrome - PubMed</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6034670/">Rumination Syndrome: Unknown Pathology Easy to Diagnose With High-resolution Impedance Manometry - PMC</a></li>
+<li><a href="https://clinicaltrials.gov/study/NCT03912636">Role of Vagal Tone in Rumination Syndrome - ClinicalTrials.gov (NCT03912636)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32383546/">Rumination syndrome: Assessment of vagal tone during... - PubMed</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19272312/">The autonomic phenotype of rumination - PubMed</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/nmo.12737">Diaphragmatic breathing for rumination syndrome: efficacy and mechanisms of action - Halland et al., Neurogastroenterology &amp; Motility 2016</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31116102/">Rumination syndrome: when to suspect and how to treat - PubMed</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3538663/">Rumination syndrome in children and adolescents: a school survey assessing prevalence and symptomatology - PMC</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9220787/">Prevalence of pica and rumination behaviours in adults... - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33988353/">Eating and Psychiatric Disorders Are Independent Risk Factors for Rumination Syndrome - PubMed</a></li>
+<li><a href="https://www.gastroenterologyadvisor.com/news/eating-disorders-psychiatric-disorders-increased-risk-rumination-syndrome/">Eating Disorders and Other Psychiatric Disorders May Increase Risk for Rumination Syndrome - Gastroenterology Advisor</a></li>
+<li><a href="https://www.mrcpsych.uk/2022/05/icd-11-criteria-for-rumination.html">ICD-11 Criteria for Rumination-Regurgitation Disorder (6B85)</a></li>
+<li><a href="https://www.findacode.com/icd-11/code-55732315.html">DD90.6 Adult rumination syndrome - ICD-11 MMS</a></li>
+<li><a href="https://www.findacode.com/icd-11/code-1205760590.html">6B85 Rumination-regurgitation disorder - ICD-11 MMS</a></li>
+<li><a href="https://www.icd10data.com/ICD10CM/Codes/F01-F99/F90-F98/F98-/F98.21">2025 ICD-10-CM Diagnosis Code F98.21</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5040524/">Subtotal Gastrectomy as "Last Resort" Consideration in the Management of Refractory Rumination Syndrome - PMC</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/27785277/">PubMed</a></li>
+<li><a href="https://journals.lww.com/ajg/fulltext/2015/10001/is_nissen_fundoplication_surgery_efficacious_for.1719.aspx">Is Nissen Fundoplication Surgery Efficacious for the... - ACG Journal</a></li>
+<li><a href="https://karger.com/dig/article/105/1/18/864318/Belching-Disorders-and-Rumination-Syndrome-A">Belching Disorders and Rumination Syndrome: A Literature Review - Digestion (Karger)</a></li>
+<li><a href="https://www.vulgaris-medical.com/en/encyclopedie-medicale/merycisme">Rumination disorder - Symptoms, Causes and Treatments - Vulgaris Médical</a></li>
+<li><a href="https://www.nature.com/articles/s41398-019-0454-1">Genome-wide association analysis reveals KCTD12 and miR-383-binding genes in the background of rumination - Translational Psychiatry</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4111768/">Genetic and environmental influences on rumination and its covariation with depression - PMC</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/24499019/">PubMed</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12562190/">A Multimodal Approach to Treatment and Management of Rumination Syndrome in a California Sea Lion (Zalophus californianus) - PMC</a></li>
+<li><a href="https://vivo.colostate.edu/hbooks/pathphys/digestion/herbivores/rumination.html">Rumen Physiology and Rumination - Colorado State University</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11398270/">A New Approach to Recording Rumination Behavior in Dairy Cows - PMC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8547861/">Using rumination time to manage health and reproduction in dairy cattle: a review - PMC</a></li>
+<li><a href="https://www.biorxiv.org/content/10.1101/2024.09.17.613477.full.pdf">Neuroimaging model of visceral manipulation in awake rat - bioRxiv</a></li>
+<li><a href="https://www.elsevier.es/en-revista-gastroenterologia-hepatologia-english-edition--382-articulo-rumination-syndrome-critical-review-S2444382422000189">Rumination syndrome: Critical review - Gastroenterología y Hepatología (English Edition)</a></li>
+<li><a href="https://www.mayoclinicproceedings.org/article/S0025-6196(11)63571-4/fulltext">Rumination Syndrome - Mayo Clinic Proceedings</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Rubinstein-Taybi_Syndrome-falcon.html">← Rubinstein-Taybi Syndrome (Falcon)</a>
+                
+                
+                <a href="Rumination_Disorder-falcon.html">Rumination Disorder (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Rumination_Disorder.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Rumination_Disorder-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Rumination_Disorder-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

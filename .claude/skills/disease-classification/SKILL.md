@@ -28,6 +28,12 @@ classifications:
 All `classification_value` slots are enum-typed: free-text values will
 fail schema validation. Use the controlled keys below.
 
+Every slot in `DiseaseClassifications` renders on the disorder page
+automatically — the Classifications card is generated from the schema,
+labelled by each slot's LinkML `title`, and grouped by `slot_group`. You
+do not need to touch the template when curating, and a slot you populate
+will never silently fail to appear.
+
 ## Harrison's Part (`harrisons_chapter`)
 
 Despite the slot name, the controlled vocabulary lives at the **Part**
@@ -120,6 +126,100 @@ enum.
   Metabolic Disorders (ICIMD) category/group. Apply to inherited
   metabolic disorders (inborn errors of metabolism). Multivalued. See
   the dedicated section below.
+- **`isds_skeletal_category`** — ISDS Nosology group (2023 revision) for
+  genetic skeletal disorders (skeletal dysplasias, dysostoses, metabolic bone
+  disorders, skeletal malformation/reduction syndromes). Multivalued in
+  the schema, but a single ISDS-listed disorder takes exactly one group.
+  See the dedicated section below.
+- **`ilo_agent_category`** / **`ilo_disease_category`** — the two orthogonal
+  axes of the ILO List of Occupational Diseases (revised 2010). Apply to any
+  disease with a recognised occupational form. Both multivalued.
+- **`eu_occupational_category`** — item(s) of the European schedule of
+  occupational diseases (Rec. 2003/670/EC as amended). Multivalued.
+  See the dedicated section below.
+
+## Occupational disease (`ilo_agent_category`, `ilo_disease_category`, `eu_occupational_category`)
+
+Two sanctioned occupational nosologies, plus six **agent-level** exposure axes
+that do NOT go in this block. Full guidance:
+[`docs/occupational-environmental-classifications.md`](../../../docs/occupational-environmental-classifications.md).
+
+**First, the split that matters.** `classifications:` classifies the *disease*.
+Facts about the *agent* — IARC carcinogen group, GHS hazard class, route,
+duration, hazard type, exposome domain — belong on the `environmental:` entry
+under `exposure_classifications:`, never here. "Benzene is IARC Group 1" is a
+statement about benzene, not about any disease it causes.
+
+```yaml
+classifications:
+  harrisons_chapter:
+  - classification_value: RESPIRATORY
+  ilo_disease_category:              # sections 2 and 4 -> disease-category axis
+  - classification_value: pneumoconiosis_from_fibrogenic_mineral_dust
+    notes: 'ILO List of Occupational Diseases (revised 2010), item 2.1.1.'
+  eu_occupational_category:
+  - classification_value: silicosis
+    notes: 'European schedule Annex I item 301.11 "Silicosis".'
+
+environmental:
+- name: Occupational Respirable Crystalline Silica Exposure
+  exposure_classifications:          # <- agent-level, NOT in classifications:
+    hazard_agent_type:
+    - classification_value: CHEMICAL
+    exposure_route:
+    - classification_value: INHALATION
+    iarc_carcinogen_group:
+      classification_value: GROUP_1
+```
+
+**Assign both nosologies when both apply** — they are separate instruments, not
+substitutes, and neither implies the other. The EU schedule is finer-grained
+(separate items for silicosis 301.11 / asbestosis 301.21 / mesothelioma 301.22
+where ILO has one item 2.1.1 plus a cancer item 3.1.1) and uniquely carries
+COVID-19 (408) and the 2025 asbestos additions (311–314).
+
+**The ILO list is biaxial — pick the slot by section.** The two axes are
+separate slots over separate enums, so a value from one axis will not validate
+in the other's slot:
+
+| ILO sections | Slot | Enum | Items name |
+|---|---|---|---|
+| 1 (chemical/physical/biological agents), 3 (cancer) | `ilo_agent_category` | `ILOCausativeAgentEnum` | the agent |
+| 2 (by target organ system), 4 (other diseases) | `ilo_disease_category` | `ILODiseaseCategoryEnum` | the disease |
+
+A disease commonly takes one from each — occupational asthma from isocyanates is
+both `isocyanates` (1.1.35, agent slot) and `occupational_asthma` (2.1.7,
+disease slot). Both slots stay multivalued because more than one item from a
+single axis is normal (silicosis takes 2.1.1 and 2.1.2). Do NOT carry the ISDS
+"exactly one group" rule over to this instrument.
+
+The three occupational slots share a LinkML `slot_group`
+(`occupational_classification`), but that is display grouping only and enforces
+nothing — the separate enum ranges are what bind each axis.
+
+**Assign only when an occupational form is recognised.** An exposure existing is
+not enough — lead poisoning from contaminated water is not ILO 1.1.8; lead
+poisoning in a smelter worker is. A disease with both occupational and
+non-occupational forms (asthma, COPD, mesothelioma, hearing loss) still takes the
+item; the assignment records that an occupational form is recognised, not that
+every case is occupational. Say which in `notes`.
+
+**Annex II is "suspected", not recognised.** EU keys prefixed `suspected_` come
+from Annex II — the additional list of diseases *suspected* of being
+occupational. Never report one as a recognised occupational disease; say so in
+`notes`.
+
+Record provenance in `notes` (revision, item number, annex). As with ICIMD and
+ISDS this is a definitional taxonomy mapping, not an empirical disease claim, so
+prefer `notes` over a manufactured evidence `snippet`.
+
+Do NOT put the citing identifier for the *instrument* in `notes` prose — that
+lives in the schema, on the enum's `source:` metaslot. The eight European items
+added by the 2022 and 2025 amendments additionally carry a per-value `source:`,
+so if a value has its own `source` it is a recent addition.
+
+Worked examples: `Silicosis`, `Asbestosis`, `Malignant_Mesothelioma`,
+`Noise_Induced_Hearing_Loss`.
 
 ## ICIMD (`icimd_category`) — inherited metabolic disorders
 
@@ -175,6 +275,86 @@ from linkml_runtime.utils.schemaview import SchemaView
 sv = SchemaView('src/dismech/schema/dismech.yaml')
 for k, pv in sv.get_enum('ICIMDEnum').permissible_values.items():
     print(('  ' if pv.is_a else '') + k + (f'  (is_a {pv.is_a})' if pv.is_a else '  [CATEGORY]'))
+"
+```
+
+## ISDS Nosology (`isds_skeletal_category`) — genetic skeletal disorders
+
+For genetic skeletal disorders, assign the group from
+`ISDSNosologyGroupEnum` (defined in
+`src/dismech/schema/classifications/isds_skeletal_nosology.yaml`,
+transcribed from the ISDS Nosology of Genetic Skeletal Disorders, 2023
+revision — Unger et al., **PMID:36779427**). That revision lists 771
+entries across 552 genes in 41 groups, mixing molecular, radiographic,
+and anatomical/pathogenetic organizing principles. It supersedes the
+2019 revision (Mortier et al., PMID:31633310), whose group names are
+retained as `structured_aliases` and whose four dissolved groups are
+retained as `deprecated` values — **never assign a deprecated value**.
+
+The enum is **flat**, not hierarchical, and the nosology deliberately
+lists each disorder **exactly once**. So:
+
+- **Assign one group.** The slot is multivalued only for an entry that
+  lumps several distinct nosology disorders. Do not add a second group
+  because the biology overlaps — Table 1 handles overlap with "see
+  also" cross-references, not dual membership.
+- **Only assign to listed disorders.** This is a transcription of an
+  expert nosology, not an inference engine. If the entry is not in
+  Table 1 (and is not an unambiguous subtype or synonym of a Table 1
+  disorder), leave the slot empty — plenty of disorders with skeletal
+  phenotypes were deliberately not included.
+- Watch for cross-group traps: FGFR3 craniosynostosis belongs to the
+  craniosynostosis group, not the FGFR3 group; Hajdu-Cheney is
+  osteolysis, not OI/bone fragility; brachydactyly-hypertension is a
+  syndromic brachydactyly, not acromelic.
+- **Group numbers are not stable across revisions** — the brachydactyly
+  groups moved from 37/38 to 18/19 between 2019 and 2023. Cite the
+  group by name and revision in `notes:`, never by bare number.
+- **Entities the nosology flags but declines to decompose** get the group on
+  the entity only. Fanconi anemia is the worked case: it sits in group 38
+  "Limb hypoplasia – reduction defects" in the 2023 revision (group 39 in
+  2019 — note the shift, and that 2023 group 39 is a different group,
+  "Split hand/foot"). Its gene column reads "(several)" and the group
+  footnote says the complementation groups are "acknowledged but not further
+  listed". That is a caveat about genetic decomposition, not about membership
+  — so assign `limb_hypoplasia_reduction_defects` to Fanconi anemia, note the
+  caveat, and do not invent per-complementation-group placements. Assign the
+  enum key, not a number: the key is revision-stable, the number is not.
+
+```yaml
+classifications:
+  harrisons_chapter:
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+  isds_skeletal_category:
+  - classification_value: fgfr3_chondrodysplasia
+    notes: >-
+      ISDS Nosology of Genetic Skeletal Disorders, 2023 revision
+      (Unger et al., PMID:36779427), group 1 "FGFR3 chondrodysplasias";
+      listed as "Achondroplasia, FGFR3-related".
+```
+
+Groups carry no `meaning:`; three carry a `close_mappings:` to a MONDO
+class (FGFR3 chondrodysplasias, TRPV4 disorders, and acromesomelic
+dysplasias — the gene-defined series). A candidate MONDO
+class is rejected whenever it contains an entity ISDS lists in a
+*different* group, so do not add mappings without running that check.
+See `docs/isds-skeletal-nosology.md` for the accepted and rejected sets.
+
+As with ICIMD, record provenance in `notes:` and prefer it over
+`evidence:`. The paper's PubMed record is **abstract-only**, so no
+exact-quote snippet from it can support a specific group placement —
+the abstract states only that the nosology exists and has 771 entries
+across 552 genes in 41 groups. Quote it only if you are supporting *that* framework
+claim, never a per-disorder assignment.
+
+To list the groups:
+
+```bash
+uv run python -c "
+from linkml_runtime.utils.schemaview import SchemaView
+sv = SchemaView('src/dismech/schema/dismech.yaml')
+for k, pv in sv.get_enum('ISDSNosologyGroupEnum').permissible_values.items():
+    print(k, '-', (pv.description or '').split('.')[0])
 "
 ```
 
@@ -271,7 +451,8 @@ from a pinned XML manifest) and never drift in wording.
 4. **Validate**:
    ```bash
    just validate kb/disorders/<File>.yaml
-   just validate-references kb/disorders/<File>.yaml
+   just count-verified-snippets kb/disorders/<File>.yaml
+   # then, once before the PR: just validate-disorders kb/disorders/<File>.yaml
    ```
 
 ### Auditing missing classification evidence

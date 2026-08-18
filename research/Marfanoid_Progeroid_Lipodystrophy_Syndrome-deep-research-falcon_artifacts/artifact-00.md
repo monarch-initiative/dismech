@@ -1,0 +1,10 @@
+| Variant type | Specific nucleotide change | Exon/intron location | Molecular consequence | NMD escape confirmed? |
+|---|---|---|---|---|
+| Exonic | Not individually specified in available evidence (5 total exonic insertion/deletion variants across reported cases) | Exon 65 or exon 66, near 3' terminus of **FBN1** | Frameshift leading to premature termination codon; predicted truncated profibrillin/fibrillin-1; associated with MFLS | Predicted in silico for 5 exonic variants; not experimentally confirmed in the available evidence (pqac-00000026, pqac-00000027) |
+| Intronic | **c.8226+1G>A** | Intron 65 | Exon 65 skipping causing frameshift and premature termination codon | Exon 65 skipping experimentally confirmed in a prior case; direct NMD escape not confirmed in the available evidence for that prior case (pqac-00000003, pqac-00000026, pqac-00000027) |
+| Intronic | **c.8226+1G>T** | Intron 65 | Presumed splice disruption with exon 65 skipping/frameshift leading to premature termination codon | Not confirmed in the available evidence; reported in 2 cases (pqac-00000026) |
+| Intronic | **c.8226+5G>A** | Intron 65 | Exon 65 skipping, frameshift, mutant transcript retained | **Yes**; first experimental confirmation of both exon 65 skipping and escape from nonsense-mediated decay in clinical MFLS sample (pqac-00000003, pqac-00000018, pqac-00000019, pqac-00000026) |
+| Aggregate MFLS variant class | Variants between exons 64 and 65 / extreme C-terminal region | 3' region encoding extreme C-terminal domains of fibrillin-1 | Premature stop codons that escape NMD, producing truncated fibrillin-1/profibrillin and loss of normal asprosin-related C-terminal function | Supported at syndrome level; direct experimental proof available for c.8226+5G>A case (pqac-00000000, pqac-00000004, pqac-00000007, pqac-00000019) |
+
+
+*Table: This table summarizes the reported FBN1 variant classes and specific intronic changes associated with Marfanoid-Progeroid-Lipodystrophy Syndrome, emphasizing their 3′-terminal localization, splice/frameshift consequences, and current evidence for nonsense-mediated decay escape.*
