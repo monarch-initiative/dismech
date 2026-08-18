@@ -5,8 +5,10 @@ each asserted claim is actually carried by the evidence attached to it.
 
 > **State this report describes:** rebased onto `main` at `e85b40a8`. Findings were
 > re-verified against that tree. One finding (#1, ITP) had been fixed upstream in the
-> interim and is marked RESOLVED; the other fourteen still reproduce. All 358
-> reference/snippet pairs re-validate at this commit.
+> interim and is marked RESOLVED; the other fourteen still reproduce.
+> `just count-verified-snippets` over the ten entries at this commit reports
+> `362/372 verified (10 skipped by prefix)` — see Mechanical validation for what the
+> skipped ten are and why it matters.
 
 ## Entries reviewed
 
@@ -27,10 +29,21 @@ each asserted claim is actually carried by the evidence attached to it.
 
 - `linkml-validate` (Disease target class): **no issues** across all 10.
 - `linkml-reference-validator`: no ERRORs (only 403/404 full-text fetch noise).
-- Independent re-check of **every** `reference`+`snippet` pair against
-  `references_cache/` (Unicode-normalised substring match): **331 snippets checked,
-  0 mismatches**. One reference has no cache file:
-  `url:https://www.fda.gov/...` in `Alpha_Thalassemia.treatments[6]`.
+- Snippet fidelity, via the repo's own tool
+  (`uv run python -m dismech.reference_snippet_audit`, i.e. `just count-verified-snippets`)
+  over the ten entries at this tip:
+
+  ```
+  Snippets checked: 362/372 verified against cached references (10 skipped by prefix)
+  ```
+
+  **Zero mismatches — but "372" is not "every snippet in these files."** Ten are never
+  checked by anything: the `DOI:`-prefixed items in `Polycythemia_Vera.yaml`, because
+  `DOI` sits in `skip_prefixes` in `conf/reference_validator_config.yaml`. Neither the
+  reference validator nor the fast audit reads them. Those ten are *exactly* the
+  deep-research boilerplate stubs that finding #15 flags as degenerate — so the items
+  most at risk of being junk are the ones no tool verifies. One further reference has no
+  cache file at all: `url:https://www.fda.gov/...` in `Alpha_Thalassemia.treatments[6]`.
 
 Full text is cached for 20 of the cited references; the remainder are `abstract_only`.
 Findings were first reached from abstracts, then re-checked against full text (see
@@ -366,12 +379,28 @@ node. This is a distribution problem, not a sourcing problem. Ready-to-use snipp
 |---|---|
 | `Hydroxyurea`, `Ruxolitinib`, `Interferon-alpha` | "Hydroxyurea or interferons remain the preferred first-line cytoreductive agents, with the JAK1 and JAK2 inhibitor, ruxolitinib, currently approved for the treatment of patients who are resistant to, or intolerant of, hydroxyurea." |
 | `Therapeutic Phlebotomy`, `Low-Dose Aspirin` | "High-risk patients are those aged ≥60 years and/or with a history of thrombosis, and typically are eligible for cytoreductive therapy, in addition to therapeutic phlebotomy and low-dose aspirin." |
-| phlebotomy target (<45%) | "Need for phlebotomy to keep haematocrit <45%." |
-| `JAK2 V617F Constitutive Activation` | "A unique clonal JAK2 mutation leading to constitutive signalling causes polycythaemia vera." |
+| `JAK2 V617F Constitutive Activation`, and the entry's uncited "~95% of PV cases" | "Case ascertainment in epidemiological studies has been refined by the demonstration in 2005 that most patients (~95%) have the acquired (somatic) mutation JAK2V617F, indicating clonal disease" |
 | the node's pseudokinase description | "the other is a pseudokinase domain located upstream of the kinase domain that binds ATP, but has no or a very weak ability to directly phosphorylate substrates" |
 
 One sentence closes three treatments at once, and it matches the entry's ruxolitinib
 description almost word for word.
+
+**Two rows were withdrawn from this table after review, and the reason is the point of
+the section below.** The original JAK2 row proposed *"A unique clonal JAK2 mutation
+leading to constitutive signalling causes polycythaemia vera"* — which is a **bibliography
+entry** at `references_cache/PMID_40246933.md:1876-1877`, the title of James et al. 2005
+(PMID:15793561), not a claim by the Nat Rev review. Attributing it to PMID:40246933 is a
+misattribution, and quoting a title as a finding separately violates CLAUDE.md §6
+("A Title Is Not a Finding"). It would have passed `count-verified-snippets` cleanly.
+This report identified that exact hazard two sections down and then walked into it — the
+flattened full-text grep used to find candidates did not distinguish body from back
+matter. Cite PMID:15793561 directly if the 2005 claim is wanted; the replacement row
+above is genuine body text and covers the same ground.
+
+A phlebotomy row quoting *"Need for phlebotomy to keep haematocrit <45%"* was also
+withdrawn: at `PMID_40246933.md:1520` that is a bullet under **"Hydroxyurea resistance
+after 3 months of treatment"**, so its subject is a resistance criterion, not a treatment
+goal. The high-risk-patients row already covers phlebotomy and aspirin without the caveat.
 
 ### #5 strengthened — the Orphanet splenomegaly band is numerically contradicted
 
@@ -478,8 +507,15 @@ by that paper. Worth a lint rule: flag snippets that match only inside a referen
 ## Reproducing
 
 ```bash
-uv run linkml-validate --schema src/dismech/schema/dismech.yaml \
-  --target-class Disease kb/disorders/<file>.yaml
-just validate-references kb/disorders/<file>.yaml
-just validate-terms-file kb/disorders/<file>.yaml
+# per-edit loop (seconds, offline)
+just validate kb/disorders/<file>.yaml
+just count-verified-snippets kb/disorders/<file>.yaml
+
+# pre-PR sweep over all changed files at once — what CI runs
+just validate-disorders kb/disorders/<file>.yaml ...
 ```
+
+The snippet counts quoted above come from `just count-verified-snippets` over all ten
+entries in one invocation. Avoid per-file `just validate-references`: CLAUDE.md records
+it at 65 minutes for a single entry, and `just validate-terms-file` — cited in an earlier
+draft of this section — is not a recipe at all (`just validate-terms <file>` is).
