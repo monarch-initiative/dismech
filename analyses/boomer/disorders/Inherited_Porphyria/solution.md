@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Inherited_Porphyria
  * 80 combinations
  * 72 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.00390625 confidence
  * 0.188789370378135 prior probability
  * 1.1706828493858582e-05 posterior probability
- * 0.0069 seconds elapsed
+ * 0.0073 seconds elapsed
 Grounding:
  * True dismech:Inherited_Porphyria (Inherited Porphyria (dismech entry)) ≡ MONDO:0019142 (inherited porphyria) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Inherited_Porphyria (Inherited Porphyria (dismech entry)) ⊆ MONDO:0019142 (inherited porphyria) :: prior: 0.07 posterior: 0.004045362876199384

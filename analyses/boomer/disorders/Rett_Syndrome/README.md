@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/Rett_Syndrome.yaml`](../../../../kb
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Rett_Syndrome#Classic Rett Syndrome` ≡ `MONDO:0010726`
+- `dismech:Rett_Syndrome` ≡ `MONDO:0010726`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a
@@ -38,7 +38,7 @@ than a dismech error. These are candidate MONDO enrichment proposals.
 
 | File | What |
 |---|---|
-| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60`. |
+| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60 -C 6`. |
 | [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |
 | [`solution.md`](solution.md) | Boomer output, rendered. |
 

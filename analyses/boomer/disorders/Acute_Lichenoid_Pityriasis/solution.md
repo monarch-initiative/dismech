@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Acute_Lichenoid_Pityriasis
  * 60 combinations
  * 56 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.5 confidence
  * 0.6591653720999999 prior probability
  * 0.12461225617697626 posterior probability
- * 0.0275 seconds elapsed
+ * 0.0247 seconds elapsed
 Grounding:
  * True dismech:Acute_Lichenoid_Pityriasis (Acute Lichenoid Pityriasis (dismech entry)) ≡ MONDO:0024250 (acute lichenoid pityriasis) :: prior: 0.9 posterior: 0.9350209095597362
  * False dismech:Acute_Lichenoid_Pityriasis (Acute Lichenoid Pityriasis (dismech entry)) ⊆ MONDO:0024250 (acute lichenoid pityriasis) :: prior: 0.07 posterior: 0.005479269052884925

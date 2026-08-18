@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-46_XX_Gonadal_Dysgenesis
  * 120 combinations
  * 108 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.000244140625 confidence
  * 0.08202879033211727 prior probability
  * 4.005519809644724e-08 posterior probability
- * 0.0116 seconds elapsed
+ * 0.0114 seconds elapsed
 Grounding:
  * True dismech:46_XX_Gonadal_Dysgenesis (46,XX Gonadal Dysgenesis (dismech entry)) ≡ MONDO:0009299 (46 XX gonadal dysgenesis) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:46_XX_Gonadal_Dysgenesis (46,XX Gonadal Dysgenesis (dismech entry)) ⊆ MONDO:0009299 (46 XX gonadal dysgenesis) :: prior: 0.07 posterior: 0.004045362876199384

@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Fanconi_Anemia
  * 220 combinations
  * 198 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 2.384185791015625e-07 confidence
  * 0.010207942844318078 prior probability
  * 2.7428872381732245e-14 posterior probability
- * 0.0211 seconds elapsed
+ * 0.0209 seconds elapsed
 Grounding:
  * True dismech:Fanconi_Anemia (Fanconi_Anemia (dismech entry)) ≡ MONDO:0019391 (Fanconi anemia) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Fanconi_Anemia (Fanconi_Anemia (dismech entry)) ⊆ MONDO:0019391 (Fanconi anemia) :: prior: 0.07 posterior: 0.004045362876199384

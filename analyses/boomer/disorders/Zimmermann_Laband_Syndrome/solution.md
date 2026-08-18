@@ -1,5 +1,5 @@
 
- ## None
+ ## dismech-Zimmermann_Laband_Syndrome
  * 40 combinations
  * 36 satisfiable combinations
  * 1.0 proportion of combinations explored

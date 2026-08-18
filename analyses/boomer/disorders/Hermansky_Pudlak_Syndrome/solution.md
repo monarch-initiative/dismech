@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Hermansky_Pudlak_Syndrome
  * 120 combinations
  * 108 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.000244140625 confidence
  * 0.08202879033211727 prior probability
  * 4.005519809644724e-08 posterior probability
- * 0.0109 seconds elapsed
+ * 0.0111 seconds elapsed
 Grounding:
  * True dismech:Hermansky_Pudlak_Syndrome (Hermansky-Pudlak Syndrome (dismech entry)) ≡ MONDO:0019312 (Hermansky-Pudlak syndrome) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Hermansky_Pudlak_Syndrome (Hermansky-Pudlak Syndrome (dismech entry)) ⊆ MONDO:0019312 (Hermansky-Pudlak syndrome) :: prior: 0.07 posterior: 0.004045362876199384

@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Autosomal_Agammaglobulinemia
  * 130 combinations
  * 117 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0001220703125 confidence
  * 0.06659835458274269 prior probability
  * 9.68754629453833e-09 posterior probability
- * 0.0186 seconds elapsed
+ * 0.0108 seconds elapsed
 Grounding:
  * True dismech:Autosomal_Agammaglobulinemia (Autosomal Agammaglobulinemia (dismech entry)) ≡ MONDO:0011096 (autosomal agammaglobulinemia) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Autosomal_Agammaglobulinemia (Autosomal Agammaglobulinemia (dismech entry)) ⊆ MONDO:0011096 (autosomal agammaglobulinemia) :: prior: 0.07 posterior: 0.004045362876199384

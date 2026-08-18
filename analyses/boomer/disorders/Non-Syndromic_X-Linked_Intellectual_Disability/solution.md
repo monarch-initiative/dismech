@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Non-Syndromic_X-Linked_Intellectual_Disability
  * 90 combinations
  * 81 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.001953125 confidence
  * 0.153276201916304 prior probability
  * 2.831353941213801e-06 posterior probability
- * 0.0080 seconds elapsed
+ * 0.0084 seconds elapsed
 Grounding:
  * True dismech:Non-Syndromic_X-Linked_Intellectual_Disability (Non-Syndromic X-Linked Intellectual Disability (dismech entry)) ≡ MONDO:0019181 (non-syndromic X-linked intellectual disability) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Non-Syndromic_X-Linked_Intellectual_Disability (Non-Syndromic X-Linked Intellectual Disability (dismech entry)) ⊆ MONDO:0019181 (non-syndromic X-linked intellectual disability) :: prior: 0.07 posterior: 0.004045362876199384

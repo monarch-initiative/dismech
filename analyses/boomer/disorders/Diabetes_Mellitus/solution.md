@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Diabetes_Mellitus
  * 280 combinations
  * 252 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 3.725290298461914e-09 confidence
  * 0.0029236230906596185 prior probability
  * 5.489558225306008e-18 posterior probability
- * 0.0276 seconds elapsed
+ * 0.0268 seconds elapsed
 Grounding:
  * True dismech:Diabetes_Mellitus (Diabetes mellitus (dismech entry)) ≡ MONDO:0005015 (diabetes mellitus) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Diabetes_Mellitus (Diabetes mellitus (dismech entry)) ⊆ MONDO:0005015 (diabetes mellitus) :: prior: 0.07 posterior: 0.004045362876199384

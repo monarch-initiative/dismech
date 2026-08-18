@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Autosomal_Dominant_Polycystic_Liver_Disease
  * 30 combinations
  * 27 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.125 confidence
  * 0.5351697739542688 prior probability
  * 0.014147011969572264 posterior probability
- * 0.0028 seconds elapsed
+ * 0.0026 seconds elapsed
 Grounding:
  * True dismech:Autosomal_Dominant_Polycystic_Liver_Disease (Autosomal dominant polycystic liver disease (dismech entry)) ≡ MONDO:0000447 (autosomal dominant polycystic liver disease) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Autosomal_Dominant_Polycystic_Liver_Disease (Autosomal dominant polycystic liver disease (dismech entry)) ⊆ MONDO:0000447 (autosomal dominant polycystic liver disease) :: prior: 0.07 posterior: 0.004045362876199384

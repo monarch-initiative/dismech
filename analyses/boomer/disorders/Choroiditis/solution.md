@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Choroiditis
  * 90 combinations
  * 81 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.001953125 confidence
  * 0.153276201916304 prior probability
  * 2.831353941213801e-06 posterior probability
- * 0.0076 seconds elapsed
+ * 0.0074 seconds elapsed
 Grounding:
  * True dismech:Choroiditis (Choroiditis (dismech entry)) ≡ MONDO:0001280 (choroiditis) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Choroiditis (Choroiditis (dismech entry)) ⊆ MONDO:0001280 (choroiditis) :: prior: 0.07 posterior: 0.004045362876199384

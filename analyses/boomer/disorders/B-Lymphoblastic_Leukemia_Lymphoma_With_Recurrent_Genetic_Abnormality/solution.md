@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-B-Lymphoblastic_Leukemia_Lymphoma_With_Recurrent_Genetic_Abnormality
  * 70 combinations
  * 63 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0078125 confidence
  * 0.23253072507129666 prior probability
  * 4.8404345140214415e-05 posterior probability
- * 0.0070 seconds elapsed
+ * 0.0066 seconds elapsed
 Grounding:
  * True dismech:B-Lymphoblastic_Leukemia_Lymphoma_With_Recurrent_Genetic_Abnormality (B-Lymphoblastic Leukemia/Lymphoma With Recurrent Genetic Abnormality (dismech entry)) ≡ MONDO:0035605 (B-lymphoblastic leukemia/lymphoma with recurrent genetic abnormality) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:B-Lymphoblastic_Leukemia_Lymphoma_With_Recurrent_Genetic_Abnormality (B-Lymphoblastic Leukemia/Lymphoma With Recurrent Genetic Abnormality (dismech entry)) ⊆ MONDO:0035605 (B-lymphoblastic leukemia/lymphoma with recurrent genetic abnormality) :: prior: 0.07 posterior: 0.004045362876199384

@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-EDN3_EDNRB_Waardenburg_Shah
  * 30 combinations
  * 27 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.125 confidence
  * 0.5351697739542688 prior probability
  * 0.014147011969572264 posterior probability
- * 0.0026 seconds elapsed
+ * 0.0033 seconds elapsed
 Grounding:
  * True dismech:EDN3_EDNRB_Waardenburg_Shah (EDN3/EDNRB Waardenburg-Shah (dismech entry)) ≡ MONDO:0019518 (Waardenburg-Shah syndrome) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:EDN3_EDNRB_Waardenburg_Shah (EDN3/EDNRB Waardenburg-Shah (dismech entry)) ⊆ MONDO:0019518 (Waardenburg-Shah syndrome) :: prior: 0.07 posterior: 0.004045362876199384

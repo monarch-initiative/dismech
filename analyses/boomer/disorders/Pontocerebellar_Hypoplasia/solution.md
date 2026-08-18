@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Pontocerebellar_Hypoplasia
  * 70 combinations
  * 63 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0078125 confidence
  * 0.23253072507129666 prior probability
  * 4.8404345140214415e-05 posterior probability
- * 0.0061 seconds elapsed
+ * 0.0062 seconds elapsed
 Grounding:
  * True dismech:Pontocerebellar_Hypoplasia (Pontocerebellar Hypoplasia (dismech entry)) ≡ MONDO:0020135 (pontocerebellar hypoplasia) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Pontocerebellar_Hypoplasia (Pontocerebellar Hypoplasia (dismech entry)) ⊆ MONDO:0020135 (pontocerebellar hypoplasia) :: prior: 0.07 posterior: 0.004045362876199384

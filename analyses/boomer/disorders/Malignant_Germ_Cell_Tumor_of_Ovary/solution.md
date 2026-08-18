@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Malignant_Germ_Cell_Tumor_of_Ovary
  * 70 combinations
  * 63 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0078125 confidence
  * 0.23253072507129666 prior probability
  * 4.8404345140214415e-05 posterior probability
- * 0.0062 seconds elapsed
+ * 0.0061 seconds elapsed
 Grounding:
  * True dismech:Malignant_Germ_Cell_Tumor_of_Ovary (Malignant Germ Cell Tumor of Ovary (dismech entry)) ≡ MONDO:0018171 (malignant germ cell tumor of ovary) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Malignant_Germ_Cell_Tumor_of_Ovary (Malignant Germ Cell Tumor of Ovary (dismech entry)) ⊆ MONDO:0018171 (malignant germ cell tumor of ovary) :: prior: 0.07 posterior: 0.004045362876199384

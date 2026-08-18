@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Adult_Refsum_Disease
  * 56 combinations
  * 45 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.25 confidence
  * 0.059463308217140964 prior probability
  * 0.027824117025079555 posterior probability
- * 0.0274 seconds elapsed
+ * 0.0246 seconds elapsed
 Grounding:
  * False dismech:Adult_Refsum_Disease (Adult Refsum Disease (dismech entry)) ≡ MONDO:0009958 (adult Refsum disease) :: prior: 0.9 posterior: 0.5034750398301362
  * False dismech:Adult_Refsum_Disease (Adult Refsum Disease (dismech entry)) ⊆ MONDO:0009958 (adult Refsum disease) :: prior: 0.07 posterior: 0.0021415413440239867

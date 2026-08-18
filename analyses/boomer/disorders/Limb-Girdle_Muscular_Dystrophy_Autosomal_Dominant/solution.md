@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Limb-Girdle_Muscular_Dystrophy_Autosomal_Dominant
  * 50 combinations
  * 45 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.03125 confidence
  * 0.35276538318523837 prior probability
  * 0.0008275124470833779 posterior probability
- * 0.0044 seconds elapsed
+ * 0.0046 seconds elapsed
 Grounding:
  * True dismech:Limb-Girdle_Muscular_Dystrophy_Autosomal_Dominant (Limb-Girdle Muscular Dystrophy, Autosomal Dominant (dismech entry)) ≡ MONDO:0015151 (muscular dystrophy, limb-girdle, autosomal dominant) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Limb-Girdle_Muscular_Dystrophy_Autosomal_Dominant (Limb-Girdle Muscular Dystrophy, Autosomal Dominant (dismech entry)) ⊆ MONDO:0015151 (muscular dystrophy, limb-girdle, autosomal dominant) :: prior: 0.07 posterior: 0.004045362876199384

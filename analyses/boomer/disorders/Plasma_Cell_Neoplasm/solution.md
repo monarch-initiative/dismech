@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Plasma_Cell_Neoplasm
  * 70 combinations
  * 63 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0078125 confidence
  * 0.23253072507129666 prior probability
  * 4.8404345140214415e-05 posterior probability
- * 0.0065 seconds elapsed
+ * 0.0062 seconds elapsed
 Grounding:
  * True dismech:Plasma_Cell_Neoplasm (Plasma Cell Neoplasm (dismech entry)) ≡ MONDO:0004959 (plasma cell neoplasm) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Plasma_Cell_Neoplasm (Plasma Cell Neoplasm (dismech entry)) ⊆ MONDO:0004959 (plasma cell neoplasm) :: prior: 0.07 posterior: 0.004045362876199384
