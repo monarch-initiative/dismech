@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/B-Lymphoblastic_Leukemia_Lymphoma_W
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Ph-positive | `MONDO:0035940` | B-lymphoblastic leukemia/lymphoma with t(9;22)(q34.1;q11.2) | `AGREES` |
-| KMT2A-rearranged | `MONDO:0035941` | B-lymphoblastic leukemia/lymphoma with t(v;11q23.3) | `AGREES` |
-| ETV6-RUNX1 | `MONDO:0035942` | B-lymphoblastic leukemia/lymphoma with t(12;21)(p13.2;q22.1) | `AGREES` |
-| High hyperdiploidy | `MONDO:0035943` | B-lymphoblastic leukemia/lymphoma with hyperdiploidy | `AGREES` |
-| Hypodiploidy | `MONDO:0035944` | B-lymphoblastic leukemia/lymphoma with hypodiploidy | `AGREES` |
-| IGH-IL3 | `MONDO:0035945` | B-lymphoblastic leukemia/lymphoma with t(5;14)(q31.1;q32.3) | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Ph-positive | `MONDO:0035940` | B-lymphoblastic leukemia/lymphoma with t(9;22)(q34.1;q11.2) | `AGREES` | ✓ NCIT, ORDO |
+| KMT2A-rearranged | `MONDO:0035941` | B-lymphoblastic leukemia/lymphoma with t(v;11q23.3) | `AGREES` | ✓ NCIT, ORDO |
+| ETV6-RUNX1 | `MONDO:0035942` | B-lymphoblastic leukemia/lymphoma with t(12;21)(p13.2;q22.1) | `AGREES` | ✓ NCIT, ORDO |
+| High hyperdiploidy | `MONDO:0035943` | B-lymphoblastic leukemia/lymphoma with hyperdiploidy | `AGREES` | ✓ NCIT, ORDO |
+| Hypodiploidy | `MONDO:0035944` | B-lymphoblastic leukemia/lymphoma with hypodiploidy | `AGREES` | ✓ NCIT, ORDO |
+| IGH-IL3 | `MONDO:0035945` | B-lymphoblastic leukemia/lymphoma with t(5;14)(q31.1;q32.3) | `AGREES` | ✓ NCIT, ORDO |
 
 ## What boomer did
 

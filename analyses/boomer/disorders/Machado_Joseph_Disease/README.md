@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Machado_Joseph_Disease.yaml`](../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0017174` | Machado-Joseph disease type 1 | `AGREES` |
-| Type 2 | `MONDO:0017175` | Machado-Joseph disease type 2 | `AGREES` |
-| Type 3 | `MONDO:0017176` | Machado-Joseph disease type 3 | `AGREES` |
-| Type 4 | `MONDO:0042964` | Machado-Joseph disease type 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0017174` | Machado-Joseph disease type 1 | `AGREES` | ✓ ORDO |
+| Type 2 | `MONDO:0017175` | Machado-Joseph disease type 2 | `AGREES` | ✓ ORDO |
+| Type 3 | `MONDO:0017176` | Machado-Joseph disease type 3 | `AGREES` | ✓ ORDO |
+| Type 4 | `MONDO:0042964` | Machado-Joseph disease type 4 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

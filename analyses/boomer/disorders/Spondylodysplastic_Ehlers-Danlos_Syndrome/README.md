@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Spondylodysplastic_Ehlers-Danlos_Sy
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| spEDS-B4GALT7 | `MONDO:0020682` | Ehlers-Danlos syndrome, spondylodysplastic type, 1 | `AGREES` |
-| spEDS-B3GALT6 | `MONDO:0014139` | Ehlers-Danlos syndrome, spondylodysplastic type, 2 | `AGREES` |
-| spEDS-SLC39A13 | `MONDO:0012873` | Ehlers-Danlos syndrome, spondylocheirodysplastic type | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| spEDS-B4GALT7 | `MONDO:0020682` | Ehlers-Danlos syndrome, spondylodysplastic type, 1 | `AGREES` | silent (DOID) |
+| spEDS-B3GALT6 | `MONDO:0014139` | Ehlers-Danlos syndrome, spondylodysplastic type, 2 | `AGREES` | silent (ORDO) |
+| spEDS-SLC39A13 | `MONDO:0012873` | Ehlers-Danlos syndrome, spondylocheirodysplastic type | `AGREES` | silent (DOID, MESH, ORDO) |
 
 ## What boomer did
 

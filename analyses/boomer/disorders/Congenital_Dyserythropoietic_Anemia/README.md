@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Congenital_Dyserythropoietic_Anemia
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CDA I | `MONDO:0020337` | congenital dyserythropoietic anemia type 1 | `AGREES` |
-| CDA II | `MONDO:0009134` | congenital dyserythropoietic anemia type 2 | `AGREES` |
-| CDA III | `MONDO:0007109` | congenital dyserythropoietic anemia type 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CDA I | `MONDO:0020337` | congenital dyserythropoietic anemia type 1 | `AGREES` | ✓ DOID, ORDO |
+| CDA II | `MONDO:0009134` | congenital dyserythropoietic anemia type 2 | `AGREES` | ✓ DOID, ORDO |
+| CDA III | `MONDO:0007109` | congenital dyserythropoietic anemia type 3 | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

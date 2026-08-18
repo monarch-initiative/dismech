@@ -8,17 +8,17 @@ Boomer grounding analysis for [`kb/disorders/Vulvar_Adenocarcinoma.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Bartholin Gland Adenocarcinoma | `MONDO:0003853` | Bartholin gland adenocarcinoma | `AGREES` |
-| Paget-Associated | `MONDO:0002207` | vulval Paget disease | `AGREES` |
-| Vulvar Sebaceous Carcinoma | `MONDO:0003636` | vulvar sebaceous carcinoma | `AGREES` |
-| Vulvar Eccrine Adenocarcinoma | `MONDO:0003861` | vulvar eccrine adenocarcinoma | `AGREES` |
-| Vulvar Eccrine Porocarcinoma | `MONDO:0004281` | vulvar eccrine porocarcinoma | `AGREES` |
-| Vulvar Apocrine Adenocarcinoma | `MONDO:0003881` | vulvar apocrine adenocarcinoma | `AGREES` |
-| Skene Gland Origin | `MONDO:0004173` | adenocarcinoma of skene gland origin | `AGREES` |
-| Vulvar Clear Cell Hidradenocarcinoma | `MONDO:0004283` | vulvar clear cell hidradenocarcinoma | `AGREES` |
-| Bartholin Gland Adenoid Cystic Carcinoma | `MONDO:0003187` | Bartholin gland adenoid cystic carcinoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Bartholin Gland Adenocarcinoma | `MONDO:0003853` | Bartholin gland adenocarcinoma | `AGREES` | ✓ NCIT |
+| Paget-Associated | `MONDO:0002207` | vulval Paget disease | `AGREES` | ✓ DOID, NCIT |
+| Vulvar Sebaceous Carcinoma | `MONDO:0003636` | vulvar sebaceous carcinoma | `AGREES` | ✓ NCIT |
+| Vulvar Eccrine Adenocarcinoma | `MONDO:0003861` | vulvar eccrine adenocarcinoma | `AGREES` | ✓ DOID, NCIT |
+| Vulvar Eccrine Porocarcinoma | `MONDO:0004281` | vulvar eccrine porocarcinoma | `AGREES` | ✓ NCIT |
+| Vulvar Apocrine Adenocarcinoma | `MONDO:0003881` | vulvar apocrine adenocarcinoma | `AGREES` | ✓ DOID, NCIT |
+| Skene Gland Origin | `MONDO:0004173` | adenocarcinoma of skene gland origin | `AGREES` | silent (DOID, NCIT) |
+| Vulvar Clear Cell Hidradenocarcinoma | `MONDO:0004283` | vulvar clear cell hidradenocarcinoma | `AGREES` | ✓ NCIT |
+| Bartholin Gland Adenoid Cystic Carcinoma | `MONDO:0003187` | Bartholin gland adenoid cystic carcinoma | `AGREES` | silent (DOID, NCIT) |
 
 ## What boomer did
 

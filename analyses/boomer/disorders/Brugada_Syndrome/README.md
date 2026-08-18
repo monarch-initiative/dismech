@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Brugada_Syndrome.yaml`](../../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SCN5A-related Brugada syndrome | `MONDO:0011001` | Brugada syndrome 1 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SCN5A-related Brugada syndrome | `MONDO:0011001` | Brugada syndrome 1 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

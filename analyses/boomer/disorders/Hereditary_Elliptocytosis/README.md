@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Hereditary_Elliptocytosis.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| EL1 | `MONDO:0012731` | elliptocytosis 1 | `AGREES` |
-| EL2 | `MONDO:0007533` | elliptocytosis 2 | `AGREES` |
-| EL3 | `MONDO:0054780` | elliptocytosis 3 | `AGREES` |
-| SAO | `MONDO:0008165` | southeast Asian ovalocytosis | `AGREES` |
-| Thermal-sensitive HE | `MONDO:0009334` | hemolytic anemia with thermal sensitivity of red cells | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| EL1 | `MONDO:0012731` | elliptocytosis 1 | `AGREES` | silent (MESH) |
+| EL2 | `MONDO:0007533` | elliptocytosis 2 | `AGREES` | silent (MESH) |
+| EL3 | `MONDO:0054780` | elliptocytosis 3 | `AGREES` | silent (MESH) |
+| SAO | `MONDO:0008165` | southeast Asian ovalocytosis | `AGREES` | silent (ORDO, icd11f) |
+| Thermal-sensitive HE | `MONDO:0009334` | hemolytic anemia with thermal sensitivity of red cells | `AGREES` | silent (MESH) |
 
 ## What boomer did
 

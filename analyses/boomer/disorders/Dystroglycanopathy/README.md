@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Dystroglycanopathy.yaml`](../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type A (Walker-Warburg syndrome / Muscle-Eye-Brain disease) | `MONDO:0000171` | muscular dystrophy-dystroglycanopathy, type A | `AGREES` |
-| Type B (Congenital muscular dystrophy with intellectual disability) | `MONDO:0000172` | muscular dystrophy-dystroglycanopathy, type B | `AGREES` |
-| Type C (Limb-girdle muscular dystrophy) | `MONDO:0000173` | muscular dystrophy-dystroglycanopathy, type C | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type A (Walker-Warburg syndrome / Muscle-Eye-Brain disease) | `MONDO:0000171` | muscular dystrophy-dystroglycanopathy, type A | `AGREES` | ✓ ORDO |
+| Type B (Congenital muscular dystrophy with intellectual disability) | `MONDO:0000172` | muscular dystrophy-dystroglycanopathy, type B | `AGREES` | ✓ DOID |
+| Type C (Limb-girdle muscular dystrophy) | `MONDO:0000173` | muscular dystrophy-dystroglycanopathy, type C | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

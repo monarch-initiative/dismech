@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Genital_Lichen_Sclerosus.yaml`](../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Vulvar Lichen Sclerosus | `MONDO:0006491` | vulvar lichen sclerosus | `AGREES` |
-| Penile Lichen Sclerosus | `MONDO:0001725` | balanitis xerotica obliterans | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Vulvar Lichen Sclerosus | `MONDO:0006491` | vulvar lichen sclerosus | `AGREES` | ✓ NCIT |
+| Penile Lichen Sclerosus | `MONDO:0001725` | balanitis xerotica obliterans | `SILENT` | silent (MESH, NCIT) |
 
 ## What boomer did
 

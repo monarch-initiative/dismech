@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/PRPS1_Deficiency_Spectrum.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Arts Syndrome | `MONDO:0010533` | Arts syndrome | `SILENT` |
-| CMTX5 | `MONDO:0010699` | Charcot-Marie-Tooth disease X-linked recessive 5 | `SILENT` |
-| DFN2 | `MONDO:0010577` | hearing loss, X-linked 1 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Arts Syndrome | `MONDO:0010533` | Arts syndrome | `SILENT` | — no shared vocabulary |
+| CMTX5 | `MONDO:0010699` | Charcot-Marie-Tooth disease X-linked recessive 5 | `SILENT` | — no shared vocabulary |
+| DFN2 | `MONDO:0010577` | hearing loss, X-linked 1 | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

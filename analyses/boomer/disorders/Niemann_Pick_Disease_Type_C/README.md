@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Niemann_Pick_Disease_Type_C.yaml`](
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| NPC1 | `MONDO:0009757` | Niemann-Pick disease, type C1 | `AGREES` |
-| NPC2 | `MONDO:0011873` | Niemann-Pick disease, type C2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| NPC1 | `MONDO:0009757` | Niemann-Pick disease, type C1 | `AGREES` | — no shared vocabulary |
+| NPC2 | `MONDO:0011873` | Niemann-Pick disease, type C2 | `AGREES` | silent (MESH) |
 
 ## What boomer did
 

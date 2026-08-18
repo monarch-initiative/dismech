@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/IFT140-related_Recessive_Ciliopathy
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Non-syndromic RP80 | `MONDO:0054708` | retinitis pigmentosa 80 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Non-syndromic RP80 | `MONDO:0054708` | retinitis pigmentosa 80 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

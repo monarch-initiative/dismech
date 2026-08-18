@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Early-Onset_Autosomal_Dominant_Alzh
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PSEN1 | `MONDO:0011913` | Alzheimer disease 3 | `AGREES` |
-| APP | `MONDO:0007088` | Alzheimer disease type 1 | `AGREES` |
-| APP Duplication | `MONDO:1060190` | APP-related brain and vascular amyloidosis | `SILENT` |
-| PSEN2 | `MONDO:0011743` | Alzheimer disease 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PSEN1 | `MONDO:0011913` | Alzheimer disease 3 | `AGREES` | — no shared vocabulary |
+| APP | `MONDO:0007088` | Alzheimer disease type 1 | `AGREES` | — no shared vocabulary |
+| APP Duplication | `MONDO:1060190` | APP-related brain and vascular amyloidosis | `SILENT` | — no shared vocabulary |
+| PSEN2 | `MONDO:0011743` | Alzheimer disease 4 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

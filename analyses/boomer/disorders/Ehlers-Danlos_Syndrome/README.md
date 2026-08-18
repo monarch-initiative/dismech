@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Ehlers-Danlos_Syndrome.yaml`](../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Classical EDS | `MONDO:0007522` | Ehlers-Danlos syndrome, classic type | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Classical EDS | `MONDO:0007522` | Ehlers-Danlos syndrome, classic type | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

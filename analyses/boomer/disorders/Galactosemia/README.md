@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Galactosemia.yaml`](../../../../kb/
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Classic Galactosemia | `MONDO:0009258` | classic galactosemia | `AGREES` |
-| Galactokinase Deficiency | `MONDO:0009255` | galactokinase deficiency | `AGREES` |
-| Epimerase Deficiency | `MONDO:0009257` | galactose epimerase deficiency | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Classic Galactosemia | `MONDO:0009258` | classic galactosemia | `AGREES` | ✓ DOID, ORDO |
+| Galactokinase Deficiency | `MONDO:0009255` | galactokinase deficiency | `AGREES` | ✓ DOID, NCIT, ORDO |
+| Epimerase Deficiency | `MONDO:0009257` | galactose epimerase deficiency | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

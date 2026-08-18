@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Optic_Neuritis.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Isolated optic neuritis | `MONDO:0044688` | isolated optic neuritis | `SILENT` |
-| Single isolated optic neuritis | `MONDO:0971049` | single isolated optic neuritis | `SILENT` |
-| Relapsing isolated optic neuritis | `MONDO:0971050` | relapsing isolated optic neuritis | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Isolated optic neuritis | `MONDO:0044688` | isolated optic neuritis | `SILENT` | — no shared vocabulary |
+| Single isolated optic neuritis | `MONDO:0971049` | single isolated optic neuritis | `SILENT` | — no shared vocabulary |
+| Relapsing isolated optic neuritis | `MONDO:0971050` | relapsing isolated optic neuritis | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

@@ -39,10 +39,43 @@ the others, and it matches how a curator reads the result.
 |---|---|---|
 | dismech | hard | `subtype ProperSubClassOf parent` for each grounded subtype; namespace disjointness so two distinct entries cannot collapse |
 | MONDO | hard | subsumption edges and `owl:disjointWith` axioms relating the entry's term to each subtype's term |
-| mappings | probabilistic | one identity claim per grounded term (p=0.90), with the competing `ProperSubClassOf` readings in both directions (0.07 / 0.03) |
+| dismech→MONDO | probabilistic | one identity claim per grounded term (p=0.90), with the competing `ProperSubClassOf` readings in both directions (0.07 / 0.03) |
+| MONDO→external | probabilistic | MONDO's `skos:exactMatch` links (p=0.95) into DOID, NCIT, ORDO, OMIM, ICD10CM, icd11f, MESH, EFO |
+| external | hard | each of those ontologies' **own** subsumption edges among the mapped terms |
 
-MONDO is loaded as *hard* facts deliberately: the question is whether dismech is
-consistent with MONDO, not whether MONDO is consistent with itself.
+Ontologies are loaded as *hard* facts deliberately: the question is whether
+dismech is consistent with them, not whether they are consistent with themselves.
+
+**Only `skos:exactMatch` is used for the MONDO→external step.** MONDO also
+carries `oio:hasDbXref` — 143,373 of them against 109,307 exactMatches — but a
+dbxref asserts a cross-reference of unstated strength. Reading those as
+equivalencies would inject identity claims MONDO never made into every KB.
+
+### Why more than two sources matters
+
+With only dismech and MONDO, most disagreements are unresolvable: MONDO either
+has an opinion or it doesn't, and when it doesn't there is nothing to appeal to.
+Each additional vocabulary MONDO confirms an equivalency into is an independent
+opinion on the same subsumption, and that is what BOOMER is actually built for.
+
+Concretely, of the 118 pairs where **MONDO is silent**:
+
+| | n |
+|---|---|
+| **another ontology corroborates dismech** | **29** |
+| shared vocabulary, but silent there too | 53 |
+| no shared vocabulary to appeal to | 36 |
+| another ontology contradicts dismech | **0** |
+
+So a quarter of the apparent "MONDO gaps" are not open questions at all — they
+are places where DOID, NCIT, ORDO, icd11f or MESH already assert the edge that
+MONDO lacks. `Autoimmune_Encephalitis`' anti-NMDA subtype is the clean example:
+NCIT (`NCIT:C94853`) and ORDO (`ORDO:217253`) both place it under autoimmune
+encephalitis; MONDO has it only under *encephalitis*. That is a well-evidenced
+enrichment proposal rather than a guess.
+
+Nothing contradicts dismech in any source, which is worth stating as its own
+result.
 
 ## Current results
 
@@ -51,15 +84,20 @@ consistent with MONDO, not whether MONDO is consistent with itself.
 
 | Per pair | n | | Per disorder | n |
 |---|---|---|---|---|
-| `AGREES` | 1,022 | | `ALL_MAPPINGS_CONSISTENT` | 272 |
-| `SILENT` | 118 | | `RETRACTED` | 14 |
+| `AGREES` | 1,022 | | `ALL_MAPPINGS_CONSISTENT` | 244 |
+| `SILENT` | 118 | | `RETRACTED` | 42 |
 | `SAME_TERM` | 11 | | timed out | 0 |
 | `REVERSED` | 1 | | | |
 
 **88.7% of pairs agree.** Where a curator asserted a subtype relation and both
 sides are grounded, MONDO independently corroborates it nearly nine times in ten.
 
-### Three distinct things force a retraction
+Adding the external sources took retractions from **14 to 42**. The pair-level
+verdicts are unchanged — those only involve dismech and MONDO — but three times
+as many disorders now carry a constraint set that cannot be satisfied, because
+there are more independent opinions to disagree.
+
+### Four distinct things force a retraction
 
 Solving a whole disorder at once — rather than each pair separately — is what
 makes the second and third of these visible at all. Each pair looks fine in
@@ -89,6 +127,24 @@ isolation.
    Splitting more finely than MONDO is a legitimate curation choice. What it
    means is that the grounding cannot be an *identity* claim for every sibling —
    at most one can be `exactMatch`.
+
+4. **One MONDO term claiming identity with several terms in the same external
+   vocabulary** — the class that only appears once external sources are loaded,
+   and now the largest. 35 of the 50 retracted equivalences are MONDO↔external
+   rather than dismech↔MONDO.
+
+   `MONDO:0012215` *myofibrillar myopathy 3* carries `skos:exactMatch` to three
+   MESH terms, three SCTID terms and two ORDO terms. If each is an identity
+   claim and the targets are distinct classes, they collapse into one another.
+
+   This is not a dismech defect at all — it is visible only because dismech
+   grounds into MONDO and this analysis then follows MONDO outward.
+   Repo-wide, **400 MONDO terms exactMatch more than one term in the same
+   vocabulary**: DOID 119, SCTID 99, MESH 69, icd11f 46, NCIT 45, ORDO 43,
+   ICD10CM 19, OMIM 8. Some are likely deliberate — MESH in particular carries
+   several supplementary-concept records per disease — so read this as
+   "inconsistent under a strict one-identity-per-vocabulary reading", not as 400
+   defects.
 
 The 118 `SILENT` pairs are a separate output: not errors, but places MONDO
 asserts no relation where dismech does. Several are textbook — `MONDO:0021081`

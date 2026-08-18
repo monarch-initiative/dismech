@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Meningioma.yaml`](../../../../kb/di
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| WHO Grade I | `MONDO:0003054` | benign meningioma | `AGREES` |
-| WHO Grade II | `MONDO:0045056` | grade II meningioma | `AGREES` |
-| WHO Grade III | `MONDO:0020635` | anaplastic meningioma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| WHO Grade I | `MONDO:0003054` | benign meningioma | `AGREES` | silent (DOID) |
+| WHO Grade II | `MONDO:0045056` | grade II meningioma | `AGREES` | ✓ NCIT |
+| WHO Grade III | `MONDO:0020635` | anaplastic meningioma | `AGREES` | ✓ NCIT |
 
 ## What boomer did
 

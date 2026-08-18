@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Emery_Dreifuss_Muscular_Dystrophy.y
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| EDMD1 | `MONDO:0100531` | Emery-Dreifuss muscular dystrophy 1, X-linked | `AGREES` |
-| EDMD2 | `MONDO:0021569` | Emery-Dreifuss muscular dystrophy 2, autosomal dominant | `AGREES` |
-| EDMD4-5 | `MONDO:0013071` | Emery-Dreifuss muscular dystrophy 4, autosomal dominant | `AGREES` |
-| EDMD6 | `MONDO:0800318` | Emery-Dreifuss muscular dystrophy 6, X-linked | `AGREES` |
-| EDMD7 | `MONDO:0013677` | Emery-Dreifuss muscular dystrophy 7, autosomal dominant | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| EDMD1 | `MONDO:0100531` | Emery-Dreifuss muscular dystrophy 1, X-linked | `AGREES` | ✓ DOID, NCIT |
+| EDMD2 | `MONDO:0021569` | Emery-Dreifuss muscular dystrophy 2, autosomal dominant | `AGREES` | ✓ DOID, NCIT |
+| EDMD4-5 | `MONDO:0013071` | Emery-Dreifuss muscular dystrophy 4, autosomal dominant | `AGREES` | ✓ DOID |
+| EDMD6 | `MONDO:0800318` | Emery-Dreifuss muscular dystrophy 6, X-linked | `AGREES` | — no shared vocabulary |
+| EDMD7 | `MONDO:0013677` | Emery-Dreifuss muscular dystrophy 7, autosomal dominant | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

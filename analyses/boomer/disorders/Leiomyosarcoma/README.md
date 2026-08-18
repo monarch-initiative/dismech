@@ -8,18 +8,18 @@ Boomer grounding analysis for [`kb/disorders/Leiomyosarcoma.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Uterine Leiomyosarcoma | `MONDO:0016262` | leiomyosarcoma of the corpus uteri | `AGREES` |
-| Retroperitoneal Leiomyosarcoma | `MONDO:0003370` | retroperitoneal leiomyosarcoma | `AGREES` |
-| Extremity or Truncal Leiomyosarcoma | `MONDO:0005058` | leiomyosarcoma | `SAME_TERM` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Uterine Leiomyosarcoma | `MONDO:0016262` | leiomyosarcoma of the corpus uteri | `AGREES` | ✓ NCIT |
+| Retroperitoneal Leiomyosarcoma | `MONDO:0003370` | retroperitoneal leiomyosarcoma | `AGREES` | ✓ NCIT |
+| Extremity or Truncal Leiomyosarcoma | `MONDO:0005058` | leiomyosarcoma | `SAME_TERM` | ✓ DOID, EFO, MESH, NCIT, ORDO |
 
 ## What boomer did
 
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Leiomyosarcoma` ≡ `MONDO:0005058`
+- `dismech:Leiomyosarcoma#Extremity or Truncal Leiomyosarcoma` ≡ `MONDO:0005058`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

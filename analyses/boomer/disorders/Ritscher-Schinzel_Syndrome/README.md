@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Ritscher-Schinzel_Syndrome.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| RSS1 | `MONDO:0009073` | Ritscher-Schinzel syndrome 1 | `AGREES` |
-| RSS2 | `MONDO:0010499` | Ritscher-Schinzel syndrome 2 | `AGREES` |
-| RSS3 | `MONDO:0030864` | Ritscher-Schinzel syndrome 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| RSS1 | `MONDO:0009073` | Ritscher-Schinzel syndrome 1 | `AGREES` | ✓ DOID |
+| RSS2 | `MONDO:0010499` | Ritscher-Schinzel syndrome 2 | `AGREES` | ✓ DOID |
+| RSS3 | `MONDO:0030864` | Ritscher-Schinzel syndrome 3 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

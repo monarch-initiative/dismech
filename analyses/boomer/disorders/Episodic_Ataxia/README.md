@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Episodic_Ataxia.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| EA1 | `MONDO:0008047` | episodic ataxia type 1 | `AGREES` |
-| EA2 | `MONDO:0007163` | episodic ataxia type 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| EA1 | `MONDO:0008047` | episodic ataxia type 1 | `AGREES` | ✓ DOID, ORDO |
+| EA2 | `MONDO:0007163` | episodic ataxia type 2 | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

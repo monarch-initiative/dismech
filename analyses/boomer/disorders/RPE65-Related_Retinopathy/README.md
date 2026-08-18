@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/RPE65-Related_Retinopathy.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| RPE65-related dominant retinopathy | `MONDO:0100452` | RPE65-related dominant retinopathy | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| RPE65-related dominant retinopathy | `MONDO:0100452` | RPE65-related dominant retinopathy | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Hypokalemic_Periodic_Paralysis.yaml
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0042979` | hypokalemic periodic paralysis, type 1 | `AGREES` |
-| Type 2 | `MONDO:0013234` | hypokalemic periodic paralysis, type 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0042979` | hypokalemic periodic paralysis, type 1 | `AGREES` | — no shared vocabulary |
+| Type 2 | `MONDO:0013234` | hypokalemic periodic paralysis, type 2 | `AGREES` | silent (MESH) |
 
 ## What boomer did
 

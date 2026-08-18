@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Metabolic_Dysfunction-Associated_St
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MASH | `MONDO:0007027` | metabolic dysfunction-associated steatohepatitis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MASH | `MONDO:0007027` | metabolic dysfunction-associated steatohepatitis | `AGREES` | ✓ DOID, NCIT, icd11f |
 
 ## What boomer did
 

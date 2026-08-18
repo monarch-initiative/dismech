@@ -8,28 +8,34 @@ Boomer grounding analysis for [`kb/disorders/Long_QT_Syndrome.yaml`](../../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0100316` | long QT syndrome 1 | `AGREES` |
-| Type 2 | `MONDO:0013367` | long QT syndrome 2 | `AGREES` |
-| Type 3 | `MONDO:0011377` | long QT syndrome 3 | `AGREES` |
-| Type 4 | `MONDO:0800323` | long QT syndrome 4 | `AGREES` |
-| Type 5 | `MONDO:0013372` | long QT syndrome 5 | `AGREES` |
-| Type 6 | `MONDO:0013370` | long QT syndrome 6 | `AGREES` |
-| Type 8 | `MONDO:0032756` | long QT syndrome 8 | `AGREES` |
-| Type 9 | `MONDO:0012736` | long QT syndrome 9 | `AGREES` |
-| Type 10 | `MONDO:0012737` | long QT syndrome 10 | `AGREES` |
-| Type 11 | `MONDO:0012738` | long QT syndrome 11 | `AGREES` |
-| Type 12 | `MONDO:0013062` | long QT syndrome 12 | `AGREES` |
-| Type 13 | `MONDO:0013279` | long QT syndrome 13 | `AGREES` |
-| Type 14 | `MONDO:0014548` | long QT syndrome 14 | `AGREES` |
-| Type 15 | `MONDO:0014550` | long QT syndrome 15 | `AGREES` |
-| Type 16 | `MONDO:0032915` | long QT syndrome 16 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0100316` | long QT syndrome 1 | `AGREES` | — no shared vocabulary |
+| Type 2 | `MONDO:0013367` | long QT syndrome 2 | `AGREES` | — no shared vocabulary |
+| Type 3 | `MONDO:0011377` | long QT syndrome 3 | `AGREES` | — no shared vocabulary |
+| Type 4 | `MONDO:0800323` | long QT syndrome 4 | `AGREES` | — no shared vocabulary |
+| Type 5 | `MONDO:0013372` | long QT syndrome 5 | `AGREES` | — no shared vocabulary |
+| Type 6 | `MONDO:0013370` | long QT syndrome 6 | `AGREES` | — no shared vocabulary |
+| Type 8 | `MONDO:0032756` | long QT syndrome 8 | `AGREES` | — no shared vocabulary |
+| Type 9 | `MONDO:0012736` | long QT syndrome 9 | `AGREES` | — no shared vocabulary |
+| Type 10 | `MONDO:0012737` | long QT syndrome 10 | `AGREES` | — no shared vocabulary |
+| Type 11 | `MONDO:0012738` | long QT syndrome 11 | `AGREES` | — no shared vocabulary |
+| Type 12 | `MONDO:0013062` | long QT syndrome 12 | `AGREES` | — no shared vocabulary |
+| Type 13 | `MONDO:0013279` | long QT syndrome 13 | `AGREES` | — no shared vocabulary |
+| Type 14 | `MONDO:0014548` | long QT syndrome 14 | `AGREES` | — no shared vocabulary |
+| Type 15 | `MONDO:0014550` | long QT syndrome 15 | `AGREES` | — no shared vocabulary |
+| Type 16 | `MONDO:0032915` | long QT syndrome 16 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0019171` ≡ `ORDO:101016`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/PRPH2-Related_Retinopathy.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Retinitis pigmentosa 7 | `MONDO:0011974` | retinitis pigmentosa 7 | `AGREES` |
-| Vitelliform macular dystrophy 3 | `MONDO:0024561` | vitelliform macular dystrophy 3 | `AGREES` |
-| Patterned macular dystrophy 1 | `MONDO:0008210` | patterned macular dystrophy 1 | `AGREES` |
-| Choroidal dystrophy, central areolar 2 | `MONDO:0013137` | choroidal dystrophy, central areolar 2 | `AGREES` |
-| Leber congenital amaurosis 18 | `MONDO:1060145` | Leber congenital amaurosis 18 | `AGREES` |
-| Retinitis pigmentosa 7, digenic | `MONDO:1060144` | retinitis pigmentosa 7, digenic | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Retinitis pigmentosa 7 | `MONDO:0011974` | retinitis pigmentosa 7 | `AGREES` | — no shared vocabulary |
+| Vitelliform macular dystrophy 3 | `MONDO:0024561` | vitelliform macular dystrophy 3 | `AGREES` | — no shared vocabulary |
+| Patterned macular dystrophy 1 | `MONDO:0008210` | patterned macular dystrophy 1 | `AGREES` | — no shared vocabulary |
+| Choroidal dystrophy, central areolar 2 | `MONDO:0013137` | choroidal dystrophy, central areolar 2 | `AGREES` | — no shared vocabulary |
+| Leber congenital amaurosis 18 | `MONDO:1060145` | Leber congenital amaurosis 18 | `AGREES` | — no shared vocabulary |
+| Retinitis pigmentosa 7, digenic | `MONDO:1060144` | retinitis pigmentosa 7, digenic | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

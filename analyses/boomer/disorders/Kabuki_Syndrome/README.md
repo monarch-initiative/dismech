@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Kabuki_Syndrome.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| KMT2D-related Kabuki syndrome | `MONDO:0007843` | Kabuki syndrome 1 | `AGREES` |
-| KDM6A-related Kabuki syndrome | `MONDO:0010465` | Kabuki syndrome 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| KMT2D-related Kabuki syndrome | `MONDO:0007843` | Kabuki syndrome 1 | `AGREES` | — no shared vocabulary |
+| KDM6A-related Kabuki syndrome | `MONDO:0010465` | Kabuki syndrome 2 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

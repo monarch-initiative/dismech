@@ -8,16 +8,23 @@ Boomer grounding analysis for [`kb/disorders/Thymus_Neoplasm.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Thymoma | `MONDO:0006456` | thymoma | `AGREES` |
-| Thymic carcinoma | `MONDO:0006451` | thymic carcinoma | `AGREES` |
-| Thymic neuroendocrine tumors | `MONDO:0019964` | thymic neuroendocrine tumor | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Thymoma | `MONDO:0006456` | thymoma | `AGREES` | ✓ NCIT, ORDO |
+| Thymic carcinoma | `MONDO:0006451` | thymic carcinoma | `AGREES` | ✓ NCIT, ORDO |
+| Thymic neuroendocrine tumors | `MONDO:0019964` | thymic neuroendocrine tumor | `AGREES` | ✓ NCIT, ORDO |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0006451` ≡ `DOID:4554`
+- `MONDO:0006451` ≡ `NCIT:C7612`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

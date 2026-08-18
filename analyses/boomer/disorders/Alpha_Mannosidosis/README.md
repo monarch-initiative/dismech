@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Alpha_Mannosidosis.yaml`](../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Infantile form | `MONDO:0017732` | alpha-mannosidosis, infantile form | `AGREES` |
-| Adult form | `MONDO:0017733` | alpha-mannosidosis, adult form | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Infantile form | `MONDO:0017732` | alpha-mannosidosis, infantile form | `AGREES` | ✓ ORDO |
+| Adult form | `MONDO:0017733` | alpha-mannosidosis, adult form | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

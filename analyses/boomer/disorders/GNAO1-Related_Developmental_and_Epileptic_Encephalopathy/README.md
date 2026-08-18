@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/GNAO1-Related_Developmental_and_Epi
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| DEE17 | `MONDO:0014199` | developmental and epileptic encephalopathy, 17 | `SAME_TERM` |
-| NEDIM | `MONDO:0060491` | neurodevelopmental disorder with involuntary movements | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| DEE17 | `MONDO:0014199` | developmental and epileptic encephalopathy, 17 | `SAME_TERM` | ✓ DOID, OMIM |
+| NEDIM | `MONDO:0060491` | neurodevelopmental disorder with involuntary movements | `SILENT` | silent (DOID, OMIM) |
 
 ## What boomer did
 

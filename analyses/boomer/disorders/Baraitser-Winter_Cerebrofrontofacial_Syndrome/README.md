@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Baraitser-Winter_Cerebrofrontofacia
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| BRWS1 | `MONDO:0009470` | Baraitser-Winter syndrome 1 | `AGREES` |
-| BRWS2 | `MONDO:0013812` | Baraitser-winter syndrome 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| BRWS1 | `MONDO:0009470` | Baraitser-Winter syndrome 1 | `AGREES` | ✓ DOID |
+| BRWS2 | `MONDO:0013812` | Baraitser-winter syndrome 2 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Toxoplasmosis.yaml`](../../../../kb
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Congenital | `MONDO:0005715` | congenital toxoplasmosis | `AGREES` |
-| Ocular | `MONDO:0005879` | ocular toxoplasmosis | `AGREES` |
-| Reactivation | `MONDO:0005697` | cerebral toxoplasmosis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Congenital | `MONDO:0005715` | congenital toxoplasmosis | `AGREES` | ✓ DOID, MESH, NCIT, icd11f |
+| Ocular | `MONDO:0005879` | ocular toxoplasmosis | `AGREES` | ✓ MESH |
+| Reactivation | `MONDO:0005697` | cerebral toxoplasmosis | `AGREES` | ✓ MESH |
 
 ## What boomer did
 

@@ -8,11 +8,19 @@ Boomer grounding analysis for [`kb/disorders/Rhizomelic_Chondrodysplasia_Punctat
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| RCDP2 | `MONDO:0009112` | rhizomelic chondrodysplasia punctata type 2 | `AGREES` |
-| RCDP3 | `MONDO:0010823` | rhizomelic chondrodysplasia punctata type 3 | `AGREES` |
-| RCDP4 | `MONDO:0014510` | fatty acyl-CoA reductase 1 deficiency | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| RCDP2 | `MONDO:0009112` | rhizomelic chondrodysplasia punctata type 2 | `AGREES` | ✓ DOID, ORDO, icd11f |
+| RCDP3 | `MONDO:0010823` | rhizomelic chondrodysplasia punctata type 3 | `AGREES` | ✓ DOID, ORDO, icd11f |
+| RCDP4 | `MONDO:0014510` | fatty acyl-CoA reductase 1 deficiency | `SILENT` | ✓ DOID |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **RCDP4** — DOID (DOID:0081243)
 
 ## What boomer did
 

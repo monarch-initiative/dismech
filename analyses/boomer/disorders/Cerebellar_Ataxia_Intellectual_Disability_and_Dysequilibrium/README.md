@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Cerebellar_Ataxia_Intellectual_Disa
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CAMRQ1 | `MONDO:0024542` | cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 1 | `AGREES` |
-| CAMRQ2 | `MONDO:0012430` | cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 2 | `AGREES` |
-| CAMRQ3 | `MONDO:0013188` | cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 3 | `AGREES` |
-| CAMRQ4 | `MONDO:0014104` | cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CAMRQ1 | `MONDO:0024542` | cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 1 | `AGREES` | ✓ DOID |
+| CAMRQ2 | `MONDO:0012430` | cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 2 | `AGREES` | ✓ DOID |
+| CAMRQ3 | `MONDO:0013188` | cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 3 | `AGREES` | silent (DOID, MESH) |
+| CAMRQ4 | `MONDO:0014104` | cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 4 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

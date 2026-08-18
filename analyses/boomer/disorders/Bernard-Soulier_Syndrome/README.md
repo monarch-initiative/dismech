@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Bernard-Soulier_Syndrome.yaml`](../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| A1 | `MONDO:1060238` | MONDO:1060238 | `SILENT` |
-| B | `MONDO:1060239` | MONDO:1060239 | `SILENT` |
-| C | `MONDO:1060237` | MONDO:1060237 | `SILENT` |
-| A2 | `MONDO:0007930` | Bernard-Soulier syndrome, type A2, autosomal dominant | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| A1 | `MONDO:1060238` | MONDO:1060238 | `SILENT` | — no shared vocabulary |
+| B | `MONDO:1060239` | MONDO:1060239 | `SILENT` | — no shared vocabulary |
+| C | `MONDO:1060237` | MONDO:1060237 | `SILENT` | — no shared vocabulary |
+| A2 | `MONDO:0007930` | Bernard-Soulier syndrome, type A2, autosomal dominant | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Anaplastic_Large_Cell_Lymphoma.yaml
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Systemic ALK-Positive | `MONDO:0017602` | ALK-positive anaplastic large cell lymphoma | `AGREES` |
-| Systemic ALK-Negative | `MONDO:0017603` | ALK-negative anaplastic large cell lymphoma | `AGREES` |
-| Primary Cutaneous | `MONDO:0017598` | primary cutaneous anaplastic large cell lymphoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Systemic ALK-Positive | `MONDO:0017602` | ALK-positive anaplastic large cell lymphoma | `AGREES` | ✓ NCIT, ORDO |
+| Systemic ALK-Negative | `MONDO:0017603` | ALK-negative anaplastic large cell lymphoma | `AGREES` | ✓ NCIT, ORDO |
+| Primary Cutaneous | `MONDO:0017598` | primary cutaneous anaplastic large cell lymphoma | `AGREES` | ✓ NCIT |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Toxic_Shock_Syndrome.yaml`](../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Staphylococcal TSS | `MONDO:0020545` | staphylococcal toxic-shock syndrome | `AGREES` |
-| Streptococcal TSS | `MONDO:0020544` | streptococcal toxic-shock syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Staphylococcal TSS | `MONDO:0020545` | staphylococcal toxic-shock syndrome | `AGREES` | ✓ ORDO, icd11f |
+| Streptococcal TSS | `MONDO:0020544` | streptococcal toxic-shock syndrome | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 

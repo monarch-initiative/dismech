@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Inborn_Disorder_of_Methionine_Cycle
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CBS deficiency | `MONDO:0009352` | classic homocystinuria | `AGREES` |
-| MTHFR deficiency | `MONDO:0009353` | homocystinuria due to methylene tetrahydrofolate reductase deficiency | `AGREES` |
-| cblC disease | `MONDO:0010184` | methylmalonic aciduria and homocystinuria type cblC | `AGREES` |
-| MAT I/III deficiency | `MONDO:0009607` | methionine adenosyltransferase deficiency | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CBS deficiency | `MONDO:0009352` | classic homocystinuria | `AGREES` | ✓ ORDO |
+| MTHFR deficiency | `MONDO:0009353` | homocystinuria due to methylene tetrahydrofolate reductase deficiency | `AGREES` | silent (ORDO) |
+| cblC disease | `MONDO:0010184` | methylmalonic aciduria and homocystinuria type cblC | `AGREES` | silent (ORDO) |
+| MAT I/III deficiency | `MONDO:0009607` | methionine adenosyltransferase deficiency | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

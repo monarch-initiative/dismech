@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Holoprosencephaly_9.yaml`](../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Pituitary-Polydactyly | `MONDO:0014369` | postaxial polydactyly-anterior pituitary anomalies-facial dysmorphism syndrome | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Pituitary-Polydactyly | `MONDO:0014369` | postaxial polydactyly-anterior pituitary anomalies-facial dysmorphism syndrome | `SILENT` | silent (DOID, OMIM) |
 
 ## What boomer did
 

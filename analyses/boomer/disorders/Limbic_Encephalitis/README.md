@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Limbic_Encephalitis.yaml`](../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Autoimmune Limbic Encephalitis | `MONDO:0850097` | autoimmune limbic encephalitis | `AGREES` |
-| Classic Paraneoplastic Limbic Encephalitis | `MONDO:0015590` | classic paraneoplastic limbic encephalitis | `AGREES` |
-| Limbic Encephalitis with LGI1 Antibodies | `MONDO:0015592` | limbic encephalitis with LGI1 antibodies | `SILENT` |
-| Limbic Encephalitis with CASPR2 Antibodies | `MONDO:0017179` | limbic encephalitis with caspr2 antibodies | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Autoimmune Limbic Encephalitis | `MONDO:0850097` | autoimmune limbic encephalitis | `AGREES` | — no shared vocabulary |
+| Classic Paraneoplastic Limbic Encephalitis | `MONDO:0015590` | classic paraneoplastic limbic encephalitis | `AGREES` | — no shared vocabulary |
+| Limbic Encephalitis with LGI1 Antibodies | `MONDO:0015592` | limbic encephalitis with LGI1 antibodies | `SILENT` | — no shared vocabulary |
+| Limbic Encephalitis with CASPR2 Antibodies | `MONDO:0017179` | limbic encephalitis with caspr2 antibodies | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

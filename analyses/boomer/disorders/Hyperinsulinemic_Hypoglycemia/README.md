@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Diffuse HI | `MONDO:0015625` | diazoxide-resistant diffuse hyperinsulinism | `AGREES` |
-| Focal HI | `MONDO:0019265` | diazoxide-resistant focal hyperinsulinism | `AGREES` |
-| HI/HA Syndrome | `MONDO:0011717` | hyperinsulinism-hyperammonemia syndrome | `AGREES` |
-| Diazoxide-Unresponsive HI | `MONDO:0017186` | diazoxide-resistant hyperinsulinism | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Diffuse HI | `MONDO:0015625` | diazoxide-resistant diffuse hyperinsulinism | `AGREES` | ✓ ORDO |
+| Focal HI | `MONDO:0019265` | diazoxide-resistant focal hyperinsulinism | `AGREES` | ✓ ORDO |
+| HI/HA Syndrome | `MONDO:0011717` | hyperinsulinism-hyperammonemia syndrome | `AGREES` | ✓ DOID, ORDO |
+| Diazoxide-Unresponsive HI | `MONDO:0017186` | diazoxide-resistant hyperinsulinism | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

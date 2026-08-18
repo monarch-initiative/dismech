@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Multiple_Congenital_Anomalies-Hypot
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MCAHS1 | `MONDO:0013563` | multiple congenital anomalies-hypotonia-seizures syndrome 1 | `AGREES` |
-| MCAHS2 | `MONDO:0010466` | multiple congenital anomalies-hypotonia-seizures syndrome 2 | `AGREES` |
-| MCAHS3 | `MONDO:0014165` | multiple congenital anomalies-hypotonia-seizures syndrome 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MCAHS1 | `MONDO:0013563` | multiple congenital anomalies-hypotonia-seizures syndrome 1 | `AGREES` | ✓ DOID |
+| MCAHS2 | `MONDO:0010466` | multiple congenital anomalies-hypotonia-seizures syndrome 2 | `AGREES` | ✓ DOID |
+| MCAHS3 | `MONDO:0014165` | multiple congenital anomalies-hypotonia-seizures syndrome 3 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

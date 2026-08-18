@@ -8,15 +8,21 @@ Boomer grounding analysis for [`kb/disorders/Benign_Neonatal_Seizures.yaml`](../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| KCNQ2-BFNS | `MONDO:0007365` | seizures, benign familial neonatal, 1 | `AGREES` |
-| KCNQ3-BFNS | `MONDO:0007366` | seizures, benign familial neonatal, 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| KCNQ2-BFNS | `MONDO:0007365` | seizures, benign familial neonatal, 1 | `AGREES` | — no shared vocabulary |
+| KCNQ3-BFNS | `MONDO:0007366` | seizures, benign familial neonatal, 2 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0016027` ≡ `DOID:14264`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

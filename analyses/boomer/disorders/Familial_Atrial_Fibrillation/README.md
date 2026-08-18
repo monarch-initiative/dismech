@@ -8,26 +8,26 @@ Boomer grounding analysis for [`kb/disorders/Familial_Atrial_Fibrillation.yaml`]
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| KCNQ1-related | `MONDO:0011857` | atrial fibrillation, familial, 3 | `AGREES` |
-| KCNE2-related | `MONDO:0012677` | atrial fibrillation, familial, 4 | `AGREES` |
-| KCNJ2-related | `MONDO:0013513` | atrial fibrillation, familial, 9 | `AGREES` |
-| GJA5-related | `MONDO:0013544` | atrial fibrillation, familial, 11 | `AGREES` |
-| NPPA-related | `MONDO:0012816` | atrial fibrillation, familial, 6 | `AGREES` |
-| SCN5A-related | `MONDO:0013530` | atrial fibrillation, familial, 10 | `AGREES` |
-| KCNA5-related | `MONDO:0012828` | atrial fibrillation, familial, 7 | `AGREES` |
-| ABCC9-related | `MONDO:0013545` | atrial fibrillation, familial, 12 | `AGREES` |
-| SCN1B-related | `MONDO:0014155` | atrial fibrillation, familial, 13 | `AGREES` |
-| SCN2B-related | `MONDO:0014156` | atrial fibrillation, familial, 14 | `AGREES` |
-| NUP155-related | `MONDO:0014340` | atrial fibrillation, familial, 15 | `AGREES` |
-| MYL4-related | `MONDO:0015001` | atrial fibrillation, familial, 18 | `AGREES` |
-| ATFB1-locus | `MONDO:0012066` | atrial fibrillation, familial, 1 | `AGREES` |
-| ATFB2-locus | `MONDO:0012167` | atrial fibrillation, familial, 2 | `AGREES` |
-| ATFB5-locus | `MONDO:0012678` | atrial fibrillation, familial, 5 | `AGREES` |
-| ATFB8-locus | `MONDO:0013100` | atrial fibrillation, familial, 8 | `AGREES` |
-| ATFB16-locus | `MONDO:0800349` | atrial fibrillation, familial, 16 | `AGREES` |
-| ATFB17-locus | `MONDO:0800345` | atrial fibrillation, familial, 17 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| KCNQ1-related | `MONDO:0011857` | atrial fibrillation, familial, 3 | `AGREES` | — no shared vocabulary |
+| KCNE2-related | `MONDO:0012677` | atrial fibrillation, familial, 4 | `AGREES` | — no shared vocabulary |
+| KCNJ2-related | `MONDO:0013513` | atrial fibrillation, familial, 9 | `AGREES` | — no shared vocabulary |
+| GJA5-related | `MONDO:0013544` | atrial fibrillation, familial, 11 | `AGREES` | — no shared vocabulary |
+| NPPA-related | `MONDO:0012816` | atrial fibrillation, familial, 6 | `AGREES` | — no shared vocabulary |
+| SCN5A-related | `MONDO:0013530` | atrial fibrillation, familial, 10 | `AGREES` | — no shared vocabulary |
+| KCNA5-related | `MONDO:0012828` | atrial fibrillation, familial, 7 | `AGREES` | — no shared vocabulary |
+| ABCC9-related | `MONDO:0013545` | atrial fibrillation, familial, 12 | `AGREES` | — no shared vocabulary |
+| SCN1B-related | `MONDO:0014155` | atrial fibrillation, familial, 13 | `AGREES` | — no shared vocabulary |
+| SCN2B-related | `MONDO:0014156` | atrial fibrillation, familial, 14 | `AGREES` | — no shared vocabulary |
+| NUP155-related | `MONDO:0014340` | atrial fibrillation, familial, 15 | `AGREES` | — no shared vocabulary |
+| MYL4-related | `MONDO:0015001` | atrial fibrillation, familial, 18 | `AGREES` | — no shared vocabulary |
+| ATFB1-locus | `MONDO:0012066` | atrial fibrillation, familial, 1 | `AGREES` | — no shared vocabulary |
+| ATFB2-locus | `MONDO:0012167` | atrial fibrillation, familial, 2 | `AGREES` | — no shared vocabulary |
+| ATFB5-locus | `MONDO:0012678` | atrial fibrillation, familial, 5 | `AGREES` | — no shared vocabulary |
+| ATFB8-locus | `MONDO:0013100` | atrial fibrillation, familial, 8 | `AGREES` | — no shared vocabulary |
+| ATFB16-locus | `MONDO:0800349` | atrial fibrillation, familial, 16 | `AGREES` | — no shared vocabulary |
+| ATFB17-locus | `MONDO:0800345` | atrial fibrillation, familial, 17 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

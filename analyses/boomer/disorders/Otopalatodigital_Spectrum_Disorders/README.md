@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Otopalatodigital_Spectrum_Disorders
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| OPD1 | `MONDO:0010704` | otopalatodigital syndrome type 1 | `AGREES` |
-| OPD2 | `MONDO:0010571` | otopalatodigital syndrome type 2 | `AGREES` |
-| FMD | `MONDO:0024550` | frontometaphyseal dysplasia 1 | `AGREES` |
-| MNS | `MONDO:0010650` | Melnick-Needles syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| OPD1 | `MONDO:0010704` | otopalatodigital syndrome type 1 | `AGREES` | ✓ DOID, ORDO |
+| OPD2 | `MONDO:0010571` | otopalatodigital syndrome type 2 | `AGREES` | ✓ DOID, ORDO |
+| FMD | `MONDO:0024550` | frontometaphyseal dysplasia 1 | `AGREES` | ✓ DOID |
+| MNS | `MONDO:0010650` | Melnick-Needles syndrome | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

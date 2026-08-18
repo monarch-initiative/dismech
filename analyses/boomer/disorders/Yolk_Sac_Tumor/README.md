@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Yolk_Sac_Tumor.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Ovarian YST | `MONDO:0006344` | ovarian yolk sac tumor | `AGREES` |
-| CNS YST | `MONDO:0016739` | yolk sac tumor of central nervous system | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Ovarian YST | `MONDO:0006344` | ovarian yolk sac tumor | `AGREES` | ✓ NCIT |
+| CNS YST | `MONDO:0016739` | yolk sac tumor of central nervous system | `AGREES` | ✓ NCIT, ORDO |
 
 ## What boomer did
 

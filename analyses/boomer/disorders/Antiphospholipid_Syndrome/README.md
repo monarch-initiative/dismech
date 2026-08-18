@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Antiphospholipid_Syndrome.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Primary antiphospholipid syndrome | `MONDO:0005204` | primary antiphospholipid syndrome | `AGREES` |
-| Secondary antiphospholipid syndrome | `MONDO:0021008` | secondary antiphospholipid syndrome | `AGREES` |
-| Catastrophic antiphospholipid syndrome | `MONDO:0018737` | catastrophic antiphospholipid syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Primary antiphospholipid syndrome | `MONDO:0005204` | primary antiphospholipid syndrome | `AGREES` | ✓ icd11f |
+| Secondary antiphospholipid syndrome | `MONDO:0021008` | secondary antiphospholipid syndrome | `AGREES` | ✓ icd11f |
+| Catastrophic antiphospholipid syndrome | `MONDO:0018737` | catastrophic antiphospholipid syndrome | `AGREES` | silent (ORDO) |
 
 ## What boomer did
 

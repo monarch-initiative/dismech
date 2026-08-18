@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/RYR2_CPVT.yaml`](../../../../kb/dis
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CPVT1 | `MONDO:0011484` | catecholaminergic polymorphic ventricular tachycardia 1 | `AGREES` |
-| CPVT2 | `MONDO:0012762` | catecholaminergic polymorphic ventricular tachycardia 2 | `AGREES` |
-| CPVT3 | `MONDO:0013529` | catecholaminergic polymorphic ventricular tachycardia 3 | `AGREES` |
-| CPVT4 | `MONDO:0013966` | catecholaminergic polymorphic ventricular tachycardia 4 | `AGREES` |
-| CPVT5 | `MONDO:0014191` | catecholaminergic polymorphic ventricular tachycardia 5 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CPVT1 | `MONDO:0011484` | catecholaminergic polymorphic ventricular tachycardia 1 | `AGREES` | ✓ DOID |
+| CPVT2 | `MONDO:0012762` | catecholaminergic polymorphic ventricular tachycardia 2 | `AGREES` | ✓ DOID |
+| CPVT3 | `MONDO:0013529` | catecholaminergic polymorphic ventricular tachycardia 3 | `AGREES` | ✓ DOID |
+| CPVT4 | `MONDO:0013966` | catecholaminergic polymorphic ventricular tachycardia 4 | `AGREES` | ✓ DOID |
+| CPVT5 | `MONDO:0014191` | catecholaminergic polymorphic ventricular tachycardia 5 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

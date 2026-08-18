@@ -8,17 +8,23 @@ Boomer grounding analysis for [`kb/disorders/MHC_Class_II_Deficiency.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MHC class II deficiency 1 | `MONDO:0971005` | MHC class II deficiency 1 | `AGREES` |
-| MHC class II deficiency 2 | `MONDO:0971013` | MHC class II deficiency 2 | `AGREES` |
-| MHC class II deficiency 3 | `MONDO:0971014` | MHC class II deficiency 3 | `AGREES` |
-| MHC class II deficiency 4 | `MONDO:0971015` | MHC class II deficiency 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MHC class II deficiency 1 | `MONDO:0971005` | MHC class II deficiency 1 | `AGREES` | — no shared vocabulary |
+| MHC class II deficiency 2 | `MONDO:0971013` | MHC class II deficiency 2 | `AGREES` | — no shared vocabulary |
+| MHC class II deficiency 3 | `MONDO:0971014` | MHC class II deficiency 3 | `AGREES` | — no shared vocabulary |
+| MHC class II deficiency 4 | `MONDO:0971015` | MHC class II deficiency 4 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0008855` ≡ `NCIT:C176823`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

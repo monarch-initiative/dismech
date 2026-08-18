@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Rett_Syndrome.yaml`](../../../../kb
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Classic Rett Syndrome | `MONDO:0010726` | Rett syndrome | `SAME_TERM` |
-| Atypical Rett Syndrome | `MONDO:0017746` | atypical Rett syndrome | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Classic Rett Syndrome | `MONDO:0010726` | Rett syndrome | `SAME_TERM` | ✓ DOID, MESH, NCIT, OMIM, ORDO, icd11f |
+| Atypical Rett Syndrome | `MONDO:0017746` | atypical Rett syndrome | `SILENT` | silent (ORDO, icd11f) |
 
 ## What boomer did
 

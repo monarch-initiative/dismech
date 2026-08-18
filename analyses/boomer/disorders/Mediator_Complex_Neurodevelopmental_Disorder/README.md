@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Mediator_Complex_Neurodevelopmental
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MED13 | `MONDO:0032485` | intellectual developmental disorder 61 | `SILENT` |
-| MED13L | `MONDO:0014773` | cardiac anomalies - developmental delay - facial dysmorphism syndrome | `AGREES` |
-| MED12 | `MONDO:0100000` | MED12-related intellectual disability syndrome | `SILENT` |
-| MED23 | `MONDO:0013651` | intellectual disability, autosomal recessive 18 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MED13 | `MONDO:0032485` | intellectual developmental disorder 61 | `SILENT` | silent (DOID) |
+| MED13L | `MONDO:0014773` | cardiac anomalies - developmental delay - facial dysmorphism syndrome | `AGREES` | — no shared vocabulary |
+| MED12 | `MONDO:0100000` | MED12-related intellectual disability syndrome | `SILENT` | — no shared vocabulary |
+| MED23 | `MONDO:0013651` | intellectual disability, autosomal recessive 18 | `SILENT` | silent (DOID) |
 
 ## What boomer did
 

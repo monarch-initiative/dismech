@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Ewing_Sarcoma.yaml`](../../../../kb
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Osseous Ewing Sarcoma | `MONDO:0002625` | Ewing sarcoma of bone | `AGREES` |
-| Extraosseous Ewing Sarcoma | `MONDO:0018270` | extraskeletal Ewing sarcoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Osseous Ewing Sarcoma | `MONDO:0002625` | Ewing sarcoma of bone | `AGREES` | ✓ DOID, NCIT |
+| Extraosseous Ewing Sarcoma | `MONDO:0018270` | extraskeletal Ewing sarcoma | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

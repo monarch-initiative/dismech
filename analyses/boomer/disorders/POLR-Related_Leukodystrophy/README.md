@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/POLR-Related_Leukodystrophy.yaml`](
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| POLR3A | `MONDO:0011897` | leukodystrophy, hypomyelinating, 7, with or without oligodontia and/or hypogonadotropic hypogonadism | `AGREES` |
-| POLR3B | `MONDO:0013722` | hypomyelinating leukodystrophy 8 with or without oligodontia and-or hypogonadotropic hypogonadism | `AGREES` |
-| POLR1C | `MONDO:0014666` | hypomyelinating leukodystrophy 11 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| POLR3A | `MONDO:0011897` | leukodystrophy, hypomyelinating, 7, with or without oligodontia and/or hypogonadotropic hypogonadism | `AGREES` | — no shared vocabulary |
+| POLR3B | `MONDO:0013722` | hypomyelinating leukodystrophy 8 with or without oligodontia and-or hypogonadotropic hypogonadism | `AGREES` | silent (ORDO) |
+| POLR1C | `MONDO:0014666` | hypomyelinating leukodystrophy 11 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

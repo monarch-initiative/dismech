@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/SOX10_Neurocristopathy_Spectrum.yam
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Waardenburg Syndrome Type 2E | `MONDO:0012698` | Waardenburg syndrome type 2E | `SILENT` |
-| Waardenburg Syndrome Type 4C | `MONDO:0013202` | Waardenburg syndrome type 4C | `SAME_TERM` |
-| PCWH Syndrome | `MONDO:0012198` | PCWH syndrome | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Waardenburg Syndrome Type 2E | `MONDO:0012698` | Waardenburg syndrome type 2E | `SILENT` | silent (DOID, OMIM) |
+| Waardenburg Syndrome Type 4C | `MONDO:0013202` | Waardenburg syndrome type 4C | `SAME_TERM` | ✓ DOID, OMIM |
+| PCWH Syndrome | `MONDO:0012198` | PCWH syndrome | `SILENT` | silent (DOID, MESH, OMIM) |
 
 ## What boomer did
 

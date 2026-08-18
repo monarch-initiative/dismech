@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Wilms_Tumor.yaml`](../../../../kb/d
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Childhood | `MONDO:0024676` | childhood kidney Wilms tumor | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Childhood | `MONDO:0024676` | childhood kidney Wilms tumor | `AGREES` | ✓ NCIT |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Cystinuria.yaml`](../../../../kb/di
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Cystinuria type A | `MONDO:0019745` | cystinuria type A | `AGREES` |
-| Cystinuria type B | `MONDO:0019746` | cystinuria type B | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Cystinuria type A | `MONDO:0019745` | cystinuria type A | `AGREES` | ✓ ORDO, icd11f |
+| Cystinuria type B | `MONDO:0019746` | cystinuria type B | `AGREES` | ✓ ORDO, icd11f |
 
 ## What boomer did
 

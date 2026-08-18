@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/GUCY2D-Related_Retinopathy.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Dominant | `MONDO:0100441` | GUCY2D-related dominant retinopathy | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Dominant | `MONDO:0100441` | GUCY2D-related dominant retinopathy | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

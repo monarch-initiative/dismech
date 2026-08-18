@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Mixed_Phenotype_Acute_Leukemia.yaml
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MPAL BCR-ABL1 | `MONDO:0850449` | mixed phenotype acute leukemia with BCR-ABL1 | `AGREES` |
-| MPAL KMT2A | `MONDO:0850450` | mixed phenotype acute leukemia with MLL rearranged | `AGREES` |
-| MPAL B/myeloid NOS | `MONDO:0850451` | mixed phenotype acute leukemia, B/myeloid | `AGREES` |
-| MPAL T/myeloid NOS | `MONDO:0850452` | mixed phenotype acute leukemia,T/myeloid | `AGREES` |
-| Acute undifferentiated leukemia | `MONDO:0020321` | acute undifferentiated leukemia | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MPAL BCR-ABL1 | `MONDO:0850449` | mixed phenotype acute leukemia with BCR-ABL1 | `AGREES` | — no shared vocabulary |
+| MPAL KMT2A | `MONDO:0850450` | mixed phenotype acute leukemia with MLL rearranged | `AGREES` | — no shared vocabulary |
+| MPAL B/myeloid NOS | `MONDO:0850451` | mixed phenotype acute leukemia, B/myeloid | `AGREES` | ✓ NCIT |
+| MPAL T/myeloid NOS | `MONDO:0850452` | mixed phenotype acute leukemia,T/myeloid | `AGREES` | ✓ NCIT |
+| Acute undifferentiated leukemia | `MONDO:0020321` | acute undifferentiated leukemia | `SILENT` | silent (NCIT, ORDO) |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/PAX3_Waardenburg_Spectrum.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| WS1 | `MONDO:0008670` | Waardenburg syndrome type 1 | `AGREES` |
-| WS3 | `MONDO:0007862` | Waardenburg syndrome type 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| WS1 | `MONDO:0008670` | Waardenburg syndrome type 1 | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| WS3 | `MONDO:0007862` | Waardenburg syndrome type 3 | `AGREES` | ✓ DOID, ORDO, icd11f |
 
 ## What boomer did
 

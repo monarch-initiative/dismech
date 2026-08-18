@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Treacher_Collins_Syndrome.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| TCS1 | `MONDO:0007944` | Treacher Collins syndrome 1 | `AGREES` |
-| TCS2 | `MONDO:0013385` | Treacher Collins syndrome 2 | `AGREES` |
-| TCS3 | `MONDO:0009558` | Treacher Collins syndrome 3 | `AGREES` |
-| TCS4 | `MONDO:0030067` | Treacher Collins syndrome 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| TCS1 | `MONDO:0007944` | Treacher Collins syndrome 1 | `AGREES` | ✓ DOID |
+| TCS2 | `MONDO:0013385` | Treacher Collins syndrome 2 | `AGREES` | ✓ DOID |
+| TCS3 | `MONDO:0009558` | Treacher Collins syndrome 3 | `AGREES` | ✓ DOID |
+| TCS4 | `MONDO:0030067` | Treacher Collins syndrome 4 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

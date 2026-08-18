@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/PRKAG2_Cardiac_Syndrome.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Lethal Congenital | `MONDO:0009867` | lethal congenital glycogen storage disease of heart | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Lethal Congenital | `MONDO:0009867` | lethal congenital glycogen storage disease of heart | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

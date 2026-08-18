@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Menkes_Disease.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Occipital horn syndrome | `MONDO:0010572` | occipital horn syndrome | `SILENT` |
-| ATP7A-related distal motor neuropathy | `MONDO:0010338` | X-linked distal spinal muscular atrophy type 3 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Occipital horn syndrome | `MONDO:0010572` | occipital horn syndrome | `SILENT` | silent (DOID, MESH, OMIM, ORDO) |
+| ATP7A-related distal motor neuropathy | `MONDO:0010338` | X-linked distal spinal muscular atrophy type 3 | `SILENT` | silent (DOID, MESH, OMIM, ORDO) |
 
 ## What boomer did
 

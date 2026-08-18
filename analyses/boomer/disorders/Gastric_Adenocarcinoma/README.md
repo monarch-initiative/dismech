@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Gastric_Adenocarcinoma.yaml`](../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Intestinal | `MONDO:0005037` | gastric intestinal type adenocarcinoma | `AGREES` |
-| Diffuse | `MONDO:0005017` | diffuse gastric adenocarcinoma | `AGREES` |
-| HDGC | `MONDO:0007648` | hereditary diffuse gastric adenocarcinoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Intestinal | `MONDO:0005037` | gastric intestinal type adenocarcinoma | `AGREES` | ✓ NCIT |
+| Diffuse | `MONDO:0005017` | diffuse gastric adenocarcinoma | `AGREES` | ✓ DOID, NCIT |
+| HDGC | `MONDO:0007648` | hereditary diffuse gastric adenocarcinoma | `AGREES` | ✓ NCIT |
 
 ## What boomer did
 

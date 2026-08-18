@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Myopathy_Lactic_Acidosis_and_Sidero
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MLASA1 | `MONDO:0024553` | myopathy, lactic acidosis, and sideroblastic anemia 1 | `AGREES` |
-| MLASA2 | `MONDO:0013307` | myopathy, lactic acidosis, and sideroblastic anemia 2 | `AGREES` |
-| MLASA3 | `MONDO:0010782` | myopathy, lactic acidosis, and sideroblastic anemia 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MLASA1 | `MONDO:0024553` | myopathy, lactic acidosis, and sideroblastic anemia 1 | `AGREES` | ✓ DOID |
+| MLASA2 | `MONDO:0013307` | myopathy, lactic acidosis, and sideroblastic anemia 2 | `AGREES` | ✓ DOID |
+| MLASA3 | `MONDO:0010782` | myopathy, lactic acidosis, and sideroblastic anemia 3 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

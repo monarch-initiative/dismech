@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Systemic_Mastocytosis.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Indolent SM | `MONDO:0020331` | indolent systemic mastocytosis | `AGREES` |
-| Smouldering SM | `MONDO:0015557` | Smouldering systemic mastocytosis | `AGREES` |
-| Aggressive SM | `MONDO:0020333` | aggressive systemic mastocytosis | `AGREES` |
-| SM-AHN | `MONDO:0020332` | systemic mastocytosis with an associated clonal hematologic non-mast cell lineage disease | `AGREES` |
-| Mast Cell Leukemia | `MONDO:0020334` | mast cell leukemia | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Indolent SM | `MONDO:0020331` | indolent systemic mastocytosis | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| Smouldering SM | `MONDO:0015557` | Smouldering systemic mastocytosis | `AGREES` | ✓ NCIT, ORDO, icd11f |
+| Aggressive SM | `MONDO:0020333` | aggressive systemic mastocytosis | `AGREES` | ✓ DOID, NCIT, ORDO, icd11f |
+| SM-AHN | `MONDO:0020332` | systemic mastocytosis with an associated clonal hematologic non-mast cell lineage disease | `AGREES` | ✓ DOID, NCIT, ORDO |
+| Mast Cell Leukemia | `MONDO:0020334` | mast cell leukemia | `AGREES` | ✓ NCIT, ORDO, icd11f |
 
 ## What boomer did
 

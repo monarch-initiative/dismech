@@ -8,18 +8,18 @@ Boomer grounding analysis for [`kb/disorders/CRB1_Retinal_Dystrophies.yaml`](../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| LCA8 | `MONDO:0013453` | Leber congenital amaurosis 8 | `SAME_TERM` |
-| RP12 | `MONDO:0010818` | retinitis pigmentosa 12 | `SILENT` |
-| Macular dystrophy | `MONDO:0020242` | hereditary macular dystrophy | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| LCA8 | `MONDO:0013453` | Leber congenital amaurosis 8 | `SAME_TERM` | ✓ DOID, OMIM |
+| RP12 | `MONDO:0010818` | retinitis pigmentosa 12 | `SILENT` | silent (DOID, OMIM) |
+| Macular dystrophy | `MONDO:0020242` | hereditary macular dystrophy | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:CRB1_Retinal_Dystrophies#LCA8` ≡ `MONDO:0013453`
+- `dismech:CRB1_Retinal_Dystrophies` ≡ `MONDO:0013453`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

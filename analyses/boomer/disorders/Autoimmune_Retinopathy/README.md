@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Autoimmune_Retinopathy.yaml`](../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CAR | `MONDO:0019112` | cancer-associated retinopathy | `SILENT` |
-| MAR | `MONDO:0023868` | melanoma associated retinopathy | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CAR | `MONDO:0019112` | cancer-associated retinopathy | `SILENT` | silent (icd11f) |
+| MAR | `MONDO:0023868` | melanoma associated retinopathy | `SILENT` | silent (icd11f) |
 
 ## What boomer did
 

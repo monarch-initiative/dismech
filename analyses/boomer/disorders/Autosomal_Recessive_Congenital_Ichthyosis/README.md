@@ -8,11 +8,19 @@ Boomer grounding analysis for [`kb/disorders/Autosomal_Recessive_Congenital_Icht
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Lamellar Ichthyosis | `MONDO:0017778` | lamellar ichthyosis | `SILENT` |
-| Congenital Ichthyosiform Erythroderma | `MONDO:0019306` | congenital non-bullous ichthyosiform erythroderma | `AGREES` |
-| Harlequin Ichthyosis | `MONDO:0009443` | autosomal recessive congenital ichthyosis 4B | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Lamellar Ichthyosis | `MONDO:0017778` | lamellar ichthyosis | `SILENT` | ✓ ORDO, icd11f |
+| Congenital Ichthyosiform Erythroderma | `MONDO:0019306` | congenital non-bullous ichthyosiform erythroderma | `AGREES` | ✓ ORDO, icd11f |
+| Harlequin Ichthyosis | `MONDO:0009443` | autosomal recessive congenital ichthyosis 4B | `AGREES` | ✓ DOID, ORDO |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **Lamellar Ichthyosis** — ORDO (ORDO:313), icd11f (icd11f:600146417)
 
 ## What boomer did
 

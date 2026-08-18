@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Ocular_Melanoma.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Uveal Melanoma | `MONDO:0006486` | uveal melanoma | `AGREES` |
-| Choroidal Melanoma | `MONDO:0003878` | malignant choroid melanoma | `AGREES` |
-| Ciliary Body Melanoma | `MONDO:0003912` | malignant ciliary body melanoma | `AGREES` |
-| Iris Melanoma | `MONDO:0004064` | iris melanoma | `AGREES` |
-| Conjunctival Melanoma | `MONDO:0002096` | malignant conjunctival melanoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Uveal Melanoma | `MONDO:0006486` | uveal melanoma | `AGREES` | ✓ NCIT |
+| Choroidal Melanoma | `MONDO:0003878` | malignant choroid melanoma | `AGREES` | ✓ NCIT |
+| Ciliary Body Melanoma | `MONDO:0003912` | malignant ciliary body melanoma | `AGREES` | ✓ NCIT |
+| Iris Melanoma | `MONDO:0004064` | iris melanoma | `AGREES` | ✓ NCIT |
+| Conjunctival Melanoma | `MONDO:0002096` | malignant conjunctival melanoma | `AGREES` | ✓ NCIT |
 
 ## What boomer did
 

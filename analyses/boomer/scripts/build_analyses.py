@@ -41,6 +41,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import collections
 import contextlib
 import csv
 import glob
@@ -53,13 +54,35 @@ from pathlib import Path
 
 import yaml
 
-MONDO_DB = Path.home() / ".data/oaklib/mondo.db"
+OAK_DIR = Path.home() / ".data/oaklib"
+MONDO_DB = OAK_DIR / "mondo.db"
 REPO = Path(__file__).resolve().parents[3]
+
+# External vocabularies reachable from MONDO by CONFIRMED equivalency, for which a
+# local semantic-sql build exists so their OWN hierarchy can be consulted. This is
+# what makes the analysis N-source rather than 2-source: each of these is an
+# independent opinion about whether a subtype really sits under its parent.
+EXTERNAL_DBS = {
+    "DOID": "doid.db",
+    "NCIT": "ncit.db",
+    "ORDO": "ordo.db",
+    "OMIM": "omim.db",
+    "ICD10CM": "icd10cm.db",
+    "icd11f": "icd11f.db",
+    "MESH": "mesh.db",
+    "EFO": "efo.db",
+}
 
 # prior that a curated mapping means identity, and the competing readings
 P_IDENTITY = 0.90
 P_NARROWER = 0.07
 P_BROADER = 0.03
+
+# MONDO's own skos:exactMatch links. Higher than a dismech mapping because they are
+# curated identity assertions in a reference ontology rather than a grounding choice.
+# Deliberately NOT oio:hasDbXref, which is a cross-reference of unstated strength --
+# treating those as equivalencies would inject false identity into every KB.
+P_MONDO_EXACT = 0.95
 
 
 def load_boomer(src):
@@ -105,6 +128,22 @@ class Mondo:
             }
         return self._anc[curie]
 
+    def confirmed_equivalents(self, curie):
+        """MONDO's ``skos:exactMatch`` targets, grouped by vocabulary.
+
+        Only exactMatch. ``oio:hasDbXref`` is excluded on purpose: it asserts a
+        cross-reference of unstated strength, and reading it as an equivalency
+        would manufacture identity claims MONDO never made.
+        """
+        out = {}
+        for (o,) in self.con.execute(
+            "select object from statements where subject=? and predicate='skos:exactMatch' "
+            "and object is not null",
+            (curie,),
+        ):
+            out.setdefault(o.split(":")[0], set()).add(o)
+        return out
+
     def disjoint_pairs(self, curies):
         placeholders = ",".join("?" * len(curies))
         return list(
@@ -114,6 +153,48 @@ class Mondo:
                 (*curies, *curies),
             )
         )
+
+
+class External:
+    """Cached reader over the external ontologies' own hierarchies."""
+
+    def __init__(self, oak_dir=OAK_DIR, dbs=EXTERNAL_DBS):
+        self.con = {}
+        for vocab, filename in dbs.items():
+            path = Path(oak_dir) / filename
+            if path.exists():
+                self.con[vocab] = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        self._anc = {}
+
+    def ancestors(self, vocab, curie):
+        key = (vocab, curie)
+        if key not in self._anc:
+            con = self.con.get(vocab)
+            self._anc[key] = (
+                {
+                    o
+                    for (o,) in con.execute(
+                        "select object from entailed_edge where subject=? "
+                        "and predicate='rdfs:subClassOf'",
+                        (curie,),
+                    )
+                }
+                if con
+                else set()
+            )
+        return self._anc[key]
+
+    def opinion(self, vocab, child_terms, parent_terms):
+        """Does this vocabulary place any mapped child under any mapped parent?"""
+        if any(
+            p in self.ancestors(vocab, c) for c in child_terms for p in parent_terms
+        ):
+            return "AGREES"
+        if any(
+            c in self.ancestors(vocab, p) for c in child_terms for p in parent_terms
+        ):
+            return "REVERSED"
+        return "SILENT"
 
 
 def verdict_for(mondo, child, parent):
@@ -126,7 +207,7 @@ def verdict_for(mondo, child, parent):
     return "SILENT"
 
 
-def collect(kb_glob, mondo):
+def collect(kb_glob, mondo, external):
     """Yield one record per disorder that has at least one grounded subtype pair."""
     for path in sorted(glob.glob(kb_glob)):
         data = yaml.safe_load(open(path)) or {}
@@ -135,29 +216,53 @@ def collect(kb_glob, mondo):
         parent_term = term_id(data.get("disease_term"))
         if not parent_term or not parent_term.startswith("MONDO:"):
             continue
+        parent_equivs = mondo.confirmed_equivalents(parent_term)
         pairs = []
         for subtype in data.get("has_subtypes") or []:
             child = term_id(subtype.get("subtype_term"))
-            if child and child.startswith("MONDO:"):
-                pairs.append(
-                    {
-                        "subtype": subtype.get("name"),
-                        "term": child,
-                        "label": mondo.label(child),
-                        "verdict": verdict_for(mondo, child, parent_term),
-                    }
+            if not child or not child.startswith("MONDO:"):
+                continue
+            child_equivs = mondo.confirmed_equivalents(child)
+            # every vocabulary in which BOTH sides have a confirmed equivalent can
+            # give an independent opinion on the subsumption
+            opinions = {
+                vocab: external.opinion(
+                    vocab, child_equivs[vocab], parent_equivs[vocab]
                 )
+                for vocab in sorted(
+                    set(child_equivs) & set(parent_equivs) & set(external.con)
+                )
+            }
+            pairs.append(
+                {
+                    "subtype": subtype.get("name"),
+                    "term": child,
+                    "label": mondo.label(child),
+                    "verdict": verdict_for(mondo, child, parent_term),
+                    "equivs": {v: sorted(t) for v, t in sorted(child_equivs.items())},
+                    "opinions": opinions,
+                    "corroborated_by": sorted(
+                        v for v, o in opinions.items() if o == "AGREES"
+                    ),
+                    "contradicted_by": sorted(
+                        v for v, o in opinions.items() if o == "REVERSED"
+                    ),
+                }
+            )
         if pairs:
             yield {
                 "slug": Path(path).stem,
                 "name": data.get("name") or Path(path).stem,
                 "parent_term": parent_term,
                 "parent_label": mondo.label(parent_term),
+                "parent_equivs": {
+                    v: sorted(t) for v, t in sorted(parent_equivs.items())
+                },
                 "pairs": pairs,
             }
 
 
-def build_kb_dict(mondo, rec):
+def build_kb_dict(mondo, external, rec):
     d_parent = f"dismech:{rec['slug']}"
     terms = {rec["parent_term"], *(p["term"] for p in rec["pairs"])}
 
@@ -244,6 +349,40 @@ def build_kb_dict(mondo, rec):
             },
         ]
 
+    # --- external sources -------------------------------------------------
+    # Each vocabulary MONDO confirms an equivalency into is a further opinion. Its
+    # own subsumption edges enter as HARD facts (we are testing dismech against
+    # these sources, not auditing them), and the MONDO<->external equivalency
+    # enters as a pfact so boomer can retract it if the sources cannot be
+    # reconciled.
+    ext_terms = collections.defaultdict(set)
+    for mondo_term, equivs in [
+        (rec["parent_term"], rec["parent_equivs"]),
+        *((p["term"], p["equivs"]) for p in rec["pairs"]),
+    ]:
+        for vocab, curies in equivs.items():
+            if vocab not in external.con:
+                continue
+            for curie in curies:
+                ext_terms[vocab].add(curie)
+                pfacts.append(
+                    {
+                        "fact": {
+                            "fact_type": "EquivalentTo",
+                            "sub": mondo_term,
+                            "equivalent": curie,
+                        },
+                        "prob": P_MONDO_EXACT,
+                    }
+                )
+    for vocab, curies in ext_terms.items():
+        for curie in sorted(curies):
+            add({"fact_type": "MemberOfDisjointGroup", "sub": curie, "group": vocab})
+        for a in sorted(curies):
+            for b in sorted(curies):
+                if a != b and b in external.ancestors(vocab, a):
+                    add({"fact_type": "ProperSubClassOf", "sub": a, "sup": b})
+
     for s, o in mondo.disjoint_pairs(sorted(terms)):
         add({"fact_type": "DisjointWith", "sub": s, "sibling": o})
 
@@ -287,13 +426,42 @@ def write_readme(folder, rec, sol, retracted, timed_out):
         "",
         "## Subtypes",
         "",
-        "| Subtype | MONDO term | Label | Verdict |",
-        "|---|---|---|---|",
+        "| Subtype | MONDO term | Label | MONDO | Other sources |",
+        "|---|---|---|---|---|",
     ]
     for pair in rec["pairs"]:
+        if pair["contradicted_by"]:
+            others = "⚠ contradicted by " + ", ".join(pair["contradicted_by"])
+        elif pair["corroborated_by"]:
+            others = "✓ " + ", ".join(pair["corroborated_by"])
+        elif pair["opinions"]:
+            others = "silent (" + ", ".join(sorted(pair["opinions"])) + ")"
+        else:
+            others = "— no shared vocabulary"
         lines.append(
-            f"| {pair['subtype']} | `{pair['term']}` | {pair['label']} | `{pair['verdict']}` |"
+            f"| {pair['subtype']} | `{pair['term']}` | {pair['label']} | "
+            f"`{pair['verdict']}` | {others} |"
         )
+
+    corroborated = [
+        p for p in rec["pairs"] if p["verdict"] == "SILENT" and p["corroborated_by"]
+    ]
+    if corroborated:
+        lines += [
+            "",
+            "### Corroborated elsewhere",
+            "",
+            "MONDO asserts no relation for these, but at least one other ontology that",
+            "MONDO confirms an equivalency into does place the subtype under the parent.",
+            "That makes them evidenced MONDO gaps rather than open questions:",
+            "",
+        ]
+        for pair in corroborated:
+            srcs = ", ".join(
+                f"{v} ({', '.join(pair['equivs'].get(v, []))})"
+                for v in pair["corroborated_by"]
+            )
+            lines.append(f"- **{pair['subtype']}** — {srcs}")
 
     lines += ["", "## What boomer did", ""]
     if timed_out:
@@ -379,6 +547,7 @@ def main(argv=None):
         args.boomer_src
     )
     mondo = Mondo(args.db)
+    external = External()
     cfg = SearchConfig(
         timeout_seconds=args.timeout,
         partition_initial_threshold=args.partition_threshold,
@@ -388,10 +557,12 @@ def main(argv=None):
 
     index, tally = [], Counter()
     records = [
-        r for r in collect(args.kb, mondo) if not args.only or r["slug"] == args.only
+        r
+        for r in collect(args.kb, mondo, external)
+        if not args.only or r["slug"] == args.only
     ]
     for i, rec in enumerate(records, 1):
-        kb_dict = build_kb_dict(mondo, rec)
+        kb_dict = build_kb_dict(mondo, external, rec)
         kb = KB.model_validate(kb_dict)
         with contextlib.redirect_stdout(io.StringIO()):
             sol = solve(kb, cfg)

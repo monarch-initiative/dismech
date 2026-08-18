@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Familial_Hypercholesterolemia.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Homozygous Familial Hypercholesterolemia | `MONDO:0018328` | homozygous familial hypercholesterolemia | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Homozygous Familial Hypercholesterolemia | `MONDO:0018328` | homozygous familial hypercholesterolemia | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

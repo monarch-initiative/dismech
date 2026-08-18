@@ -8,14 +8,25 @@ Boomer grounding analysis for [`kb/disorders/Inborn_Disorder_of_Bile_Acid_Synthe
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| BASD Type 1 | `MONDO:0011906` | congenital bile acid synthesis defect 1 | `SILENT` |
-| BASD Type 2 | `MONDO:0009339` | congenital bile acid synthesis defect 2 | `SILENT` |
-| BASD Type 3 | `MONDO:0013439` | congenital bile acid synthesis defect 3 | `SILENT` |
-| BASD Type 4 | `MONDO:0008967` | congenital bile acid synthesis defect 4 | `SILENT` |
-| CTX | `MONDO:0008948` | cerebrotendinous xanthomatosis | `AGREES` |
-| Bile acid conjugation defect 1 | `MONDO:0030991` | bile acid conjugation defect 1 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| BASD Type 1 | `MONDO:0011906` | congenital bile acid synthesis defect 1 | `SILENT` | ✓ ORDO |
+| BASD Type 2 | `MONDO:0009339` | congenital bile acid synthesis defect 2 | `SILENT` | ✓ ORDO |
+| BASD Type 3 | `MONDO:0013439` | congenital bile acid synthesis defect 3 | `SILENT` | ✓ ORDO |
+| BASD Type 4 | `MONDO:0008967` | congenital bile acid synthesis defect 4 | `SILENT` | ✓ ORDO |
+| CTX | `MONDO:0008948` | cerebrotendinous xanthomatosis | `AGREES` | ✓ ORDO |
+| Bile acid conjugation defect 1 | `MONDO:0030991` | bile acid conjugation defect 1 | `SILENT` | — no shared vocabulary |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **BASD Type 1** — ORDO (ORDO:79301)
+- **BASD Type 2** — ORDO (ORDO:79303)
+- **BASD Type 3** — ORDO (ORDO:79302)
+- **BASD Type 4** — ORDO (ORDO:79095)
 
 ## What boomer did
 

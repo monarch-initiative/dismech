@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Acute_Respiratory_Distress_Syndrome
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Adult ARDS | `MONDO:0100130` | adult acute respiratory distress syndrome | `AGREES` |
-| Pediatric ARDS | `MONDO:0100131` | pediatric acute respiratory distress syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Adult ARDS | `MONDO:0100130` | adult acute respiratory distress syndrome | `AGREES` | ✓ icd11f |
+| Pediatric ARDS | `MONDO:0100131` | pediatric acute respiratory distress syndrome | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

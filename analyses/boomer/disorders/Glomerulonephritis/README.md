@@ -8,15 +8,23 @@ Boomer grounding analysis for [`kb/disorders/Glomerulonephritis.yaml`](../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| IgA Nephropathy | `MONDO:0005342` | IgA glomerulonephritis | `AGREES` |
-| Membranous Nephropathy | `MONDO:0005376` | membranous glomerulonephritis | `AGREES` |
-| Lupus Nephritis | `MONDO:0005556` | lupus nephritis | `AGREES` |
-| Post-Streptococcal GN | `MONDO:0001870` | acute poststreptococcal glomerulonephritis | `AGREES` |
-| Anti-GBM Disease | `MONDO:0009303` | anti-glomerular basement membrane disease | `SILENT` |
-| ANCA-Associated GN | `MONDO:0019988` | pauci-immune glomerulonephritis with ANCA | `AGREES` |
-| Membranoproliferative GN | `MONDO:0002461` | membranoproliferative glomerulonephritis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| IgA Nephropathy | `MONDO:0005342` | IgA glomerulonephritis | `AGREES` | ✓ DOID, MESH, NCIT |
+| Membranous Nephropathy | `MONDO:0005376` | membranous glomerulonephritis | `AGREES` | ✓ DOID, MESH, NCIT |
+| Lupus Nephritis | `MONDO:0005556` | lupus nephritis | `AGREES` | ✓ DOID, MESH, NCIT |
+| Post-Streptococcal GN | `MONDO:0001870` | acute poststreptococcal glomerulonephritis | `AGREES` | ✓ DOID |
+| Anti-GBM Disease | `MONDO:0009303` | anti-glomerular basement membrane disease | `SILENT` | ✓ MESH |
+| ANCA-Associated GN | `MONDO:0019988` | pauci-immune glomerulonephritis with ANCA | `AGREES` | — no shared vocabulary |
+| Membranoproliferative GN | `MONDO:0002461` | membranoproliferative glomerulonephritis | `AGREES` | ✓ DOID, MESH, NCIT |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **Anti-GBM Disease** — MESH (MESH:D019867)
 
 ## What boomer did
 

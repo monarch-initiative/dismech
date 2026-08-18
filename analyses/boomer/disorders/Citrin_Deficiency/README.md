@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Citrin_Deficiency.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency) | `MONDO:0011601` | neonatal intrahepatic cholestasis due to citrin deficiency | `AGREES` |
-| CTLN2 (Adult-onset Type II Citrullinemia) | `MONDO:0011326` | citrullinemia, type II, adult-onset | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| NICCD (Neonatal Intrahepatic Cholestasis caused by Citrin Deficiency) | `MONDO:0011601` | neonatal intrahepatic cholestasis due to citrin deficiency | `AGREES` | ✓ ORDO |
+| CTLN2 (Adult-onset Type II Citrullinemia) | `MONDO:0011326` | citrullinemia, type II, adult-onset | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

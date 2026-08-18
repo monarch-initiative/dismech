@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/TGFBI_Corneal_Dystrophies.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| GCD1 | `MONDO:0007377` | granular corneal dystrophy type I | `AGREES` |
-| GCD2 | `MONDO:0011855` | granular corneal dystrophy type II | `AGREES` |
-| LCD1 | `MONDO:0007380` | lattice corneal dystrophy type I | `AGREES` |
-| RBCD | `MONDO:0012043` | Reis-Bucklers corneal dystrophy | `AGREES` |
-| TBCD | `MONDO:0011185` | Thiel-Behnke corneal dystrophy | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| GCD1 | `MONDO:0007377` | granular corneal dystrophy type I | `AGREES` | ✓ DOID |
+| GCD2 | `MONDO:0011855` | granular corneal dystrophy type II | `AGREES` | ✓ DOID |
+| LCD1 | `MONDO:0007380` | lattice corneal dystrophy type I | `AGREES` | — no shared vocabulary |
+| RBCD | `MONDO:0012043` | Reis-Bucklers corneal dystrophy | `AGREES` | ✓ DOID |
+| TBCD | `MONDO:0011185` | Thiel-Behnke corneal dystrophy | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Facioscapulohumeral_Muscular_Dystro
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| FSHD1 | `MONDO:0008030` | facioscapulohumeral muscular dystrophy 1 | `AGREES` |
-| FSHD2 | `MONDO:0008031` | facioscapulohumeral muscular dystrophy 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| FSHD1 | `MONDO:0008030` | facioscapulohumeral muscular dystrophy 1 | `AGREES` | ✓ DOID, NCIT |
+| FSHD2 | `MONDO:0008031` | facioscapulohumeral muscular dystrophy 2 | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

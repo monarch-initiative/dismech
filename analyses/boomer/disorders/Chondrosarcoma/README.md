@@ -8,17 +8,23 @@ Boomer grounding analysis for [`kb/disorders/Chondrosarcoma.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Dedifferentiated | `MONDO:0005013` | dedifferentiated chondrosarcoma | `AGREES` |
-| Mesenchymal | `MONDO:0006853` | mesenchymal chondrosarcoma | `AGREES` |
-| Clear Cell | `MONDO:0003684` | clear cell chondrosarcoma | `AGREES` |
-| Periosteal | `MONDO:0003680` | periosteal chondrosarcoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Dedifferentiated | `MONDO:0005013` | dedifferentiated chondrosarcoma | `AGREES` | ✓ DOID, NCIT |
+| Mesenchymal | `MONDO:0006853` | mesenchymal chondrosarcoma | `AGREES` | ✓ DOID, MESH, NCIT |
+| Clear Cell | `MONDO:0003684` | clear cell chondrosarcoma | `AGREES` | ✓ DOID, NCIT |
+| Periosteal | `MONDO:0003680` | periosteal chondrosarcoma | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0003680` ≡ `DOID:5859`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

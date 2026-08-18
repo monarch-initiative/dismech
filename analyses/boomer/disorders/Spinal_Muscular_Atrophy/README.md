@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Spinal_Muscular_Atrophy.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SMA Type 1 (Werdnig-Hoffmann) | `MONDO:0009669` | spinal muscular atrophy, type 1 | `AGREES` |
-| SMA Type 2 | `MONDO:0009673` | spinal muscular atrophy, type II | `AGREES` |
-| SMA Type 3 (Kugelberg-Welander) | `MONDO:0009672` | spinal muscular atrophy, type III | `AGREES` |
-| SMA Type 4 | `MONDO:0010056` | spinal muscular atrophy, type IV | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SMA Type 1 (Werdnig-Hoffmann) | `MONDO:0009669` | spinal muscular atrophy, type 1 | `AGREES` | ✓ DOID, NCIT, icd11f |
+| SMA Type 2 | `MONDO:0009673` | spinal muscular atrophy, type II | `AGREES` | ✓ DOID, icd11f |
+| SMA Type 3 (Kugelberg-Welander) | `MONDO:0009672` | spinal muscular atrophy, type III | `AGREES` | ✓ DOID, NCIT, icd11f |
+| SMA Type 4 | `MONDO:0010056` | spinal muscular atrophy, type IV | `AGREES` | ✓ DOID, icd11f |
 
 ## What boomer did
 

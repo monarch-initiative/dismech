@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Gaucher_Disease.yaml`](../../../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1 | `MONDO:0009265` | Gaucher disease type I | `AGREES` |
-| Type 2 | `MONDO:0009266` | Gaucher disease type II | `AGREES` |
-| Type 3 | `MONDO:0009267` | Gaucher disease type III | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1 | `MONDO:0009265` | Gaucher disease type I | `AGREES` | ✓ DOID, ORDO |
+| Type 2 | `MONDO:0009266` | Gaucher disease type II | `AGREES` | ✓ DOID, ORDO |
+| Type 3 | `MONDO:0009267` | Gaucher disease type III | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

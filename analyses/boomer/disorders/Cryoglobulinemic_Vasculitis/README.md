@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Cryoglobulinemic_Vasculitis.yaml`](
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type I | `MONDO:0019606` | simple cryoglobulinemia | `SILENT` |
-| Type II | `MONDO:0019726` | type II mixed cryoglobulinemia | `AGREES` |
-| Type III | `MONDO:0019727` | mixed cryoglobulinemia type III | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type I | `MONDO:0019606` | simple cryoglobulinemia | `SILENT` | silent (ORDO) |
+| Type II | `MONDO:0019726` | type II mixed cryoglobulinemia | `AGREES` | ✓ ORDO |
+| Type III | `MONDO:0019727` | mixed cryoglobulinemia type III | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

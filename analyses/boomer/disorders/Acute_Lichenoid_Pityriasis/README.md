@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Acute_Lichenoid_Pityriasis.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Febrile ulceronecrotic Mucha-Habermann disease | `MONDO:0023134` | febrile ulceronecrotic Mucha-Habermann disease | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Febrile ulceronecrotic Mucha-Habermann disease | `MONDO:0023134` | febrile ulceronecrotic Mucha-Habermann disease | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

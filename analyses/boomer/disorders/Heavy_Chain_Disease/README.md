@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Heavy_Chain_Disease.yaml`](../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Alpha-HCD | `MONDO:0015045` | alpha-heavy chain disease | `AGREES` |
-| Gamma-HCD | `MONDO:0015046` | gamma-heavy chain disease | `AGREES` |
-| Mu-HCD | `MONDO:0015044` | mu-heavy chain disease | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Alpha-HCD | `MONDO:0015045` | alpha-heavy chain disease | `AGREES` | ✓ DOID, MESH, NCIT, ORDO |
+| Gamma-HCD | `MONDO:0015046` | gamma-heavy chain disease | `AGREES` | ✓ DOID, NCIT, ORDO |
+| Mu-HCD | `MONDO:0015044` | mu-heavy chain disease | `AGREES` | ✓ DOID, NCIT, ORDO |
 
 ## What boomer did
 

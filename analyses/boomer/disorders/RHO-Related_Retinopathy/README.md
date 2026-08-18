@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/RHO-Related_Retinopathy.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| RP4 | `MONDO:0013395` | retinitis pigmentosa 4 | `AGREES` |
-| CSNBAD1 | `MONDO:0012498` | congenital stationary night blindness autosomal dominant 1 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| RP4 | `MONDO:0013395` | retinitis pigmentosa 4 | `AGREES` | — no shared vocabulary |
+| CSNBAD1 | `MONDO:0012498` | congenital stationary night blindness autosomal dominant 1 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

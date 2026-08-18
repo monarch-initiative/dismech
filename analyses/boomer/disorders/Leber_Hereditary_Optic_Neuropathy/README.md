@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Leber_Hereditary_Optic_Neuropathy.y
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| arLHON | `MONDO:0030309` | Leber hereditary optic neuropathy, autosomal recessive | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| arLHON | `MONDO:0030309` | Leber hereditary optic neuropathy, autosomal recessive | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

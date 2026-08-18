@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/X-linked_Nonsyndromic_Hearing_Loss.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| DFNX1 | `MONDO:0010577` | hearing loss, X-linked 1 | `AGREES` |
-| DFNX2 | `MONDO:0010576` | X-linked mixed hearing loss with perilymphatic gusher | `AGREES` |
-| DFNX4 | `MONDO:0010238` | hearing loss, X-linked 4 | `AGREES` |
-| DFNX5 | `MONDO:0010378` | X-linked hereditary sensory and autonomic neuropathy with hearing loss | `AGREES` |
-| DFNX6 | `MONDO:0010484` | hearing loss, X-linked 6 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| DFNX1 | `MONDO:0010577` | hearing loss, X-linked 1 | `AGREES` | ✓ DOID |
+| DFNX2 | `MONDO:0010576` | X-linked mixed hearing loss with perilymphatic gusher | `AGREES` | ✓ DOID |
+| DFNX4 | `MONDO:0010238` | hearing loss, X-linked 4 | `AGREES` | ✓ DOID |
+| DFNX5 | `MONDO:0010378` | X-linked hereditary sensory and autonomic neuropathy with hearing loss | `AGREES` | silent (DOID, ORDO) |
+| DFNX6 | `MONDO:0010484` | hearing loss, X-linked 6 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

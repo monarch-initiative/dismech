@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/ER_Positive_Breast_Cancer.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Luminal A Breast Cancer | `MONDO:0021116` | luminal A breast carcinoma | `SILENT` |
-| Luminal B Breast Cancer | `MONDO:0021115` | luminal B breast carcinoma | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Luminal A Breast Cancer | `MONDO:0021116` | luminal A breast carcinoma | `SILENT` | — no shared vocabulary |
+| Luminal B Breast Cancer | `MONDO:0021115` | luminal B breast carcinoma | `SILENT` | silent (DOID) |
 
 ## What boomer did
 

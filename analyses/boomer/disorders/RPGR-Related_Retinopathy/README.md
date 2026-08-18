@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/RPGR-Related_Retinopathy.yaml`](../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Retinitis pigmentosa 3 | `MONDO:0010227` | retinitis pigmentosa 3 | `AGREES` |
-| X-linked cone-rod dystrophy 1 | `MONDO:0010566` | X-linked cone-rod dystrophy 1 | `AGREES` |
-| Cone dystrophy 1, X-linked | `MONDO:0800320` | cone dystrophy 1, X-linked | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Retinitis pigmentosa 3 | `MONDO:0010227` | retinitis pigmentosa 3 | `AGREES` | — no shared vocabulary |
+| X-linked cone-rod dystrophy 1 | `MONDO:0010566` | X-linked cone-rod dystrophy 1 | `AGREES` | — no shared vocabulary |
+| Cone dystrophy 1, X-linked | `MONDO:0800320` | cone dystrophy 1, X-linked | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

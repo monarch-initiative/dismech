@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Testicular_Sex_Cord_Stromal_Neoplas
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Leydig Cell Tumor | `MONDO:0003124` | testicular Leydig cell tumor | `AGREES` |
-| Sertoli Cell Tumor | `MONDO:0020808` | testicular sertoli cell tumor | `AGREES` |
-| Granulosa Cell Tumor | `MONDO:0003395` | testicular granulosa cell tumor | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Leydig Cell Tumor | `MONDO:0003124` | testicular Leydig cell tumor | `AGREES` | ✓ DOID, NCIT |
+| Sertoli Cell Tumor | `MONDO:0020808` | testicular sertoli cell tumor | `AGREES` | ✓ NCIT |
+| Granulosa Cell Tumor | `MONDO:0003395` | testicular granulosa cell tumor | `AGREES` | ✓ NCIT |
 
 ## What boomer did
 

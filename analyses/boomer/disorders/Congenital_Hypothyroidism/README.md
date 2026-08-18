@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Congenital_Hypothyroidism.yaml`](..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Permanent Primary | `MONDO:0016408` | permanent congenital hypothyroidism | `AGREES` |
-| Transient | `MONDO:0015792` | transient congenital hypothyroidism | `AGREES` |
-| Central | `MONDO:0016410` | central congenital hypothyroidism | `AGREES` |
-| Dyshormonogenesis | `MONDO:0010132` | familial thyroid dyshormonogenesis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Permanent Primary | `MONDO:0016408` | permanent congenital hypothyroidism | `AGREES` | ✓ ORDO, icd11f |
+| Transient | `MONDO:0015792` | transient congenital hypothyroidism | `AGREES` | ✓ ORDO, icd11f |
+| Central | `MONDO:0016410` | central congenital hypothyroidism | `AGREES` | ✓ ORDO, icd11f |
+| Dyshormonogenesis | `MONDO:0010132` | familial thyroid dyshormonogenesis | `AGREES` | ✓ DOID, NCIT, ORDO |
 
 ## What boomer did
 

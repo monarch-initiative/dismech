@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Anauxetic_Dysplasia.yaml`](../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| AD1 | `MONDO:0054560` | anauxetic dysplasia 1 | `AGREES` |
-| AD2 | `MONDO:0054561` | anauxetic dysplasia 2 | `AGREES` |
-| AD3 | `MONDO:0030019` | anauxetic dysplasia 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| AD1 | `MONDO:0054560` | anauxetic dysplasia 1 | `AGREES` | ✓ DOID |
+| AD2 | `MONDO:0054561` | anauxetic dysplasia 2 | `AGREES` | ✓ DOID |
+| AD3 | `MONDO:0030019` | anauxetic dysplasia 3 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

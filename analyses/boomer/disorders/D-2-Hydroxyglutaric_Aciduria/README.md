@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/D-2-Hydroxyglutaric_Aciduria.yaml`]
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| D-2-HGA type I | `MONDO:0024554` | D-2-hydroxyglutaric aciduria 1 | `AGREES` |
-| D-2-HGA type II | `MONDO:0013345` | d-2-hydroxyglutaric aciduria 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| D-2-HGA type I | `MONDO:0024554` | D-2-hydroxyglutaric aciduria 1 | `AGREES` | ✓ DOID |
+| D-2-HGA type II | `MONDO:0013345` | d-2-hydroxyglutaric aciduria 2 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

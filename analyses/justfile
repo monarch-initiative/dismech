@@ -1,0 +1,81 @@
+# Analyses justfile.
+#
+# Deliberately NOT wired into the repo's top-level justfile: nothing here runs in
+# CI, and every recipe needs local semantic-sql ontology builds under
+# ~/.data/oaklib/ (plus, for the boomer recipes, a boomer-py checkout). Adding
+# them to `just --list` at the root would advertise recipes that fail for most
+# people.
+#
+#   cd analyses && just --list
+#
+# Everything here regenerates committed output. Re-run after a MONDO refresh, or
+# after KB changes that touch disease_term / subtype_term / mappings.
+
+boomer_src := env_var_or_default("BOOMER_SRC", "~/repos/boomer-py/src")
+oak_dir    := env_var_or_default("OAK_DIR", env_var("HOME") / ".data/oaklib")
+
+_default:
+    @just --list --unsorted
+
+# Regenerate everything under boomer/ (the three recipes below, in order).
+boomer-all: boomer-disorders boomer-groupings boomer-cross-source
+
+# Per-disorder grounding analysis: one folder per disorder, plus index.tsv.
+# ~38 min over the full KB (measured, 286 disorders); prints progress every 50.
+boomer-disorders:
+    uv run --with networkx python boomer/scripts/build_analyses.py \
+        --out boomer/disorders --index boomer/index.tsv \
+        --boomer-src {{boomer_src}}
+
+# One disorder only -- for iterating. e.g. `just boomer-one Adult_Refsum_Disease`
+boomer-one slug:
+    uv run --with networkx python boomer/scripts/build_analyses.py \
+        --out boomer/disorders --boomer-src {{boomer_src}} --only {{slug}}
+
+# Grouping membership vs MONDO. No solver needed.
+boomer-groupings:
+    uv run python boomer/scripts/grouping_audit.py \
+        --out boomer/groupings/violations.tsv
+
+# dismech's direct ICD/NCIT mappings vs MONDO's own confirmed xrefs. No solver.
+boomer-cross-source:
+    uv run python boomer/scripts/crosssource_audit.py \
+        --out boomer/cross-source/disagreements.tsv
+
+# `-C 6` below is NOT optional. The partitioning that makes these tractable is a solver
+# setting and is not serialised into kb.yaml; without it boomer runs at its
+# default and times out on anything past a few subtypes. The CLI has no flag for
+# partition_initial_threshold, but --max-pfacts-per-clique triggers the same
+# partitioning and reproduces the committed results exactly.
+#
+# Solve one committed kb.yaml through the boomer CLI, reproducing its solution.md.
+boomer-solve slug timeout="60":
+    cd {{boomer_src}}/.. && uv run pyboomer solve \
+        {{justfile_directory()}}/boomer/disorders/{{slug}}/kb.yaml \
+        -t {{timeout}} -C 6 -O markdown
+
+# Are the committed outputs still what the scripts produce? Prints a diff if not.
+boomer-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tmp=$(mktemp -d)
+    uv run python boomer/scripts/grouping_audit.py --out "$tmp/g.tsv" >/dev/null
+    uv run python boomer/scripts/crosssource_audit.py --out "$tmp/c.tsv" >/dev/null
+    diff "$tmp/g.tsv" boomer/groupings/violations.tsv
+    diff "$tmp/c.tsv" boomer/cross-source/disagreements.tsv
+    echo "OK: solver-free outputs match the committed ones"
+    echo "(boomer-disorders is not diffed here -- rerun it and check git status)"
+
+# What ontology builds do these recipes need, and which are missing?
+check-deps:
+    #!/usr/bin/env bash
+    missing=0
+    for db in mondo doid ncit ordo omim icd10cm icd11f mesh efo; do
+      if [ -f "{{oak_dir}}/$db.db" ]; then echo "  ok      $db.db"
+      else echo "  MISSING $db.db"; missing=1; fi
+    done
+    if [ "$missing" = 1 ]; then
+      echo
+      echo "Fetch a missing one with:  uv run runoak -i sqlite:obo:<name> info CURIE"
+      echo "mondo.db is required; the rest degrade to fewer corroborating sources."
+    fi

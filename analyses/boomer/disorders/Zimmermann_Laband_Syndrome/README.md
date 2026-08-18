@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Zimmermann_Laband_Syndrome.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| ZLS1 | `MONDO:0024526` | Zimmermann-Laband syndrome 1 | `AGREES` |
-| ZLS2 | `MONDO:0014646` | Zimmermann-Laband syndrome 2 | `AGREES` |
-| ZLS3 | `MONDO:0032854` | Zimmermann-Laband syndrome 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| ZLS1 | `MONDO:0024526` | Zimmermann-Laband syndrome 1 | `AGREES` | — no shared vocabulary |
+| ZLS2 | `MONDO:0014646` | Zimmermann-Laband syndrome 2 | `AGREES` | — no shared vocabulary |
+| ZLS3 | `MONDO:0032854` | Zimmermann-Laband syndrome 3 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

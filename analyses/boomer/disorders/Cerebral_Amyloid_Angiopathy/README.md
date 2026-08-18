@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/Cerebral_Amyloid_Angiopathy.yaml`](
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Dutch-type | `MONDO:0011583` | cerebral amyloid angiopathy, APP-related | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Dutch-type | `MONDO:0011583` | cerebral amyloid angiopathy, APP-related | `AGREES` | ✓ DOID, NCIT |
 
 ## What boomer did
 

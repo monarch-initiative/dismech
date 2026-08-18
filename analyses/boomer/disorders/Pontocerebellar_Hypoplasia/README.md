@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Pontocerebellar_Hypoplasia.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PCH1A | `MONDO:0011866` | pontocerebellar hypoplasia type 1A | `AGREES` |
-| PCH1B | `MONDO:0013853` | pontocerebellar hypoplasia type 1B | `AGREES` |
-| PCH2 | `MONDO:0016759` | pontocerebellar hypoplasia type 2 | `AGREES` |
-| PCH4 | `MONDO:0009166` | pontocerebellar hypoplasia type 4 | `AGREES` |
-| PCH6 | `MONDO:0012683` | pontocerebellar hypoplasia type 6 | `AGREES` |
-| PCH10 | `MONDO:0014349` | pontocerebellar hypoplasia type 10 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PCH1A | `MONDO:0011866` | pontocerebellar hypoplasia type 1A | `AGREES` | ✓ DOID |
+| PCH1B | `MONDO:0013853` | pontocerebellar hypoplasia type 1B | `AGREES` | ✓ DOID |
+| PCH2 | `MONDO:0016759` | pontocerebellar hypoplasia type 2 | `AGREES` | ✓ DOID, ORDO, icd11f |
+| PCH4 | `MONDO:0009166` | pontocerebellar hypoplasia type 4 | `AGREES` | ✓ DOID, ORDO, icd11f |
+| PCH6 | `MONDO:0012683` | pontocerebellar hypoplasia type 6 | `AGREES` | ✓ DOID, ORDO, icd11f |
+| PCH10 | `MONDO:0014349` | pontocerebellar hypoplasia type 10 | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

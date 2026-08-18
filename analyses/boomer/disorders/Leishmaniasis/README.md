@@ -8,16 +8,22 @@ Boomer grounding analysis for [`kb/disorders/Leishmaniasis.yaml`](../../../../kb
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Visceral leishmaniasis | `MONDO:0005445` | visceral leishmaniasis | `AGREES` |
-| Cutaneous leishmaniasis | `MONDO:0005446` | cutaneous leishmaniasis | `AGREES` |
-| Mucocutaneous leishmaniasis | `MONDO:0005859` | mucocutaneous leishmaniasis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Visceral leishmaniasis | `MONDO:0005445` | visceral leishmaniasis | `AGREES` | ✓ DOID, ICD10CM, MESH, NCIT, icd11f |
+| Cutaneous leishmaniasis | `MONDO:0005446` | cutaneous leishmaniasis | `AGREES` | ✓ DOID, ICD10CM, MESH, NCIT, icd11f |
+| Mucocutaneous leishmaniasis | `MONDO:0005859` | mucocutaneous leishmaniasis | `AGREES` | ✓ DOID, ICD10CM, MESH, NCIT, icd11f |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0005446` ≡ `NCIT:C34768`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

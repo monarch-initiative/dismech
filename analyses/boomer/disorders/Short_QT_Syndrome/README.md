@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Short_QT_Syndrome.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| SQTS1 | `MONDO:0012312` | short QT syndrome type 1 | `AGREES` |
-| SQTS2 | `MONDO:0012313` | short QT syndrome type 2 | `AGREES` |
-| SQTS3 | `MONDO:0012314` | short QT syndrome type 3 | `AGREES` |
-| SLC4A3-Related | `MONDO:0859368` | short QT syndrome 7 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| SQTS1 | `MONDO:0012312` | short QT syndrome type 1 | `AGREES` | silent (MESH) |
+| SQTS2 | `MONDO:0012313` | short QT syndrome type 2 | `AGREES` | silent (MESH) |
+| SQTS3 | `MONDO:0012314` | short QT syndrome type 3 | `AGREES` | silent (MESH) |
+| SLC4A3-Related | `MONDO:0859368` | short QT syndrome 7 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

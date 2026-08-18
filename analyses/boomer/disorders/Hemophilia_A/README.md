@@ -8,16 +8,22 @@ Boomer grounding analysis for [`kb/disorders/Hemophilia_A.yaml`](../../../../kb/
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Severe Hemophilia A | `MONDO:0015719` | severe hemophilia A | `AGREES` |
-| Moderate Hemophilia A | `MONDO:0015720` | moderately severe hemophilia A | `AGREES` |
-| Mild Hemophilia A | `MONDO:0015721` | mild hemophilia A | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Severe Hemophilia A | `MONDO:0015719` | severe hemophilia A | `AGREES` | ✓ ORDO |
+| Moderate Hemophilia A | `MONDO:0015720` | moderately severe hemophilia A | `AGREES` | ✓ ORDO |
+| Mild Hemophilia A | `MONDO:0015721` | mild hemophilia A | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 
-All identity mappings were accepted together - dismech's subtype hierarchy, the
-mappings, and MONDO's hierarchy are jointly consistent for this entry.
+Boomer could **not** accept every mapping at once and retracted the following
+identity claim(s) to restore consistency:
+
+- `MONDO:0010602` ≡ `OMIM:134500`
+
+A retraction means these assertions are jointly unsatisfiable, not that the
+retracted mapping is necessarily the wrong one. Which assertion to give up is a
+curation decision.
 
 ## Verdict meanings
 

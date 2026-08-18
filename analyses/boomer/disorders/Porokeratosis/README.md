@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Porokeratosis.yaml`](../../../../kb
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| DSAP | `MONDO:0019212` | disseminated superficial actinic porokeratosis | `AGREES` |
-| Mibelli | `MONDO:0019141` | porokeratosis of Mibelli | `AGREES` |
-| Linear | `MONDO:0023246` | linear porokeratosis | `AGREES` |
-| PPPD | `MONDO:0008291` | porokeratosis plantaris palmaris et disseminata | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| DSAP | `MONDO:0019212` | disseminated superficial actinic porokeratosis | `AGREES` | ✓ ORDO, icd11f |
+| Mibelli | `MONDO:0019141` | porokeratosis of Mibelli | `AGREES` | ✓ ORDO |
+| Linear | `MONDO:0023246` | linear porokeratosis | `AGREES` | ✓ icd11f |
+| PPPD | `MONDO:0008291` | porokeratosis plantaris palmaris et disseminata | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

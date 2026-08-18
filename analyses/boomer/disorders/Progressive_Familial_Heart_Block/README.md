@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Progressive_Familial_Heart_Block.ya
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 1A | `MONDO:0007240` | progressive familial heart block, type 1A | `AGREES` |
-| Type 1B | `MONDO:0011474` | progressive familial heart block type IB | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 1A | `MONDO:0007240` | progressive familial heart block, type 1A | `AGREES` | ✓ DOID |
+| Type 1B | `MONDO:0011474` | progressive familial heart block type IB | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

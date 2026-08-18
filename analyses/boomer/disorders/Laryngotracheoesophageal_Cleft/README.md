@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Laryngotracheoesophageal_Cleft.yaml
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type 0 (interarytenoid cleft) | `MONDO:0017220` | laryngotracheoesophageal cleft type 0 | `AGREES` |
-| Type I | `MONDO:0019761` | laryngotracheoesophageal cleft type 1 | `AGREES` |
-| Type II | `MONDO:0019762` | laryngotracheoesophageal cleft type 2 | `AGREES` |
-| Type III | `MONDO:0019763` | laryngotracheoesophageal cleft type 3 | `AGREES` |
-| Type IV | `MONDO:0019764` | laryngotracheoesophageal cleft type 4 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type 0 (interarytenoid cleft) | `MONDO:0017220` | laryngotracheoesophageal cleft type 0 | `AGREES` | ✓ ORDO |
+| Type I | `MONDO:0019761` | laryngotracheoesophageal cleft type 1 | `AGREES` | ✓ ORDO |
+| Type II | `MONDO:0019762` | laryngotracheoesophageal cleft type 2 | `AGREES` | ✓ ORDO |
+| Type III | `MONDO:0019763` | laryngotracheoesophageal cleft type 3 | `AGREES` | ✓ ORDO |
+| Type IV | `MONDO:0019764` | laryngotracheoesophageal cleft type 4 | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Cole-Carpenter_Syndrome.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CCS1 | `MONDO:0007204` | Cole-Carpenter syndrome 1 | `AGREES` |
-| CCS2 | `MONDO:0014573` | Cole-Carpenter syndrome 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CCS1 | `MONDO:0007204` | Cole-Carpenter syndrome 1 | `AGREES` | — no shared vocabulary |
+| CCS2 | `MONDO:0014573` | Cole-Carpenter syndrome 2 | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

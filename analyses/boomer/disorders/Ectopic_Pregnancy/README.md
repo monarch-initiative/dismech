@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Ectopic_Pregnancy.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Tubal | `MONDO:0043762` | tubal pregnancy | `AGREES` |
-| Interstitial | `MONDO:0044101` | pregnancy, cornual | `AGREES` |
-| Ovarian | `MONDO:0044098` | ovarian ectopic pregnancy | `AGREES` |
-| Abdominal | `MONDO:0043759` | abdominal ectopic pregnancy | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Tubal | `MONDO:0043762` | tubal pregnancy | `AGREES` | ✓ MESH, NCIT, icd11f |
+| Interstitial | `MONDO:0044101` | pregnancy, cornual | `AGREES` | ✓ MESH, NCIT |
+| Ovarian | `MONDO:0044098` | ovarian ectopic pregnancy | `AGREES` | ✓ MESH, NCIT |
+| Abdominal | `MONDO:0043759` | abdominal ectopic pregnancy | `AGREES` | ✓ MESH, NCIT |
 
 ## What boomer did
 

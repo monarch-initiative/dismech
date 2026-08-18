@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Hypereosinophilic_Syndrome.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Primary HES | `MONDO:0017833` | primary hypereosinophilic syndrome | `AGREES` |
-| Lymphocytic HES | `MONDO:0017835` | lymphocytic hypereosinophilic syndrome | `AGREES` |
-| Idiopathic HES | `MONDO:0011895` | idiopathic hypereosinophilic syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Primary HES | `MONDO:0017833` | primary hypereosinophilic syndrome | `AGREES` | ✓ ORDO |
+| Lymphocytic HES | `MONDO:0017835` | lymphocytic hypereosinophilic syndrome | `AGREES` | ✓ ORDO, icd11f |
+| Idiopathic HES | `MONDO:0011895` | idiopathic hypereosinophilic syndrome | `AGREES` | ✓ ICD10CM, ORDO |
 
 ## What boomer did
 

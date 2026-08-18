@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Geleophysic_Dysplasia.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| GD1 | `MONDO:0009269` | geleophysic dysplasia 1 | `AGREES` |
-| GD2 | `MONDO:0013612` | geleophysic dysplasia 2 | `AGREES` |
-| GD3 | `MONDO:0054722` | geleophysic dysplasia 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| GD1 | `MONDO:0009269` | geleophysic dysplasia 1 | `AGREES` | ✓ DOID |
+| GD2 | `MONDO:0013612` | geleophysic dysplasia 2 | `AGREES` | ✓ DOID |
+| GD3 | `MONDO:0054722` | geleophysic dysplasia 3 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

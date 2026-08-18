@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Pleuropulmonary_Blastoma.yaml`](../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Type I | `MONDO:0020555` | pleuropulmonary blastoma type 1 | `AGREES` |
-| Type II | `MONDO:0020556` | pleuropulmonary blastoma type 2 | `AGREES` |
-| Type III | `MONDO:0020557` | pleuropulmonary blastoma type 3 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Type I | `MONDO:0020555` | pleuropulmonary blastoma type 1 | `AGREES` | ✓ NCIT, ORDO |
+| Type II | `MONDO:0020556` | pleuropulmonary blastoma type 2 | `AGREES` | ✓ NCIT, ORDO |
+| Type III | `MONDO:0020557` | pleuropulmonary blastoma type 3 | `AGREES` | ✓ NCIT, ORDO |
 
 ## What boomer did
 

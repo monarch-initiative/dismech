@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Chronic_Intestinal_Pseudoobstructio
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Neuropathic | `MONDO:0010232` | intestinal pseudoobstruction, neuronal, chronic idiopathic, X-linked | `AGREES` |
-| Mitochondrial | `MONDO:0011283` | mitochondrial DNA depletion syndrome 1 | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Neuropathic | `MONDO:0010232` | intestinal pseudoobstruction, neuronal, chronic idiopathic, X-linked | `AGREES` | — no shared vocabulary |
+| Mitochondrial | `MONDO:0011283` | mitochondrial DNA depletion syndrome 1 | `SILENT` | — no shared vocabulary |
 
 ## What boomer did
 

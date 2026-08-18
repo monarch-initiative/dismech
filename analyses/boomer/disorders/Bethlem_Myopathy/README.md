@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Bethlem_Myopathy.yaml`](../../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| BTHLM1A | `MONDO:0024530` | Bethlem myopathy 1A | `AGREES` |
-| BTHLM1B | `MONDO:0958233` | Bethlem myopathy 1B | `AGREES` |
-| BTHLM1C | `MONDO:0958234` | Bethlem myopathy 1C | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| BTHLM1A | `MONDO:0024530` | Bethlem myopathy 1A | `AGREES` | ✓ DOID |
+| BTHLM1B | `MONDO:0958233` | Bethlem myopathy 1B | `AGREES` | ✓ DOID |
+| BTHLM1C | `MONDO:0958234` | Bethlem myopathy 1C | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

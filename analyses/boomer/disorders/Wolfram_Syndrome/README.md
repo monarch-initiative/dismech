@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Wolfram_Syndrome.yaml`](../../../..
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| WS1 | `MONDO:0009101` | Wolfram syndrome 1 | `AGREES` |
-| WS2 | `MONDO:0011502` | Wolfram syndrome 2 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| WS1 | `MONDO:0009101` | Wolfram syndrome 1 | `AGREES` | ✓ DOID |
+| WS2 | `MONDO:0011502` | Wolfram syndrome 2 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

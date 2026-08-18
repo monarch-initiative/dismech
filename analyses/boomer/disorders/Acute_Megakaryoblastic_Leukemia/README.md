@@ -8,12 +8,12 @@ Boomer grounding analysis for [`kb/disorders/Acute_Megakaryoblastic_Leukemia.yam
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Down Syndrome-Associated AMKL | `MONDO:0020526` | acute megakaryoblastic leukemia in down syndrome | `AGREES` |
-| Non-Down Syndrome AMKL | `MONDO:0018004` | acute megakaryoblastic leukemia without down syndrome | `AGREES` |
-| RBM15::MRTFA-Rearranged AMKL | `MONDO:0018436` | megakaryoblastic acute myeloid leukemia with t(1;22)(p13;q13) | `SILENT` |
-| Adult AMKL | `MONDO:0971091` | acute megakaryoblastic leukemia in adult | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Down Syndrome-Associated AMKL | `MONDO:0020526` | acute megakaryoblastic leukemia in down syndrome | `AGREES` | ✓ ORDO |
+| Non-Down Syndrome AMKL | `MONDO:0018004` | acute megakaryoblastic leukemia without down syndrome | `AGREES` | ✓ ORDO |
+| RBM15::MRTFA-Rearranged AMKL | `MONDO:0018436` | megakaryoblastic acute myeloid leukemia with t(1;22)(p13;q13) | `SILENT` | silent (ORDO) |
+| Adult AMKL | `MONDO:0971091` | acute megakaryoblastic leukemia in adult | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

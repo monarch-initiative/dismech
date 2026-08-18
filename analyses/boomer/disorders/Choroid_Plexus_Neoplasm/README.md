@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Choroid_Plexus_Neoplasm.yaml`](../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| CPP | `MONDO:0009837` | choroid plexus papilloma | `AGREES` |
-| aCPP | `MONDO:0002684` | atypical choroid plexus papilloma | `AGREES` |
-| CPC | `MONDO:0016718` | choroid plexus carcinoma | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| CPP | `MONDO:0009837` | choroid plexus papilloma | `AGREES` | ✓ NCIT, ORDO, icd11f |
+| aCPP | `MONDO:0002684` | atypical choroid plexus papilloma | `AGREES` | ✓ NCIT, ORDO, icd11f |
+| CPC | `MONDO:0016718` | choroid plexus carcinoma | `AGREES` | ✓ NCIT, ORDO, icd11f |
 
 ## What boomer did
 

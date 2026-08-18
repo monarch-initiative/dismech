@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Mabry_Syndrome.yaml`](../../../../k
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| HPMRS1 | `MONDO:0009398` | hyperphosphatasia with intellectual disability syndrome 1 | `AGREES` |
-| HPMRS2 | `MONDO:0013882` | hyperphosphatasia with intellectual disability syndrome 2 | `AGREES` |
-| HPMRS3 | `MONDO:0013628` | hyperphosphatasia with intellectual disability syndrome 3 | `AGREES` |
-| HPMRS4 | `MONDO:0014318` | hyperphosphatasia with intellectual disability syndrome 4 | `AGREES` |
-| HPMRS5 | `MONDO:0014457` | hyperphosphatasia with intellectual disability syndrome 5 | `AGREES` |
-| HPMRS6 | `MONDO:0014780` | hyperphosphatasia with intellectual disability syndrome 6 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| HPMRS1 | `MONDO:0009398` | hyperphosphatasia with intellectual disability syndrome 1 | `AGREES` | ✓ DOID |
+| HPMRS2 | `MONDO:0013882` | hyperphosphatasia with intellectual disability syndrome 2 | `AGREES` | ✓ DOID |
+| HPMRS3 | `MONDO:0013628` | hyperphosphatasia with intellectual disability syndrome 3 | `AGREES` | ✓ DOID |
+| HPMRS4 | `MONDO:0014318` | hyperphosphatasia with intellectual disability syndrome 4 | `AGREES` | ✓ DOID |
+| HPMRS5 | `MONDO:0014457` | hyperphosphatasia with intellectual disability syndrome 5 | `AGREES` | ✓ DOID |
+| HPMRS6 | `MONDO:0014780` | hyperphosphatasia with intellectual disability syndrome 6 | `AGREES` | ✓ DOID |
 
 ## What boomer did
 

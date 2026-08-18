@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Hypotrichosis_with_Juvenile_Macular
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| HJMD | `MONDO:0011107` | congenital hypotrichosis with juvenile macular dystrophy | `SAME_TERM` |
-| EEM | `MONDO:0009155` | EEM syndrome | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| HJMD | `MONDO:0011107` | congenital hypotrichosis with juvenile macular dystrophy | `SAME_TERM` | ✓ DOID, OMIM, ORDO |
+| EEM | `MONDO:0009155` | EEM syndrome | `SILENT` | silent (DOID, MESH, OMIM, ORDO) |
 
 ## What boomer did
 

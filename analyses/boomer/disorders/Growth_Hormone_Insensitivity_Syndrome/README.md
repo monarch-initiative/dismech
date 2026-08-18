@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Growth_Hormone_Insensitivity_Syndro
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Laron Syndrome | `MONDO:0009877` | Laron syndrome | `AGREES` |
-| IGF1 Deficiency | `MONDO:0012110` | growth delay due to insulin-like growth factor type 1 deficiency | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Laron Syndrome | `MONDO:0009877` | Laron syndrome | `AGREES` | ✓ ORDO |
+| IGF1 Deficiency | `MONDO:0012110` | growth delay due to insulin-like growth factor type 1 deficiency | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

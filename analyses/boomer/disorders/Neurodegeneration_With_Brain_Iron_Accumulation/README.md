@@ -8,14 +8,14 @@ Boomer grounding analysis for [`kb/disorders/Neurodegeneration_With_Brain_Iron_A
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PKAN | `MONDO:0009319` | pantothenate kinase-associated neurodegeneration | `AGREES` |
-| PLAN | `MONDO:0017998` | PLA2G6-associated neurodegeneration | `AGREES` |
-| BPAN | `MONDO:0010476` | neurodegeneration with brain iron accumulation 5 | `AGREES` |
-| MPAN | `MONDO:0013674` | neurodegeneration with brain iron accumulation 4 | `AGREES` |
-| Aceruloplasminemia | `MONDO:0011426` | aceruloplasminemia | `AGREES` |
-| Neuroferritinopathy | `MONDO:0011638` | neuroferritinopathy | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PKAN | `MONDO:0009319` | pantothenate kinase-associated neurodegeneration | `AGREES` | ✓ DOID, ORDO |
+| PLAN | `MONDO:0017998` | PLA2G6-associated neurodegeneration | `AGREES` | ✓ ORDO |
+| BPAN | `MONDO:0010476` | neurodegeneration with brain iron accumulation 5 | `AGREES` | ✓ DOID, ORDO |
+| MPAN | `MONDO:0013674` | neurodegeneration with brain iron accumulation 4 | `AGREES` | ✓ DOID, ORDO |
+| Aceruloplasminemia | `MONDO:0011426` | aceruloplasminemia | `AGREES` | ✓ ORDO |
+| Neuroferritinopathy | `MONDO:0011638` | neuroferritinopathy | `AGREES` | ✓ DOID, ORDO |
 
 ## What boomer did
 

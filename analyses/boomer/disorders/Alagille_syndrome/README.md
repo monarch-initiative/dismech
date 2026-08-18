@@ -8,11 +8,11 @@ Boomer grounding analysis for [`kb/disorders/Alagille_syndrome.yaml`](../../../.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| JAG1 point-variant ALGS | `MONDO:0016862` | Alagille syndrome due to a JAG1 point mutation | `AGREES` |
-| 20p12 deletion ALGS | `MONDO:0016861` | Alagille syndrome due to 20p12 microdeletion | `AGREES` |
-| NOTCH2 point-variant ALGS | `MONDO:0012439` | Alagille syndrome due to a NOTCH2 point mutation | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| JAG1 point-variant ALGS | `MONDO:0016862` | Alagille syndrome due to a JAG1 point mutation | `AGREES` | ✓ ORDO |
+| 20p12 deletion ALGS | `MONDO:0016861` | Alagille syndrome due to 20p12 microdeletion | `AGREES` | ✓ ORDO |
+| NOTCH2 point-variant ALGS | `MONDO:0012439` | Alagille syndrome due to a NOTCH2 point mutation | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

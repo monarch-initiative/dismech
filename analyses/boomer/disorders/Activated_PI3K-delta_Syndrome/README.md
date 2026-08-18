@@ -8,10 +8,10 @@ Boomer grounding analysis for [`kb/disorders/Activated_PI3K-delta_Syndrome.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| APDS1 | `MONDO:0014222` | immunodeficiency 14 | `AGREES` |
-| APDS2 | `MONDO:0014453` | immunodeficiency 36 with lymphoproliferation | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| APDS1 | `MONDO:0014222` | immunodeficiency 14 | `AGREES` | ✓ ORDO |
+| APDS2 | `MONDO:0014453` | immunodeficiency 36 with lymphoproliferation | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 

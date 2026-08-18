@@ -8,9 +8,17 @@ Boomer grounding analysis for [`kb/disorders/Mycetoma.yaml`](../../../../kb/diso
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Eumycetoma | `MONDO:0005757` | eumycotic mycetoma | `SILENT` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Eumycetoma | `MONDO:0005757` | eumycotic mycetoma | `SILENT` | ✓ ICD10CM |
+
+### Corroborated elsewhere
+
+MONDO asserts no relation for these, but at least one other ontology that
+MONDO confirms an equivalency into does place the subtype under the parent.
+That makes them evidenced MONDO gaps rather than open questions:
+
+- **Eumycetoma** — ICD10CM (ICD10CM:B47.0)
 
 ## What boomer did
 

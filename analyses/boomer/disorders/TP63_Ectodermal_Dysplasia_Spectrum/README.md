@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/TP63_Ectodermal_Dysplasia_Spectrum.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| AEC | `MONDO:0007124` | ankyloblepharon-ectodermal defects-cleft lip/palate syndrome | `AGREES` |
-| EEC3 | `MONDO:0011428` | ectrodactyly, ectodermal dysplasia, and cleft lip-palate syndrome 3 | `AGREES` |
-| ADULT | `MONDO:0007072` | ADULT syndrome | `AGREES` |
-| LMS | `MONDO:0011334` | limb-mammary syndrome | `SILENT` |
-| RHS | `MONDO:0007508` | Rapp-Hodgkin syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| AEC | `MONDO:0007124` | ankyloblepharon-ectodermal defects-cleft lip/palate syndrome | `AGREES` | — no shared vocabulary |
+| EEC3 | `MONDO:0011428` | ectrodactyly, ectodermal dysplasia, and cleft lip-palate syndrome 3 | `AGREES` | — no shared vocabulary |
+| ADULT | `MONDO:0007072` | ADULT syndrome | `AGREES` | — no shared vocabulary |
+| LMS | `MONDO:0011334` | limb-mammary syndrome | `SILENT` | — no shared vocabulary |
+| RHS | `MONDO:0007508` | Rapp-Hodgkin syndrome | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

@@ -8,17 +8,17 @@ Boomer grounding analysis for [`kb/disorders/Meier-Gorlin_Syndrome.yaml`](../../
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| MGORS1 | `MONDO:0009143` | Meier-Gorlin syndrome 1 | `AGREES` |
-| MGORS2 | `MONDO:0013428` | Meier-Gorlin syndrome 2 | `AGREES` |
-| MGORS3 | `MONDO:0013430` | Meier-Gorlin syndrome 3 | `AGREES` |
-| MGORS4 | `MONDO:0013431` | Meier-Gorlin syndrome 4 | `AGREES` |
-| MGORS5 | `MONDO:0013432` | Meier-Gorlin syndrome 5 | `AGREES` |
-| MGORS6 | `MONDO:0014794` | Meier-Gorlin syndrome 6 | `AGREES` |
-| MGORS7 | `MONDO:0014894` | Meier-Gorlin syndrome 7 | `AGREES` |
-| MGORS8 | `MONDO:0033046` | Meier-Gorlin syndrome 8 | `AGREES` |
-| MGORS9 | `MONDO:0980992` | Meier-Gorlin syndrome 9 | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| MGORS1 | `MONDO:0009143` | Meier-Gorlin syndrome 1 | `AGREES` | ✓ DOID |
+| MGORS2 | `MONDO:0013428` | Meier-Gorlin syndrome 2 | `AGREES` | ✓ DOID |
+| MGORS3 | `MONDO:0013430` | Meier-Gorlin syndrome 3 | `AGREES` | ✓ DOID |
+| MGORS4 | `MONDO:0013431` | Meier-Gorlin syndrome 4 | `AGREES` | ✓ DOID |
+| MGORS5 | `MONDO:0013432` | Meier-Gorlin syndrome 5 | `AGREES` | ✓ DOID |
+| MGORS6 | `MONDO:0014794` | Meier-Gorlin syndrome 6 | `AGREES` | ✓ DOID |
+| MGORS7 | `MONDO:0014894` | Meier-Gorlin syndrome 7 | `AGREES` | ✓ DOID |
+| MGORS8 | `MONDO:0033046` | Meier-Gorlin syndrome 8 | `AGREES` | ✓ DOID |
+| MGORS9 | `MONDO:0980992` | Meier-Gorlin syndrome 9 | `AGREES` | silent (DOID) |
 
 ## What boomer did
 

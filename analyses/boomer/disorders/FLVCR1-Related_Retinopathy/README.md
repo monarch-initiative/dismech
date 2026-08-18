@@ -8,9 +8,9 @@ Boomer grounding analysis for [`kb/disorders/FLVCR1-Related_Retinopathy.yaml`](.
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| PCARP | `MONDO:0012177` | posterior column ataxia-retinitis pigmentosa syndrome | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| PCARP | `MONDO:0012177` | posterior column ataxia-retinitis pigmentosa syndrome | `AGREES` | — no shared vocabulary |
 
 ## What boomer did
 

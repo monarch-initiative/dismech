@@ -8,13 +8,13 @@ Boomer grounding analysis for [`kb/disorders/Primary_Cutaneous_Amyloidosis.yaml`
 
 ## Subtypes
 
-| Subtype | MONDO term | Label | Verdict |
-|---|---|---|---|
-| Lichen Amyloidosis | `MONDO:0018856` | lichen amyloidosis | `AGREES` |
-| Macular Amyloidosis | `MONDO:0015303` | macular amyloidosis | `AGREES` |
-| Nodular Amyloidosis | `MONDO:0015302` | nodular cutaneous amyloidosis | `AGREES` |
-| Amyloidosis Cutis Dyschromica | `MONDO:0017906` | amyloidosis cutis dyschromia | `AGREES` |
-| Familial PLCA | `MONDO:0007101` | familial primary localized cutaneous amyloidosis | `AGREES` |
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Lichen Amyloidosis | `MONDO:0018856` | lichen amyloidosis | `AGREES` | ✓ ORDO |
+| Macular Amyloidosis | `MONDO:0015303` | macular amyloidosis | `AGREES` | ✓ ORDO |
+| Nodular Amyloidosis | `MONDO:0015302` | nodular cutaneous amyloidosis | `AGREES` | ✓ ORDO |
+| Amyloidosis Cutis Dyschromica | `MONDO:0017906` | amyloidosis cutis dyschromia | `AGREES` | ✓ DOID, ORDO |
+| Familial PLCA | `MONDO:0007101` | familial primary localized cutaneous amyloidosis | `AGREES` | ✓ ORDO |
 
 ## What boomer did
 
