@@ -234,6 +234,8 @@ class OrphanetSource(StructuredSource):
                 else:
                     target_code = _text(target_el.find("OrphaCode"))
                     target_name = _text(target_el.find("Name"))
+                if not root_code or not target_code:
+                    continue
                 related.append((root_code, root_name, rel_type, target_code, target_name))
             rec.related_disorders = related
             # status flags — deprecation/inactivation markers carry a Label.
