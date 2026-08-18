@@ -84,6 +84,17 @@ Interpret the result as follows:
 - `SKIP`: the automated check cannot discriminate; manually check disease
   identity before proceeding.
 
+For a `WARN` or `SKIP`, inspect the intended MONDO record directly:
+
+```bash
+uv run runoak -i sqlite:obo:mondo info MONDO:XXXXXXX -O obo
+```
+
+Compare its causal-gene relationship (`RO:0004003`), OMIM xref, and synonyms
+with the report. Look specifically for synonym aliasing, eponymic collision,
+abbreviation ambiguity, or conflation with a closely related disease. On any
+identity mismatch, discard the report rather than cherry-picking from it.
+
 See `docs/deep-research-reference-validation.md` and
 `research/nec_risk_disease_classes.md` for uncommon cases.
 
