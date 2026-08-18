@@ -1,0 +1,25 @@
+
+ ## None
+ * 50 combinations
+ * 45 satisfiable combinations
+ * 1.0 proportion of combinations explored
+ * 0.03125 confidence
+ * 0.35276538318523837 prior probability
+ * 0.0008275124470833779 posterior probability
+ * 0.0046 seconds elapsed
+Grounding:
+ * True dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome (dismech entry)) ≡ MONDO:0009133 (cerebellar ataxia, intellectual disability, and dysequilibrium) :: prior: 0.9 posterior: 0.967419636393967
+ * False dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome (dismech entry)) ⊆ MONDO:0009133 (cerebellar ataxia, intellectual disability, and dysequilibrium) :: prior: 0.07 posterior: 0.004045362876199384
+ * False MONDO:0009133 (cerebellar ataxia, intellectual disability, and dysequilibrium) ⊆ dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * True dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ1 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ1 (dismech subtype)) ≡ MONDO:0024542 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 1) :: prior: 0.9 posterior: 0.967419636393967
+ * False dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ1 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ1 (dismech subtype)) ⊆ MONDO:0024542 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 1) :: prior: 0.07 posterior: 0.004045362876199384
+ * False MONDO:0024542 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 1) ⊆ dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ1 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ1 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * True dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ2 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ2 (dismech subtype)) ≡ MONDO:0012430 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 2) :: prior: 0.9 posterior: 0.967419636393967
+ * False dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ2 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ2 (dismech subtype)) ⊆ MONDO:0012430 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 2) :: prior: 0.07 posterior: 0.004045362876199384
+ * False MONDO:0012430 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 2) ⊆ dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ2 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ2 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * True dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ3 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ3 (dismech subtype)) ≡ MONDO:0013188 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 3) :: prior: 0.9 posterior: 0.967419636393967
+ * False dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ3 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ3 (dismech subtype)) ⊆ MONDO:0013188 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 3) :: prior: 0.07 posterior: 0.004045362876199384
+ * False MONDO:0013188 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 3) ⊆ dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ3 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ3 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * True dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ4 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ4 (dismech subtype)) ≡ MONDO:0014104 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 4) :: prior: 0.9 posterior: 0.967419636393967
+ * False dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ4 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ4 (dismech subtype)) ⊆ MONDO:0014104 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 4) :: prior: 0.07 posterior: 0.004045362876199384
+ * False MONDO:0014104 (cerebellar ataxia, intellectual disability, and dysequilibrium syndrome 4) ⊆ dismech:Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium#CAMRQ4 (Cerebellar Ataxia, Intellectual Disability, and Dysequilibrium Syndrome / CAMRQ4 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
