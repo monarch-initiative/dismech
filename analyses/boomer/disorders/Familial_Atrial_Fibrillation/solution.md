@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Familial_Atrial_Fibrillation
  * 190 combinations
  * 171 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 1.9073486328125e-06 confidence
  * 0.0190742140926486 prior probability
  * 1.9388456333200914e-12 posterior probability
- * 0.0181 seconds elapsed
+ * 0.0176 seconds elapsed
 Grounding:
  * True dismech:Familial_Atrial_Fibrillation (Familial Atrial Fibrillation (dismech entry)) ≡ MONDO:0018054 (familial atrial fibrillation) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Familial_Atrial_Fibrillation (Familial Atrial Fibrillation (dismech entry)) ⊆ MONDO:0018054 (familial atrial fibrillation) :: prior: 0.07 posterior: 0.004045362876199384

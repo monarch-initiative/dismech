@@ -23,8 +23,8 @@ identity to different terms is a genuine conflict. The ``both_exact`` column
 flags those.
 
 Usage:
-    uv run python experiments/mapping-alignment/scripts/crosssource_audit.py \
-        --out experiments/mapping-alignment/<run>/disagreements.tsv
+    uv run python analyses/boomer/scripts/crosssource_audit.py \
+        --out analyses/boomer/cross-source/disagreements.tsv
 """
 
 from __future__ import annotations
@@ -52,6 +52,18 @@ PREFIX_ALIASES = {
 }
 
 
+FIELDNAMES = (
+    "entry",
+    "vocabulary",
+    "dismech_term",
+    "dismech_predicate",
+    "mondo_term",
+    "mondo_label",
+    "mondo_xrefs",
+    "both_exact",
+)
+
+
 def term_id(descriptor):
     if not isinstance(descriptor, dict):
         return None
@@ -64,17 +76,29 @@ def normalise(curie):
 
 
 def mondo_xrefs(con, curie):
-    rows = con.execute(
-        "select object from statements where subject=? and predicate='skos:exactMatch' "
-        "and object is not null",
-        (curie,),
-    ).fetchall()
-    rows += con.execute(
-        "select value from statements where subject=? and predicate='oio:hasDbXref' "
-        "and value is not null",
-        (curie,),
-    ).fetchall()
-    return {normalise(r[0]) for r in rows}
+    """Return (all_xrefs, exact_only).
+
+    Kept separate because ``oio:hasDbXref`` is a cross-reference of unstated
+    strength while ``skos:exactMatch`` is an identity claim. Unioning them and
+    then calling the result "exact" would overstate the MONDO side.
+    """
+    exact = {
+        normalise(o)
+        for (o,) in con.execute(
+            "select object from statements where subject=? and predicate='skos:exactMatch' "
+            "and object is not null",
+            (curie,),
+        )
+    }
+    dbxref = {
+        normalise(v)
+        for (v,) in con.execute(
+            "select value from statements where subject=? and predicate='oio:hasDbXref' "
+            "and value is not null",
+            (curie,),
+        )
+    }
+    return exact | dbxref, exact
 
 
 def main(argv=None):
@@ -111,7 +135,7 @@ def main(argv=None):
         if not direct:
             continue
 
-        xrefs = mondo_xrefs(con, mondo)
+        xrefs, exact_xrefs = mondo_xrefs(con, mondo)
         for curie, predicate in direct:
             vocab = normalise(curie).split(":")[0]
             mondo_side = sorted(x for x in xrefs if x.startswith(vocab + ":"))
@@ -126,14 +150,21 @@ def main(argv=None):
                     "mondo_term": mondo,
                     "mondo_label": label(mondo),
                     "mondo_xrefs": ";".join(mondo_side),
-                    "both_exact": str(predicate == "skos:exactMatch").lower(),
+                    # true only when BOTH sides claim identity: dismech exactMatch,
+                    # and a MONDO skos:exactMatch (not merely an oio:hasDbXref)
+                    "both_exact": str(
+                        predicate == "skos:exactMatch"
+                        and any(x.startswith(vocab + ":") for x in exact_xrefs)
+                    ).lower(),
                 }
             )
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0]), delimiter="\t")
+        # explicit fieldnames: deriving them from rows[0] crashes on an empty result,
+        # i.e. exactly when dismech and MONDO agree everywhere
+        w = csv.DictWriter(fh, fieldnames=list(FIELDNAMES), delimiter="\t")
         w.writeheader()
         w.writerows(
             sorted(rows, key=lambda r: (r["both_exact"] == "false", r["entry"]))

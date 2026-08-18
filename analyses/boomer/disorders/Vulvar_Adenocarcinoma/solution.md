@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Vulvar_Adenocarcinoma
  * 100 combinations
  * 90 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0009765625 confidence
  * 0.12444341557382804 prior probability
  * 6.847768500779203e-07 posterior probability
- * 0.0088 seconds elapsed
+ * 0.0090 seconds elapsed
 Grounding:
  * True dismech:Vulvar_Adenocarcinoma (Vulvar Adenocarcinoma (dismech entry)) ≡ MONDO:0024336 (vulvar adenocarcinoma) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Vulvar_Adenocarcinoma (Vulvar Adenocarcinoma (dismech entry)) ⊆ MONDO:0024336 (vulvar adenocarcinoma) :: prior: 0.07 posterior: 0.004045362876199384

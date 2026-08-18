@@ -10,7 +10,7 @@ Only groupings whose MONDO mapping is ``skos:exactMatch`` are checked. A
 ``narrowMatch`` one explicitly wider, so neither licenses the descendant
 expectation; ``closeMatch``/``relatedMatch`` are too weak to test against.
 
-Verdicts mirror ``hierarchy_audit.py``:
+Verdicts mirror the per-disorder analysis in ``build_analyses.py``:
 
 ``AGREES``    MONDO has the member's term under the grouping's term.
 ``SILENT``    No path either way -- usually a missing MONDO ``is_a`` edge.
@@ -18,8 +18,8 @@ Verdicts mirror ``hierarchy_audit.py``:
               identity claims this is unsatisfiable.
 
 Usage:
-    uv run python experiments/mapping-alignment/scripts/grouping_audit.py \
-        --out experiments/mapping-alignment/<run>/violations.tsv
+    uv run python analyses/boomer/scripts/grouping_audit.py \
+        --out analyses/boomer/groupings/violations.tsv
 """
 
 from __future__ import annotations
@@ -39,6 +39,16 @@ REPO = Path(__file__).resolve().parents[3]
 
 # a grouping only entails "members are under my term" when it claims identity
 IDENTITY_PREDICATES = {"skos:exactMatch"}
+
+FIELDNAMES = (
+    "verdict",
+    "grouping",
+    "grouping_term",
+    "grouping_label",
+    "member",
+    "member_term",
+    "member_label",
+)
 
 
 def term_id(descriptor):
@@ -140,8 +150,10 @@ def main(argv=None):
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
+    # explicit fieldnames: deriving them from rows[0] crashes on an empty result,
+    # i.e. exactly when every grouping agrees with MONDO
     with out.open("w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=list(rows[0]), delimiter="\t")
+        w = csv.DictWriter(fh, fieldnames=list(FIELDNAMES), delimiter="\t")
         w.writeheader()
         w.writerows(
             sorted(rows, key=lambda r: (r["verdict"], r["grouping"], r["member"]))

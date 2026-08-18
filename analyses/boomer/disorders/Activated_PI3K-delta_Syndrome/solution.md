@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Activated_PI3K-delta_Syndrome
  * 30 combinations
  * 27 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.125 confidence
  * 0.5351697739542688 prior probability
  * 0.014147011969572264 posterior probability
- * 0.0030 seconds elapsed
+ * 0.0027 seconds elapsed
 Grounding:
  * True dismech:Activated_PI3K-delta_Syndrome (Activated PI3K-delta syndrome (dismech entry)) ≡ MONDO:0018338 (activated PI3K-delta syndrome) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Activated_PI3K-delta_Syndrome (Activated PI3K-delta syndrome (dismech entry)) ⊆ MONDO:0018338 (activated PI3K-delta syndrome) :: prior: 0.07 posterior: 0.004045362876199384

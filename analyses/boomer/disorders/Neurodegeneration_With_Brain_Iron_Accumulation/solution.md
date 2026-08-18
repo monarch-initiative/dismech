@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Neurodegeneration_With_Brain_Iron_Accumulation
  * 70 combinations
  * 63 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0078125 confidence
  * 0.23253072507129666 prior probability
  * 4.8404345140214415e-05 posterior probability
- * 0.0062 seconds elapsed
+ * 0.0063 seconds elapsed
 Grounding:
  * True dismech:Neurodegeneration_With_Brain_Iron_Accumulation (Neurodegeneration With Brain Iron Accumulation (dismech entry)) ≡ MONDO:0018307 (neurodegeneration with brain iron accumulation) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Neurodegeneration_With_Brain_Iron_Accumulation (Neurodegeneration With Brain Iron Accumulation (dismech entry)) ⊆ MONDO:0018307 (neurodegeneration with brain iron accumulation) :: prior: 0.07 posterior: 0.004045362876199384

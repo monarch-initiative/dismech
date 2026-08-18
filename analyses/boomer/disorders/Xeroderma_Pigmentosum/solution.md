@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Xeroderma_Pigmentosum
  * 90 combinations
  * 81 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.001953125 confidence
  * 0.153276201916304 prior probability
  * 2.831353941213801e-06 posterior probability
- * 0.0082 seconds elapsed
+ * 0.0079 seconds elapsed
 Grounding:
  * True dismech:Xeroderma_Pigmentosum (Xeroderma Pigmentosum (dismech entry)) ≡ MONDO:0019600 (xeroderma pigmentosum) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Xeroderma_Pigmentosum (Xeroderma Pigmentosum (dismech entry)) ⊆ MONDO:0019600 (xeroderma pigmentosum) :: prior: 0.07 posterior: 0.004045362876199384

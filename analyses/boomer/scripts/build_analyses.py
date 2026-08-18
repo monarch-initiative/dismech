@@ -21,9 +21,17 @@ say about this disease".
 Each folder gets:
 
     README.md      what was checked, per-subtype verdicts, what boomer did
-    kb.yaml        the boomer input, runnable as `pyboomer solve kb.yaml`
+    kb.yaml        the boomer input, runnable as
+                   `pyboomer solve kb.yaml -t 60 -C 6`
     solution.yaml  boomer's output, machine-readable
     solution.md    boomer's output, rendered
+
+`-C 6` is not optional in the reproduction command. The partitioning that makes
+these KBs tractable is a solver setting, not something serialised into kb.yaml, so
+a plain `pyboomer solve kb.yaml` runs at boomer's default and times out on
+anything past a handful of subtypes. The CLI has no flag for
+`partition_initial_threshold`, but `--max-pfacts-per-clique` triggers the same
+partitioning and reproduces these results exactly.
 
 Usage:
     uv run --with networkx python analyses/boomer/scripts/build_analyses.py \
@@ -332,7 +340,10 @@ def write_readme(folder, rec, sol, retracted, timed_out):
         "",
         "| File | What |",
         "|---|---|",
-        "| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60`. |",
+        (
+            "| [`kb.yaml`](kb.yaml) | Boomer input. Run with "
+            "`pyboomer solve kb.yaml -t 60 -C 6`. |"
+        ),
         "| [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |",
         "| [`solution.md`](solution.md) | Boomer output, rendered. |",
         "",
@@ -348,7 +359,7 @@ def main(argv=None):
     ap.add_argument("--out", required=True)
     ap.add_argument("--db", default=str(MONDO_DB))
     ap.add_argument("--boomer-src", default="~/repos/boomer-py/src")
-    ap.add_argument("--timeout", type=int, default=20)
+    ap.add_argument("--timeout", type=int, default=60)
     ap.add_argument(
         "--partition-threshold",
         type=int,
@@ -384,6 +395,8 @@ def main(argv=None):
         kb = KB.model_validate(kb_dict)
         with contextlib.redirect_stdout(io.StringIO()):
             sol = solve(kb, cfg)
+        # the markdown renderer titles the solution from this; unset it renders "## None"
+        sol.name = kb_dict["name"]
 
         retracted = sorted(
             (f.sub, f.equivalent)

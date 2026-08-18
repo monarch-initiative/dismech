@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Joubert_syndrome
  * 400 combinations
  * 360 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 9.094947017729282e-13 confidence
  * 0.00023982126551385453 prior probability
  * 2.1988534217661354e-25 posterior probability
- * 0.0385 seconds elapsed
+ * 0.0399 seconds elapsed
 Grounding:
  * True dismech:Joubert_syndrome (Joubert syndrome (dismech entry)) ≡ MONDO:0018772 (Joubert syndrome) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Joubert_syndrome (Joubert syndrome (dismech entry)) ⊆ MONDO:0018772 (Joubert syndrome) :: prior: 0.07 posterior: 0.004045362876199384

@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/Hypotrichosis_with_Juvenile_Macular
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Hypotrichosis_with_Juvenile_Macular_Dystrophy#HJMD` ≡ `MONDO:0011107`
+- `dismech:Hypotrichosis_with_Juvenile_Macular_Dystrophy` ≡ `MONDO:0011107`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a
@@ -38,7 +38,7 @@ than a dismech error. These are candidate MONDO enrichment proposals.
 
 | File | What |
 |---|---|
-| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60`. |
+| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60 -C 6`. |
 | [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |
 | [`solution.md`](solution.md) | Boomer output, rendered. |
 

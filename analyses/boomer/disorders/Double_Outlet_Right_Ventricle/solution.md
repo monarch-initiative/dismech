@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Double_Outlet_Right_Ventricle
  * 95 combinations
  * 85 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.03125 confidence
  * 0.03182296521714034 prior probability
  * 0.0003709357292886138 posterior probability
- * 0.0342 seconds elapsed
+ * 0.0336 seconds elapsed
 Grounding:
  * True dismech:Double_Outlet_Right_Ventricle (Double Outlet Right Ventricle (dismech entry)) ≡ MONDO:0018089 (double outlet right ventricle) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Double_Outlet_Right_Ventricle (Double Outlet Right Ventricle (dismech entry)) ⊆ MONDO:0018089 (double outlet right ventricle) :: prior: 0.07 posterior: 0.004045362876199384

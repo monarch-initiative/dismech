@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Autosomal_Recessive_Primary_Microcephaly
  * 290 combinations
  * 261 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 1.862645149230957e-09 confidence
  * 0.0023736603510756374 prior probability
  * 1.3276766055722625e-18 posterior probability
- * 0.0300 seconds elapsed
+ * 0.0265 seconds elapsed
 Grounding:
  * True dismech:Autosomal_Recessive_Primary_Microcephaly (Autosomal Recessive Primary Microcephaly (dismech entry)) ≡ MONDO:0016660 (autosomal recessive primary microcephaly) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Autosomal_Recessive_Primary_Microcephaly (Autosomal Recessive Primary Microcephaly (dismech entry)) ⊆ MONDO:0016660 (autosomal recessive primary microcephaly) :: prior: 0.07 posterior: 0.004045362876199384

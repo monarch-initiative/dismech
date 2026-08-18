@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Galloway-Mowat_Syndrome
  * 110 combinations
  * 99 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.00048828125 confidence
  * 0.10103436467023523 prior probability
  * 1.6561664282834697e-07 posterior probability
- * 0.0103 seconds elapsed
+ * 0.0100 seconds elapsed
 Grounding:
  * True dismech:Galloway-Mowat_Syndrome (Galloway-Mowat syndrome (dismech entry)) ≡ MONDO:0009627 (Galloway-Mowat syndrome) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Galloway-Mowat_Syndrome (Galloway-Mowat syndrome (dismech entry)) ⊆ MONDO:0009627 (Galloway-Mowat syndrome) :: prior: 0.07 posterior: 0.004045362876199384

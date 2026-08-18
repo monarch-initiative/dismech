@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-RYR2_CPVT
  * 60 combinations
  * 54 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.015625 confidence
  * 0.28640668695426313 prior probability
  * 0.00020013794766722087 posterior probability
- * 0.0054 seconds elapsed
+ * 0.0056 seconds elapsed
 Grounding:
  * True dismech:RYR2_CPVT (RYR2 CPVT (dismech entry)) ≡ MONDO:0017990 (catecholaminergic polymorphic ventricular tachycardia) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:RYR2_CPVT (RYR2 CPVT (dismech entry)) ⊆ MONDO:0017990 (catecholaminergic polymorphic ventricular tachycardia) :: prior: 0.07 posterior: 0.004045362876199384

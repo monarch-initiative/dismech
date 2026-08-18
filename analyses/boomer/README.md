@@ -21,7 +21,7 @@ analyses/boomer/
   index.tsv                     roll-up: one row per disorder
   disorders/<NAME>/
     README.md                   what was checked, per-subtype verdicts, what boomer did
-    kb.yaml                     boomer input; `pyboomer solve kb.yaml -t 60`
+    kb.yaml                     boomer input; `pyboomer solve kb.yaml -t 60 -C 6`
     solution.yaml               boomer output, machine-readable
     solution.md                 boomer output, rendered
   groupings/                    grouping membership vs MONDO (no solver needed)
@@ -172,6 +172,13 @@ dependency, and none has been taken.
   cross-subtype interaction outside a component would be missed. No entry times
   out at present; any that did would be marked `TIMED_OUT` in `index.tsv` and its
   own `README.md`, and its assignment treated as indicative only.
+
+  **This leaks into reproduction.** `partition_initial_threshold` is a solver
+  setting, not something serialised into `kb.yaml`, and the CLI has no flag for
+  it — so a plain `pyboomer solve kb.yaml` runs at the default of 200 and times
+  out. `--max-pfacts-per-clique` (`-C 6`) triggers the same partitioning and
+  reproduces these results exactly, which is why every documented command here
+  carries it.
 - **Grounded pairs only.** Subtypes without a `subtype_term` are invisible here.
 - **MONDO is a fixed snapshot** (`~/.data/oaklib/mondo.db`). Re-run before acting.
 
@@ -204,8 +211,8 @@ Two further checks live here because they came from the same investigation, and
 neither needs a solver:
 
 - [`groupings/`](groupings/) — members of `exactMatch`-mapped `kb/groupings/`
-  entries against the grouping's own MONDO term. 93/104 agree (89.4%), 8
-  violations, **zero contradictions**. The 8 are MONDO gaps again:
+  entries against the grouping's own MONDO term. 93/104 agree (89.4%), 2
+  `SAME_TERM`, 8 violations, **zero contradictions**. The 8 are MONDO gaps again:
   nephronophthisis is not under `MONDO:0005308` *ciliopathy*; *lissencephaly due
   to TUBA1A mutation* is not under `MONDO:0100153` *tubulinopathy*. Only
   `exactMatch` groupings are checked — a `broadMatch` grouping is explicitly

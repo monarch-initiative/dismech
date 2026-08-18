@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Familial_Partial_Lipodystrophy
  * 80 combinations
  * 72 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.00390625 confidence
  * 0.188789370378135 prior probability
  * 1.1706828493858582e-05 posterior probability
- * 0.0072 seconds elapsed
+ * 0.0071 seconds elapsed
 Grounding:
  * True dismech:Familial_Partial_Lipodystrophy (Familial Partial Lipodystrophy (dismech entry)) ≡ MONDO:0020088 (familial partial lipodystrophy) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Familial_Partial_Lipodystrophy (Familial Partial Lipodystrophy (dismech entry)) ⊆ MONDO:0020088 (familial partial lipodystrophy) :: prior: 0.07 posterior: 0.004045362876199384

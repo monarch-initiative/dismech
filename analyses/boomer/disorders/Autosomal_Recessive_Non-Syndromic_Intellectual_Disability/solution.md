@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Autosomal_Recessive_Non-Syndromic_Intellectual_Disability
  * 110 combinations
  * 99 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.00048828125 confidence
  * 0.10103436467023523 prior probability
  * 1.6561664282834697e-07 posterior probability
- * 0.0194 seconds elapsed
+ * 0.0101 seconds elapsed
 Grounding:
  * True dismech:Autosomal_Recessive_Non-Syndromic_Intellectual_Disability (Autosomal Recessive Non-Syndromic Intellectual Disability (dismech entry)) ≡ MONDO:0019502 (autosomal recessive non-syndromic intellectual disability) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Autosomal_Recessive_Non-Syndromic_Intellectual_Disability (Autosomal Recessive Non-Syndromic Intellectual Disability (dismech entry)) ⊆ MONDO:0019502 (autosomal recessive non-syndromic intellectual disability) :: prior: 0.07 posterior: 0.004045362876199384

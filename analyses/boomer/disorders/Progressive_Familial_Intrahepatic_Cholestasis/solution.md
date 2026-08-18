@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Progressive_Familial_Intrahepatic_Cholestasis
  * 100 combinations
  * 90 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0009765625 confidence
  * 0.12444341557382804 prior probability
  * 6.847768500779203e-07 posterior probability
- * 0.0090 seconds elapsed
+ * 0.0091 seconds elapsed
 Grounding:
  * True dismech:Progressive_Familial_Intrahepatic_Cholestasis (Progressive Familial Intrahepatic Cholestasis (dismech entry)) ≡ MONDO:0015762 (progressive familial intrahepatic cholestasis) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Progressive_Familial_Intrahepatic_Cholestasis (Progressive Familial Intrahepatic Cholestasis (dismech entry)) ⊆ MONDO:0015762 (progressive familial intrahepatic cholestasis) :: prior: 0.07 posterior: 0.004045362876199384

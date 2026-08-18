@@ -1,5 +1,5 @@
 
- ## None
+ ## dismech-Inherited_Ichthyosis
  * 60 combinations
  * 54 satisfiable combinations
  * 1.0 proportion of combinations explored

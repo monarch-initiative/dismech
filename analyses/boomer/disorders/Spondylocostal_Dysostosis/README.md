@@ -30,7 +30,7 @@ mappings, and MONDO's hierarchy are jointly consistent for this entry.
 
 | File | What |
 |---|---|
-| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60`. |
+| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60 -C 6`. |
 | [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |
 | [`solution.md`](solution.md) | Boomer output, rendered. |
 

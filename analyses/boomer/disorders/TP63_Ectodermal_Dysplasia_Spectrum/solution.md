@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-TP63_Ectodermal_Dysplasia_Spectrum
  * 60 combinations
  * 54 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.015625 confidence
  * 0.28640668695426313 prior probability
  * 0.00020013794766722087 posterior probability
- * 0.0052 seconds elapsed
+ * 0.0055 seconds elapsed
 Grounding:
  * True dismech:TP63_Ectodermal_Dysplasia_Spectrum (TP63-Related Ectodermal Dysplasia Spectrum (dismech entry)) ≡ MONDO:1040001 (TP63-related ectodermal dysplasia spectrum with limb and orofacial malformations) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:TP63_Ectodermal_Dysplasia_Spectrum (TP63-Related Ectodermal Dysplasia Spectrum (dismech entry)) ⊆ MONDO:1040001 (TP63-related ectodermal dysplasia spectrum with limb and orofacial malformations) :: prior: 0.07 posterior: 0.004045362876199384

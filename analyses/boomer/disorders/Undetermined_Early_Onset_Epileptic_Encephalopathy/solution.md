@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Undetermined_Early_Onset_Epileptic_Encephalopathy
  * 60 combinations
  * 54 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.015625 confidence
  * 0.28640668695426313 prior probability
  * 0.00020013794766722087 posterior probability
- * 0.0053 seconds elapsed
+ * 0.0055 seconds elapsed
 Grounding:
  * True dismech:Undetermined_Early_Onset_Epileptic_Encephalopathy (Undetermined Early-Onset Epileptic Encephalopathy (dismech entry)) ≡ MONDO:0018614 (undetermined early-onset epileptic encephalopathy) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Undetermined_Early_Onset_Epileptic_Encephalopathy (Undetermined Early-Onset Epileptic Encephalopathy (dismech entry)) ⊆ MONDO:0018614 (undetermined early-onset epileptic encephalopathy) :: prior: 0.07 posterior: 0.004045362876199384

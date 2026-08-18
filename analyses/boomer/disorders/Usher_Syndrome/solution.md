@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Usher_Syndrome
  * 40 combinations
  * 36 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.0625 confidence
  * 0.4344989877757312 prior probability
  * 0.0034215242939161753 posterior probability
- * 0.0034 seconds elapsed
+ * 0.0036 seconds elapsed
 Grounding:
  * True dismech:Usher_Syndrome (Usher Syndrome (dismech entry)) ≡ MONDO:0019501 (Usher syndrome) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Usher_Syndrome (Usher Syndrome (dismech entry)) ⊆ MONDO:0019501 (Usher syndrome) :: prior: 0.07 posterior: 0.004045362876199384

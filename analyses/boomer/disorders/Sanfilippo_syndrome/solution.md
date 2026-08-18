@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Sanfilippo_syndrome
  * 50 combinations
  * 45 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.03125 confidence
  * 0.35276538318523837 prior probability
  * 0.0008275124470833779 posterior probability
- * 0.0043 seconds elapsed
+ * 0.0044 seconds elapsed
 Grounding:
  * True dismech:Sanfilippo_syndrome (Sanfilippo syndrome (dismech entry)) ≡ MONDO:0018937 (mucopolysaccharidosis type 3) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Sanfilippo_syndrome (Sanfilippo syndrome (dismech entry)) ⊆ MONDO:0018937 (mucopolysaccharidosis type 3) :: prior: 0.07 posterior: 0.004045362876199384

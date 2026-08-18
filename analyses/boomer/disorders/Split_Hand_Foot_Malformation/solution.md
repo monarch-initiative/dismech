@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-Split_Hand_Foot_Malformation
  * 60 combinations
  * 54 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.015625 confidence
  * 0.28640668695426313 prior probability
  * 0.00020013794766722087 posterior probability
- * 0.0053 seconds elapsed
+ * 0.0054 seconds elapsed
 Grounding:
  * True dismech:Split_Hand_Foot_Malformation (Split Hand-Foot Malformation (dismech entry)) ≡ MONDO:0016576 (split hand-foot malformation) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:Split_Hand_Foot_Malformation (Split Hand-Foot Malformation (dismech entry)) ⊆ MONDO:0016576 (split hand-foot malformation) :: prior: 0.07 posterior: 0.004045362876199384

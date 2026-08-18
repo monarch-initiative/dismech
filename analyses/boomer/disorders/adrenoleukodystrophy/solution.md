@@ -1,12 +1,12 @@
 
- ## None
+ ## dismech-adrenoleukodystrophy
  * 30 combinations
  * 27 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.125 confidence
  * 0.5351697739542688 prior probability
  * 0.014147011969572264 posterior probability
- * 0.0026 seconds elapsed
+ * 0.0025 seconds elapsed
 Grounding:
  * True dismech:adrenoleukodystrophy (adrenoleukodystrophy (dismech entry)) ≡ MONDO:0018544 (adrenoleukodystrophy) :: prior: 0.9 posterior: 0.967419636393967
  * False dismech:adrenoleukodystrophy (adrenoleukodystrophy (dismech entry)) ⊆ MONDO:0018544 (adrenoleukodystrophy) :: prior: 0.07 posterior: 0.004045362876199384
