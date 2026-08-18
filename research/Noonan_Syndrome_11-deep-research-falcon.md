@@ -2,12 +2,15 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-08-18T09:23:11.975305'
-end_time: '2026-08-18T09:33:55.585435'
-duration_seconds: 643.61
+start_time: '2026-08-18T09:43:46.950707'
+end_time: '2026-08-18T09:52:49.898789'
+duration_seconds: 542.95
 template_file: templates/disease_pathophysiology_research.md
 template_variables:
-  disease_name: Noonan Syndrome 11
+  disease_name: Noonan Syndrome 11 NS11 the MRAS-related form of Noonan syndrome OMIM
+    618499 MONDO:0032786 caused by germline activating missense variants in the MRAS
+    gene encoding the RAS-family GTPase M-Ras. NOT LZTR1-related Noonan syndrome and
+    NOT any other numbered Noonan syndrome type.
   mondo_id: ''
   category: Genetic
 provider_config:
@@ -17,7 +20,7 @@ provider_config:
     allowed_domains: []
     temperature: 0.1
     max_embedded_images: 8
-citation_count: 19
+citation_count: 17
 reference_validation:
   total_references: 6
   verified: 6
@@ -25,7 +28,7 @@ reference_validation:
   unverifiable: 0
   confabulation_rate: 0.0
   relevance_assessed: 6
-  on_topic: 5
+  on_topic: 4
   validator_version: 0.2.1
 artifact_count: 1
 artifact_sources:
@@ -44,13 +47,13 @@ artifacts:
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Noonan Syndrome 11
+- **Disease Name:** Noonan Syndrome 11 NS11 the MRAS-related form of Noonan syndrome OMIM 618499 MONDO:0032786 caused by germline activating missense variants in the MRAS gene encoding the RAS-family GTPase M-Ras. NOT LZTR1-related Noonan syndrome and NOT any other numbered Noonan syndrome type.
 - **MONDO ID:**  (if available)
 - **Category:** Genetic
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Noonan Syndrome 11** covering all of the
+Please provide a comprehensive research report on **Noonan Syndrome 11 NS11 the MRAS-related form of Noonan syndrome OMIM 618499 MONDO:0032786 caused by germline activating missense variants in the MRAS gene encoding the RAS-family GTPase M-Ras. NOT LZTR1-related Noonan syndrome and NOT any other numbered Noonan syndrome type.** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -505,13 +508,13 @@ Always prioritize recent, authoritative sources and provide specific citations f
 # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Noonan Syndrome 11
+- **Disease Name:** Noonan Syndrome 11 NS11 the MRAS-related form of Noonan syndrome OMIM 618499 MONDO:0032786 caused by germline activating missense variants in the MRAS gene encoding the RAS-family GTPase M-Ras. NOT LZTR1-related Noonan syndrome and NOT any other numbered Noonan syndrome type.
 - **MONDO ID:**  (if available)
 - **Category:** Genetic
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Noonan Syndrome 11** covering all of the
+Please provide a comprehensive research report on **Noonan Syndrome 11 NS11 the MRAS-related form of Noonan syndrome OMIM 618499 MONDO:0032786 caused by germline activating missense variants in the MRAS gene encoding the RAS-family GTPase M-Ras. NOT LZTR1-related Noonan syndrome and NOT any other numbered Noonan syndrome type.** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -949,277 +952,250 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Noonan Syndrome 11: comprehensive disease-characteristics report
+# Noonan syndrome 11 (MRAS-related): disease-characteristics report
 
-## Scope and nomenclature warning
+## Scope and evidence standard
 
-The requested name **“Noonan syndrome 11” is not the designation used for dominant LZTR1-related Noonan syndrome in the retrieved authoritative literature**. The relevant disorder is generally called **autosomal-dominant LZTR1-related Noonan syndrome** or **Noonan syndrome 10 (NS10), OMIM #616564**. It must be distinguished from autosomal-recessive LZTR1-related Noonan syndrome—called NS2, OMIM #605275 in the retrieved review—and from LZTR1-related schwannomatosis. Accordingly, this report treats the target disease as **dominant LZTR1-related Noonan syndrome**, while preserving “Noonan syndrome 11” as a user-supplied, unverified synonym. The broader MONDO entry is **MONDO:0018997, Noonan syndrome**; a separate MONDO identifier for this LZTR1 subtype was not established by the retrieved evidence. Open Targets reports a strong LZTR1–Noonan syndrome association (score 0.872) supported by five evidence records, including ClinGen RASopathy Expert Panel evidence and PMIDs 25795793, 29469822, 30481304, 30859559, 30664951, and others. (uliana2024phenotypicexpansionof pages 14-16, uliana2024phenotypicexpansionof pages 1-2, OpenTargets Search: Noonan syndrome-LZTR1)
+This report concerns **only Noonan syndrome 11 (NS11) caused by germline activating MRAS variants**. It does not describe LZTR1-related Noonan syndrome or any other numbered Noonan syndrome. NS11 is exceptionally rare; consequently, the evidence base consists primarily of a few human cases, cell-functional studies, and structural/biochemical work. Statements labeled “general Noonan/RASopathy care” are clinical extrapolations, not MRAS-specific outcome evidence.
 
-| Domain | Best-supported finding | Quantitative data | Evidence type/source/date | Knowledge-base implication |
-|---|---|---|---|---|
-| Disease identity / nomenclature | The user’s label “Noonan syndrome 11” does not match the dominant **LZTR1** literature most directly retrieved here; published sources describe **autosomal-dominant LZTR1-related Noonan syndrome** as **OMIM 616564 / Noonan syndrome 10**. Broad disease mapping evidence is available for **Noonan syndrome (MONDO:0018997)**, but a subtype-specific MONDO/OMIM identifier for “NS11” was not confirmed from retrieved sources. | OMIM 616564 cited in 2024 review; Open Targets shows LZTR1–Noonan syndrome association evidence count 5 | Review and disease-target curation, 2024; Open Targets evidence (uliana2024phenotypicexpansionof pages 14-16, uliana2024phenotypicexpansionof pages 1-2, OpenTargets Search: Noonan syndrome-LZTR1) | Store as **autosomal-dominant LZTR1-related Noonan syndrome** with a nomenclature caveat note; avoid asserting an unverified NS11 subtype identifier. |
-| Core phenotype | Dominant LZTR1-related Noonan syndrome has a broadly classic Noonan phenotype with multisystem involvement, but current best frequency estimates come from a small literature-derived cohort. | 51 patients; short stature 68.3%, cardiac defects 66%, skeletal abnormalities 58%, global developmental delay 32%, abnormal hemostasis 27%; median age 17.2 years (range 2–69) | Human literature synthesis/review, Genes, Jul 2024 (uliana2024phenotypicexpansionof pages 4-5) | Add phenotype-frequency assertions with evidence level “compiled published cases, small cohort.” |
-| Variant spectrum | Dominant disease is enriched for **missense** variants affecting the **Kelch domain**, unlike schwannomatosis where loss-of-function variants are more common. **p.Gly248Arg** is a recurrent hotspot. | 77% missense; 87% Kelch-domain; p.Gly248Arg reported in 6 families | Human review/synthesis, Jul 2024 (uliana2024phenotypicexpansionof pages 16-17) | Prioritize Kelch-domain missense variants in curation and variant interpretation rules for dominant disease. |
-| Inheritance | LZTR1 can cause both dominant and recessive Noonan syndrome; the dominant form is usually heterozygous, often de novo, and shows variable expressivity/incomplete penetrance. | DDD study: 6 dominantly acting mutations among 9,624 exomes; 5/6 de novo; LZTR1 explained ~0.1% of the full DDD cohort | Human clinical genetics, Clinical Genetics, Apr 2019 (pagnamenta2019delineationofdominant pages 1-2, uliana2024phenotypicexpansionof pages 14-16) | Distinguish **AD LZTR1-NS** from **AR LZTR1-NS** and from **schwannomatosis** in the knowledge model. |
-| Foundational causal evidence | LZTR1 was established as a Noonan gene by rare-variant discovery and later phenotype-focused delineation. | Initial association reported 2015; later dominant and recessive forms delineated 2019 | Human gene discovery and follow-up genetics (pagnamenta2019delineationofdominant pages 1-2) | Mark gene-disease validity as strongly supported by multiple independent human studies. |
-| Molecular mechanism | Dominant Noonan-causing LZTR1 variants act mainly through a **dominant-negative** mechanism affecting the **CUL3-LZTR1 ubiquitin ligase substrate-recognition surface**, impairing RAS-family proteostasis and increasing RAS/MAPK signaling. | Dominant variants cluster around Kelch/KT1-4 substrate-recognition regions; mechanistic studies show increased RAS protein pool and enhanced stimulus-dependent RAS-MAPK signaling | Functional human/in vitro/computational studies, 2019; review update 2024 (motta2019dominantnoonansyndromecausing pages 1-2, motta2019dominantnoonansyndromecausing pages 1-1, uliana2024phenotypicexpansionof pages 14-16) | Annotate mechanism as **dominant-negative dysregulation of RAS proteostasis** rather than simple haploinsufficiency. |
-| Animal / multi-omics model | 2024 knock-in mice carrying dominant Lztr1 variants reproduced Noonan-like features and showed cardiac MAPK activation; **trametinib** improved hypertrophy. | Two KI models: **Lztr1G245R/+** and **Lztr1R409C/+**; male mice showed low birth weight, facial features, cardiac hypertrophy; reduced survival in R409C/+ mice (~25% at 2 years reported in extracted evidence) | In vivo mouse + RNA-seq/proteomics, JCI Insight, Nov 2024 (abe2024dysregulationofras pages 8-11, abe2024dysregulationofras pages 1-2, abe2024dysregulationofras pages 2-4) | Strong preclinical support for MAPK-directed therapy concepts; model is suitable for mechanistic and therapeutic annotation. |
-| Therapeutic signal | MEK-pathway inhibition is the clearest mechanistically aligned intervention signal for dominant LZTR1 disease, but evidence remains preclinical/subtype-extrapolated. | Trametinib ameliorated cardiac hypertrophy in dominant LZTR1 mouse models; no LZTR1-specific human interventional trial identified in retrieved records | Mouse experiment 2024; broader NS therapeutic reviews/trials are mostly non-LZTR1-specific (abe2024dysregulationofras pages 8-11, abe2024dysregulationofras pages 1-2) | Encode trametinib/MEK inhibition as **experimental / preclinical rationale**, not established care for LZTR1 subtype. |
-| Diagnosis | Diagnosis currently relies on **NGS-based rasopathy panels**, with escalation to **WES/WGS/long-read sequencing** when needed; LZTR1 is included on many NS panels. | No subtype-specific sensitivity metric retrieved; one review compiles 51 published dominant NS cases and notes technical/interpretive challenges | Clinical review/management discussion, 2022 and 2024 (farncombe2022lztr1moleculargenetic pages 13-14, uliana2024phenotypicexpansionof pages 17-18, uliana2024phenotypicexpansionof pages 14-16) | Recommend panel-first molecular testing with segregation analysis; preserve a flag for unresolved structural/complex variant detection. |
-| Overlap / differential diagnosis | There is clinically important overlap with **schwannomatosis** and occasionally NF1-like tumor phenotypes; some LZTR1 patients may warrant dual NS and schwannomatosis consideration. | Review cohort also included 123 schwannomatosis patients; reported schwannomas in dominant NS review set: n=1 | Clinical review and case-based management discussion, 2022/2024 (uliana2024phenotypicexpansionof pages 1-2, farncombe2022lztr1moleculargenetic pages 13-14, uliana2024phenotypicexpansionof pages 4-5) | Add differential-diagnosis links to schwannomatosis and note possible tumor-surveillance considerations in selected cases. |
-| Prognosis / epidemiology gaps | Population prevalence, incidence, sex ratio, life expectancy, penetrance estimates, and subtype-specific longitudinal outcomes remain poorly defined for dominant LZTR1-related NS. | Available phenotype summary based on only 51 published NS patients; no robust population denominator identified | Evidence-gap synthesis from 2024 review and retrieved literature set (uliana2024phenotypicexpansionof pages 17-18, uliana2024phenotypicexpansionof pages 1-2, uliana2024phenotypicexpansionof pages 4-5) | Mark epidemiology and prognosis fields as **not well established / evidence sparse** rather than extrapolating from all-cause Noonan syndrome. |
+| domain | MRAS-specific established finding | evidence type/source | certainty or key limitation |
+|---|---|---|---|
+| Disease identity | Noonan syndrome 11 is the MRAS-related Noonan syndrome entity; key identifiers include OMIM 618499 and MONDO:0032786 | Aggregated disease-gene resource plus literature-linked target-disease evidence (OpenTargets Search: Noonan syndrome 11-MRAS) | High confidence for disease-gene mapping; sparse primary patient literature compared with other Noonan genes |
+| Causal gene | The causal gene is **MRAS** (muscle RAS oncogene homolog), encoding the RAS-family small GTPase M-Ras | Human gene-disease association evidence and primary case reports (OpenTargets Search: Noonan syndrome 11-MRAS, higgins2017elucidationofmrasmediated pages 1-2) | High confidence |
+| Reported pathogenic variants | Reported NS11 missense activating variants include **p.Gly23Val**, **p.Thr68Ile**, and **p.Gln71Arg** | Human case report and mechanistic/structural studies referencing NS variants (higgins2017elucidationofmrasmediated pages 1-2, bonsor2024rasandshoc2 pages 6-8, young2018shoc2–mras–pp1complexpositively pages 5-6) | p.Gly23Val and p.Thr68Ile are directly documented in the 2017 human report; p.Gln71Arg is strongly supported by later mechanistic literature but was not detailed in the retrieved human case excerpt |
+| Inheritance | Reported human cases were **de novo**; disease mechanism is consistent with **autosomal dominant** transmission if inherited | Human trio/genotype-negative cohort evidence (higgins2017elucidationofmrasmediated pages 1-2, higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 9-11) | Very small number of directly retrieved patients limits penetrance/segregation estimates |
+| Molecular effect | NS11 is caused by **germline activating missense variants** producing **gain-of-function/constitutive activation** of MRAS | Human functional studies and structural/biochemical studies (higgins2017elucidationofmrasmediated pages 1-2, bonsor2024rasandshoc2 pages 6-8, higgins2017elucidationofmrasmediated pages 9-11, young2018shoc2–mras–pp1complexpositively pages 5-6) | High confidence for GOF mechanism |
+| Core phenotype | Phenotype is dominated by **congenital or early-onset cardiac hypertrophy/HCM**, often with additional congenital heart disease, plus classic Noonan features such as distinctive facies, short stature, hypotonia/developmental delay, and learning difficulties | Direct human clinical evidence from reported patients (higgins2017elucidationofmrasmediated pages 1-2, higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 2-4, higgins2017elucidationofmrasmediated pages 9-11) | High confidence that cardiac disease is prominent; exact frequency estimates remain uncertain because very few cases are available |
+| Cardiac manifestations | Reported findings include **biventricular/left ventricular hypertrophy**, **outflow tract obstruction**, **pulmonary valve stenosis**, and **atrial septal defect**; one patient required **surgical myectomy** in childhood | Direct human clinical case data (higgins2017elucidationofmrasmediated pages 2-4, higgins2017elucidationofmrasmediated pages 11-12, higgins2017elucidationofmrasmediated pages 9-11) | Strong case-level evidence, but no MRAS-specific natural-history cohort |
+| Development/growth | Reported non-cardiac findings include **short stature**, **global developmental delay**, **delayed walking/language**, **intellectual/learning difficulties**, **joint hypermobility**, **pectus excavatum**, **hypotonia**, and characteristic facies | Direct human clinical evidence (higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 2-4, higgins2017elucidationofmrasmediated pages 6-8) | Frequencies cannot be robustly estimated from retrieved data |
+| Signaling mechanism | Pathogenic MRAS variants enhance formation/function of the **SHOC2-MRAS-PP1C** holophosphatase complex, promoting **RAF inhibitory-site (S259/CR2-pS) dephosphorylation**, RAF activation, and downstream **ERK/MAPK** signaling | Biochemical, structural, and cell-based mechanistic evidence (bonsor2024rasandshoc2 pages 6-8, higgins2017elucidationofmrasmediated pages 9-11, young2018shoc2–mras–pp1complexpositively pages 5-6) | High mechanistic confidence; much evidence derives from in vitro/structural systems rather than patient tissue |
+| Diagnostic approach | Diagnosis is established by **sequencing-based molecular testing**: WES/trio analysis identified one de novo case, and targeted sequencing of genotype-negative RASopathy patients with cardiac hypertrophy found another | Human diagnostic evidence (higgins2017elucidationofmrasmediated pages 1-2, higgins2017elucidationofmrasmediated pages 2-4, higgins2017elucidationofmrasmediated pages 9-11) | High confidence that MRAS should be included in RASopathy/HCM genomic testing; no MRAS-specific biomarker beyond genotype |
+| Population frequency | Reported pathogenic variants are **ultra-rare/absent in population databases**; one 2017 report noted absence from >280,000 gnomAD alleles | Human genetic case evidence (higgins2017elucidationofmrasmediated pages 2-4) | Variant-level rarity supported; disease prevalence/incidence for MRAS-NS11 specifically is not established |
+| Epidemiology | **No established MRAS-specific prevalence, incidence, sex ratio, founder effect, anticipation, or mosaicism data** were identified in retrieved evidence | Evidence-gap assessment from available literature context (higgins2017elucidationofmrasmediated pages 1-2, higgins2017elucidationofmrasmediated pages 9-11) | Major limitation: ultra-rare condition with only a handful of published cases in retrieved sources |
+| Treatment | **No established MRAS-specific targeted therapy** has been proven in clinical practice; current care is syndrome-/phenotype-directed, especially cardiac management | Human case outcomes plus general RASopathy management context (higgins2017elucidationofmrasmediated pages 2-4, faienza2024cardiacphenotypeand pages 7-8) | Important limitation: treatment evidence is extrapolated largely from broader RASopathy/Noonan care, not MRAS-only cohorts |
+| Trial landscape | **MEKinRAS (NCT06555237)** is a recruiting phase 2 trial of **trametinib** for RASopathy-associated HCM, but the registry does **not explicitly state MRAS-related NS11-specific eligibility or enrollment** | ClinicalTrials.gov registry evidence (NCT06555237 chunk 1) | Potential relevance to MRAS-HCM is indirect; not an MRAS-specific interventional study |
+| Evidence base overall | The MRAS-specific evidence base remains **small but coherent**: rare de novo activating missense variants, recurrent severe cardiac phenotype, and a convergent SHOC2-MRAS-PP1C/RAF-ERK mechanism | Integrated human genetic, functional, structural, and registry evidence (higgins2017elucidationofmrasmediated pages 1-2, higgins2017elucidationofmrasmediated pages 9-11, bonsor2024rasandshoc2 pages 6-8, young2018shoc2–mras–pp1complexpositively pages 5-6, NCT06555237 chunk 1) | Main limitation is very limited patient count and lack of MRAS-specific long-term outcome studies |
 
 
-*Table: This table summarizes the best-supported, ontology-ready facts for autosomal-dominant LZTR1-related Noonan syndrome from the retrieved evidence. It highlights the nomenclature caveat, key phenotype frequencies, mechanism, model data, diagnostic approach, and major evidence gaps.*
+*Table: This table summarizes the compact, MRAS-specific evidence base for Noonan syndrome 11, emphasizing what is directly established versus what remains uncertain. It is useful for separating firm gene/mechanism/phenotype findings from gaps in prevalence and treatment data.*
 
 ## 1. Disease information
 
-Dominant LZTR1-related Noonan syndrome is a congenital, lifelong **RASopathy** characterized by variable craniofacial dysmorphism, impaired growth, congenital or developmental cardiac disease, skeletal abnormalities, hemostatic defects, ectodermal findings, and variably affected neurodevelopment. Facial features are generally most recognizable in childhood. Disease severity ranges from mild, incompletely penetrant presentations to severe multisystem disease. (uliana2024phenotypicexpansionof pages 14-16, uliana2024phenotypicexpansionof pages 1-2)
+**Definition.** NS11 is a congenital, lifelong RASopathy caused by heterozygous activating missense variants in **MRAS**, encoding the small RAS-family GTPase M-Ras. It combines a Noonan-pattern developmental phenotype—characteristic craniofacial appearance, growth impairment, skeletal findings and neurodevelopmental delay—with particularly prominent congenital or early-childhood cardiac hypertrophy/hypertrophic cardiomyopathy (HCM). Open Targets links MONDO:0032786 specifically to MRAS (ENSG00000158186), supported by the primary MRAS literature (including PMID 28289718). (OpenTargets Search: Noonan syndrome 11-MRAS)
 
-**Identifiers and synonyms**
+**Identifiers and names.** 
 
-- Preferred knowledge-base label: **Autosomal-dominant LZTR1-related Noonan syndrome**.
-- OMIM disease: **#616564**, reported in the retrieved literature as **Noonan syndrome 10**.
-- Broader MONDO: **MONDO:0018997, Noonan syndrome**.
-- Causal gene: **LZTR1**, approved name *leucine zipper like post translational regulator 1*; Ensembl **ENSG00000099949**.
-- Common terms: **LZTR1-related Noonan syndrome**, **AD LZTR1-NS**, **LZTR1-associated NS**, and **NS10**.
-- ICD-10/ICD-11 and MeSH are generally assigned at the broader Noonan-syndrome level; no subtype-specific code was verified in the retrieved sources.
-- “Noonan syndrome 11” should be retained only as an unverified incoming synonym, not asserted as the accepted OMIM name.
+- **OMIM:** 618499, *Noonan syndrome 11*.
+- **MONDO:** MONDO:0032786, *Noonan syndrome 11*.
+- **Causal-gene identity:** MRAS; Open Targets approved name “muscle RAS oncogene homolog.” (OpenTargets Search: Noonan syndrome 11-MRAS)
+- **Common synonyms:** MRAS-related Noonan syndrome; MRAS-mediated Noonan syndrome; Noonan syndrome associated with MRAS; NS11.
+- **Orphanet/MeSH/ICD:** no retrieved subtype-specific Orphanet, MeSH, ICD-10 or ICD-11 code was established. Coding generally falls under broader Noonan-syndrome/congenital-malformation categories; such codes do not uniquely identify MRAS-NS11.
 
-The evidence is primarily **aggregated disease-level literature**, including a 2024 synthesis of published cases, supplemented by individual case reports and DDD exome data. It is not an EHR-derived population cohort. The 2024 review assembled 51 published LZTR1-NS patients, whereas the 2019 DDD analysis screened 9,624 clinical exomes. (pagnamenta2019delineationofdominant pages 1-2, uliana2024phenotypicexpansionof pages 4-5)
+The evidence combines **individual-level case reports/series** with aggregated disease resources. It is not derived from an EHR-scale cohort or population registry.
 
-## 2. Etiology, risk, and protective factors
+## 2. Etiology, risk and protective factors
 
-### Causal factor
+The primary and sufficient cause is a **germline heterozygous activating MRAS missense variant**. The initially reported affected individuals carried de novo p.Gly23Val or p.Thr68Ile substitutions; later mechanistic literature recognizes p.Gln71Arg as another NS-associated constitutively active allele. (higgins2017elucidationofmrasmediated pages 1-2, bonsor2024rasandshoc2 pages 6-8)
 
-The disorder is caused by a **constitutional heterozygous pathogenic LZTR1 variant**, most characteristically a missense variant altering the Kelch-domain substrate-recognition surface. In the 2024 compilation, 77% of dominant NS variants were missense and 87% affected the Kelch domain; **p.Gly248Arg** was recurrent in six families. Dominant variants dysregulate RAS-family protein turnover and increase RAS–MAPK signaling. (uliana2024phenotypicexpansionof pages 16-17, motta2019dominantnoonansyndromecausing pages 1-2)
+The first p.Gly23Val case was identified through trio whole-exome sequencing (WES), and the variant was absent from more than 280,000 gnomAD alleles. Screening 109 unrelated genotype-negative patients with suspected RASopathy and cardiac hypertrophy identified the second de novo variant, p.Thr68Ile—approximately 0.9% of that highly selected cohort, not a population prevalence estimate. (higgins2017elucidationofmrasmediated pages 2-4, higgins2017elucidationofmrasmediated pages 9-11, higgins2017elucidationofmrasmediated pages 6-8)
 
-The 2019 DDD study found six dominantly acting substitutions—p.Arg97Leu, p.Tyr136Cys, p.Tyr136His, p.Asn145Ile, p.Ser244Cys, and p.Gly248Arg—among 9,624 exomes; five arose de novo. This clustering around KT1–KT4 supports a domain-specific dominant mechanism. (pagnamenta2019delineationofdominant pages 1-2)
+**Risk factors.** The relevant risk is genetic: a pathogenic MRAS allele in the germline. Most directly documented cases were de novo, so absence of family history does not materially reduce risk in a clinically suggestive child. If an affected person transmits the allele, the expected Mendelian recurrence risk is 50% per pregnancy, although MRAS-specific penetrance cannot yet be quantified. Parental germline mosaicism remains theoretically possible but has not been quantified.
 
-### Genetic risk factors
-
-- A de novo pathogenic variant confers disease risk to the proband and a theoretical 50% transmission risk to offspring.
-- An inherited variant may produce disease with **incomplete penetrance and variable expressivity**; apparently unaffected parents therefore require careful phenotyping and segregation testing.
-- Family history of Noonan features, congenital heart disease, short stature, bleeding, schwannomas, or LZTR1-related disease increases suspicion.
-- Variant interpretation is difficult: more than half of 3,263 LZTR1 ClinVar submissions discussed in the 2024 review were VUS. (uliana2024phenotypicexpansionof pages 16-17, uliana2024phenotypicexpansionof pages 17-18, uliana2024phenotypicexpansionof pages 14-16)
-
-Dominant LZTR1-NS must not be conflated with **biallelic LZTR1-NS**, in which compound-heterozygous or homozygous variants are distributed more broadly through the gene, or with schwannomatosis, which more often involves monoallelic loss-of-function variants. (pagnamenta2019delineationofdominant pages 1-2, motta2019dominantnoonansyndromecausing pages 1-2)
-
-### Environmental, infectious, and lifestyle risk
-
-No toxin, infection, diet, occupation, smoking behavior, or other environmental exposure is established as a cause. Maternal or paternal age effects were not quantified. Environmental factors may modify complications—nutrition and physical activity affect growth and cardiovascular health, while medications and surgery affect bleeding—but they do not replace the germline cause.
-
-### Protective factors and gene–environment interaction
-
-No validated protective allele, diet, exposure, or lifestyle intervention prevents the syndrome. Appropriate cardiac, developmental, growth, auditory, ophthalmologic, and hemostatic surveillance can reduce secondary morbidity but is tertiary prevention rather than biological protection. No reproducible LZTR1-specific gene–environment interaction was identified.
+**Environmental, lifestyle, infectious and gene–environment factors.** No evidence establishes toxins, diet, smoking, occupation, infection, parental age or other environmental exposures as causes or modifiers of NS11. There are likewise no validated genetic or environmental protective factors. These are evidence gaps, not evidence of absolute absence.
 
 ## 3. Phenotypes
 
-The best subtype-specific frequency estimates come from a literature-derived cohort of **51 patients with 30 variants**: median age 17.2 years, range 2–69; 28 female, 20 male, and three with sex unreported. Short stature occurred in 68.3%, cardiac defects in 66%, skeletal abnormalities in 58%, global developmental delay in 32%, and abnormal hemostasis in 27%. Four patients had neoplasms, six café-au-lait macules, two lymphedema, and one a schwannoma. These estimates are vulnerable to referral, publication, and missing-data bias and should not be treated as population prevalence. (uliana2024phenotypicexpansionof pages 4-5)
+### MRAS-specific human observations
 
-### Ontology-ready phenotype set
+The directly documented phenotype is dominated by early cardiac disease. One female with p.Gly23Val had biventricular/left-ventricular hypertrophy beginning in infancy, biventricular outflow obstruction and surgical myectomy at age eight. She also had short stature, a long/dysmorphic face, low-set posteriorly rotated ears, global developmental delay and cognitive disability. (higgins2017elucidationofmrasmediated pages 2-4)
 
-- **Short stature**—growth sign, usually evident in childhood; variable persistence and severity; 68.3%. HPO: **Short stature (HP:0004322)**.
-- **Cardiac defect**—congenital/developmental sign; 66% collectively. Important manifestations include **hypertrophic cardiomyopathy (HP:0001639)** and **pulmonic stenosis (HP:0001642)**. Course ranges from stable mild disease to progressive hypertrophy or hemodynamic compromise.
-- **Skeletal abnormality**—physical sign; 58%. Suggested HPO concepts include **pectus excavatum**, **pectus carinatum**, scoliosis, and broad thorax; exact subtype frequencies were unavailable.
-- **Global developmental delay (HP:0001263)**—neurodevelopmental sign, childhood onset; 32%; severity variable. Intellectual disability is not obligatory.
-- **Abnormality of coagulation/hemostasis (HP:0001928)**—laboratory/clinical phenotype; 27%; may remain subclinical until trauma or surgery.
-- **Facial dysmorphism**—congenital sign, usually more apparent in childhood: **hypertelorism (HP:0000316)**, **ptosis (HP:0000508)**, downslanting palpebral fissures, epicanthal folds, and low-set/posteriorly rotated ears. (pagnamenta2019delineationofdominant pages 1-2, uliana2024phenotypicexpansionof pages 1-2)
-- **Relative macrocephaly**, webbed or short neck, and ectodermal anomalies are characteristic but lack reliable subtype frequencies.
-- **Joint hypermobility (HP:0001382)** was reported in approximately half of tested NS patients in the 2024 review, but the denominator was selected and should not be generalized. (uliana2024phenotypicexpansionof pages 16-17)
-- Less frequent reported findings include **lymphedema (HP:0001004)**, café-au-lait macules, renal abnormalities, hearing loss, and neoplasia. Evidence for breast cancer, ependymoma, leukemia, bladder exstrophy, mitral-valve prolapse, or Parkinson disease consists largely of isolated cases and is insufficient to define the core phenotype. (uliana2024phenotypicexpansionof pages 14-16, uliana2024phenotypicexpansionof pages 17-18)
+The p.Thr68Ile-positive female had cardiac hypertrophy, pulmonary-valve stenosis and an atrial septal defect, with ptosis, low-set posteriorly angulated ears, pectus excavatum, redundant palmar soft tissue/wrinkling, joint hypermobility and hypotonia. Development was delayed: independent walking at 2.5 years, sign language at 15 months, spoken words at four years and special-education support by kindergarten. (higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 11-12)
 
-Quality-of-life effects have not been measured with subtype-specific EQ-5D, SF-36, or PROMIS datasets. Likely burdens include exercise limitation from cardiac disease, educational support needs, reduced adult height, bleeding-related procedural risk, and repeated specialist visits. This is a clinical inference from manifestations, not a quantified LZTR1-specific result.
+Suggested phenotype annotations include:
+
+| Phenotype | Type/course | Suggested HPO term |
+|---|---|---|
+| Hypertrophic cardiomyopathy/cardiac hypertrophy | Congenital or infantile; severity variable and potentially progressive/obstructive | HP:0001639; cardiac hypertrophy HP:0001712 |
+| Left/biventricular outflow obstruction | Clinical/imaging sign; may require surgery | HP:0001698 or more specific obstruction term |
+| Pulmonary-valve stenosis | Congenital structural cardiac sign | HP:0001642 |
+| Atrial septal defect | Congenital structural cardiac sign | HP:0001631 |
+| Short stature | Growth manifestation, childhood | HP:0004322 |
+| Global developmental delay | Neurodevelopmental sign, early childhood | HP:0001263 |
+| Intellectual/learning disability | Cognitive/functional manifestation | HP:0001249; HP:0001328 where appropriate |
+| Hypotonia | Neuromuscular sign, infancy/childhood | HP:0001252 |
+| Ptosis/hypertelorism/low-set ears | Dysmorphic signs | HP:0000508; HP:0000316; HP:0000369 |
+| Pectus excavatum | Skeletal manifestation | HP:0000767 |
+| Joint hypermobility | Musculoskeletal sign | HP:0001382 |
+
+Because the published denominator is extremely small, percentages should not be calculated as stable NS11 frequencies. The strongest qualitative association is **cardiac hypertrophy/HCM**, while developmental, facial, growth and skeletal findings show variable expression. Disease-specific EQ-5D, SF-36, PROMIS or caregiver-burden data do not exist. Nevertheless, obstructive HCM, surgery, developmental delay and special-education needs plainly create substantial functional burden at the individual level. (higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 2-4)
 
 ## 4. Genetic and molecular information
 
-**Gene:** *LZTR1*, encoding leucine-zipper-like post-translational regulator 1, a BTB-Kelch adaptor for a CUL3 ubiquitin-ligase complex. The retrieved evidence supports a strong/definitive clinical association through human genetics and functional studies. (motta2019dominantnoonansyndromecausing pages 1-2, OpenTargets Search: Noonan syndrome-LZTR1)
+**Gene.** MRAS is the sole established causal gene for NS11. Open Targets identifies only MRAS as an associated target for MONDO:0032786. (OpenTargets Search: Noonan syndrome 11-MRAS)
 
-**Variant classes and consequences:**
+**Variant class and origin.** Established disease alleles are germline, heterozygous missense variants with gain-of-function effects—not truncating loss-of-function alleles, chromosomal rearrangements or somatic-only mutations. Directly reported variants include:
 
-- Dominant NS: predominantly heterozygous Kelch-domain missense variants, usually **dominant negative** rather than simple haploinsufficiency.
-- Recessive NS: biallelic missense, nonsense, frameshift, or splice variants; examples include p.Arg210Ter/p.Val579Met, p.Arg210Ter/p.Asp531Asn, and c.1149+1G>T/p.Arg688Cys.
-- Schwannomatosis: more frequently heterozygous inactivating/frameshift variants, with tumor formation generally requiring additional somatic events.
-- A frameshift such as c.1602del, p.Lys534Asnfs*22 illustrates interpretive overlap: variant class alone does not establish whether the clinical outcome is NS or schwannomatosis. (pagnamenta2019delineationofdominant pages 1-2, uliana2024phenotypicexpansionof pages 16-17, uliana2024phenotypicexpansionof pages 14-16)
+- **p.Gly23Val**, reported as c.68G>T in detailed text; de novo and absent from >280,000 population alleles. The retrieved source contained one inconsistent predicted cDNA notation, so clinical reporting should use the transcript-specific laboratory HGVS record rather than infer it from the protein change. (higgins2017elucidationofmrasmediated pages 1-2, higgins2017elucidationofmrasmediated pages 2-4)
+- **c.203C>T (p.Thr68Ile)**; de novo. (higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 11-12)
+- **p.Gln71Arg (Q71R)**; recognized in later structural/mechanistic studies as a constitutively active NS allele. (bonsor2024rasandshoc2 pages 6-8)
 
-Dominant variants preserve much of LZTR1 stability, localization, and CUL3 binding but compromise substrate recognition. No validated population allele-frequency threshold specific to this subtype was retrieved; credible dominant pathogenic variants should generally be very rare or absent from population databases and evaluated using ancestry-aware gnomAD frequencies, segregation, de novo status, domain location, computational/structural evidence, and functional data.
+ClinVar classifications should be checked against the current transcript and submission date during implementation. Functional evidence strongly supports pathogenic/gain-of-function interpretation for these recurrent mechanistically coherent alleles, but this report should not substitute for current laboratory ACMG/AMP adjudication.
 
-No established modifier gene, protective allele, recurrent chromosomal abnormality, or diagnostic disease-specific methylation signature was found. Composite phenotypes can occur: one DDD patient also carried biallelic *NEB* loss-of-function variants. (pagnamenta2019delineationofdominant pages 1-2)
+**Modifiers, epigenetics and chromosome abnormalities.** No validated modifier gene, MRAS-NS11 episignature, disease-specific methylation profile or recurrent large chromosomal abnormality has been established. No founder allele, anticipation or carrier-frequency estimate is available.
 
 ## 5. Environmental information
 
-Environmental toxins, radiation, pollution, occupational exposures, lifestyle behaviors, and infectious agents are **not etiologic**. Routine vaccination follows standard schedules unless contraindicated by an individual complication. Smoking avoidance, heart-healthy nutrition, safe exercise prescribed around cardiac disease, and avoidance of medications that worsen bleeding are sensible supportive measures but are not LZTR1-specific disease modifiers.
+NS11 is not an infectious, toxic or lifestyle-mediated disease. No causal pathogen, occupational exposure, pollutant, radiation exposure, diet, alcohol or smoking association is known. Routine healthy lifestyle measures remain relevant to general cardiovascular health but do not prevent the germline disorder.
 
 ## 6. Mechanism and pathophysiology
 
 ### Upstream causal chain
 
-**Germline Kelch-domain LZTR1 variant → defective dominant-negative substrate recognition by CUL3–LZTR1 → reduced interaction/ubiquitination and altered degradation or localization of RAS-family substrates, particularly RIT1, MRAS, and KRAS → enlarged cellular RAS protein pool → increased MEK/ERK pathway output → altered developmental growth, cardiomyocyte growth, craniofacial morphogenesis, lymphatic/vascular biology, and neurodevelopment → Noonan phenotype.** (motta2019dominantnoonansyndromecausing pages 1-2, abe2024dysregulationofras pages 8-11, abe2024dysregulationofras pages 1-2)
+1. A germline activating substitution changes MRAS nucleotide-state regulation and/or effector interactions.
+2. G23V, T68I and Q71R favor the constitutively active, GTP-bound state. Wild-type MRAS shares about 50% sequence identity with canonical RAS proteins but normally binds/activates RAF less efficiently; the disease alleles overcome normal control. (bonsor2024rasandshoc2 pages 6-8)
+3. GTP-bound MRAS assembles the **SHOC2–MRAS–PP1C** holophosphatase at the plasma membrane. SHOC2 acts as scaffold and PP1C as catalytic phosphatase.
+4. The complex dephosphorylates RAF’s conserved inhibitory CR2 site—classically CRAF Ser259/BRAF Ser365—releasing 14-3-3-mediated inhibition and facilitating RAF activation/dimerization.
+5. RAF activates MEK and ERK, changing developmental gene expression, cell proliferation, differentiation and growth.
+6. Dysregulated signaling in developing myocardium and other embryonic tissues produces HCM/structural heart disease, dysmorphism, impaired linear growth and neurodevelopmental abnormalities.
 
-The key 2019 functional paper concluded that dominant variants, unlike recessive missense changes tested, enhance stimulus-dependent RAS–MAPK signaling. An exact abstract statement is: **“dominant NS-causing mutations do not perturb binding of LZTR1 to CUL3 … but are predicted to affect the surface of the Kelch domain mediating substrate binding.”** Published in *Human Molecular Genetics*, online November 2018/volume 2019; DOI: https://doi.org/10.1093/hmg/ddy412; PMID 30481304. (motta2019dominantnoonansyndromecausing pages 1-2, motta2019dominantnoonansyndromecausing pages 1-1)
+Cell experiments showed p.Gly23Val produced approximately fourfold greater GTP loading at five minutes and 40-fold greater loading at 30 minutes after EGF stimulation than wild-type MRAS, with increased ERK phosphorylation and serum-response-element transcription. (higgins2017elucidationofmrasmediated pages 1-2, higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 9-11)
 
-### Cellular, tissue, and multi-omics evidence
+Young et al. summarized the biochemical result directly: germline MRAS/SHOC2/PPP1CB mutations enhance ternary-complex formation, which “specifically dephosphorylates an inhibitory site on RAF kinases, activating downstream signaling.” Their experiments further distinguish G23V, which can promote direct RAF binding and holophosphatase assembly, from T68I, which preferentially enhances SHOC2–PP1 interaction/RAF-phosphatase function. (young2018shoc2–mras–pp1complexpositively pages 5-6)
 
-In 2024, two knock-in lines—**Lztr1G245R/+** and **Lztr1R409C/+**, corresponding to human p.Gly248Arg and p.Arg412Cys—were generated. Male mutants had low birth weight, distinctive facial morphology, enlarged cardiomyocytes, and cardiac hypertrophy. Left ventricles showed increased MRAS and RIT1, while RNA sequencing and DIA proteomics indicated MAPK-pathway activation. Mutant mouse embryonic fibroblasts showed increased KRAS/MRAS/RIT1 and phospho-MEK/ERK. Haploinsufficient Lztr1+/− mice lacked the same phenotype, supporting dominant negativity rather than dosage loss alone. (abe2024dysregulationofras pages 8-11, abe2024dysregulationofras pages 1-2)
+The 2024 structural review concludes that G23V, T68I and Q71R place MRAS in a constitutively active GTP-bound state, with Q71R adding contacts to SHOC2; measured complex affinities are in the low-nanomolar range. (bonsor2024rasandshoc2 pages 6-8, bonsor2024rasandshoc2 pages 19-20)
 
-An exact 2024 abstract statement is: **“Treatment with the MEK inhibitor trametinib ameliorated cardiac hypertrophy in mutant male mice.”** This provides strong preclinical target validation, not evidence of human efficacy. *JCI Insight*, published November 2024; DOI: https://doi.org/10.1172/jci.insight.182382. (abe2024dysregulationofras pages 1-2)
+**Suggested GO annotations:** small GTPase-mediated signal transduction (GO:0007264); Ras protein signal transduction (GO:0007265); MAPK cascade (GO:0000165); positive regulation of ERK1/2 cascade (GO:0070374); protein dephosphorylation (GO:0006470); regulation of protein serine/threonine phosphatase activity; heart development (GO:0007507); cardiac muscle-cell development and proliferation.
 
-The R409C/+ model also exhibited smaller rounder skulls, blunt snouts, hypertelorism, splenomegaly, renal enlargement, embryonic edema, hemorrhage, lymphatic abnormalities, and reduced long-term survival; only about 25% reportedly survived to two years, with sudden deaths after one year. Homozygotes were embryonically lethal. These findings should not be directly converted to human prognosis. (abe2024dysregulationofras pages 2-4)
+**Likely relevant cell types:** cardiomyocyte (CL:0000746), cardiac fibroblast (CL:0000746-adjacent ontology mapping should be verified), endocardial/endothelial cells, neural progenitors and growth-plate chondrocytes. Direct NS11 single-cell evidence is absent; these are mechanistically plausible annotation targets, not demonstrated cell-selective lesions.
 
-Suggested GO biological-process annotations include **RAS protein signal transduction**, **MAPK cascade**, **protein ubiquitination**, **proteasome-mediated protein catabolic process**, **regulation of cell growth**, **heart development**, and **lymph vessel development**. Relevant cellular components include the **CUL3 ubiquitin-ligase complex**, cytoplasm, Golgi/endosomal compartments, and plasma-membrane-associated signaling complexes. Suggested CL concepts include **cardiomyocyte**, **endothelial cell**, **vascular endothelial cell**, **lymphatic endothelial cell**, **fibroblast**, and neural-crest-derived craniofacial mesenchymal cells.
+**Subcellular components:** plasma membrane (GO:0005886), cytosol (GO:0005829), protein-containing complex (GO:0032991), SHOC2–MRAS–PP1C complex where a dedicated ontology term is unavailable.
 
-No validated human LZTR1-NS metabolomic, lipidomic, spatial-transcriptomic, or single-cell atlas was identified. The 2024 cardiac RNA-seq/proteomics study is the most important recent multi-omics advance.
+No NS11-specific metabolic, immune, inflammatory, oxidative-stress, transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic or multi-omic signature has been established. The available molecular profiling consists principally of targeted signaling assays and protein structures.
 
 ## 7. Anatomical structures affected
 
-Primary systems are:
+The **heart** is the best-supported primary organ, involving ventricular myocardium and potentially pulmonary valve/septa/outflow tracts. Suggested annotations are heart (UBERON:0000948), myocardium (UBERON:0002349), cardiac ventricle (UBERON:0002082), interventricular/atrial septal structures, pulmonary valve and ventricular outflow tract.
 
-- **Cardiovascular:** heart, myocardium, pulmonary valve, septa, and vasculature. Suggested UBERON concepts: heart, cardiac ventricle, left ventricle, myocardium, pulmonary valve, and blood vessel.
-- **Lymphatic:** lymphatic vessels and potentially pleural/pulmonary lymphatics; edema and lymphedema may occur.
-- **Craniofacial:** skull, facial skeleton, eyelids, external ears, and neck.
-- **Musculoskeletal:** thoracic cage, spine, joints, and connective tissue.
-- **Nervous system:** brain and peripheral nerves indirectly through neurodevelopment; Schwann-cell tumors are an overlap concern, not a universal NS manifestation.
-- **Hematologic/vascular:** coagulation system, platelets, and endothelial barrier.
-- **Renal/genitourinary, auditory, ocular, and ectodermal structures** may be involved secondarily.
+Secondary systems include craniofacial structures, skeleton/chest wall, joints, central nervous system/neurodevelopment and the somatic growth axis. No consistent lateralization is described. At subcellular level, disease originates in membrane-associated RAS signaling rather than a primary mitochondrial, lysosomal or endoplasmic-reticulum disorder.
 
-No consistent lateralization is known. Cardiac hypertrophy and craniofacial changes are generally bilateral/systemic rather than unilateral.
+## 8. Temporal development and natural history
 
-## 8. Temporal development
+Onset is **prenatal/congenital or early pediatric**, even if molecular diagnosis occurs later. Cardiac hypertrophy may be recognized in infancy and can progress to obstruction requiring childhood intervention. Developmental delay becomes apparent as milestones are missed; short stature emerges over childhood. (higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 2-4)
 
-The initiating variant is present from conception. Craniofacial, cardiac, lymphatic, and skeletal abnormalities may be prenatal or congenital; feeding, growth, developmental, hearing, bleeding, and learning problems typically become evident during infancy or childhood. Facial gestalt evolves and may become less conspicuous in adulthood. Adult-onset schwannomas and other possible neoplasms broaden the surveillance horizon, although their incidence in LZTR1-NS is unknown. (uliana2024phenotypicexpansionof pages 17-18, uliana2024phenotypicexpansionof pages 1-2)
-
-The course is **chronic and lifelong**, not relapsing-remitting. Individual manifestations differ: congenital pulmonary stenosis may remain stable or require intervention; hypertrophic cardiomyopathy can progress; short stature evolves through childhood; developmental disability is generally nonregressive; and bleeding may be episodic around trauma or procedures. There are no formal disease stages or remission criteria. Prenatal/infant cardiac and lymphatic disease and childhood developmental periods are important intervention windows.
+NS11 is lifelong. There is no validated staging system, remission pattern, median progression rate or MRAS-specific longitudinal cohort. Critical windows include prenatal cardiac development, infancy for detection of HCM/feeding and developmental difficulties, early childhood for intervention, and later childhood/adulthood for arrhythmia, obstruction and heart-failure surveillance.
 
 ## 9. Inheritance and population
 
-Inheritance is **autosomal dominant**, frequently de novo, with incomplete penetrance and variable expressivity. Five of six dominant variants found in the DDD analysis were de novo. Familial transmission is documented, and intrafamilial variability can be substantial. Anticipation is not established. Parental germline mosaicism is biologically possible for an apparently de novo variant but has not been quantified. Consanguinity is relevant mainly to recessive LZTR1-NS, not the dominant target disorder. (pagnamenta2019delineationofdominant pages 1-2, uliana2024phenotypicexpansionof pages 16-17)
+Inheritance is **autosomal dominant**, with most published cases arising de novo. Expressivity is variable, but penetrance cannot be estimated. Genetic anticipation is not expected for a missense RASopathy and has not been reported. Germline mosaicism, founder effects, consanguinity effects and geographic clustering have not been demonstrated.
 
-Subtype-specific prevalence, incidence, carrier frequency, founder effects, ethnic enrichment, geographic variation, and sex ratio remain unknown. LZTR1 variants explained approximately **0.1% of all 9,624 DDD exomes**, but that is not a prevalence estimate and includes a heterogeneous developmental-disorder referral population. The 2024 published-case cohort showed no significant sex-dependent phenotype difference. (pagnamenta2019delineationofdominant pages 1-2, uliana2024phenotypicexpansionof pages 16-17)
+There is no reliable NS11-specific prevalence, incidence, sex ratio, age distribution or ancestry enrichment. Both initially described patients were female and of European descent, but that observation is far too small and ascertainment-biased to infer demographic risk. (higgins2017elucidationofmrasmediated pages 9-11)
+
+General Noonan/RASopathy prevalence estimates must not be assigned to NS11. The 109-person selected screening cohort yielded one additional MRAS case, but it consisted specifically of genotype-negative RASopathy patients with cardiac hypertrophy and therefore cannot estimate prevalence. (higgins2017elucidationofmrasmediated pages 6-8)
 
 ## 10. Diagnostics
 
-### Clinical assessment
+### Clinical evaluation
 
-A clinical diagnosis should be considered with the combination of characteristic facial appearance, short stature, pulmonary stenosis or hypertrophic cardiomyopathy, pectus deformity, developmental differences, cryptorchidism, lymphatic disease, or bleeding. There is no validated clinical scoring system specific to LZTR1.
+Suspect NS11 when a child has Noonan-pattern dysmorphism and developmental/growth abnormalities together with **early or severe HCM**, particularly after common RASopathy genes are negative. Baseline evaluation should include physical/dysmorphology examination, three-generation pedigree, growth parameters, developmental assessment, ECG and echocardiography. Cardiac MRI/Holter monitoring is selected according to HCM severity, rhythm symptoms and image quality.
 
-Baseline evaluation should include:
+### Molecular confirmation
 
-1. Echocardiography and ECG, with cardiology follow-up determined by lesion and age.
-2. Growth, nutrition, pubertal, and endocrine assessment.
-3. Developmental, behavioral, educational, speech, and motor assessment.
-4. CBC, PT/INR, aPTT, and specialist-directed coagulation/platelet studies, especially before surgery.
-5. Hearing and ophthalmologic assessment.
-6. Renal ultrasound and examination for thoracic/spinal or lymphatic abnormalities where indicated.
-7. Detailed skin and neurologic examination, with inquiry about focal pain, weakness, or masses.
+Preferred testing is a comprehensive **RASopathy panel including MRAS**, or an HCM/congenital-heart-disease panel that includes MRAS when syndromic features are present. Trio WES is useful when panel testing is negative and proved diagnostic in the discovery case. Genome sequencing can detect coding variants plus classes missed by exome/panel testing, but no recurrent NS11 structural variant is known. Sanger/orthogonal confirmation and parental testing establish de novo status. (higgins2017elucidationofmrasmediated pages 1-2, higgins2017elucidationofmrasmediated pages 2-4)
 
-### Molecular testing algorithm
-
-1. Use a comprehensive **RASopathy/Noonan multigene NGS panel** containing *LZTR1*, *PTPN11*, *SOS1*, *RAF1*, *RIT1*, *KRAS*, *NRAS*, *MRAS*, *SOS2*, *SHOC2*, *PPP1CB*, *CBL*, and other validated genes, with copy-number analysis.
-2. Confirm the variant and test both parents. Segregation is essential because de novo evidence supports ACMG PS2/PM6 and phase/allelic evidence helps distinguish dominant from recessive disease.
-3. If panel testing is negative, use trio WES or WGS. WGS and long-read sequencing may resolve structural, intronic, or technically difficult variants.
-4. CMA is appropriate when there are atypical features or suspicion of a copy-number disorder but is not the primary test for a Kelch-domain sequence variant.
-5. Karyotype/FISH, mitochondrial sequencing, and repeat-expansion testing are not routine unless another diagnosis is suspected. (farncombe2022lztr1moleculargenetic pages 13-14, uliana2024phenotypicexpansionof pages 17-18)
-
-RNA analysis can clarify a suspected splice variant; functional MAPK or ubiquitination assays remain research tools. No validated circulating biomarker, liquid biopsy, proteomic, metabolomic, or methylation diagnostic is available.
+CMA, karyotype and FISH are not confirmatory for an MRAS missense disorder, but CMA may be appropriate when developmental anomalies suggest a copy-number differential. Mitochondrial, repeat-expansion and liquid-biopsy testing are not indicated for NS11 itself. There is no validated serum, enzyme, metabolomic or epigenomic diagnostic biomarker beyond the molecular variant.
 
 ### Differential diagnosis
 
-Differentials include other molecular forms of Noonan syndrome, Noonan syndrome with multiple lentigines, cardiofaciocutaneous syndrome, Costello syndrome, NF1/Neurofibromatosis-Noonan phenotype, Noonan-like syndrome with loose anagen hair, Turner syndrome, 22q11.2 deletion syndrome, and isolated congenital heart disease. LZTR1 schwannomatosis is particularly important when schwannomas, chronic focal pain, or nerve tumors occur.
+Differentials include other molecular RASopathies—especially RIT1-, RAF1-, PTPN11-, SOS1-, KRAS-, SHOC2- and PPP1CB-related disease—and nonsyndromic sarcomeric HCM. NS11 is distinguished by a pathogenic activating **MRAS** allele, not phenotype alone. LZTR1-related Noonan syndrome is explicitly a different disease mechanism and must not be labeled NS11.
 
-The 2022 overlap review proposed baseline brain/spine MRI in late childhood or early adulthood and longitudinal neurology/NF-specialist care for selected LZTR1 patients. This is an expert proposal based on overlap and limited cases, not universally adopted evidence-based screening. (farncombe2022lztr1moleculargenetic pages 13-14)
+No newborn population screen exists. Cascade testing is appropriate after a familial pathogenic variant is identified; testing apparently unaffected parents also informs recurrence counseling.
 
 ## 11. Outcome and prognosis
 
-No LZTR1-subtype-specific five- or ten-year survival rate, life expectancy, mortality rate, disability weight, or validated prognostic model exists. Most morbidity is expected to reflect the severity of cardiac disease, lymphatic complications, neurodevelopmental disability, feeding/growth problems, and bleeding. Human evidence is insufficient to infer the reduced survival observed in one mouse line. (abe2024dysregulationofras pages 2-4)
+No MRAS-specific five- or ten-year survival, life expectancy, mortality rate or validated prognostic model exists. Prognosis is likely driven chiefly by HCM severity, ventricular obstruction, arrhythmia and heart failure, but this is reasoned from the observed phenotype and broader HCM/RASopathy practice, not an NS11 survival cohort.
 
-Potential adverse prognostic features include severe neonatal lymphatic disease, progressive hypertrophic cardiomyopathy, significant pulmonary stenosis, major bleeding diathesis, and severe developmental impairment. Early diagnosis and multidisciplinary management improve the opportunity to treat complications, but they do not remove the germline disorder.
+Documented morbidity includes childhood myectomy, developmental disability, special-education need, hypotonia and short stature. (higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 2-4) No MRAS-specific tumor-risk estimate or evidence-based cancer-surveillance protocol has been established. Likewise, no disease-specific patient-reported outcome data exist.
 
-Cancer risk is uncertain at the subtype level. The 2024 dominant LZTR1 compilation recorded four neoplasms among 51 published patients, but publication bias and heterogeneous follow-up prevent calculation of penetrance. The approximately 4% cancer risk by age 20 cited for broader NS should not be assigned specifically to dominant LZTR1-NS. (uliana2024phenotypicexpansionof pages 16-17, uliana2024phenotypicexpansionof pages 4-5)
+## 12. Treatment
 
-## 12. Treatment and current applications
+There is **no approved MRAS-specific disease-modifying therapy**. Management is multidisciplinary and phenotype-directed.
 
-There is no approved etiologic therapy for dominant LZTR1-NS. Current care is phenotype-directed and multidisciplinary.
+### Cardiac treatment
 
-- **Cardiac:** standard medical, catheter, or surgical management of pulmonary stenosis, septal defects, and hypertrophic cardiomyopathy. NCIT concepts: cardiac surgery, balloon valvuloplasty, beta-blocker therapy.
-- **Growth:** optimize nutrition and treat endocrine abnormalities. Recombinant human growth hormone/somatropin is used in broader Noonan syndrome, but decisions should account for cardiac status, tumor history, and uncertain LZTR1/schwannomatosis overlap. Evidence is not LZTR1-specific.
-- **Development:** early intervention, physical therapy, occupational therapy, speech-language therapy, individualized education, and neuropsychological support.
-- **Bleeding:** identify factor, von Willebrand, or platelet defects; use hematology-directed perioperative planning. Avoid empiric aspirin/NSAID use where bleeding risk is unresolved.
-- **Lymphatic disease:** nutrition modification, drainage/procedural management, and specialist treatment according to anatomy and severity.
-- **Hearing/vision/orthopedic/feeding:** standard corrective and rehabilitative care.
-- **Schwannoma concern:** symptom-directed MRI and referral to neurologic, neuro-oncology, or NF specialists; surgery or pain management as appropriate. (farncombe2022lztr1moleculargenetic pages 13-14)
+General RASopathy/HCM practice uses non-vasodilating beta-blockers for symptoms/obstruction; disopyramide may be added for left-ventricular outflow-tract obstruction. Severe symptomatic obstruction refractory to medication may require septal myectomy; advanced heart failure or refractory arrhythmia may warrant transplantation. These are general recommendations, although childhood myectomy has been used in an MRAS case. (higgins2017elucidationofmrasmediated pages 2-4, faienza2024cardiacphenotypeand pages 7-8)
 
-### Targeted and experimental therapy
+Suggested NCIt intervention mappings include echocardiography (C16525), electrocardiography, beta-adrenergic blocker therapy, antiarrhythmic therapy, septal myectomy/cardiac surgery and heart transplantation; exact current NCIt codes should be verified during database ingestion.
 
-MEK inhibition has the strongest mechanism-based rationale. In the 2024 dominant LZTR1 mouse model, **trametinib** improved cardiac hypertrophy, whereas rapamycin did not, supporting MEK/ERK rather than mTOR as the proximal therapeutic target in that model. This remains preclinical for the LZTR1 subtype. (abe2024dysregulationofras pages 8-11, abe2024dysregulationofras pages 1-2)
+### Developmental and supportive care
 
-Broader Noonan trials identified by ClinicalTrials.gov included growth-hormone studies, simvastatin, and MEK-inhibitor protocols. Of particular relevance, **NCT06555237**, a phase 2 study of MEK inhibitors for RASopathy-associated hypertrophic cardiomyopathy, was recruiting 40 participants; **NCT01556568**, a phase 2 MEK162 study, was withdrawn with zero enrollment. These are not LZTR1-specific efficacy data. Other broader-NS studies included NCT00452725, NCT01529840, NCT01927861, NCT02713945, NCT05723835, and NCT06668805. No human interventional trial restricted to dominant LZTR1-NS was identified.
+Early developmental evaluation, physical/occupational/speech therapy, individualized education, nutritional/feeding support and hearing/vision assessment should follow general Noonan care. Orthopedic, endocrine/growth, renal and hemostatic evaluations should be driven by examination and standard Noonan guidance. Evidence for these measures is not MRAS-specific.
 
-Suggested NCIT intervention concepts include **Trametinib**, **MEK inhibitor**, **Somatropin**, physical therapy, occupational therapy, speech therapy, genetic counseling, echocardiography, and cardiac surgical procedure. Gene replacement, CRISPR editing, ASO/siRNA therapy, and cell therapy are not established clinical options.
+### Targeted/experimental therapy
+
+MEK inhibition is biologically rational because the causal pathway culminates in RAF–MEK–ERK hyperactivation, but efficacy and long-term safety in MRAS-NS11 are unproven. **NCT06555237 (MEKinRAS)** is a recruiting phase 2 randomized trial begun August 1, 2024, targeting 40 patients aged 0–18 years with genetically confirmed RASopathy and echocardiographic HCM. It compares trametinib 0.025 mg/kg orally once daily plus beta-blocker/disopyramide against standard therapy, measuring echocardiographic hypertrophy, NT-proBNP and high-sensitivity troponin I through 12 months. The Warsaw registry does not explicitly document an MRAS subgroup or MRAS-positive enrollment. (NCT06555237 chunk 1)
+
+There is no established MRAS-directed gene therapy, CRISPR therapy, ASO, siRNA, cell therapy or immunotherapy. Structural studies identify the SHOC2–MRAS–PP1C interface as a potential drug target, but this remains preclinical and is largely being developed in oncology. (bonsor2024rasandshoc2 pages 6-8)
 
 ## 13. Prevention
 
-Primary prevention by lifestyle or vaccination is impossible because the disorder is germline. Reproductive options include preconception counseling, parental testing, prenatal diagnosis after chorionic-villus sampling or amniocentesis, and preimplantation genetic testing for a known familial variant. A clinically affected heterozygous individual generally has a 50% transmission risk per pregnancy, modified by uncertainty from incomplete penetrance and variable expressivity.
+Primary prevention by diet, vaccination or environmental modification is impossible because NS11 is germline genetic. Reproductive options after identification of a familial pathogenic variant include genetic counseling, prenatal diagnosis and preimplantation genetic testing. For a proven heterozygous affected parent, the theoretical recurrence probability is 50% per conception; after an apparently de novo case, recurrence is low but not zero because of possible parental germline mosaicism.
 
-Secondary and tertiary prevention consists of cascade testing, early cardiac and developmental assessment, preoperative hemostasis evaluation, hearing/vision screening, growth monitoring, and prompt investigation of neurologic symptoms or masses. Population newborn screening and general-population carrier screening are not established. No infectious prophylaxis, vaccine, dietary supplement, or preventive drug specifically prevents LZTR1-NS.
+Secondary prevention consists of early molecular diagnosis and cardiac/developmental surveillance. Tertiary prevention includes prompt management of HCM/outflow obstruction, arrhythmias, developmental needs and other detected complications. There is no NS11-specific prophylactic medication or public-health screening program.
 
 ## 14. Other species and natural disease
 
-No naturally occurring veterinary syndrome definitively equivalent to human dominant LZTR1-NS was identified. The mechanism is evolutionarily conserved sufficiently for human variants to produce Noonan-like disease in mice. Zoonotic transmission and cross-species contagion are not applicable.
-
-Relevant taxa include **Homo sapiens (NCBI Taxon 9606)** and experimental **Mus musculus (NCBI Taxon 10090)**. Orthologous *Lztr1* should be linked through NCBI Gene/Alliance records. No breed-specific VBO annotation is supported.
+MRAS signaling is evolutionarily conserved, and orthologs exist in standard vertebrate model species. However, no well-established naturally occurring veterinary disorder equivalent to human MRAS-NS11, breed association, zoonotic potential or cross-species transmission was identified. NS11 is not transmissible.
 
 ## 15. Model organisms and experimental systems
 
-The most disease-specific model is the 2024 mammalian knock-in system:
+The strongest models are **in vitro biochemical and cellular systems**, not a validated whole-animal NS11 model. HEK293T/17 and related transfected-cell assays demonstrated enhanced GTP loading, ERK phosphorylation and transcriptional signaling by mutant MRAS. (higgins2017elucidationofmrasmediated pages 8-9, higgins2017elucidationofmrasmediated pages 9-11)
 
-- **Lztr1G245R/+** and **Lztr1R409C/+** mice reproduce human dominant variants p.Gly248Arg and p.Arg412Cys.
-- Recapitulated features include low birth weight, craniofacial anomalies, cardiomyocyte enlargement, cardiac hypertrophy, edema/lymphatic defects, hemorrhage, and organ enlargement; severity was stronger in males in the reported experiments.
-- Left-ventricular RNA-seq and proteomics showed MAPK activation and increased RIT1/MRAS; trametinib produced pharmacologic rescue.
-- Homozygous mutants were embryonically lethal, while simple haploinsufficiency did not reproduce the dominant phenotype. (abe2024dysregulationofras pages 8-11, abe2024dysregulationofras pages 1-2, abe2024dysregulationofras pages 2-4)
+Purified-protein, crystallographic and cryo-EM studies define the SHOC2–MRAS–PP1C complex and effects of G23V, T68I and Q71R. These models provide high mechanistic resolution but cannot reproduce organism-level cardiomyopathy, development, penetrance or treatment toxicity. (bonsor2024rasandshoc2 pages 6-8, young2018shoc2–mras–pp1complexpositively pages 5-6)
 
-Mouse embryonic fibroblasts provide an in-vitro system for RAS abundance, phospho-MEK/ERK, protein-interaction, ubiquitination, and drug-response assays. Human iPSC-derived cardiomyocytes have been used chiefly for biallelic LZTR1 disease and should not be assumed to model the dominant subtype identically.
+No retrieved evidence established a knock-in mouse, rat, zebrafish, Drosophila, organoid or patient-derived iPSC model that comprehensively recapitulates MRAS-NS11. Such models—especially heterozygous variant-specific cardiomyocyte/iPSC and mouse or zebrafish knock-ins—remain important priorities for natural-history and therapeutic studies.
 
-Model limitations include species-specific development, sex effects not yet validated in humans, variant-specific phenotypes, supraphysiologic drug exposure concerns, and inability to capture the full human cognitive and tumor spectrum. Useful resources include MGI, IMPC, IMSR/MMRRC, and Cellosaurus for model registration.
+## Key evidence limitations and interpretation
 
-## Recent developments and expert interpretation
+1. **Very small patient numbers:** apparent phenotype frequencies are unstable and should remain qualitative.
+2. **Ascertainment bias:** discovery focused on genotype-negative patients with cardiac hypertrophy, enriching the apparent HCM association.
+3. **Mechanistic strength exceeds clinical depth:** biochemical causality is strong, but longitudinal prognosis, penetrance and treatment response remain poorly defined.
+4. **No 2023–2024 MRAS-specific clinical cohort was retrieved:** recent work chiefly refines protein structure and therapeutic hypotheses rather than expanding natural history.
+5. **General Noonan recommendations are not genotype-specific evidence:** cardiac and multidisciplinary care should be individualized, especially because severe HCM appears prominent in NS11.
 
-The major 2024 clinical advance was the synthesis of **51 dominant LZTR1-NS cases**, yielding the first relatively stable subtype-level frequency estimates and highlighting adult phenotypic variability. Its abstract states: **“This review confirms that autosomal dominant LZTR1-related disorders exhibit an extreme phenotypic variability, ranging from relatively mild manifestations to severe and multi-systemic involvement.”** *Genes*, published July 2024; DOI: https://doi.org/10.3390/genes15070916. (uliana2024phenotypicexpansionof pages 1-2)
+## Principal publications and URLs
 
-The major 2024 mechanistic advance was direct in-vivo demonstration that human-equivalent dominant variants disturb RAS proteostasis, activate cardiac MAPK signaling, and generate trametinib-responsive hypertrophy. Together, these data favor a **variant- and mechanism-specific dominant-negative model**, rather than treating all LZTR1 pathogenic variants as interchangeable loss-of-function alleles. (abe2024dysregulationofras pages 8-11, abe2024dysregulationofras pages 1-2)
-
-Expert analysis should remain conservative in three areas: (1) do not equate the user label “NS11” with an established identifier without database confirmation; (2) do not extrapolate schwannomatosis risk equally to every Kelch-domain NS variant; and (3) do not treat preclinical trametinib rescue as established human therapy. Larger longitudinal, genotype-stratified cohorts—including adults and systematically assessed relatives—are needed to estimate penetrance, tumor risk, survival, quality of life, and treatment response. (uliana2024phenotypicexpansionof pages 17-18)
-
-## Evidence gaps for knowledge-base encoding
-
-Subtype-specific incidence, prevalence, penetrance, life expectancy, sex ratio, ethnic distribution, founder variants, carrier frequency, standardized quality-of-life scores, metabolomics, lipidomics, single-cell/spatial data, validated biomarkers, and human treatment-response rates are **not available** from the retrieved evidence. These fields should be encoded as “unknown/not established,” rather than populated using statistics for all Noonan syndromes.
+- Higgins EM et al. **“Elucidation of MRAS-mediated Noonan syndrome with cardiac hypertrophy.”** *JCI Insight*. Published March 2017. PMID **28289718**. DOI/URL: https://doi.org/10.1172/jci.insight.91225. The report identified de novo MRAS variants and concluded that mutant MRAS enhanced RAS/MAPK signaling. (higgins2017elucidationofmrasmediated pages 1-2, higgins2017elucidationofmrasmediated pages 2-4)
+- Young LC et al. **“SHOC2–MRAS–PP1 complex positively regulates RAF activity and contributes to Noonan syndrome pathogenesis.”** *PNAS*. Published October 2018. PMID **30348783**. DOI/URL: https://doi.org/10.1073/pnas.1720352115. Abstract-level conclusion: the variants enhance a ternary complex that dephosphorylates inhibitory RAF and activates downstream signaling. (young2018shoc2–mras–pp1complexpositively pages 5-6)
+- Motta M et al. **“Activating MRAS mutations cause Noonan syndrome associated with hypertrophic cardiomyopathy.”** *Human Molecular Genetics*. Published online 2019; volume publication July 2020. DOI/URL: https://doi.org/10.1093/hmg/ddz108; literature databases associated with the MRAS–NS11 record include PMID **31108500**. This is the key expanded human-genetic study, although complete patient-level tables were not retrievable in the present evidence set. (OpenTargets Search: Noonan syndrome 11-MRAS)
+- Bonsor DA, Simanshu DK. **“RAS and SHOC2 Roles in RAF Activation and Therapeutic Considerations.”** *Annual Review of Cancer Biology*. Published June 2024. DOI/URL: https://doi.org/10.1146/annurev-cancerbio-062822-030450. This recent authoritative structural review identifies G23V, T68I and Q71R as constitutively active MRAS alleles. (bonsor2024rasandshoc2 pages 6-8)
+- Faienza MF et al. **“Cardiac Phenotype and Gene Mutations in RASopathies.”** *Genes*. Published August 2024. DOI/URL: https://doi.org/10.3390/genes15081015. Its treatment discussion is RASopathy-wide rather than MRAS-specific. (faienza2024cardiacphenotypeand pages 7-8)
+- ClinicalTrials.gov. **MEKinRAS, NCT06555237.** Registered/started 2024: https://clinicaltrials.gov/study/NCT06555237. It is potentially relevant to NS11-associated HCM but is not an MRAS-specific trial. (NCT06555237 chunk 1)
 
 References
 
-1. (uliana2024phenotypicexpansionof pages 14-16): Vera Uliana, Enrico Ambrosini, Antonietta Taiani, Sofia Cesarini, Ilenia Rita Cannizzaro, Anna Negrotti, Walter Serra, Gabriele Quintavalle, Lucia Micale, Carmela Fusco, Marco Castori, Davide Martorana, Beatrice Bortesi, Laura Belli, Antonio Percesepe, Francesco Pisani, and Valeria Barili. Phenotypic expansion of autosomal dominant lztr1-related disorders with special emphasis on adult-onset features. Jul 2024. URL: https://doi.org/10.3390/genes15070916, doi:10.3390/genes15070916. This article has 7 citations.
+1. (OpenTargets Search: Noonan syndrome 11-MRAS): Open Targets Query (Noonan syndrome 11-MRAS, 3 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
 
-2. (uliana2024phenotypicexpansionof pages 1-2): Vera Uliana, Enrico Ambrosini, Antonietta Taiani, Sofia Cesarini, Ilenia Rita Cannizzaro, Anna Negrotti, Walter Serra, Gabriele Quintavalle, Lucia Micale, Carmela Fusco, Marco Castori, Davide Martorana, Beatrice Bortesi, Laura Belli, Antonio Percesepe, Francesco Pisani, and Valeria Barili. Phenotypic expansion of autosomal dominant lztr1-related disorders with special emphasis on adult-onset features. Jul 2024. URL: https://doi.org/10.3390/genes15070916, doi:10.3390/genes15070916. This article has 7 citations.
+2. (higgins2017elucidationofmrasmediated pages 1-2): Erin M. Higgins, J. Martijn Bos, Heather Mason-Suares, David J. Tester, Jaeger P. Ackerman, Calum A. MacRae, Katia Sol-Church, Karen W. Gripp, Raul Urrutia, and Michael J. Ackerman. Elucidation of mras-mediated noonan syndrome with cardiac hypertrophy. JCI Insight, Mar 2017. URL: https://doi.org/10.1172/jci.insight.91225, doi:10.1172/jci.insight.91225. This article has 111 citations and is from a domain leading peer-reviewed journal.
 
-3. (OpenTargets Search: Noonan syndrome-LZTR1): Open Targets Query (Noonan syndrome-LZTR1, 5 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
+3. (bonsor2024rasandshoc2 pages 6-8): Daniel A. Bonsor and Dhirendra K. Simanshu. Ras and shoc2 roles in raf activation and therapeutic considerations. Jun 2024. URL: https://doi.org/10.1146/annurev-cancerbio-062822-030450, doi:10.1146/annurev-cancerbio-062822-030450. This article has 16 citations and is from a peer-reviewed journal.
 
-4. (uliana2024phenotypicexpansionof pages 4-5): Vera Uliana, Enrico Ambrosini, Antonietta Taiani, Sofia Cesarini, Ilenia Rita Cannizzaro, Anna Negrotti, Walter Serra, Gabriele Quintavalle, Lucia Micale, Carmela Fusco, Marco Castori, Davide Martorana, Beatrice Bortesi, Laura Belli, Antonio Percesepe, Francesco Pisani, and Valeria Barili. Phenotypic expansion of autosomal dominant lztr1-related disorders with special emphasis on adult-onset features. Jul 2024. URL: https://doi.org/10.3390/genes15070916, doi:10.3390/genes15070916. This article has 7 citations.
+4. (young2018shoc2–mras–pp1complexpositively pages 5-6): Lucy C. Young, Nicole Hartig, Isabel Boned del Río, Sibel Sari, Benjamin Ringham-Terry, Joshua R. Wainwright, Greg G. Jones, Frank McCormick, and Pablo Rodriguez-Viciana. Shoc2–mras–pp1 complex positively regulates raf activity and contributes to noonan syndrome pathogenesis. Proceedings of the National Academy of Sciences, 115:E10576-E10585, Oct 2018. URL: https://doi.org/10.1073/pnas.1720352115, doi:10.1073/pnas.1720352115. This article has 106 citations and is from a highest quality peer-reviewed journal.
 
-5. (uliana2024phenotypicexpansionof pages 16-17): Vera Uliana, Enrico Ambrosini, Antonietta Taiani, Sofia Cesarini, Ilenia Rita Cannizzaro, Anna Negrotti, Walter Serra, Gabriele Quintavalle, Lucia Micale, Carmela Fusco, Marco Castori, Davide Martorana, Beatrice Bortesi, Laura Belli, Antonio Percesepe, Francesco Pisani, and Valeria Barili. Phenotypic expansion of autosomal dominant lztr1-related disorders with special emphasis on adult-onset features. Jul 2024. URL: https://doi.org/10.3390/genes15070916, doi:10.3390/genes15070916. This article has 7 citations.
+5. (higgins2017elucidationofmrasmediated pages 8-9): Erin M. Higgins, J. Martijn Bos, Heather Mason-Suares, David J. Tester, Jaeger P. Ackerman, Calum A. MacRae, Katia Sol-Church, Karen W. Gripp, Raul Urrutia, and Michael J. Ackerman. Elucidation of mras-mediated noonan syndrome with cardiac hypertrophy. JCI Insight, Mar 2017. URL: https://doi.org/10.1172/jci.insight.91225, doi:10.1172/jci.insight.91225. This article has 111 citations and is from a domain leading peer-reviewed journal.
 
-6. (pagnamenta2019delineationofdominant pages 1-2): Alistair T. Pagnamenta, Pamela J. Kaisaki, Fenella Bennett, Emma Burkitt‐Wright, Hilary C. Martin, Matteo P. Ferla, John M. Taylor, Lianne Gompertz, Nayana Lahiri, Katrina Tatton‐Brown, Ruth Newbury‐Ecob, Alex Henderson, Shelagh Joss, Astrid Weber, Jenny Carmichael, Peter D. Turnpenny, Shane McKee, Francesca Forzano, Tazeen Ashraf, Kimberley Bradbury, Deborah Shears, Usha Kini, Anna de Burca, Edward Blair, Jenny C. Taylor, and Helen Stewart. Delineation of dominant and recessive forms of lztr1‐associated noonan syndrome. Clinical Genetics, 95:693-703, Apr 2019. URL: https://doi.org/10.1111/cge.13533, doi:10.1111/cge.13533. This article has 71 citations and is from a peer-reviewed journal.
+6. (higgins2017elucidationofmrasmediated pages 9-11): Erin M. Higgins, J. Martijn Bos, Heather Mason-Suares, David J. Tester, Jaeger P. Ackerman, Calum A. MacRae, Katia Sol-Church, Karen W. Gripp, Raul Urrutia, and Michael J. Ackerman. Elucidation of mras-mediated noonan syndrome with cardiac hypertrophy. JCI Insight, Mar 2017. URL: https://doi.org/10.1172/jci.insight.91225, doi:10.1172/jci.insight.91225. This article has 111 citations and is from a domain leading peer-reviewed journal.
 
-7. (motta2019dominantnoonansyndromecausing pages 1-2): Marialetizia Motta, Miray Fidan, Emanuele Bellacchio, Francesca Pantaleoni, Konstantin Schneider-Heieck, Simona Coppola, Guntram Borck, Leonardo Salviati, Martin Zenker, Ion C Cirstea, and Marco Tartaglia. Dominant noonan syndrome-causing lztr1 mutations specifically affect the kelch domain substrate-recognition surface and enhance ras-mapk signaling. Human Molecular Genetics, 28:1007–1022, Nov 2019. URL: https://doi.org/10.1093/hmg/ddy412, doi:10.1093/hmg/ddy412. This article has 120 citations and is from a domain leading peer-reviewed journal.
+7. (higgins2017elucidationofmrasmediated pages 2-4): Erin M. Higgins, J. Martijn Bos, Heather Mason-Suares, David J. Tester, Jaeger P. Ackerman, Calum A. MacRae, Katia Sol-Church, Karen W. Gripp, Raul Urrutia, and Michael J. Ackerman. Elucidation of mras-mediated noonan syndrome with cardiac hypertrophy. JCI Insight, Mar 2017. URL: https://doi.org/10.1172/jci.insight.91225, doi:10.1172/jci.insight.91225. This article has 111 citations and is from a domain leading peer-reviewed journal.
 
-8. (motta2019dominantnoonansyndromecausing pages 1-1): Marialetizia Motta, Miray Fidan, Emanuele Bellacchio, Francesca Pantaleoni, Konstantin Schneider-Heieck, Simona Coppola, Guntram Borck, Leonardo Salviati, Martin Zenker, Ion C Cirstea, and Marco Tartaglia. Dominant noonan syndrome-causing lztr1 mutations specifically affect the kelch domain substrate-recognition surface and enhance ras-mapk signaling. Human Molecular Genetics, 28:1007–1022, Nov 2019. URL: https://doi.org/10.1093/hmg/ddy412, doi:10.1093/hmg/ddy412. This article has 120 citations and is from a domain leading peer-reviewed journal.
+8. (higgins2017elucidationofmrasmediated pages 11-12): Erin M. Higgins, J. Martijn Bos, Heather Mason-Suares, David J. Tester, Jaeger P. Ackerman, Calum A. MacRae, Katia Sol-Church, Karen W. Gripp, Raul Urrutia, and Michael J. Ackerman. Elucidation of mras-mediated noonan syndrome with cardiac hypertrophy. JCI Insight, Mar 2017. URL: https://doi.org/10.1172/jci.insight.91225, doi:10.1172/jci.insight.91225. This article has 111 citations and is from a domain leading peer-reviewed journal.
 
-9. (abe2024dysregulationofras pages 8-11): Taiki Abe, Kaho Morisaki, Tetsuya Niihori, Miho Terao, Shuji Takada, and Yoko Aoki. Dysregulation of ras proteostasis by autosomal-dominant lztr1 mutation induces noonan syndrome–like phenotypes in mice. JCI Insight, Nov 2024. URL: https://doi.org/10.1172/jci.insight.182382, doi:10.1172/jci.insight.182382. This article has 11 citations and is from a domain leading peer-reviewed journal.
+9. (higgins2017elucidationofmrasmediated pages 6-8): Erin M. Higgins, J. Martijn Bos, Heather Mason-Suares, David J. Tester, Jaeger P. Ackerman, Calum A. MacRae, Katia Sol-Church, Karen W. Gripp, Raul Urrutia, and Michael J. Ackerman. Elucidation of mras-mediated noonan syndrome with cardiac hypertrophy. JCI Insight, Mar 2017. URL: https://doi.org/10.1172/jci.insight.91225, doi:10.1172/jci.insight.91225. This article has 111 citations and is from a domain leading peer-reviewed journal.
 
-10. (abe2024dysregulationofras pages 1-2): Taiki Abe, Kaho Morisaki, Tetsuya Niihori, Miho Terao, Shuji Takada, and Yoko Aoki. Dysregulation of ras proteostasis by autosomal-dominant lztr1 mutation induces noonan syndrome–like phenotypes in mice. JCI Insight, Nov 2024. URL: https://doi.org/10.1172/jci.insight.182382, doi:10.1172/jci.insight.182382. This article has 11 citations and is from a domain leading peer-reviewed journal.
+10. (faienza2024cardiacphenotypeand pages 7-8): Maria Felicia Faienza, Giovanni Meliota, Donatella Mentino, Romina Ficarella, Mattia Gentile, Ugo Vairo, and Gabriele D’amato. Cardiac phenotype and gene mutations in rasopathies. Genes, 15:1015, Aug 2024. URL: https://doi.org/10.3390/genes15081015, doi:10.3390/genes15081015. This article has 16 citations.
 
-11. (abe2024dysregulationofras pages 2-4): Taiki Abe, Kaho Morisaki, Tetsuya Niihori, Miho Terao, Shuji Takada, and Yoko Aoki. Dysregulation of ras proteostasis by autosomal-dominant lztr1 mutation induces noonan syndrome–like phenotypes in mice. JCI Insight, Nov 2024. URL: https://doi.org/10.1172/jci.insight.182382, doi:10.1172/jci.insight.182382. This article has 11 citations and is from a domain leading peer-reviewed journal.
+11. (NCT06555237 chunk 1):  MEK Inhibitors for the Treatment of Hypertrophic Cardiomyopathy in Patients With RASopathies. Medical University of Warsaw. 2024. ClinicalTrials.gov Identifier: NCT06555237
 
-12. (farncombe2022lztr1moleculargenetic pages 13-14): Kirsten M. Farncombe, Emily Thain, Carolina Barnett-Tapia, Hamid Sadeghian, and Raymond H. Kim. Lztr1 molecular genetic overlap with clinical implications for noonan syndrome and schwannomatosis. BMC Medical Genomics, Jul 2022. URL: https://doi.org/10.1186/s12920-022-01304-x, doi:10.1186/s12920-022-01304-x. This article has 25 citations and is from a peer-reviewed journal.
-
-13. (uliana2024phenotypicexpansionof pages 17-18): Vera Uliana, Enrico Ambrosini, Antonietta Taiani, Sofia Cesarini, Ilenia Rita Cannizzaro, Anna Negrotti, Walter Serra, Gabriele Quintavalle, Lucia Micale, Carmela Fusco, Marco Castori, Davide Martorana, Beatrice Bortesi, Laura Belli, Antonio Percesepe, Francesco Pisani, and Valeria Barili. Phenotypic expansion of autosomal dominant lztr1-related disorders with special emphasis on adult-onset features. Jul 2024. URL: https://doi.org/10.3390/genes15070916, doi:10.3390/genes15070916. This article has 7 citations.
+12. (bonsor2024rasandshoc2 pages 19-20): Daniel A. Bonsor and Dhirendra K. Simanshu. Ras and shoc2 roles in raf activation and therapeutic considerations. Jun 2024. URL: https://doi.org/10.1146/annurev-cancerbio-062822-030450, doi:10.1146/annurev-cancerbio-062822-030450. This article has 16 citations and is from a peer-reviewed journal.
 
 ## Artifacts
 
@@ -1236,7 +1212,7 @@ Checked with `linkml-reference-validator` 0.2.1.
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
 | References weighed for topical relevance | 6 |
-| On topic | 5 |
+| On topic | 4 |
 | Off topic | 0 |
 
 All extracted references resolved successfully.

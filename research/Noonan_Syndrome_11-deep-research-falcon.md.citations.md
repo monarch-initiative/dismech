@@ -3,13 +3,13 @@
 **Query:** # Disease Characteristics Research Template
 
 ## Target Disease
-- **Disease Name:** Noonan Syndrome 11
+- **Disease Name:** Noonan Syndrome 11 NS11 the MRAS-related form of Noonan syndrome OMIM 618499 MONDO:0032786 caused by germline activating missense variants in the MRAS gene encoding the RAS-family GTPase M-Ras. NOT LZTR1-related Noonan syndrome and NOT any other numbered Noonan syndrome type.
 - **MONDO ID:**  (if available)
 - **Category:** Genetic
 
 ## Research Objectives
 
-Please provide a comprehensive research report on **Noonan Syndrome 11** covering all of the
+Please provide a comprehensive research report on **Noonan Syndrome 11 NS11 the MRAS-related form of Noonan syndrome OMIM 618499 MONDO:0032786 caused by germline activating missense variants in the MRAS gene encoding the RAS-family GTPase M-Ras. NOT LZTR1-related Noonan syndrome and NOT any other numbered Noonan syndrome type.** covering all of the
 disease characteristics listed below. This report will be used to populate a disease knowledge
 base entry. Be thorough and cite primary literature (PMID preferred) for all claims.
 
@@ -447,24 +447,22 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-08-18T09:33:55.585435
+**Generated:** 2026-08-18T09:52:49.898789
 
-1. uliana2024phenotypicexpansionof pages 4-5
-2. uliana2024phenotypicexpansionof pages 16-17
-3. pagnamenta2019delineationofdominant pages 1-2
-4. abe2024dysregulationofras pages 1-2
-5. abe2024dysregulationofras pages 2-4
-6. uliana2024phenotypicexpansionof pages 1-2
-7. uliana2024phenotypicexpansionof pages 17-18
-8. uliana2024phenotypicexpansionof pages 14-16
-9. motta2019dominantnoonansyndromecausing pages 1-2
-10. motta2019dominantnoonansyndromecausing pages 1-1
-11. abe2024dysregulationofras pages 8-11
-12. https://doi.org/10.1093/hmg/ddy412;
-13. https://doi.org/10.1172/jci.insight.182382.
-14. https://doi.org/10.3390/genes15070916.
-15. https://doi.org/10.3390/genes15070916,
-16. https://doi.org/10.1111/cge.13533,
-17. https://doi.org/10.1093/hmg/ddy412,
-18. https://doi.org/10.1172/jci.insight.182382,
-19. https://doi.org/10.1186/s12920-022-01304-x,
+1. higgins2017elucidationofmrasmediated pages 2-4
+2. higgins2017elucidationofmrasmediated pages 9-11
+3. higgins2017elucidationofmrasmediated pages 6-8
+4. faienza2024cardiacphenotypeand pages 7-8
+5. higgins2017elucidationofmrasmediated pages 1-2
+6. higgins2017elucidationofmrasmediated pages 8-9
+7. higgins2017elucidationofmrasmediated pages 11-12
+8. https://doi.org/10.1172/jci.insight.91225.
+9. https://doi.org/10.1073/pnas.1720352115.
+10. https://doi.org/10.1093/hmg/ddz108;
+11. https://doi.org/10.1146/annurev-cancerbio-062822-030450.
+12. https://doi.org/10.3390/genes15081015.
+13. https://clinicaltrials.gov/study/NCT06555237.
+14. https://doi.org/10.1172/jci.insight.91225,
+15. https://doi.org/10.1146/annurev-cancerbio-062822-030450,
+16. https://doi.org/10.1073/pnas.1720352115,
+17. https://doi.org/10.3390/genes15081015,
