@@ -4576,64 +4576,48 @@
 
         <!-- Classifications -->
         {% if disorder.classifications %}
+        {# Slots whose values are mechanism/pathway statements rather than nosology #}
+        {# placements; styled differently, as they were before this became a loop.  #}
+        {% set mechanistic_slots = ['mechanistic_category', 'lysosomal_storage_category', 'channelopathy_category'] %}
+        {% set groups_with_content = [] %}
+        {% for group in classification_spec %}
+        {% set present = [] %}
+        {% for member in group.members %}
+        {% if disorder.classifications.get(member.slot) %}{% set _ = present.append(member) %}{% endif %}
+        {% endfor %}
+        {% if present %}{% set _ = groups_with_content.append({'label': group.label, 'members': present, 'multi': group.members | length > 1}) %}{% endif %}
+        {% endfor %}
+        {% if groups_with_content %}
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            {% if disorder.classifications.harrisons_chapter %}
+            {# Driven by classification_spec, derived from DiseaseClassifications in the   #}
+            {# schema, so a newly added classification slot renders with no template edit. #}
+            {# Labels are the slots' LinkML `title`; nesting follows their `slot_group`.   #}
+            {% for group in groups_with_content %}
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">{{ group.label }}</div>
+                {% for member in group.members %}
+                {% set entry = disorder.classifications[member.slot] %}
+                {% set items = entry if entry is sequence and entry is not mapping else [entry] %}
                 <div class="tag-list">
-                    {% for hc in disorder.classifications.harrisons_chapter %}
-                    <span class="tag tag-classification">{{ hc.classification_value }}</span>
+                    {# A grouped slot needs its own sub-label; a lone slot would just #}
+                    {# repeat the group heading it is the sole member of.             #}
+                    {% if group.multi %}
+                    <span style="font-size: 0.78rem; color: #6b7280;">{{ member.label }}</span>
+                    {% endif %}
+                    {% for item in items %}
+                    {% set value = item.classification_value %}
+                    <span class="tag {{ 'tag-mechanistic' if member.slot in mechanistic_slots else 'tag-classification' }}"{% if item.notes %} title="{{ item.notes }}"{% endif %}>{{ value | replace('_', ' ') }}{% if value is string and value.startswith('suspected_') %} (Annex II — suspected){% endif %}</span>
                     {% endfor %}
                 </div>
+                {% endfor %}
             </div>
-            {% endif %}
-            {% if disorder.classifications.mechanistic_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Mechanistic Nosology</div>
-                <div class="tag-list">
-                    {% for mc in disorder.classifications.mechanistic_category %}
-                    <span class="tag tag-mechanistic">{{ mc.classification_value }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.icdo_morphology %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">ICD-O Morphology</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.icdo_morphology.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.lysosomal_storage_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Lysosomal Storage</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.lysosomal_storage_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.iuis_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">IUIS Category</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.iuis_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.channelopathy_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Channelopathy</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.channelopathy_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
+            {% endfor %}
         </div>
+        {% endif %}
         {% endif %}
 
         <!-- Mappings -->
@@ -6053,6 +6037,32 @@
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
+                </div>
+                {% endif %}
+                {# Exposure/agent-level classifications: hazard type, route, duration, IARC group, #}
+                {# GHS class, exposome domain. These classify the AGENT, not the disease, which is #}
+                {# why they render on the exposure card rather than in the Classifications card. #}
+                {% if env.exposure_classifications %}
+                {% set exposure_axes = [
+                    ("Hazard type", env.exposure_classifications.hazard_agent_type),
+                    ("Route", env.exposure_classifications.exposure_route),
+                    ("Duration", env.exposure_classifications.exposure_duration),
+                    ("IARC group", env.exposure_classifications.iarc_carcinogen_group),
+                    ("GHS hazard class", env.exposure_classifications.ghs_health_hazard_class),
+                    ("Exposome domain", env.exposure_classifications.exposome_domain)
+                ] %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    {% for axis_label, axis_value in exposure_axes %}
+                    {% if axis_value %}
+                    {% set axis_items = axis_value if axis_value is sequence and axis_value is not mapping else [axis_value] %}
+                    <div style="margin: 4px 0; font-size: 0.85rem;">
+                        <strong style="font-size: 0.8rem; color: #0f766e;">{{ axis_label }}:</strong>
+                        {% for assignment in axis_items %}
+                        <span class="tag tag-classification"{% if assignment.notes %} title="{{ assignment.notes }}"{% endif %}>{{ assignment.classification_value | replace('_', ' ') }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
                 </div>
                 {% endif %}
                 {% if env.notes %}
