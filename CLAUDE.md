@@ -316,6 +316,7 @@ schema shape, the trigger→consequence node chain, the treatment
 - `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm).
 - `senescence_tumor_suppression` — Conserved tumor-SUPPRESSIVE arm of senescence/aging, the deliberate complement of `cellular_senescence`, with two independent routes to a tumor barrier: oncogenic/replicative/genotoxic stress in at-risk cells → p16INK4a/Rb and p53/p21 senescence-associated arrest → restraint of malignant transformation or progression from a benign/low-grade state; separately, directly evidenced aging-associated loss of stemness in the cell of origin (PMID:39633048) can limit tumor-initiating capacity. Carries the pro-senescent (senescence-inducing) drug-target pattern (treatments use `target_mechanisms` with `ACTIVATES` to reinforce the arrest), the conceptual inverse of the senolytic pattern. Together the two senescence modules capture the antagonistic pleiotropy of senescence as two modules rather than one effect-reversing edge. Framing guardrails: does NOT assert net age-protection; generic aging/stem-cell depletion is not evidence for the age/stemness branch; senescence-loss or escape nodes do not directly conform to the positive arrest/barrier targets. Positive conformance to the senescence arm requires stable senescence-associated proliferative arrest plus an evidence-linked tumor-suppressive consequence; p16/p21/SA-beta-gal positivity alone, quiescence, differentiation, or reversible cytostasis is insufficient. Worked conformer: Pilocytic_Astrocytoma (oncogene-induced arrest and low-grade progression barrier). Key conformance target: `senescence_tumor_suppression#Barrier to Malignant Transformation`
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
+- `il11_erk_ampk_mtor_aging` — Conserved pro-inflammatory-cytokine driver of mammalian ageing (Widjaja et al., Nature 2024, PMID:39020175): age-associated IL-11 upregulation across tissues → IL11RA1-gp130 receptor signalling (canonical STAT3 + non-canonical MEK-ERK-p90RSK) → coupled ERK-p90RSK↑ / LKB1-AMPK-inactivation / mTORC1↑ axis dysregulation → mTORC1/ERK-dependent cellular senescence, SASP and metabolic decline (age-repressed WAT beiging, sarcopenia, fibrosis) → frailty, multimorbidity, age-related cancer and reduced lifespan. Carries the anti-IL-11 neutralizing-antibody drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the receptor-signalling node; anti-IL-11 extends mouse median lifespan >20% given from 75 weeks of age). The IL-11-specific, druggable driver arm of inflammaging: it feeds the source-agnostic `inflammaging` chain and the `cellular_senescence` programme, which it deliberately does NOT re-derive; carries a `KNOWLEDGE_GAP` on the canonical-vs-non-canonical signalling contribution and a `HUMAN_MODEL_MISMATCH` on the mouse-only lifespan arm. Worked conformers (all attach at the **amplifier** `#IL-11 Receptor Signalling Activation` node): Idiopathic_Pulmonary_Fibrosis (lung fibroblast), Liver_Cirrhosis (hepatic stellate cell), Chronic_Kidney_Disease (kidney interstitial fibroblast), Dilated_Cardiomyopathy (cardiac fibroblast). Conformance-target guidance: attach at `#IL-11 Receptor Signalling Activation` when only the IL-11→ERK arm is evidenced in that tissue (the case for every current fibrosis conformer); reserve the central_effector `#ERK-AMPK-mTORC1 Axis Dysregulation` (the module's disorder-agnostic rate-limiting node) for entries that actually evidence the coupled LKB1-AMPK-inactivation / mTORC1 metabolic arm. Key conformance target (rate-limiting node): `il11_erk_ampk_mtor_aging#ERK-AMPK-mTORC1 Axis Dysregulation`; current conformance attachment point: `il11_erk_ampk_mtor_aging#IL-11 Receptor Signalling Activation`
 
 The following modules capture the conserved **hallmarks of cancer** (Hanahan & Weinberg, PMID:21376230) as a coherent, reusable set. A neoplastic disorder entry can declare `conforms_to` against several of these in parallel (one per hallmark capability it manifests), substituting tumor-type-specific drivers. They are deliberately complementary: `immune_checkpoint_blockade` already covers the "avoiding immune destruction" hallmark and `cellular_senescence` / `senescence_tumor_suppression` cover the senescence dimension, so those are not duplicated here. Flagship multi-hallmark conformers that declare parallel conformance across several of these modules at once: Hepatocellular_Carcinoma (6 modules + checkpoint blockade), Non-Small_Cell_Lung_Cancer (4), Glioblastoma_IDH_Wildtype (3), and Pancreatic_Ductal_Adenocarcinoma (2).
 - `sustaining_proliferative_signaling` — Hallmark 1 (growth-signal autonomy): oncogenic growth-signal lesion (RTK mutation/amplification, autocrine loops, RAS/BRAF/PI3K activation, PTEN/NF1 loss) → constitutive RAS-MAPK and PI3K-AKT-mTOR mitogenic signaling → growth-factor-independent proliferation. Proliferative counterpart of `evading_growth_suppressors`; the RTK-proximal adaptor view is in `rtk_grb2_signaling_adaptation`. Worked conformers: Chronic_Myeloid_Leukemia (BCR-ABL1), BRAF_V600_Mutant_Melanoma (BRAF V600E). Key conformance target: `sustaining_proliferative_signaling#Constitutive Mitogenic Pathway Activation`
@@ -1607,6 +1608,44 @@ clinical_trials:
 just fetch-reference NCT05813288  # Caches trial data from ClinicalTrials.gov API
 ```
 
+#### Trials not registered on ClinicalTrials.gov (`ICTRP:`)
+
+A trial registered on ChiCTR, ISRCTN, EUCTR, jRCT/UMIN, CTRI, ANZCTR, IRCT, or
+any other WHO primary registry has no NCT identifier. Key it on its **WHO ICTRP**
+identifier and cite the ICTRP record — one prefix covers every primary registry,
+because ICTRP is the umbrella that normalizes them (24-element WHO Trial
+Registration Data Set). Do **not** bury the identifier in `description:`/`notes:`
+prose or wedge it into a free-text `name`; nothing validates either form.
+
+```bash
+just ictrp-fetch ChiCTR2100045397        # → references_cache/ICTRP_ChiCTR2100045397.md
+just fetch-reference ICTRP:ISRCTN67795930  # equivalent
+just ictrp-audit                          # registry IDs still stranded in prose
+```
+
+```yaml
+clinical_trials:
+- name: ISRCTN67795930
+  phase: PHASE_III
+  status: COMPLETED
+  evidence:
+  - reference: ICTRP:ISRCTN67795930
+    supports: SUPPORT
+    evidence_source: OTHER          # a registration document, not study evidence
+    snippet: "| Register | ISRCTN |"
+    explanation: WHO ICTRP registration record establishing the trial's identity.
+```
+
+Each `## Registration` table row is a stable quotable substring (pipes optional,
+as with ORPHA/ICEES rows). Investigator contact details are deliberately excluded
+from the cache. The portal returns its "not found" page with **HTTP 200**, so a
+malformed identifier is caught by the fetcher, not by a status code — this is how
+a nonexistent `ChiCTR-2100045397` (hyphenated, and mislabeled "Clinicaltrials.gov"
+in the publication itself) was found in `Progressive_Supranuclear_Palsy`. Never
+"correct" an identifier inside an evidence `snippet:`; that quote belongs to the
+cited paper. Worked examples: `Progressive_Supranuclear_Palsy` (ChiCTR),
+`Ectopic_Pregnancy` (ISRCTN). See [`docs/ictrp.md`](docs/ictrp.md).
+
 **Key fields:**
 - `name`: NCT identifier (e.g., NCT05813288)
 - `phase` (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or
@@ -1730,12 +1769,22 @@ Deep-research tools (Falcon, DGO, etc.) synthesize information across many sourc
    `reference_validation:` block in the YAML frontmatter, and a
    `## Reference Validation` section at the end of the body listing every
    identifier that failed to resolve. **Do not curate an identifier that appears
-   under `unresolved_references`.** A report generated before 0.2.9 has no such
+   under `unresolved_references`.** Since 0.2.10 the same pass also weighs each
+   resolved reference against the report's own vocabulary and flags citations that
+   exist but look off topic — read `needs_review`, `off_topic_references`, and the
+   `### References that may not be about this subject` section too. An off-topic
+   flag is **evidence, not a verdict** (a paper can be relevant in ways its title
+   and abstract do not spell out), so read the paper before dropping the claim.
+   A report generated before 0.2.9 has no such
    section — add one with `just validate-research-reference <report.md>` (in place,
    safe to re-run; it adds the section but not a frontmatter summary). This is a
    *head start*, not a substitute: it checks the report's citations, not the
    snippet you paste into `kb/`, and it cannot catch NEC (§2b) or a real paper
-   cited for a claim it does not make (#7791). See
+   cited for a claim it does not make (#7791). **The relevance check specifically
+   does not substitute for the §2b `just preflight-dr` NEC check**: relevance is
+   scored against the report's *own* characteristic vocabulary, so a report built
+   around the wrong disease entity is internally consistent and every one of its
+   wrong-disease citations scores as on topic. See
    [`docs/deep-research-reference-validation.md`](docs/deep-research-reference-validation.md).
 1. For **each new PMID** cited: run `just fetch-reference PMID:XXXX` to fetch the real abstract
    (a cache hit, and instant, for any reference the report already resolved)
@@ -1963,6 +2012,26 @@ If a claim is well-established but you cannot find a quotable snippet:
 | "Reference not found" | PMID doesn't exist | Verify PMID on PubMed |
 | Low similarity score | Wrong PMID for the paper | Check abstract matches topic |
 
+**Square brackets in a snippet.** Bracketed spans are removed from the *snippet*
+before matching but never from the cached text, so a bracket in the middle of a
+quote can break an otherwise verbatim match. Which brackets survive is set by
+`literal_bracket_patterns` in `conf/reference_validator_config.yaml`, read by
+both the gating validator and `just count-verified-snippets`:
+
+- **kept** — an all-caps abbreviation defined in line (`[APTT]`, `[GERD]`,
+  `[RR]`) and any bracketed span containing a percent sign (`[28, 62%]`,
+  `[95% CI 1.22-2.31]`). Quote these verbatim; do not truncate the sentence
+  around them (issue #8597).
+- **stripped** — inline numeric citation markers (`[12]`, `[3,4]`) and curator
+  glosses (`[IL-6]`, `[sic, correct designation is R501X]`). This is the
+  intended escape hatch: an editorial insertion is ignored, and a citation
+  marker interrupting the source sentence does not have to be transcribed.
+
+If you hit "not found as substring" on a quote you copied verbatim,
+`just count-verified-snippets` will name the stripped span in its reason rather
+than leaving you hunting for a paraphrase you never wrote. Adding a pattern
+affects every cached reference, so replay the whole KB before changing one.
+
 ### 6. A Title Is Not a Finding
 
 Quoting the cited paper's **title** as the snippet passes every check we have —
@@ -2177,7 +2246,7 @@ entry merge without a git conflict. Both PRs are green against their own base,
 and only the post-merge push build on `main` goes red.
 
 ```bash
-just check-duplicate-keys                              # whole KB (~8s, offline)
+just check-duplicate-keys                              # kb/ + schema + conf (~12s, offline)
 just check-duplicate-keys kb/disorders/Asthma.yaml     # specific files
 ```
 
@@ -2209,6 +2278,7 @@ as evidence `snippet:` values.
 | `CIVIC_ASSERTION:`, `CIVIC_EID:` | CIViC accepted assertion and clinical evidence TSVs | One record per accepted CIViC assertion or evidence item | CIViC |
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
+| `ICTRP:` | WHO International Clinical Trials Registry Platform search portal | One record per trial, fetched per identifier on demand (no bulk file) | WHO ICTRP terms |
 
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 

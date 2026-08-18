@@ -19,6 +19,10 @@ Matching semantics are borrowed from the validator itself
 (``SupportingTextValidator``: editorial ``[...]`` stripped, ``...`` splitting
 into independently-matched parts, Greek letters spelled out, punctuation and
 case folded, whitespace collapsed) so the two agree on what "verified" means.
+Which brackets count as editorial is read from the same config both tools use
+(``literal_bracket_patterns``), and a mismatch that bracket stripping alone
+explains says so in its reason rather than reporting a bare "not found" that
+reads as a misquote (#8597).
 
 Issue #7450 added a second, deliberately narrow matching pass on top of that,
 because a mismatch against the cache is not the same claim as a misquote in the
@@ -461,25 +465,76 @@ class CachedReferenceIndex:
 
         Mirrors ``SupportingTextValidator._split_query``, including its
         ``literal_bracket_patterns`` branch: bracketed content matching a
-        configured pattern (e.g. ``[2Fe-2S]``) is source text the validator
-        keeps, so the audit must keep it too. Without configured patterns both
-        sides strip every ``[...]`` as an editorial note.
+        configured pattern is source text the validator keeps, so the audit must
+        keep it too. Under this repo's config that means an all-caps
+        abbreviation (``[APTT]``) or a percent-bearing span (``[28, 62%]``).
+        Without configured patterns both sides strip every ``[...]`` as an
+        editorial note.
         """
-        if not self._literal_bracket_regexes:
-            without_brackets = re.sub(r"\[.*?\]", " ", snippet)
-        else:
 
-            def replace_bracket(match: re.Match[str]) -> str:
-                content = match.group(1)
-                if any(
-                    regex.search(content) for regex in self._literal_bracket_regexes
-                ):
-                    return match.group(0)
-                return " "
+        def replace_bracket(match: re.Match[str]) -> str:
+            if self.is_literal_bracket(match.group(1)):
+                return match.group(0)
+            return " "
 
-            without_brackets = re.sub(r"\[(.*?)\]", replace_bracket, snippet)
+        without_brackets = re.sub(r"\[(.*?)\]", replace_bracket, snippet)
+        return self._split_parts(without_brackets)
 
-        parts = re.split(r"\s*\.{2,}\s*", without_brackets)
+    def is_literal_bracket(self, content: str) -> bool:
+        """True when bracketed ``content`` is source text rather than a gloss.
+
+        Content matching a configured ``literal_bracket_pattern`` is kept; with
+        no patterns configured nothing is literal, which is upstream's default.
+        """
+        return any(regex.search(content) for regex in self._literal_bracket_regexes)
+
+    def stripped_brackets(self, snippet: str) -> tuple[str, ...]:
+        """Bracketed spans this snippet loses before matching, in order."""
+        return tuple(
+            match.group(0)
+            for match in re.finditer(r"\[(.*?)\]", snippet)
+            if not self.is_literal_bracket(match.group(1))
+        )
+
+    def brackets_explaining_mismatch(
+        self, snippet: str, content: str
+    ) -> tuple[str, ...]:
+        """Stripped spans whose removal is what broke the match, else empty.
+
+        Used only to explain a failure (#8597): when a quote matches the cached
+        text with these spans restored, nothing is wrong with the quote -- the
+        bracket-stripping step is what broke it, and the error should say so
+        rather than leave the curator hunting for a paraphrase they never wrote.
+
+        A snippet can carry both kinds of bracket at once -- a genuine curator
+        gloss (absent from the source, and correctly stripped) alongside source
+        text the config does not yet keep. Restoring only the spans that are
+        actually present in the cached text separates the two, so the hint names
+        the culprit instead of going silent on the mixed case.
+        """
+        candidates = tuple(
+            span
+            for span in self.stripped_brackets(snippet)
+            if self.normalize(span[1:-1]).strip()
+            and self.normalize(span[1:-1]) in content
+        )
+        if not candidates:
+            return ()
+
+        def restore(match: re.Match[str]) -> str:
+            keep = (
+                self.is_literal_bracket(match.group(1)) or match.group(0) in candidates
+            )
+            return match.group(0) if keep else " "
+
+        restored = re.sub(r"\[(.*?)\]", restore, snippet)
+        if all(self.normalize(part) in content for part in self._split_parts(restored)):
+            return candidates
+        return ()
+
+    @staticmethod
+    def _split_parts(text: str) -> list[str]:
+        parts = re.split(r"\s*\.{2,}\s*", text)
         return [re.sub(r"\s+", " ", part).strip() for part in parts if part.strip()]
 
     def is_skipped(self, reference_id: str) -> bool:
@@ -661,7 +716,32 @@ def check_pair(
     ):
         return PairOutcome.VERIFIED_RELAXED
 
-    # Third pass: an abstract-only cache cannot contain a quote taken from the
+    # Third pass: name bracket stripping when that is what broke the match
+    # (#8597). The quote is then present in the cache verbatim, so this is
+    # neither a misquote nor an incomplete cache, and saying "not found as
+    # substring" and stopping sends the curator looking for a paraphrase that
+    # does not exist. The fix is a `literal_bracket_patterns` entry in
+    # conf/reference_validator_config.yaml, not a re-quote.
+    culprits = index.brackets_explaining_mismatch(pair.snippet, content)
+    if culprits:
+        spans = (
+            culprits[0]
+            if len(culprits) == 1
+            else f"{', '.join(culprits[:-1])} and {culprits[-1]}"
+        )
+        verb = "is" if len(culprits) == 1 else "are"
+        return Unverified(
+            pair=pair,
+            reason=(
+                f"Text part not found as substring: {missing[0]!r} "
+                f"(note: the snippet matches the cached text exactly once {spans} "
+                f"{verb} kept; bracketed spans are stripped before matching "
+                "unless conf/reference_validator_config.yaml lists a matching "
+                "literal_bracket_patterns entry)"
+            ),
+        )
+
+    # Fourth pass: an abstract-only cache cannot contain a quote taken from the
     # full text. That is an incomplete cache, not a misquote, so it is reported
     # as its own advisory state rather than as a mismatch.
     if index.is_abstract_only(pair.reference_id):
