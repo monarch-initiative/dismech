@@ -166,6 +166,29 @@ def test_check_cache_file_accepts_preprint_fulltext_fields(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_check_cache_file_accepts_publication_types(tmp_path: Path):
+    """linkml-reference-validator 0.2.1 (final) added a ``publication_types``
+    frontmatter field carrying PubMed's publication-type list. No cache file
+    fetched before that bump has it, so the contract must accept it as optional
+    rather than start requiring it."""
+    good = tmp_path / "PMID_38463381.md"
+    good.write_text(
+        "---\n"
+        "reference_id: PMID:38463381\n"
+        'title: "Disruption of FLNB leads to skeletal malformation."\n'
+        "authors:\n"
+        "- Xu Q\n"
+        "journal: Bone Rep\n"
+        "publication_types:\n"
+        "- Journal Article\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Disruption of FLNB leads to skeletal malformation.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path):
     """Fabrication-fingerprint defense (#1737): a hand-crafted PMID cache
     with neither ``authors`` nor ``journal`` and a paraphrastic title was

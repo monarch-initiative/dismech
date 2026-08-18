@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3712,6 +3878,8 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
         <div class="stats-bar">
 
             <a class="stat-link" href="#mappings">
@@ -3821,7 +3989,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4150,16 +4318,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 VPS33B
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:12712" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12712">hgnc:12712</a>
+    <a href="https://bioregistry.io/hgnc:12712" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:12712</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in VPS33B (hgnc:12712). hgnc:12712 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4253,16 +4426,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
                             <span class="subtype-gene-tag">
                                 VIPAS39
 
 
 
 
-    <a href="https://bioregistry.io/hgnc:20347" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20347">hgnc:20347</a>
+    <a href="https://bioregistry.io/hgnc:20347" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:20347</a>
 
 
 
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in VIPAS39 (hgnc:20347). hgnc:20347 is a gene from the HUGO Gene Nomenclature Committee.</span>
                             </span>
 
 
@@ -4872,15 +5050,22 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         VPS33B
 
 
-    <a href="https://bioregistry.io/hgnc:12712" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12712">hgnc:12712</a>
+    <a href="https://bioregistry.io/hgnc:12712" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:12712</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased VPS33B (hgnc:12712). hgnc:12712 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4908,15 +5093,22 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         VIPAS39
 
 
-    <a href="https://bioregistry.io/hgnc:20347" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20347">hgnc:20347</a>
+    <a href="https://bioregistry.io/hgnc:20347" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:20347</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased VIPAS39 (hgnc:20347). hgnc:20347 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4949,16 +5141,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         syntaxin binding (Sec1/Munc18-type SNARE regulation)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0019905" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0019905">GO:0019905</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0019905" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0019905</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased syntaxin binding (Sec1/Munc18-type SNARE regulation), annotated with syntaxin binding (GO:0019905). GO:0019905 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4979,6 +5176,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
                 </div>
+
 
 
 
@@ -5099,16 +5297,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         vesicle-mediated transport (endosomal vesicle tethering)
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016192" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016192">GO:0016192</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016192" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0016192</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased vesicle-mediated transport (endosomal vesicle tethering), annotated with vesicle-mediated transport (GO:0016192). GO:0016192 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5128,16 +5331,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
                     <span class="tag tag-bio">
                         SNARE complex assembly
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035493" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035493">GO:0035493</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035493" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0035493</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased SNARE complex assembly (GO:0035493). GO:0035493 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5163,19 +5371,25 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         recycling endosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055037" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055037">GO:0055037</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0055037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves recycling endosome (GO:0055037). GO:0055037 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5324,15 +5538,22 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         ABCB11
 
 
-    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:42">hgnc:42</a>
+    <a href="https://bioregistry.io/hgnc:42" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:42</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves abnormal ABCB11 (hgnc:42). hgnc:42 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5364,16 +5585,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         apical protein localization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045176" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045176">GO:0045176</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045176" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0045176</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apical protein localization (GO:0045176). GO:0045176 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5393,16 +5619,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
                     <span class="tag tag-bio">
                         endosomal transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0016197" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0016197">GO:0016197</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0016197" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0016197</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal endosomal transport (GO:0016197). GO:0016197 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5428,19 +5659,25 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         recycling endosome
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055037" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0055037">GO:0055037</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055037" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0055037</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves recycling endosome (GO:0055037). GO:0055037 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -5531,17 +5768,24 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5562,11 +5806,16 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves proximal tubular epithelial cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -5587,10 +5836,13 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000584">CL:0000584</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5611,6 +5863,10 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
                 <div class="item-meta">
+
+
+
+
 
 
 
@@ -5622,10 +5878,13 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
         CDH1
 
 
-    <a href="https://bioregistry.io/hgnc:1748" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:1748">hgnc:1748</a>
+    <a href="https://bioregistry.io/hgnc:1748" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1748</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves decreased CDH1 (hgnc:1748). hgnc:1748 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5656,6 +5915,8 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-bio">
                         establishment or maintenance of apical/basal cell polarity
@@ -5663,10 +5924,13 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035088" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0035088">GO:0035088</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035088" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0035088</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased establishment or maintenance of apical/basal cell polarity (GO:0035088). GO:0035088 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5693,17 +5957,24 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-18">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
+
+
 
                     <span class="tag tag-location">
                         kidney
@@ -5711,10 +5982,13 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-19">UBERON:0002113</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -5736,6 +6010,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                     </div>
                 </div>
+
 
 
 
@@ -5842,16 +6117,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         hepatocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000182">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000182</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5878,16 +6158,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         bile acid and bile salt transport
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015721" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0015721">GO:0015721</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015721" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0015721</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased bile acid and bile salt transport (GO:0015721). GO:0015721 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5914,19 +6199,25 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         bile canaliculus
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001283" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001283">UBERON:0001283</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001283" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0001283</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in bile canaliculus (UBERON:0001283). UBERON:0001283 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6063,16 +6354,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         tissue remodeling
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048771">GO:0048771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048771" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0048771</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased tissue remodeling (GO:0048771). GO:0048771 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6099,19 +6395,25 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         liver
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-24">UBERON:0002107</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6200,16 +6502,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         proximal tubular epithelial cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves proximal tubular epithelial cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6236,16 +6543,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         apical protein localization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045176" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0045176">GO:0045176</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045176" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0045176</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased apical protein localization (GO:0045176). GO:0045176 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6272,16 +6584,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         proximal tubule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0004134">UBERON:0004134</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0004134" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-27">UBERON:0004134</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in proximal tubule (UBERON:0004134). UBERON:0004134 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
@@ -6303,6 +6620,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                     </div>
                 </div>
+
 
 
 
@@ -6435,6 +6753,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -6498,6 +6817,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-desc">Osmotic diuresis from proximal solute wasting, compounded by diarrhoeal fluid losses, produces volume depletion requiring high obligatory fluid intake. Failure to keep pace was a direct terminal event in the index series.
 </div>
+
 
 
 
@@ -6582,16 +6902,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         enterocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000584">CL:0000584</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000584" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-28">CL:0000584</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves enterocyte (CL:0000584). CL:0000584 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6621,19 +6946,25 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         small intestine
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002108">UBERON:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0002108</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON:0002108 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6706,16 +7037,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         keratinocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000312">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000312</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -6743,6 +7079,8 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
                 <div class="item-meta">
+
+
 
                     <span class="tag tag-component">
                         epidermal lamellar body
@@ -6750,10 +7088,13 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0097209" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0097209">GO:0097209</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0097209" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-31">GO:0097209</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves abnormal epidermal lamellar body (GO:0097209). GO:0097209 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
@@ -6761,19 +7102,25 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         skin epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0001003">UBERON:0001003</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-32">UBERON:0001003</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:0001003 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -6870,16 +7217,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         establishment of skin barrier
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0061436">GO:0061436</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061436" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0061436</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased establishment of skin barrier (GO:0061436). GO:0061436 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -6906,19 +7258,25 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-location">
                         stratum corneum of epidermis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002027" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002027">UBERON:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002027" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-34">UBERON:0002027</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in stratum corneum of epidermis (UBERON:0002027). UBERON:0002027 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7007,17 +7365,24 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         megakaryocyte
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000556" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000556">CL:0000556</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000556" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-35">CL:0000556</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is a cell type from the Cell Ontology.</span>
                     </span>
+
+
 
 
 
@@ -7038,10 +7403,13 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-36">CL:0000233</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -7068,16 +7436,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         platelet alpha granule organization
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070889" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070889">GO:0070889</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070889" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-37">GO:0070889</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased platelet alpha granule organization (GO:0070889). GO:0070889 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -7103,19 +7476,25 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-component">
                         platelet alpha granule
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031091" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0031091">GO:0031091</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031091" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0031091</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
+Relation: this pathophysiological event involves this cellular component
+This pathophysiological event involves absent platelet alpha granule (GO:0031091). GO:0031091 is a cellular component from the Gene Ontology.</span>
                     </span>
 
                 </div>
+
 
 
 
@@ -7263,6 +7642,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7383,6 +7763,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7463,6 +7844,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-desc">Combined renal solute wasting, diarrhoeal loss and cholestatic fat malabsorption produce severe, near-universal growth failure. Failure to thrive is listed among the cardinal features of the spectrum.
 </div>
+
 
 
 
@@ -7580,6 +7962,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -7643,6 +8026,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="item-desc">The convergent endpoint. Death follows in infancy from dehydration, acidosis, sepsis, or internal haemorrhage. Every infant in the original FID series died by 6 months and most classical ARC cases die within the first year. This is not universal: attenuated VPS33B- and VIPAS39-related courses can reach childhood or adolescence, and an adult VPS33B-related survivor underwent liver transplantation after progressive decompensation. Residual CHEVI function is demonstrated for some prolonged-survival alleles but cannot be assumed for all.
 </div>
+
 
 
 
@@ -8002,7 +8386,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bleeding diathesis from dysfunctional alpha-granule-deficient platelets; self-limiting intra-abdominal haemorrhage is common and biopsy carries a high risk of fatal bleeding.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001892\"}}, {\"id\": \"Abnormal platelet aggregation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agonist-specific aggregation impairment is reported, but it is not invariant: two 2026 siblings had normal light-transmission aggregation responses to several agonists despite reduced alpha-granule secretion and bleeding.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030402\"}}, {\"id\": \"Aminoaciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003355\"}}, {\"id\": \"Arthrogryposis multiplex congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurogenic congenital joint contractures. Present in classical ARC but conspicuously mild or absent in the FID presentation, where the original description recorded \\\"musculoskeletal abnormalities\\\" instead. Its absence does not exclude biallelic VPS33B loss of function.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002804\"}}, {\"id\": \"Biallelic Loss of VPS33B or VIPAS39 Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline biallelic loss-of-function variants in VPS33B (15q26.1) or, in VPS33B-negative families, in VIPAS39/VIPAR abolish production of functional protein. VPS33B is a Sec1/Munc18-family protein containing a Sec1-like domain that regulates vesicle-to-target SNARE complex formation and subsequent membrane fusion; VIPAR is its obligate binding partner. Nearly all reported VPS33B alleles are null (nonsense, frameshift, splice), and no VPS33B protein is detectable in tissues from classical ARC cases. VPS33B accounts for roughly three-quarters of ARC-spectrum cases, with VIPAS39 explaining the remainder.\\n\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"syntaxin binding (Sec1/Munc18-type SNARE regulation)\"], \"genes\": [\"VPS33B\", \"VIPAS39\"], \"gene_terms\": [{\"label\": \"VPS33B\", \"id\": \"hgnc:12712\", \"modifier\": \"DECREASED\"}, {\"label\": \"VIPAS39\", \"id\": \"hgnc:20347\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proximal (type 2) renal tubular acidosis from obligatory urinary bicarbonate loss, compounded by diarrhoeal alkali losses. Requires high alkali intake; uncorrected it was a direct terminal event in the index series.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bleeding Diathesis and Procedural Haemorrhage Risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Self-limiting intra-abdominal haemorrhage is common, and liver or kidney biopsy carries a substantial bleeding risk: 7 of 16 biopsied patients in the largest cited cohort developed life-threatening haemorrhage, while a later review summarized fatal bleeding risk as greater than 50%. Critically, routine platelet count and morphology can be normal and therefore cannot be used to exclude the risk \\u2014 a management trap that makes molecular rather than histological diagnosis the safer route.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"CRISPR VPS33B-knockout HepG2 canalicular rescue model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"VPS33B-knockout HepG2 cells lose CEA-positive canalicular structures; the liver-specific LP1-VPS vector restores VPS33B expression and canalicular organization. The hepatoma model supports hepatic target engagement but does not model renal, skin, neurologic or platelet disease.\\n\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"VPS33B-knockout cells\", \"LP1-VPS liver-specific lentiviral vector treatment\", \"LP1-GFP vector control\"], \"publication\": \"PMID:42321174\"}}, {\"id\": \"CRISPR VPS33B-knockout RPTEC-TERT1 proximal tubular cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"VPS33B-knockout RPTEC-TERT1 monolayers developed spontaneous peeling, altered adhesion and adhesion-pathway transcriptional changes. This is a preliminary cell-adhesion model and does not yet reproduce or directly assay proximal solute transport.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"proximal tubular epithelial cell\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"CRISPR-edited VPS33B-knockout clones\", \"Isogenic control cells\"], \"publication\": \"PMID:41686830\"}}, {\"id\": \"Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe non-obstructive intrahepatic cholestasis with characteristically normal or low serum gamma-glutamyltransferase and bile duct hypoplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001396\"}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A possible late hepatic endpoint in prolonged-survival disease, directly demonstrated in the first adult ARC liver explant. Its frequency is unknown.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001394\"}}, {\"id\": \"Conjugated hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002908\"}}, {\"id\": \"Death in Infancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent endpoint. Death follows in infancy from dehydration, acidosis, sepsis, or internal haemorrhage. Every infant in the original FID series died by 6 months and most classical ARC cases die within the first year. This is not universal: attenuated VPS33B- and VIPAS39-related courses can reach childhood or adolescence, and an adult VPS33B-related survivor underwent liver transplantation after progressive decompensation. Residual CHEVI function is demonstrated for some prolonged-survival alleles but cannot be assumed for all.\\n\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Defective Epidermal Lamellar Body Biogenesis and Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lamellar bodies (lamellar granules) are keratinocyte lysosome-related organelles that are normally exocytosed at the boundary between the granular and cornified layers, delivering the lipids that build the stratum corneum permeability barrier. In ARC-spectrum skin, ultrastructural examination shows lamellar granules entombed within cornified cells rather than secreted; their internal structure is normal, distinguishing the defect from CEDNIK syndrome. Vps33b- and Vipar-deficient mice reproduce the abnormal lamellar body morphology and cargo mislocalisation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001944\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent, often intractable diarrhoea contributing to fluid loss and failure to thrive; one of the five cardinal FID features.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Disrupted RAB11A-Dependent Apical Recycling and Cargo Sorting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apical membrane cargo that normally traverses RAB11A-positive apical recycling endosomes is mis-sorted: some proteins reach the basolateral membrane instead, and others (e.g., CEACAM5) are diverted into late endosomes and lysosomes for degradation. Cargo that bypasses the apical recycling endosome (e.g., MRP2) is spared, which is what makes the defect cargo-selective rather than a global secretory block.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"apical protein localization\", \"endosomal transport\"], \"genes\": [\"ABCB11\"], \"gene_terms\": [{\"label\": \"ABCB11\", \"id\": \"hgnc:42\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Failed Platelet Alpha-Granule Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS33B colocalises with alpha-granule markers in normal megakaryocytes and is required to build the alpha-granule, which is a lysosome-related organelle like the lamellar body. Its loss produces platelets that are large, pale on blood films, deficient in both soluble and membrane-bound alpha-granule proteins, and that show compensatorily increased delta-granules. This is the mechanistic basis of the \\\"grey platelet syndrome\\\" morphology reported in two of the six original FID infants \\u2014 a phenocopy of, not an instance of, true NBEAL2/GFI1B grey platelet syndrome.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"megakaryocyte\", \"platelet\"], \"biological_processes\": [\"platelet alpha granule organization\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fluid, alkali and electrolyte replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cornerstone of care. High fluid and bicarbonate intakes are required to offset proximal tubular bicarbonate and solute wasting compounded by diarrhoeal losses; failure to keep pace results in fatal dehydration and acidosis. Phosphate supplementation addresses renal phosphate wasting.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Glycosuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary glucose wasting caused by generalized proximal tubular reabsorptive failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003076\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised scaling skin disease from failed lamellar body secretion and consequent stratum corneum lipid barrier failure. Skin biopsy shows mild hyperkeratosis without parakeratosis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008064\"}}, {\"id\": \"Increased mean platelet volume\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally large, pale platelets on blood film \\u2014 a low-cost diagnostic clue.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011877\"}}, {\"id\": \"Intestinal Malabsorption and Intractable Diarrhoea\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent diarrhoea is one of the five cardinal FID features and is present in essentially all ARC-spectrum infants. It reflects enterocyte apical trafficking and polarity failure, compounded by cholestatic fat malabsorption, and drives fluid and electrolyte loss on top of the renal losses.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjugated hyperbilirubinaemia from intrahepatic cholestasis; one of the five cardinal FID features.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000952\"}}, {\"id\": \"Liver transplantation for decompensated cirrhosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation was performed in one adult survivor after progressive hepatic dysfunction reached decompensation. This is a single-case rescue for end-stage hepatic disease, not evidence of general efficacy; it does not correct renal, cutaneous, neurologic or platelet manifestations and carries the disorder\u0027s bleeding risk during a major procedure.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Liver-targeted VPS33B lentiviral gene addition (preclinical only)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A liver-specific integrating lentiviral vector restored VPS33B and canalicular organization in VPS33B-knockout HepG2 cells and improved survival, growth, liver function, fibrosis and bile-canalicular structure in liver-specific Vps33b-knockout mice. This is preclinical evidence only: human efficacy and safety have not been studied, the approach treats hepatic rather than multisystem disease, and it does not replace VIPAS39 in ARCS2. A ubiquitous promoter vector produced liver tumors in the mouse safety arm, underscoring that the favorable result applies specifically to the liver-specific vector.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The final shared cellular lesion in liver, kidney and gut: polarised epithelia can no longer establish or maintain distinct apical and basolateral membrane domains, and the apical junctional complexes required to build lumenal structures (bile canaliculi, renal tubules) are destabilised. Reduced E-cadherin, secondary to transcriptional downregulation rather than mis-sorting, contributes independently.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"proximal tubular epithelial cell\", \"enterocyte\"], \"biological_processes\": [\"establishment or maintenance of apical/basal cell polarity\"], \"genes\": [\"CDH1\"], \"gene_terms\": [{\"label\": \"CDH1\", \"id\": \"hgnc:1748\", \"modifier\": \"DECREASED\"}], \"locations\": [\"liver\", \"kidney\"], \"experimental_models\": [{\"name\": \"CRISPR VPS33B-knockout HepG2 canalicular rescue model\", \"model_type\": \"CELL_LINE\", \"description\": \"Assays rescue of canalicular polarity after VPS33B gene addition.\"}]}}, {\"id\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS33B and VIPAR are the two known components of the CHEVI (class C Homologues in Endosome-Vesicle Interaction) complex, a metazoan endosomal tethering complex distinct from the better-characterised HOPS and CORVET complexes. The purified human assembly is approximately 315 kDa with an estimated 2:3 VPS33B:VIPAS39 ratio and a bidirectional two-lobed architecture, rather than a simple 1:1 heterodimer. The complex interacts with the active, GTP-bound form of RAB11A, placing it on the apical recycling endosome pathway. Loss of either subunit therefore removes a tethering step required for delivery of specific cargo to apical membranes and to specialised lysosome-related organelles.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"vesicle-mediated transport (endosomal vesicle tethering)\", \"SNARE complex assembly\"]}}, {\"id\": \"Low-GGT Intrahepatic Cholestasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-obstructive cholestatic jaundice with a characteristically normal or low serum gamma-glutamyltransferase \\u2014 the combination that separates ARC-spectrum liver disease from biliary atresia and most other neonatal cholestases. Radionuclide imaging shows that labelled compounds normally secreted into bile do not reach the duodenum despite biliary tract patency, and peripheral biliary radicles are hypoplastic. Histology shows intrahepatocyte pigment accumulation including lipofuscin, with hepatocyte giant-cell transformation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"bile acid and bile salt transport\"], \"locations\": [\"bile canaliculus\"]}}, {\"id\": \"Neurogenic Arthrogryposis and Musculoskeletal Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Congenital joint contractures in the ARC spectrum are neurogenic rather than primarily myopathic or connective-tissue in origin. In the FID series this component was described as \\\"musculoskeletal abnormalities\\\" rather than frank arthrogryposis, and its relative mildness is precisely why FID was initially separated from ARC. Complete loss-of-function VPS33B alleles have since been shown to produce ichthyosis, cholestasis and renal dysfunction without arthrogryposis, so its absence does not exclude the diagnosis. Reported skeletal features across the spectrum include congenital hip dislocation and vertical talus.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nutritional support with fat-soluble vitamin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cholestatic fat malabsorption plus diarrhoeal and renal losses make aggressive nutritional support and fat-soluble vitamin replacement necessary, though failure to thrive typically persists.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Hepatic Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent hepatic injury can progress to fibrosis and cirrhosis in survivors. The course is incompletely characterized because most classical cases die in infancy; the first adult explant demonstrated established cirrhosis.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"liver\"]}}, {\"id\": \"Proximal Tubular Apical Transport Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Generalised failure of apical reabsorptive transport in the proximal tubule produces renal Fanconi syndrome: aminoaciduria, glycosuria, phosphaturia and bicarbonate wasting (proximal renal tubular acidosis). In some ARC-spectrum patients the renal presentation dominates and precedes recognition of the hepatic and cutaneous features; a minority present instead with nephrogenic diabetes insipidus.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubular epithelial cell\"], \"biological_processes\": [\"apical protein localization\"], \"locations\": [\"proximal tubule\"], \"experimental_models\": [{\"name\": \"CRISPR VPS33B-knockout RPTEC-TERT1 proximal tubular cells\", \"model_type\": \"CELL_LINE\", \"description\": \"Models VPS33B loss in the relevant renal epithelial cell type, but directly measures adhesion rather than transport.\"}]}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cholestatic pruritus can be severe and refractory in prolonged-survival disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Reduced platelet alpha granules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete or near-complete absence of platelet alpha-granules with loss of both soluble and membrane-bound alpha-granule proteins \\u2014 the mechanistic basis of the \\\"grey platelet syndrome\\\" morphology described in two of the six FID infants.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033536\"}}, {\"id\": \"Renal Fanconi syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised proximal tubular dysfunction with urinary loss of amino acids, glucose, phosphate and bicarbonate. The defining renal component of FID, and the origin of the \\\"Fanconi\\\" in the syndrome name.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001994\"}}, {\"id\": \"Renal tubular acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal (type 2) renal tubular acidosis from bicarbonate wasting, requiring high alkali intake.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001947\"}}, {\"id\": \"Sepsis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sepsis was a terminal event in the FID series. Recurrent febrile illnesses were reported separately, but are not equated here with confirmed infection.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100806\"}}, {\"id\": \"Severe Failure to Thrive\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined renal solute wasting, diarrhoeal loss and cholestatic fat malabsorption produce severe, near-universal growth failure. Failure to thrive is listed among the cardinal features of the spectrum.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Stratum Corneum Lipid Barrier Failure and Ichthyosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The end result of failed lamellar body exocytosis is a structurally abnormal stratum corneum \\u2014 increased corneocyte thickness, a thinner cornified envelope and reduced deposition of intercellular lipids \\u2014 manifesting clinically as ichthyosis. Skin biopsy typically shows mild hyperkeratosis without parakeratosis. Impaired absorption of free fatty acids, secondary to cholestasis and intestinal disease, has been proposed as an additional contributor.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"establishment of skin barrier\"], \"locations\": [\"stratum corneum of epidermis\"]}}, {\"id\": \"Systemic Sepsis State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sepsis was one of the named terminal events in the index series. Recurrent febrile illnesses were also universal in a separate six-patient ARC cohort, but fever alone does not prove recurrent infection; the node is therefore restricted to the source-verified sepsis claim.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ursodeoxycholic acid for cholestasis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Used as part of supportive management of the cholestatic liver disease. As with all ARC-spectrum therapy this is symptomatic; no agent modifies the underlying trafficking defect.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ursodeoxycholic acid\"]}}, {\"id\": \"VIPAS39\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"VIPAS39\"], \"gene_terms\": [{\"label\": \"VIPAS39\", \"id\": \"hgnc:20347\"}], \"subtypes\": [\"ARCS2\"], \"frequency\": \"the minority of ARC-spectrum cases without VPS33B variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"VPS33B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"VPS33B\"], \"gene_terms\": [{\"label\": \"VPS33B\", \"id\": \"hgnc:12712\"}], \"subtypes\": [\"ARCS1\"], \"frequency\": \"approximately 75% of ARC-spectrum cases\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Volume Depletion and Dehydration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osmotic diuresis from proximal solute wasting, compounded by diarrhoeal fluid losses, produces volume depletion requiring high obligatory fluid intake. Failure to keep pace was a direct terminal event in the index series.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic Loss of VPS33B or VIPAS39 Function\", \"target\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of either subunit prevents assembly of the heterodimeric tethering complex, since the two proteins function only together.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"target\": \"Disrupted RAB11A-Dependent Apical Recycling and Cargo Sorting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without CHEVI tethering, RAB11A-dependent delivery of apical cargo fails and cargo is diverted to the basolateral membrane or to lysosomal degradation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"target\": \"Defective Epidermal Lamellar Body Biogenesis and Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same tethering function is required for the biogenesis and exocytosis of epidermal lamellar bodies, a lysosome-related organelle.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"target\": \"Failed Platelet Alpha-Granule Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CHEVI is likewise required for construction of the platelet alpha-granule, another lysosome-related organelle.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"target\": \"Neurogenic Arthrogryposis and Musculoskeletal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arthrogryposis in this disorder is neurogenic, so CHEVI loss must reach the motor unit, but the intermediates are not established. No published work identifies the neuronal cargo, cell type, or developmental window through which VPS33B/VIPAS39 deficiency produces anterior horn involvement, and the mouse models characterised to date address the cutaneous and platelet arms rather than the neuromuscular one. The edge is therefore asserted as indirect with unknown intermediates rather than left implicit.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted RAB11A-Dependent Apical Recycling and Cargo Sorting\", \"target\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cargo mis-sorting, compounded by transcriptional downregulation of E-cadherin, degrades the apical junctional complex and with it epithelial polarity and lumen formation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"target\": \"Low-GGT Intrahepatic Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mis-sorted canalicular transporters and hypoplastic peripheral biliary radicles abolish intrahepatic bile flow despite a patent biliary tree.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"target\": \"Proximal Tubular Apical Transport Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same polarity failure in the proximal nephron prevents apical reabsorptive transport, producing urinary wasting of sugars, amino acids, phosphate and bicarbonate.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"target\": \"Intestinal Malabsorption and Intractable Diarrhoea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enterocyte polarity failure impairs brush-border absorptive function, contributing to the diarrhoea and failure to thrive that are near-universal in the ARC spectrum.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Brush-border transporter mis-sorting and reduced absorptive surface function\", \"Cholestatic fat malabsorption from loss of intraluminal bile acids\"]}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This tissue-level lesion is the modeled cause of the clinical cholestasis phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained conjugated bilirubin from impaired bile flow produces jaundice.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Conjugated hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intrahepatic cholestasis causes retention of conjugated bilirubin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retention of pruritogenic bile constituents can produce cholestatic pruritus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Accumulation of circulating pruritogens during cholestasis\"]}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Progressive Hepatic Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent cholestatic hepatocellular injury can progress to hepatic fibrosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic hepatocellular injury and fibrogenic wound-healing response\"]}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Severe Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cholestasis impairs fat and fat-soluble vitamin absorption, compounding the nutritional failure driven by diarrhoea and renal solute loss.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fat and fat-soluble vitamin malabsorption from absent intraluminal bile acids\"]}, {\"source\": \"Progressive Hepatic Fibrosis\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive hepatic fibrosis culminates in cirrhosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Renal Fanconi syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Generalized proximal apical reabsorptive failure is renal Fanconi syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Aminoaciduria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of proximal amino-acid reabsorption causes aminoaciduria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Glycosuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of proximal glucose reabsorption causes glycosuria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of apical bicarbonate reclamation produces proximal (type 2) renal tubular acidosis with an obligatory high alkali requirement.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Volume Depletion and Dehydration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Osmotic solute wasting drives obligatory water loss and a high fluid requirement, compounded by diarrhoeal losses.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"target\": \"Renal tubular acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obligatory proximal bicarbonate loss produces type 2 renal tubular acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"target\": \"Death in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Volume Depletion and Dehydration\", \"target\": \"Dehydration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The modeled volume-depletion state manifests clinically as dehydration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Volume Depletion and Dehydration\", \"target\": \"Death in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Malabsorption and Intractable Diarrhoea\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intestinal lesion manifests as persistent diarrhea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Malabsorption and Intractable Diarrhoea\", \"target\": \"Severe Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Epidermal Lamellar Body Biogenesis and Secretion\", \"target\": \"Stratum Corneum Lipid Barrier Failure and Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undelivered lamellar body lipid cargo leaves a defective cornified envelope and reduced intercellular lipid lamellae.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stratum Corneum Lipid Barrier Failure and Ichthyosis\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed stratum-corneum barrier formation manifests as ichthyosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Platelet Alpha-Granule Biogenesis\", \"target\": \"Reduced platelet alpha granules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed alpha-granule biogenesis produces reduced or absent platelet alpha granules.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Platelet Alpha-Granule Biogenesis\", \"target\": \"Increased mean platelet volume\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alpha-granule biogenesis defect is accompanied by enlarged pale platelets.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Platelet Alpha-Granule Biogenesis\", \"target\": \"Abnormal platelet aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-granule-deficient platelets can show agonist-specific impaired aggregation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Platelet Alpha-Granule Biogenesis\", \"target\": \"Bleeding Diathesis and Procedural Haemorrhage Risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-granule-deficient platelets aggregate poorly, producing a bleeding tendency that makes diagnostic liver or kidney biopsy hazardous.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bleeding Diathesis and Procedural Haemorrhage Risk\", \"target\": \"Abnormal bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The platelet defect produces spontaneous and procedure-associated bleeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurogenic Arthrogryposis and Musculoskeletal Anomalies\", \"target\": \"Arthrogryposis multiplex congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurogenic motor-unit lesion manifests as congenital joint contractures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Failure to Thrive\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The modeled nutritional endpoint is the clinical failure-to-thrive phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Failure to Thrive\", \"target\": \"Death in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cumulative nutritional and multiorgan failure\"]}, {\"source\": \"Systemic Sepsis State\", \"target\": \"Sepsis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The organism-level septic state is the clinical sepsis phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Sepsis State\", \"target\": \"Death in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fluid, alkali and electrolyte replacement\", \"target\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fluid, alkali and electrolyte replacement\", \"target\": \"Volume Depletion and Dehydration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fluid, alkali and electrolyte replacement\", \"target\": \"Renal tubular acidosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fluid, alkali and electrolyte replacement\", \"target\": \"Dehydration\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ursodeoxycholic acid for cholestasis\", \"target\": \"Cholestasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional support with fat-soluble vitamin supplementation\", \"target\": \"Severe Failure to Thrive\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional support with fat-soluble vitamin supplementation\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver-targeted VPS33B lentiviral gene addition (preclinical only)\", \"target\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver-targeted VPS33B lentiviral gene addition (preclinical only)\", \"target\": \"Low-GGT Intrahepatic Cholestasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation for decompensated cirrhosis\", \"target\": \"Cirrhosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CRISPR VPS33B-knockout RPTEC-TERT1 proximal tubular cells\", \"target\": \"Proximal Tubular Apical Transport Failure\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"CRISPR VPS33B-knockout HepG2 canalicular rescue model\", \"target\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"predicate\": \"models\", \"is_orphan\": false}, {\"source\": \"VPS33B\", \"target\": \"Biallelic Loss of VPS33B or VIPAS39 Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VIPAS39\", \"target\": \"Biallelic Loss of VPS33B or VIPAS39 Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bleeding diathesis from dysfunctional alpha-granule-deficient platelets; self-limiting intra-abdominal haemorrhage is common and biopsy carries a high risk of fatal bleeding.\\n\", \"meta\": {\"evidence_count\": 3, \"term_id\": \"HP:0001892\"}}, {\"id\": \"Abnormal platelet aggregation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Agonist-specific aggregation impairment is reported, but it is not invariant: two 2026 siblings had normal light-transmission aggregation responses to several agonists despite reduced alpha-granule secretion and bleeding.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0030402\"}}, {\"id\": \"Aminoaciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003355\"}}, {\"id\": \"Arthrogryposis multiplex congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neurogenic congenital joint contractures. Present in classical ARC but conspicuously mild or absent in the FID presentation, where the original description recorded \\\"musculoskeletal abnormalities\\\" instead. Its absence does not exclude biallelic VPS33B loss of function.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002804\"}}, {\"id\": \"Biallelic Loss of VPS33B or VIPAS39 Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline biallelic loss-of-function variants in VPS33B (15q26.1) or, in VPS33B-negative families, in VIPAS39/VIPAR abolish production of functional protein. VPS33B is a Sec1/Munc18-family protein containing a Sec1-like domain that regulates vesicle-to-target SNARE complex formation and subsequent membrane fusion; VIPAR is its obligate binding partner. Nearly all reported VPS33B alleles are null (nonsense, frameshift, splice), and no VPS33B protein is detectable in tissues from classical ARC cases. VPS33B accounts for roughly three-quarters of ARC-spectrum cases, with VIPAS39 explaining the remainder.\\n\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"syntaxin binding (Sec1/Munc18-type SNARE regulation)\"], \"genes\": [\"VPS33B\", \"VIPAS39\"], \"gene_terms\": [{\"label\": \"VPS33B\", \"id\": \"hgnc:12712\", \"modifier\": \"DECREASED\"}, {\"label\": \"VIPAS39\", \"id\": \"hgnc:20347\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proximal (type 2) renal tubular acidosis from obligatory urinary bicarbonate loss, compounded by diarrhoeal alkali losses. Requires high alkali intake; uncorrected it was a direct terminal event in the index series.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bleeding Diathesis and Procedural Haemorrhage Risk\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Self-limiting intra-abdominal haemorrhage is common, and liver or kidney biopsy carries a substantial bleeding risk: 7 of 16 biopsied patients in the largest cited cohort developed life-threatening haemorrhage, while a later review summarized fatal bleeding risk as greater than 50%. Critically, routine platelet count and morphology can be normal and therefore cannot be used to exclude the risk \\u2014 a management trap that makes molecular rather than histological diagnosis the safer route.\\n\", \"meta\": {\"evidence_count\": 4}}, {\"id\": \"CRISPR VPS33B-knockout HepG2 canalicular rescue model\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"VPS33B-knockout HepG2 cells lose CEA-positive canalicular structures; the liver-specific LP1-VPS vector restores VPS33B expression and canalicular organization. The hepatoma model supports hepatic target engagement but does not model renal, skin, neurologic or platelet disease.\\n\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"CELL_LINE\", \"conditions\": [\"VPS33B-knockout cells\", \"LP1-VPS liver-specific lentiviral vector treatment\", \"LP1-GFP vector control\"], \"publication\": \"PMID:42321174\"}}, {\"id\": \"CRISPR VPS33B-knockout RPTEC-TERT1 proximal tubular cells\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"VPS33B-knockout RPTEC-TERT1 monolayers developed spontaneous peeling, altered adhesion and adhesion-pathway transcriptional changes. This is a preliminary cell-adhesion model and does not yet reproduce or directly assay proximal solute transport.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"proximal tubular epithelial cell\"], \"model_type\": \"CELL_LINE\", \"conditions\": [\"CRISPR-edited VPS33B-knockout clones\", \"Isogenic control cells\"], \"publication\": \"PMID:41686830\"}}, {\"id\": \"Cholestasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe non-obstructive intrahepatic cholestasis with characteristically normal or low serum gamma-glutamyltransferase and bile duct hypoplasia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001396\"}}, {\"id\": \"Cirrhosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A possible late hepatic endpoint in prolonged-survival disease, directly demonstrated in the first adult ARC liver explant. Its frequency is unknown.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001394\"}}, {\"id\": \"Conjugated hyperbilirubinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002908\"}}, {\"id\": \"Death in Infancy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent endpoint. Death follows in infancy from dehydration, acidosis, sepsis, or internal haemorrhage. Every infant in the original FID series died by 6 months and most classical ARC cases die within the first year. This is not universal: attenuated VPS33B- and VIPAS39-related courses can reach childhood or adolescence, and an adult VPS33B-related survivor underwent liver transplantation after progressive decompensation. Residual CHEVI function is demonstrated for some prolonged-survival alleles but cannot be assumed for all.\\n\", \"meta\": {\"evidence_count\": 5}}, {\"id\": \"Defective Epidermal Lamellar Body Biogenesis and Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lamellar bodies (lamellar granules) are keratinocyte lysosome-related organelles that are normally exocytosed at the boundary between the granular and cornified layers, delivering the lipids that build the stratum corneum permeability barrier. In ARC-spectrum skin, ultrastructural examination shows lamellar granules entombed within cornified cells rather than secreted; their internal structure is normal, distinguishing the defect from CEDNIK syndrome. Vps33b- and Vipar-deficient mice reproduce the abnormal lamellar body morphology and cargo mislocalisation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"locations\": [\"skin epidermis\"]}}, {\"id\": \"Dehydration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001944\"}}, {\"id\": \"Diarrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent, often intractable diarrhoea contributing to fluid loss and failure to thrive; one of the five cardinal FID features.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002014\"}}, {\"id\": \"Disrupted RAB11A-Dependent Apical Recycling and Cargo Sorting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Apical membrane cargo that normally traverses RAB11A-positive apical recycling endosomes is mis-sorted: some proteins reach the basolateral membrane instead, and others (e.g., CEACAM5) are diverted into late endosomes and lysosomes for degradation. Cargo that bypasses the apical recycling endosome (e.g., MRP2) is spared, which is what makes the defect cargo-selective rather than a global secretory block.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"apical protein localization\", \"endosomal transport\"], \"genes\": [\"ABCB11\"], \"gene_terms\": [{\"label\": \"ABCB11\", \"id\": \"hgnc:42\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Failed Platelet Alpha-Granule Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS33B colocalises with alpha-granule markers in normal megakaryocytes and is required to build the alpha-granule, which is a lysosome-related organelle like the lamellar body. Its loss produces platelets that are large, pale on blood films, deficient in both soluble and membrane-bound alpha-granule proteins, and that show compensatorily increased delta-granules. This is the mechanistic basis of the \\\"grey platelet syndrome\\\" morphology reported in two of the six original FID infants \\u2014 a phenocopy of, not an instance of, true NBEAL2/GFI1B grey platelet syndrome.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"megakaryocyte\", \"platelet\"], \"biological_processes\": [\"platelet alpha granule organization\"]}}, {\"id\": \"Failure to thrive\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001508\"}}, {\"id\": \"Fluid, alkali and electrolyte replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The cornerstone of care. High fluid and bicarbonate intakes are required to offset proximal tubular bicarbonate and solute wasting compounded by diarrhoeal losses; failure to keep pace results in fatal dehydration and acidosis. Phosphate supplementation addresses renal phosphate wasting.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Glycosuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Urinary glucose wasting caused by generalized proximal tubular reabsorptive failure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003076\"}}, {\"id\": \"Ichthyosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised scaling skin disease from failed lamellar body secretion and consequent stratum corneum lipid barrier failure. Skin biopsy shows mild hyperkeratosis without parakeratosis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0008064\"}}, {\"id\": \"Increased mean platelet volume\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Abnormally large, pale platelets on blood film \\u2014 a low-cost diagnostic clue.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011877\"}}, {\"id\": \"Intestinal Malabsorption and Intractable Diarrhoea\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent diarrhoea is one of the five cardinal FID features and is present in essentially all ARC-spectrum infants. It reflects enterocyte apical trafficking and polarity failure, compounded by cholestatic fat malabsorption, and drives fluid and electrolyte loss on top of the renal losses.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enterocyte\"], \"locations\": [\"small intestine\"]}}, {\"id\": \"Jaundice\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conjugated hyperbilirubinaemia from intrahepatic cholestasis; one of the five cardinal FID features.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000952\"}}, {\"id\": \"Liver transplantation for decompensated cirrhosis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Liver transplantation was performed in one adult survivor after progressive hepatic dysfunction reached decompensation. This is a single-case rescue for end-stage hepatic disease, not evidence of general efficacy; it does not correct renal, cutaneous, neurologic or platelet manifestations and carries the disorder\u0027s bleeding risk during a major procedure.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Liver-targeted VPS33B lentiviral gene addition (preclinical only)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A liver-specific integrating lentiviral vector restored VPS33B and canalicular organization in VPS33B-knockout HepG2 cells and improved survival, growth, liver function, fibrosis and bile-canalicular structure in liver-specific Vps33b-knockout mice. This is preclinical evidence only: human efficacy and safety have not been studied, the approach treats hepatic rather than multisystem disease, and it does not replace VIPAS39 in ARCS2. A ubiquitous promoter vector produced liver tumors in the mouse safety arm, underscoring that the favorable result applies specifically to the liver-specific vector.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The final shared cellular lesion in liver, kidney and gut: polarised epithelia can no longer establish or maintain distinct apical and basolateral membrane domains, and the apical junctional complexes required to build lumenal structures (bile canaliculi, renal tubules) are destabilised. Reduced E-cadherin, secondary to transcriptional downregulation rather than mis-sorting, contributes independently.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\", \"proximal tubular epithelial cell\", \"enterocyte\"], \"biological_processes\": [\"establishment or maintenance of apical/basal cell polarity\"], \"genes\": [\"CDH1\"], \"gene_terms\": [{\"label\": \"CDH1\", \"id\": \"hgnc:1748\", \"modifier\": \"DECREASED\"}], \"locations\": [\"liver\", \"kidney\"], \"experimental_models\": [{\"name\": \"CRISPR VPS33B-knockout HepG2 canalicular rescue model\", \"model_type\": \"CELL_LINE\", \"description\": \"Assays rescue of canalicular polarity after VPS33B gene addition.\"}]}}, {\"id\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS33B and VIPAR are the two known components of the CHEVI (class C Homologues in Endosome-Vesicle Interaction) complex, a metazoan endosomal tethering complex distinct from the better-characterised HOPS and CORVET complexes. The purified human assembly is approximately 315 kDa with an estimated 2:3 VPS33B:VIPAS39 ratio and a bidirectional two-lobed architecture, rather than a simple 1:1 heterodimer. The complex interacts with the active, GTP-bound form of RAB11A, placing it on the apical recycling endosome pathway. Loss of either subunit therefore removes a tethering step required for delivery of specific cargo to apical membranes and to specialised lysosome-related organelles.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"vesicle-mediated transport (endosomal vesicle tethering)\", \"SNARE complex assembly\"]}}, {\"id\": \"Low-GGT Intrahepatic Cholestasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Non-obstructive cholestatic jaundice with a characteristically normal or low serum gamma-glutamyltransferase \\u2014 the combination that separates ARC-spectrum liver disease from biliary atresia and most other neonatal cholestases. Radionuclide imaging shows that labelled compounds normally secreted into bile do not reach the duodenum despite biliary tract patency, and peripheral biliary radicles are hypoplastic. Histology shows intrahepatocyte pigment accumulation including lipofuscin, with hepatocyte giant-cell transformation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"bile acid and bile salt transport\"], \"locations\": [\"bile canaliculus\"]}}, {\"id\": \"Neurogenic Arthrogryposis and Musculoskeletal Anomalies\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Congenital joint contractures in the ARC spectrum are neurogenic rather than primarily myopathic or connective-tissue in origin. In the FID series this component was described as \\\"musculoskeletal abnormalities\\\" rather than frank arthrogryposis, and its relative mildness is precisely why FID was initially separated from ARC. Complete loss-of-function VPS33B alleles have since been shown to produce ichthyosis, cholestasis and renal dysfunction without arthrogryposis, so its absence does not exclude the diagnosis. Reported skeletal features across the spectrum include congenital hip dislocation and vertical talus.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Nutritional support with fat-soluble vitamin supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cholestatic fat malabsorption plus diarrhoeal and renal losses make aggressive nutritional support and fat-soluble vitamin replacement necessary, though failure to thrive typically persists.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Progressive Hepatic Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Persistent hepatic injury can progress to fibrosis and cirrhosis in survivors. The course is incompletely characterized because most classical cases die in infancy; the first adult explant demonstrated established cirrhosis.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"tissue remodeling\"], \"locations\": [\"liver\"]}}, {\"id\": \"Proximal Tubular Apical Transport Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Generalised failure of apical reabsorptive transport in the proximal tubule produces renal Fanconi syndrome: aminoaciduria, glycosuria, phosphaturia and bicarbonate wasting (proximal renal tubular acidosis). In some ARC-spectrum patients the renal presentation dominates and precedes recognition of the hepatic and cutaneous features; a minority present instead with nephrogenic diabetes insipidus.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"proximal tubular epithelial cell\"], \"biological_processes\": [\"apical protein localization\"], \"locations\": [\"proximal tubule\"], \"experimental_models\": [{\"name\": \"CRISPR VPS33B-knockout RPTEC-TERT1 proximal tubular cells\", \"model_type\": \"CELL_LINE\", \"description\": \"Models VPS33B loss in the relevant renal epithelial cell type, but directly measures adhesion rather than transport.\"}]}}, {\"id\": \"Pruritus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cholestatic pruritus can be severe and refractory in prolonged-survival disease.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000989\"}}, {\"id\": \"Reduced platelet alpha granules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete or near-complete absence of platelet alpha-granules with loss of both soluble and membrane-bound alpha-granule proteins \\u2014 the mechanistic basis of the \\\"grey platelet syndrome\\\" morphology described in two of the six FID infants.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0033536\"}}, {\"id\": \"Renal Fanconi syndrome\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised proximal tubular dysfunction with urinary loss of amino acids, glucose, phosphate and bicarbonate. The defining renal component of FID, and the origin of the \\\"Fanconi\\\" in the syndrome name.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001994\"}}, {\"id\": \"Renal tubular acidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Proximal (type 2) renal tubular acidosis from bicarbonate wasting, requiring high alkali intake.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001947\"}}, {\"id\": \"Sepsis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sepsis was a terminal event in the FID series. Recurrent febrile illnesses were reported separately, but are not equated here with confirmed infection.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100806\"}}, {\"id\": \"Severe Failure to Thrive\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined renal solute wasting, diarrhoeal loss and cholestatic fat malabsorption produce severe, near-universal growth failure. Failure to thrive is listed among the cardinal features of the spectrum.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Stratum Corneum Lipid Barrier Failure and Ichthyosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The end result of failed lamellar body exocytosis is a structurally abnormal stratum corneum \\u2014 increased corneocyte thickness, a thinner cornified envelope and reduced deposition of intercellular lipids \\u2014 manifesting clinically as ichthyosis. Skin biopsy typically shows mild hyperkeratosis without parakeratosis. Impaired absorption of free fatty acids, secondary to cholestasis and intestinal disease, has been proposed as an additional contributor.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"establishment of skin barrier\"], \"locations\": [\"stratum corneum of epidermis\"]}}, {\"id\": \"Systemic Sepsis State\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sepsis was one of the named terminal events in the index series. Recurrent febrile illnesses were also universal in a separate six-patient ARC cohort, but fever alone does not prove recurrent infection; the node is therefore restricted to the source-verified sepsis claim.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ursodeoxycholic acid for cholestasis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Used as part of supportive management of the cholestatic liver disease. As with all ARC-spectrum therapy this is symptomatic; no agent modifies the underlying trafficking defect.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ursodeoxycholic acid\"]}}, {\"id\": \"VIPAS39\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"VIPAS39\"], \"gene_terms\": [{\"label\": \"VIPAS39\", \"id\": \"hgnc:20347\"}], \"subtypes\": [\"ARCS2\"], \"frequency\": \"the minority of ARC-spectrum cases without VPS33B variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"VPS33B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"VPS33B\"], \"gene_terms\": [{\"label\": \"VPS33B\", \"id\": \"hgnc:12712\"}], \"subtypes\": [\"ARCS1\"], \"frequency\": \"approximately 75% of ARC-spectrum cases\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Volume Depletion and Dehydration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osmotic diuresis from proximal solute wasting, compounded by diarrhoeal fluid losses, produces volume depletion requiring high obligatory fluid intake. Failure to keep pace was a direct terminal event in the index series.\\n\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"Biallelic Loss of VPS33B or VIPAS39 Function\", \"target\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absence of either subunit prevents assembly of the heterodimeric tethering complex, since the two proteins function only together.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"target\": \"Disrupted RAB11A-Dependent Apical Recycling and Cargo Sorting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without CHEVI tethering, RAB11A-dependent delivery of apical cargo fails and cargo is diverted to the basolateral membrane or to lysosomal degradation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"target\": \"Defective Epidermal Lamellar Body Biogenesis and Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same tethering function is required for the biogenesis and exocytosis of epidermal lamellar bodies, a lysosome-related organelle.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"target\": \"Failed Platelet Alpha-Granule Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CHEVI is likewise required for construction of the platelet alpha-granule, another lysosome-related organelle.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"target\": \"Neurogenic Arthrogryposis and Musculoskeletal Anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Arthrogryposis in this disorder is neurogenic, so CHEVI loss must reach the motor unit, but the intermediates are not established. No published work identifies the neuronal cargo, cell type, or developmental window through which VPS33B/VIPAS39 deficiency produces anterior horn involvement, and the mouse models characterised to date address the cutaneous and platelet arms rather than the neuromuscular one. The edge is therefore asserted as indirect with unknown intermediates rather than left implicit.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted RAB11A-Dependent Apical Recycling and Cargo Sorting\", \"target\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cargo mis-sorting, compounded by transcriptional downregulation of E-cadherin, degrades the apical junctional complex and with it epithelial polarity and lumen formation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"target\": \"Low-GGT Intrahepatic Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mis-sorted canalicular transporters and hypoplastic peripheral biliary radicles abolish intrahepatic bile flow despite a patent biliary tree.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"target\": \"Proximal Tubular Apical Transport Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same polarity failure in the proximal nephron prevents apical reabsorptive transport, producing urinary wasting of sugars, amino acids, phosphate and bicarbonate.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"target\": \"Intestinal Malabsorption and Intractable Diarrhoea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enterocyte polarity failure impairs brush-border absorptive function, contributing to the diarrhoea and failure to thrive that are near-universal in the ARC spectrum.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Brush-border transporter mis-sorting and reduced absorptive surface function\", \"Cholestatic fat malabsorption from loss of intraluminal bile acids\"]}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Cholestasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This tissue-level lesion is the modeled cause of the clinical cholestasis phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Jaundice\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained conjugated bilirubin from impaired bile flow produces jaundice.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Conjugated hyperbilirubinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intrahepatic cholestasis causes retention of conjugated bilirubin.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Pruritus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retention of pruritogenic bile constituents can produce cholestatic pruritus.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Accumulation of circulating pruritogens during cholestasis\"]}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Progressive Hepatic Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent cholestatic hepatocellular injury can progress to hepatic fibrosis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic hepatocellular injury and fibrogenic wound-healing response\"]}, {\"source\": \"Low-GGT Intrahepatic Cholestasis\", \"target\": \"Severe Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cholestasis impairs fat and fat-soluble vitamin absorption, compounding the nutritional failure driven by diarrhoea and renal solute loss.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Fat and fat-soluble vitamin malabsorption from absent intraluminal bile acids\"]}, {\"source\": \"Progressive Hepatic Fibrosis\", \"target\": \"Cirrhosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive hepatic fibrosis culminates in cirrhosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Renal Fanconi syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Generalized proximal apical reabsorptive failure is renal Fanconi syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Aminoaciduria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of proximal amino-acid reabsorption causes aminoaciduria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Glycosuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of proximal glucose reabsorption causes glycosuria.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of apical bicarbonate reclamation produces proximal (type 2) renal tubular acidosis with an obligatory high alkali requirement.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Proximal Tubular Apical Transport Failure\", \"target\": \"Volume Depletion and Dehydration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Osmotic solute wasting drives obligatory water loss and a high fluid requirement, compounded by diarrhoeal losses.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"target\": \"Renal tubular acidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Obligatory proximal bicarbonate loss produces type 2 renal tubular acidosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"target\": \"Death in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Volume Depletion and Dehydration\", \"target\": \"Dehydration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The modeled volume-depletion state manifests clinically as dehydration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Volume Depletion and Dehydration\", \"target\": \"Death in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Malabsorption and Intractable Diarrhoea\", \"target\": \"Diarrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The intestinal lesion manifests as persistent diarrhea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Malabsorption and Intractable Diarrhoea\", \"target\": \"Severe Failure to Thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Epidermal Lamellar Body Biogenesis and Secretion\", \"target\": \"Stratum Corneum Lipid Barrier Failure and Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undelivered lamellar body lipid cargo leaves a defective cornified envelope and reduced intercellular lipid lamellae.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Stratum Corneum Lipid Barrier Failure and Ichthyosis\", \"target\": \"Ichthyosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed stratum-corneum barrier formation manifests as ichthyosis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Platelet Alpha-Granule Biogenesis\", \"target\": \"Reduced platelet alpha granules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed alpha-granule biogenesis produces reduced or absent platelet alpha granules.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Platelet Alpha-Granule Biogenesis\", \"target\": \"Increased mean platelet volume\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The alpha-granule biogenesis defect is accompanied by enlarged pale platelets.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Platelet Alpha-Granule Biogenesis\", \"target\": \"Abnormal platelet aggregation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-granule-deficient platelets can show agonist-specific impaired aggregation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed Platelet Alpha-Granule Biogenesis\", \"target\": \"Bleeding Diathesis and Procedural Haemorrhage Risk\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Alpha-granule-deficient platelets aggregate poorly, producing a bleeding tendency that makes diagnostic liver or kidney biopsy hazardous.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bleeding Diathesis and Procedural Haemorrhage Risk\", \"target\": \"Abnormal bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The platelet defect produces spontaneous and procedure-associated bleeding.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Neurogenic Arthrogryposis and Musculoskeletal Anomalies\", \"target\": \"Arthrogryposis multiplex congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurogenic motor-unit lesion manifests as congenital joint contractures.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Failure to Thrive\", \"target\": \"Failure to thrive\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The modeled nutritional endpoint is the clinical failure-to-thrive phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Failure to Thrive\", \"target\": \"Death in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Cumulative nutritional and multiorgan failure\"]}, {\"source\": \"Systemic Sepsis State\", \"target\": \"Sepsis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The organism-level septic state is the clinical sepsis phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Sepsis State\", \"target\": \"Death in Infancy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Fluid, alkali and electrolyte replacement\", \"target\": \"Bicarbonate Wasting and Metabolic Acidosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fluid, alkali and electrolyte replacement\", \"target\": \"Volume Depletion and Dehydration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Fluid, alkali and electrolyte replacement\", \"target\": \"Renal tubular acidosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Fluid, alkali and electrolyte replacement\", \"target\": \"Dehydration\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ursodeoxycholic acid for cholestasis\", \"target\": \"Cholestasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional support with fat-soluble vitamin supplementation\", \"target\": \"Severe Failure to Thrive\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Nutritional support with fat-soluble vitamin supplementation\", \"target\": \"Failure to thrive\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Liver-targeted VPS33B lentiviral gene addition (preclinical only)\", \"target\": \"Loss of the VPS33B-VIPAR (CHEVI) Tethering Complex\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver-targeted VPS33B lentiviral gene addition (preclinical only)\", \"target\": \"Low-GGT Intrahepatic Cholestasis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver transplantation for decompensated cirrhosis\", \"target\": \"Cirrhosis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CRISPR VPS33B-knockout RPTEC-TERT1 proximal tubular cells\", \"target\": \"Proximal Tubular Apical Transport Failure\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Models VPS33B loss in the relevant renal epithelial cell type, but directly measures adhesion rather than transport.\"}, {\"source\": \"CRISPR VPS33B-knockout HepG2 canalicular rescue model\", \"target\": \"Loss of Apical-Basolateral Epithelial Polarity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Assays rescue of canalicular polarity after VPS33B gene addition.\"}, {\"source\": \"VPS33B\", \"target\": \"Biallelic Loss of VPS33B or VIPAS39 Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VIPAS39\", \"target\": \"Biallelic Loss of VPS33B or VIPAS39 Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8061,14 +8445,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Abnormal bleeding
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal bleeding
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001892">HP:0001892</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001892</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal bleeding (HP:0001892). HP:0001892 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8176,14 +8567,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Cholestasis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cholestasis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001396">HP:0001396</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001396</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cholestasis (HP:0001396). HP:0001396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8235,14 +8633,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Jaundice
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Jaundice
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000952">HP:0000952</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000952</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8294,14 +8699,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Cirrhosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Cirrhosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001394</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8355,14 +8767,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Diarrhea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002014">HP:0002014</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002014</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diarrhea (HP:0002014), qualified as temporality chronic. HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8444,14 +8863,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sensorineural hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000407">HP:0000407</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000407</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8512,14 +8938,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Hypothyroidism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypothyroidism
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000821">HP:0000821</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000821</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8582,14 +9015,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal Fanconi syndrome
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001994" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001994">HP:0001994</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001994" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001994</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal Fanconi syndrome (HP:0001994). HP:0001994 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8664,14 +9104,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Glycosuria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Glycosuria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003076">HP:0003076</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0003076</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8732,14 +9179,23 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Dysmorphic facial features
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal facial shape
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001999">HP:0001999</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001999</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8800,14 +9256,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Sepsis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Sepsis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100806">HP:0100806</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0100806</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8868,14 +9331,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Ichthyosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ichthyosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0008064">HP:0008064</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0008064</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -8949,14 +9419,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Pruritus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pruritus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000989">HP:0000989</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000989</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9039,14 +9516,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Dehydration
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dehydration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001944">HP:0001944</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001944</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9107,14 +9591,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Global developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9166,14 +9657,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Intellectual disability
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9227,14 +9725,23 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypoplasia of the corpus callosum
+
+                        <span class="phenotype-term-label">Hypoplasia of the corpus callosum</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002079">HP:0002079</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0002079</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9297,14 +9804,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9410,14 +9924,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Renal tubular acidosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Renal tubular acidosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001947" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001947">HP:0001947</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001947</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal tubular acidosis (HP:0001947). HP:0001947 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9469,14 +9990,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Aminoaciduria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aminoaciduria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003355" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0003355">HP:0003355</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003355" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0003355</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aminoaciduria (HP:0003355). HP:0003355 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9530,14 +10058,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         <span class="phenotype-freq">OCCASIONAL</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Nephrogenic diabetes insipidus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009806" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0009806">HP:0009806</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0009806</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrogenic diabetes insipidus (HP:0009806). HP:0009806 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9590,14 +10125,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Conjugated hyperbilirubinemia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Conjugated hyperbilirubinemia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002908" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002908">HP:0002908</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002908" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0002908</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conjugated hyperbilirubinemia (HP:0002908). HP:0002908 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9649,14 +10191,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Arthrogryposis multiplex congenita
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Arthrogryposis multiplex congenita
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002804">HP:0002804</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0002804</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthrogryposis multiplex congenita (HP:0002804). HP:0002804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9731,14 +10280,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Reduced platelet alpha granules
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Reduced platelet alpha granules
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033536" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033536">HP:0033536</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033536" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0033536</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced platelet alpha granules (HP:0033536). HP:0033536 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9812,14 +10368,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Increased mean platelet volume
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Increased mean platelet volume
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011877" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011877">HP:0011877</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011877" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0011877</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased mean platelet volume (HP:0011877). HP:0011877 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9871,14 +10434,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                         Abnormal platelet aggregation
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal platelet aggregation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030402" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0030402">HP:0030402</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030402" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0030402</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal platelet aggregation (HP:0030402). HP:0030402 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -9996,13 +10566,18 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VPS33B
 
 
-    <a href="https://bioregistry.io/hgnc:12712" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:12712">hgnc:12712</a>
+    <a href="https://bioregistry.io/hgnc:12712" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-65">hgnc:12712</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VPS33B (hgnc:12712). hgnc:12712 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -10114,13 +10689,18 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: VIPAS39
 
 
-    <a href="https://bioregistry.io/hgnc:20347" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:20347">hgnc:20347</a>
+    <a href="https://bioregistry.io/hgnc:20347" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-66">hgnc:20347</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is VIPAS39 (hgnc:20347). hgnc:20347 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -10243,7 +10823,12 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">fluid and electrolyte replacement</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-67">fluid and electrolyte replacement<span class="pill-tip" role="tooltip" id="pill-tip-67">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is fluid and electrolyte replacement, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -10314,17 +10899,24 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Renal tubular acidosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001947" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001947">HP:0001947</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001947" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001947</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Renal tubular acidosis (HP:0001947). HP:0001947 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+
 
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Dehydration
@@ -10332,10 +10924,13 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001944">HP:0001944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0001944</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Dehydration (HP:0001944). HP:0001944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10408,7 +11003,12 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-70">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-70">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -10438,16 +11038,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         ursodeoxycholic acid
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9907" target="_blank" class="curie-chip curie-chip-chebi" title="Open CHEBI:9907">CHEBI:9907</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9907" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-71">CHEBI:9907</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-71">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
@@ -10462,16 +11067,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cholestasis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001396">HP:0001396</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001396" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-72">HP:0001396</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-72">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cholestasis (HP:0001396). HP:0001396 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10522,7 +11132,12 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">nutritional support</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-73">nutritional support<span class="pill-tip" role="tooltip" id="pill-tip-73">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is nutritional support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Nutritional Support</span>
 
 
@@ -10579,16 +11194,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Failure to thrive
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-74">HP:0001508</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-74">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -10639,7 +11259,12 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-75">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-75">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -10743,7 +11368,12 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">therapeutic apheresis</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-76">therapeutic apheresis<span class="pill-tip" role="tooltip" id="pill-tip-76">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is therapeutic apheresis (NCIT:C173286). NCIT:C173286 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Therapeutic Apheresis</span>
 
 
@@ -10824,7 +11454,12 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">gene therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-77">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-77">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Gene Therapy</span>
 
 
@@ -11022,7 +11657,12 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">organ transplantation</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-78">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-78">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Organ Transplantation</span>
 
 
@@ -11060,16 +11700,21 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                 <div class="item-meta" style="margin-top: 8px;">
                     <strong style="font-size: 0.8rem; color: #6b21a8;">Target Phenotypes:</strong>
 
+
+
                     <span class="tag" style="background: #ede9fe; color: #6b21a8; font-size: 0.8rem;">
                         Cirrhosis
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001394">HP:0001394</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-79">HP:0001394</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Human Phenotype Ontology (HP)
+Relation: this treatment targets this phenotype
+This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
@@ -11120,7 +11765,12 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Counseling / Informational</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">genetic counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-80">genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Genetic Counseling</span>
 
 
@@ -11201,7 +11851,12 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">Therapeutic</span>
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
-                    <span class="tag tag-treatment">palliative care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-81">palliative care<span class="pill-tip" role="tooltip" id="pill-tip-81">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is palliative care, annotated with Palliative Therapy (NCIT:C15292). NCIT:C15292 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Palliative Therapy</span>
 
 
@@ -11818,7 +12473,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
             <div class="item-box differential-box">
                 <div class="item-name">
 
-                    Progressive familial intrahepatic cholestasis
+                    <a class="item-name-link" href="Progressive_Familial_Intrahepatic_Cholestasis.html">Progressive familial intrahepatic cholestasis</a>
 
 
                 </div>
@@ -11908,7 +12563,7 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
             <div class="item-box differential-box">
                 <div class="item-name">
 
-                    Biliary atresia
+                    <a class="item-name-link" href="Biliary_Atresia.html">Biliary atresia</a>
 
 
                 </div>
@@ -12193,15 +12848,20 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                 <div class="tag-list" style="margin-top: 10px;">
 
+
+
                     <span class="tag tag-cell">
 
                         proximal tubular epithelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0002306">CL:0002306</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002306" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-82">CL:0002306</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Cell Ontology (CL)
+Relation: this experimental model uses this cell type
+This experimental model uses proximal tubular epithelial cell, annotated with epithelial cell of proximal tubule (CL:0002306). CL:0002306 is a cell type from the Cell Ontology.</span>
                     </span>
 
                 </div>
@@ -12211,30 +12871,40 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-83">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-83">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             kidney
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002113">UBERON:0002113</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-84">UBERON:0002113</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-84">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses kidney (UBERON:0002113). UBERON:0002113 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -12261,14 +12931,19 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-proximal-tubular-apical-transport-failure">Proximal Tubular Apical Transport Failure</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Models VPS33B loss in the relevant renal epithelial cell type, but directly measures adhesion rather than transport.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-proximal-tubular-apical-transport-failure">Proximal Tubular Apical Transport Failure</a>
+
+
+
+                <span class="crosslink-desc">Models VPS33B loss in the relevant renal epithelial cell type, but directly measures adhesion rather than transport.</span>
+
+
 
 
 
@@ -12305,10 +12980,11 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -12429,30 +13105,40 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Organism</div>
+
+
                         <div class="model-detail-value">
 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" title="Open NCBITaxon:9606">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-85">NCBITaxon:9606</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-85">NCBI Taxonomy (NCBITaxon)
+Relation: this experimental model is built in this organism
+This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
                     </div>
 
 
                     <div class="model-detail-row">
                         <div class="model-detail-label">Tissue</div>
+
+
                         <div class="model-detail-value">
 
                             liver
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" title="Open UBERON:0002107">UBERON:0002107</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-86">UBERON:0002107</a>
 
 
 
+                            <span class="pill-tip" role="tooltip" id="pill-tip-86">Uberon multi-species anatomy ontology (UBERON)
+Relation: this experimental model uses this anatomical location
+This experimental model uses liver (UBERON:0002107). UBERON:0002107 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
                     </div>
 
@@ -12479,14 +13165,19 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
                 </div>
 
 
-                <div class="crosslink-block">
-                    <div class="crosslink-title">Pathograph links</div>
-                    <div class="crosslink-list">
 
-                        <div class="crosslink-item">
-                            <a href="#pathophysiology-loss-of-apical-basolateral-epithelial-polarity">Loss of Apical-Basolateral Epithelial Polarity</a>
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
 
-                            <span class="crosslink-desc">Assays rescue of canalicular polarity after VPS33B gene addition.</span>
+            <div class="crosslink-item">
+                <a href="#pathophysiology-loss-of-apical-basolateral-epithelial-polarity">Loss of Apical-Basolateral Epithelial Polarity</a>
+
+
+
+                <span class="crosslink-desc">Assays rescue of canalicular polarity after VPS33B gene addition.</span>
+
+
 
 
 
@@ -12523,10 +13214,11 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
     </details>
 
 
-                        </div>
+            </div>
 
-                    </div>
-                </div>
+        </div>
+    </div>
+
 
 
 
@@ -12606,6 +13298,452 @@ Management is supportive; no approved disease-modifying therapy exists. Liver-ta
 
 
                 <div class="evidence-explanation">Defines the liver-specific gene-addition vector tested in the cell model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Animal Models -->
+
+        <div id="animal-models"></div>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
+                <h2 class="card-title">Animal Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-vps33b-knockout-constitutive-and-tamoxifen-inducible-vps33b-fl-fl-ert2-vipas39-knockout-mus-musculus" data-dismech-node="Vps33b knockout (constitutive and tamoxifen-inducible Vps33b-fl/fl-ERT2); Vipas39 knockout Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Vps33b knockout (constitutive and tamoxifen-inducible Vps33b-fl/fl-ERT2); Vipas39 knockout Mus musculus
+
+                    <span class="tag tag-exp-model-type">KNOCKOUT</span>
+
+                </div>
+
+                <div class="item-desc">Vps33b and Vipas39 knockout mice reproduce the ichthyotic skin phenotype with histologically similar changes to human ARC-spectrum skin, abnormal epidermal lamellar body morphology, disrupted lamellar body cargo localisation, and reduced stratum corneum lipid deposition. The tamoxifen-inducible Vps33b model also reproduces the platelet alpha-granule defect. These are good models of the cutaneous and haematological arms specifically; fidelity to the renal and hepatic arms is not established by these papers.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Vps33b knockout (constitutive and tamoxifen-inducible Vps33b-fl/fl-ERT2); Vipas39 knockout</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        VPS33B
+
+
+    <a href="https://bioregistry.io/hgnc:12712" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-87">hgnc:12712</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-87">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns VPS33B (hgnc:12712). hgnc:12712 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        VIPAS39
+
+
+    <a href="https://bioregistry.io/hgnc:20347" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-88">hgnc:20347</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-88">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns VIPAS39 (hgnc:20347). hgnc:20347 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29409756" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29409756" target="_blank">PMID:29409756</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrate that the skin manifestations in Vps33b and Vipar deficient mice are histologically similar to those of patients with ARC syndrome."</div>
+
+
+                <div class="evidence-explanation">Establishes fidelity of the mouse skin phenotype to human disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25947942" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25947942" target="_blank">PMID:25947942</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We generated a tamoxifen-inducible mouse model of VPS33B deficiency, Vps33b(fl/fl)-ER(T2), and studied the platelet phenotype"</div>
+
+
+                <div class="evidence-explanation">Describes the inducible model used to dissect the platelet phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-liver-specific-homozygous-vps33b-knockout-vps33bfl-fl-alfp-cre-vps33bliver-mus-musculus" data-dismech-node="Liver-specific homozygous Vps33b knockout (Vps33bfl/fl-Alfp-Cre; Vps33bLiver-/-) Mus musculus" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Liver-specific homozygous Vps33b knockout (Vps33bfl/fl-Alfp-Cre; Vps33bLiver-/-) Mus musculus
+
+                    <span class="tag tag-exp-model-type">CONDITIONAL_KNOCKOUT</span>
+
+                </div>
+
+                <div class="item-desc">Liver-specific Vps33b-deficient mice model hepatic ARC and develop a more severe phenotype on a 0.25% cholic-acid diet. The model was used to evaluate neonatal systemic delivery of the liver-specific LP1-VPS lentiviral vector after transient macrophage depletion. It models the hepatic arm only and cannot establish correction of the multisystem disorder.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Mus musculus</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">Liver-specific homozygous Vps33b knockout (Vps33bfl/fl-Alfp-Cre; Vps33bLiver-/-)</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        VPS33B
+
+
+    <a href="https://bioregistry.io/hgnc:12712" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-89">hgnc:12712</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-89">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns VPS33B (hgnc:12712). hgnc:12712 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42321174" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42321174" target="_blank">PMID:42321174</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In homozygousVps33bLiver-/-mice, LP1-VPS administration normalises multiple disease biomarkers to wild-type levels and restores bile canaliculi structure."</div>
+
+
+                <div class="evidence-explanation">Defines the liver-specific disease model and its response to the liver-specific vector.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-vipar-morpholino-knockdown-danio-rerio" data-dismech-node="vipar morpholino knockdown Danio rerio" data-dismech-type="animal_model">
+                <div class="item-name">
+                    vipar morpholino knockdown Danio rerio
+
+                    <span class="tag tag-exp-model-type">KNOCKDOWN</span>
+
+                </div>
+
+                <div class="item-desc">Morpholino knockdown of vipar in zebrafish produces biliary excretion and E-cadherin defects mirroring those in human ARC-spectrum disease, supporting the causal role of the polarity defect in cholestasis.
+</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Danio rerio</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">vipar morpholino knockdown</div>
+                    </div>
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genes</div>
+                        <div class="model-detail-value">
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        VIPAS39
+
+
+    <a href="https://bioregistry.io/hgnc:20347" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-90">hgnc:20347</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-90">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this experimental model concerns this gene
+This experimental model concerns VIPAS39 (hgnc:20347). hgnc:20347 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+    </div>
+                    </div>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20190753" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20190753" target="_blank">PMID:20190753</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Knockdown of vipar in zebrafish resulted in biliary excretion and E-cadherin defects similar to those in individuals with ARC."</div>
+
+
+                <div class="evidence-explanation">Zebrafish model recapitulating the biliary and junctional phenotype.</div>
 
 
 
@@ -16572,5 +17710,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>
