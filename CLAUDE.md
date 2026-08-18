@@ -2338,14 +2338,34 @@ evidence:
 
 Snippets must be exact substrings of the cache file's body. The body uses
 markdown section headings (`## Definition`, `## Inheritance`, `## Phenotypes`,
-`## Genes`, `## Epidemiology`, `## Cross-references`, `## Source`) with
-markdown tables for tabular data. Each table row is a stable quotable
-substring across refreshes:
+`## Genes`, `## Epidemiology`, `## Cross-references`, `## Related disorders`,
+`## Source`) with markdown tables for tabular data, plus a `**Status:**` line
+(non-empty `DisorderFlag` labels, e.g. `Deprecated entity`, `Inactive`) when
+the disorder carries one. Each table row is a stable quotable substring
+across refreshes:
 
 ```
 | HP:0002616 | Aortic root aneurysm | Very frequent (99-80%) |
 | FBN1 | fibrillin-1 | hgnc:3603 | Disease-causing germline mutation(s) in |
 | MONDO:0007947 | Exact |
+```
+
+**Citing a deprecation/merge relation:** `## Related disorders` renders
+Orphadata's `DisorderDisorderAssociationList` (`Moved to` / `Referred to`
+relations) as a `| Root | Root Disorder | Relation | Target | Target Disorder |`
+table — this is what makes a concept deprecation citable instead of only
+assertable in prose:
+
+```yaml
+evidence:
+  - reference: ORPHA:988
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: >-
+      ORPHA:2950 | Triphalangeal thumb-polysyndactyly syndrome | Moved to |
+      ORPHA:988 | Tibial hemimelia-polysyndactyly-triphalangeal thumb syndrome
+    explanation: Orphanet's own association record for ORPHA:988 confirms
+      the deprecated ORPHA:2950 concept was moved into it.
 ```
 
 A curator-quoted snippet may include or omit the leading and trailing
