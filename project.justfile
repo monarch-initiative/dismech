@@ -1343,10 +1343,16 @@ research_dir := "research"
 templates_dir := "templates"
 
 # Reference validation applied to a deep-research report as it is generated
-# (needs deep-research-client >= 0.2.9, which pulls in linkml-reference-validator
+# (needs deep-research-client >= 0.2.10, which pulls in linkml-reference-validator
 # through its `validation` extra -- the same library the KB validators use).
 # Every PMID/DOI the report cites is resolved against PubMed/Crossref/DataCite,
-# and every quote attributed to one of them is checked against that source. The
+# and every quote attributed to one of them is checked against that source. Since
+# 0.2.10 each resolved reference is also weighed against the report's own
+# characteristic vocabulary, flagging citations that exist but look off topic --
+# free, since it re-reads records the existence check already fetched, and on by
+# default (turn it off with `--validation-no-relevance`). An off-topic flag is a
+# clue and not a verdict: it sets `needs_review` in the frontmatter but is
+# deliberately NOT a confabulation and does NOT affect the exit code. The
 # results are written into the report itself: a `## Reference Validation` section
 # at the end of the body, and a `reference_validation:` summary in the YAML
 # frontmatter. Lookups are cached into the same `references_cache/` the KB
@@ -1848,6 +1854,9 @@ fetch-reference +identifiers:
                 fi
                 uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
                 ;;
+            ICTRP:*|ictrp:*)
+                uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+                ;;
             *)
                 scripts/run_reference_validator.sh cache reference "$identifier"
                 ;;
@@ -1984,6 +1993,35 @@ icees-rebuild *args="":
 [group('Research')]
 icees-list limit="20":
     uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
+
+# Fetch WHO ICTRP trial registration record(s) into references_cache/.
+# Covers every ICTRP primary registry (ChiCTR, ISRCTN, EUCTR, JPRN, CTRI, ...)
+# so a non-ClinicalTrials.gov trial can be cited as ICTRP:<TrialID>.
+#   just ictrp-fetch ChiCTR2100045397 ISRCTN67795930
+[group('Research')]
+ictrp-fetch +identifiers:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for identifier in "$@"; do
+        uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+    done
+
+# Refresh every cached references_cache/ICTRP_*.md from the ICTRP portal.
+# Use --id to restrict to specific trial identifiers.
+[group('Research')]
+ictrp-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild ictrp {{args}}
+
+# List the trial identifiers already cached from WHO ICTRP
+[group('Research')]
+ictrp-list limit="20":
+    uv run python -m dismech.structured_sources.cli list ictrp --limit {{limit}}
+
+# Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
+# is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.
+[group('Research')]
+ictrp-audit *args="":
+    uv run python -m dismech.ictrp_audit {{args}}
 
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
