@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3566,7 +3732,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=ZNF407-Related%20Neurodevelopmental%20Disorder"
@@ -3599,7 +3765,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                ZNF407-related neurodevelopmental disorder is a rare autosomal recessive condition caused by biallelic loss-of-function variants in ZNF407 (18q23), which encodes a large Kruppel-type C2H2 zinc-finger protein that acts as a DNA-binding transcriptional regulator during brain development. OMIM/MONDO name the entity after its core clinical features: short stature, impaired intellectual development (intellectual disability), microcephaly, hypotonia, and ocular anomalies. Intellectual disability (mild to profound) is the obligate feature; short stature, microcephaly, developmental delay, hypotonia, dysarthria, hearing loss, visual problems, behavioural anomalies (including autistic features), delayed puberty and facial dysmorphism are variable. ZNF407 was first implicated in non-syndromic intellectual disability with autism through a balanced translocation disrupting the gene and linker-region missense variants that impair zinc-finger function. The recessive syndromic entity was delineated in a consanguineous Arab family homozygous for the founding p.S1685W linker variant (2014), then expanded allelically and phenotypically in additional families with biallelic variants (2020).
+                ZNF407-related neurodevelopmental disorder is a rare autosomal recessive condition caused by biallelic damaging variants in ZNF407 (18q23), which encodes a large Kruppel-type C2H2 zinc-finger protein. Transcriptional impairment is predicted from structural modeling of one disease allele, and cofactor activity has been demonstrated only in mouse adipocytes. Complete loss of function has not been demonstrated for the reported biallelic missense and in-frame variants. OMIM/MONDO name the entity after its core clinical features: short stature, impaired intellectual development (intellectual disability), microcephaly, hypotonia, and ocular anomalies. Intellectual disability (mild to profound) is the obligate feature; short stature, microcephaly, developmental delay, hypotonia, dysarthria, hearing loss, visual problems, behavioural anomalies, delayed puberty and facial dysmorphism are variable. ZNF407 was first implicated in non-syndromic intellectual disability with autism through a balanced translocation disrupting the gene and heterozygous linker-region missense variants predicted to impair zinc-finger function; those observations do not establish the same recessive syndrome. The recessive syndromic entity was delineated in a consanguineous Arab family homozygous for the p.S1685W linker variant (2014), then expanded allelically and phenotypically in additional families with biallelic variants (2020).
 
             </p>
 
@@ -3698,6 +3864,8 @@
 
 
 
+
+
         <div class="stats-bar">
 
 
@@ -3714,7 +3882,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3724,18 +3892,34 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">28</div>
+                <div class="stat-value">34</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
 
 
+            <a class="stat-link" href="#mechanistic-hypotheses">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◈</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Hypotheses</div>
+            </div>
+            </a>
+
+
+            <a class="stat-link" href="#discussions">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💬</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Gaps</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3761,7 +3945,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">4</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -3900,8 +4084,678 @@
 
         <!-- Mechanistic Hypotheses -->
 
+        <div class="card" id="mechanistic-hypotheses">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ecfdf5; color: #059669;">◈</div>
+                <h2 class="card-title">Mechanistic Hypotheses</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box hypothesis-box anchor-target" id="hypothesis-znf407-transcriptional-dysregulation">
+                <div class="item-name">ZNF407 transcriptional-dysregulation model</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-parent">znf407_transcriptional_dysregulation</span>
+
+
+                    <span class="tag tag-mechanistic tag-hypothesis-EMERGING">EMERGING</span>
+
+
+                </div>
+
+
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-PARTIAL">2 partial</span>
+
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 8px;">The current disease model proposes that biallelic damaging variants impair ZNF407 zinc-finger or cofactor function, altering transcription during fetal brain development and thereby causing the neurodevelopmental phenotype. Disease-specific support is limited to segregation and computational structural modeling of p.S1685W; no patient-derived neural assay has shown altered DNA occupancy, target-gene expression, or rescue. A 2024 study directly demonstrated ZFP407 cofactor activity in mouse adipocytes, but did not test human neurodevelopment or any disease allele.</div>
+
+
+
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Pathograph links</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-predicted-impairment-of-znf407-transcriptional-regulatory-function">Predicted Impairment of ZNF407 Transcriptional-Regulatory Function</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-impaired-neurodevelopment">Impaired Neurodevelopment</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-predicted-impairment-of-znf407-transcriptional-regulatory-function">Predicted Impairment of ZNF407 Transcriptional-Regulatory Function</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathophysiology-impaired-somatic-development">Impaired Somatic Development</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-neurodevelopment">Impaired Neurodevelopment</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Intellectual disability</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-neurodevelopment">Impaired Neurodevelopment</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Global developmental delay</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-neurodevelopment">Impaired Neurodevelopment</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Motor delay</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-neurodevelopment">Impaired Neurodevelopment</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Delayed speech and language development</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-neurodevelopment">Impaired Neurodevelopment</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Microcephaly</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-neurodevelopment">Impaired Neurodevelopment</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Hypotonia</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-somatic-development">Impaired Somatic Development</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Short stature</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-somatic-development">Impaired Somatic Development</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Facial dysmorphism</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-somatic-development">Impaired Somatic Development</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Ocular anomalies</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-somatic-development">Impaired Somatic Development</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Hip subluxation</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                        <div class="crosslink-item">
+
+                            <a href="#pathophysiology-impaired-somatic-development">Impaired Somatic Development</a>
+
+                            <span class="crosslink-desc">-&gt;</span>
+
+                            <a href="#pathograph">Acetabular dysplasia</a>
+
+
+                            <span class="crosslink-meta">INDIRECT UNKNOWN INTERMEDIATES</span>
+
+
+
+                        </div>
+
+                    </div>
+                </div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Structural analyses of this mutation shows disruption of an H-bond"</div>
+
+
+                <div class="evidence-explanation">Structural modeling supports impaired zinc-finger geometry but does not directly demonstrate altered transcription in patient neural cells.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38781157" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38781157" target="_blank">PMID:38781157</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ZFP407 was found to interact with the PPARγ/RXRα protein complex in the nucleus of adipocytes"</div>
+
+
+                <div class="evidence-explanation">Establishes transcriptional-cofactor activity in an adipocyte system, but only indirectly informs the neurodevelopmental disease mechanism.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Discussions / Knowledge Gaps -->
+
+        <div class="card" id="discussions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
+                <h2 class="card-title">Discussions and Knowledge Gaps</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="znf407_neural_mechanism_translation">
+                <div class="item-name">Does impaired ZNF407 zinc-finger or cofactor activity alter a specific transcriptional program in human neural development, and do the reported biallelic variants act through the same mechanism?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">HUMAN MODEL MISMATCH</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">znf407_neural_mechanism_translation</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-predicted-impairment-of-znf407-transcriptional-regulatory-function">pathophysiology#Predicted Impairment of ZNF407 Transcriptional-Regulatory Function</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-neurodevelopment">pathophysiology#Impaired Neurodevelopment</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-impaired-somatic-development">pathophysiology#Impaired Somatic Development</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Disease-specific functional evidence is computational structural modeling of one missense allele. The direct experimental evidence for ZFP407 cofactor activity comes from mouse adipocytes and does not test neural cells, human development, or patient alleles. The reported recessive alleles also span missense and in-frame changes, so a uniform complete-loss-of-function model cannot be assumed. Resolving the relevant partners, targets, cell types, and allelic effects is necessary before the proposed transcriptional chain can be treated as established.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Patient-derived neural isogenic allelic series</div>
+
+            </div>
+
+            <div class="experiment-id">znf407_patient_neural_isogenic_series</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Compare patient-derived iPSC neural progenitors and neurons with CRISPR-corrected controls, and engineer representative reported alleles in a shared background. Measure ZNF407 abundance and localization, chromatin occupancy, protein partners, transcriptomic effects, neuronal maturation, and rescue after correction or wild-type complementation.</div>
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Allele-specific ZNF407 molecular and neurodevelopmental phenotypes with rescue</div>
+
+        <div class="entity-ref-list">
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-predicted-impairment-of-znf407-transcriptional-regulatory-function">pathophysiology#Predicted Impairment of ZNF407 Transcriptional-Regulatory Function</a>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The mutated gene product was studied by structural bioinformatics methods."</div>
+
+
+                <div class="evidence-explanation">The founding disease-specific functional analysis was computational rather than an assay in patient-derived neural cells.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38781157" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38781157" target="_blank">PMID:38781157</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ZFP407 was found to interact with the PPARγ/RXRα protein complex in the nucleus of adipocytes"</div>
+
+
+                <div class="evidence-explanation">The experimental cofactor evidence comes from adipocytes and therefore directly supports the stated human-neural translation gap.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="znf407_natural_history_and_frequency">
+                <div class="item-name">What are the unbiased phenotype frequencies, developmental trajectories, adult outcomes, and genotype-phenotype relationships of biallelic ZNF407 disorder?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">znf407_natural_history_and_frequency</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <span class="entity-ref-chip">phenotypes#Intellectual disability</span>
+
+
+
+
+
+
+    <span class="entity-ref-chip">phenotypes#Short stature</span>
+
+
+
+
+
+
+    <span class="entity-ref-chip">phenotypes#Microcephaly</span>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">The core literature contains only nine affected individuals from four families. Most detailed physical findings come from two brothers, while the later abstract reports a heterogeneous seven-person expansion. This is too small and ascertainment-dependent to establish penetrance for variable findings, long-term progression, adult prognosis, or robust allelic correlations.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Genotype-first longitudinal natural-history cohort</div>
+
+            </div>
+
+            <div class="experiment-id">znf407_international_natural_history_registry</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Assemble an international, genotype-first cohort with harmonized HPO phenotyping, developmental assessments, growth and pubertal trajectories, ophthalmologic and audiologic evaluations, and longitudinal follow-up.</div>
+
+
+
+
+
+        <div class="experiment-section">
+            <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Age-stratified phenotype frequencies and developmental trajectories</div>
+
+        <div class="entity-ref-list">
+
+
+    <span class="entity-ref-chip">phenotypes#Intellectual disability</span>
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+        </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"both affected
+individuals are males"</div>
+
+
+                <div class="evidence-explanation">The founding report contributes detailed observations from only two affected individuals in one family.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32737394" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"five members of a consanguineous Pakistani family (Family I) plus two affected children from families of different ethnic origins"</div>
+
+
+                <div class="evidence-explanation">The later report adds seven affected individuals across three families, leaving natural history and unbiased frequencies unresolved.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Pathophysiology -->
@@ -3910,15 +4764,26 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-znf407-zinc-finger-transcription-factor-function" data-dismech-node="Loss of ZNF407 Zinc-Finger Transcription Factor Function" data-dismech-type="pathophysiology">
-                <div class="item-name">Loss of ZNF407 Zinc-Finger Transcription Factor Function</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-predicted-impairment-of-znf407-transcriptional-regulatory-function" data-dismech-node="Predicted Impairment of ZNF407 Transcriptional-Regulatory Function" data-dismech-type="pathophysiology">
+                <div class="item-name">Predicted Impairment of ZNF407 Transcriptional-Regulatory Function</div>
 
-                <div class="item-desc">ZNF407 is a Kruppel-type C2H2 zinc-finger protein that modulates gene expression by binding DNA. A translocation disrupting the gene reduces ZNF407 expression, and missense variants in the linker regions between zinc-finger structures are predicted to disrupt zinc-finger integrity, together implying loss of ZNF407 transcription-factor function as the molecular mechanism.
+                <div class="item-desc">ZNF407 is annotated as a Kruppel-type C2H2 zinc-finger protein. Structural modeling of the biallelic p.S1685W allele predicts impaired target-DNA binding, while experiments in mouse adipocytes demonstrate ZFP407 cofactor activity in a non-neural context. Neither result directly establishes the molecular consequence of a disease allele in human neural cells; the extent of impairment and relevant neural targets remain unknown.
 </div>
 
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                    </span>
+
+                </div>
 
 
 
@@ -3931,16 +4796,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         DNA-binding transcription factor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0003700">GO:0003700</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0003700</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -3960,16 +4830,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         zinc ion binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008270" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0008270">GO:0008270</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008270" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0008270</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves zinc ion binding (GO:0008270). GO:0008270 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -3986,6 +4861,7 @@
 
 
                 </div>
+
 
 
 
@@ -4000,6 +4876,34 @@
 	                            <span class="crosslink-meta">Impaired Neurodevelopment</span>
 
 
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Impaired Somatic Development</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
 	                        </div>
 
 	                    </div>
@@ -4009,81 +4913,76 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23195952" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:23195952" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23195952" target="_blank">PMID:23195952</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"mutations in genes encoding zinc finger proteins. These proteins modulate gene expression via binding to DNA"</div>
 
 
-                <div class="evidence-explanation">Establishes ZNF407 as a DNA-binding zinc-finger protein that modulates gene expression, the molecular function lost in disease.
-</div>
+                <div class="evidence-explanation">This is generic background about the zinc-finger protein class, not an experimental demonstration of ZNF407 activity or a biallelic disease-allele effect.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23195952" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23195952" target="_blank">PMID:23195952</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"both mutations may result in loss of ZNF407 function"</div>
-
-
-                <div class="evidence-explanation">Linker-region missense variants are predicted to cause loss of ZNF407 function, supporting a loss-of-function mechanism.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
 
                 <div class="evidence-snippet">"decreased probability of binding to the target DNA sequence essentially eliminating the functionality of downstream domains and interfering with the expression of various genes under ZNF407 control during fetal brain development"</div>
 
 
-                <div class="evidence-explanation">Structural analysis shows a linker-region variant reduces target-DNA binding, eliminating downstream zinc-finger function and dysregulating ZNF407-controlled genes during fetal brain development.
-</div>
+                <div class="evidence-explanation">Homology-based structural modeling predicts reduced target-DNA binding; it does not measure binding, downstream expression, or neural effects.</div>
 
 
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:38781157" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38781157" target="_blank">PMID:38781157</a>
+                    </span>
 
-            <div class="evidence-more">+ 1 more reference</div>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ZFP407 was found to interact with the PPARγ/RXRα protein complex in the nucleus of adipocytes"</div>
+
+
+                <div class="evidence-explanation">The adipocyte experiment demonstrates cofactor activity in a non-neural mouse system but does not test a human disease allele.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4094,9 +4993,20 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurodevelopment" data-dismech-node="Impaired Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurodevelopment</div>
 
-                <div class="item-desc">Loss of ZNF407-dependent transcriptional regulation during brain development is proposed to impair neurodevelopment, manifesting as intellectual disability, microcephaly, hypotonia and developmental delay.
+                <div class="item-desc">Impaired ZNF407-dependent transcriptional regulation during brain development is hypothesized to impair neurodevelopment, manifesting as intellectual disability, microcephaly, hypotonia and developmental delay.
 </div>
 
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                    </span>
+
+                </div>
 
 
 
@@ -4108,16 +5018,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         nervous system development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007399">GO:0007399</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0007399</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -4146,6 +5061,116 @@
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intellectual disability</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Global developmental delay</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Motor delay</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Delayed speech and language development</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Microcephaly</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypotonia</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
@@ -4153,13 +5178,13 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32737394" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:32737394" data-dismech-supports="PARTIAL">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
 
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4169,8 +5194,169 @@
                 <div class="evidence-snippet">"All affected individuals from families have intellectual disability (ID), ranging from mild to profound, and reduced motor and cognitive skills"</div>
 
 
-                <div class="evidence-explanation">Impaired neurodevelopment manifests clinically as intellectual disability and reduced motor and cognitive skills in all affected individuals.
+                <div class="evidence-explanation">The cohort documents the clinical neurodevelopmental endpoint but does not establish the proposed upstream transcriptional mechanism.
 </div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-somatic-development" data-dismech-node="Impaired Somatic Development" data-dismech-type="pathophysiology">
+                <div class="item-name">Impaired Somatic Development</div>
+
+                <div class="item-desc">A parallel, untested developmental branch is hypothesized to link altered ZNF407 transcriptional regulation to growth, craniofacial, ocular, and musculoskeletal findings. The literature documents the phenotype cluster but does not identify the relevant cell types, targets, or intermediates.</div>
+
+
+                <div class="item-meta">
+
+                    <span class="tag tag-mechanistic">
+
+
+                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Short stature</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Facial dysmorphism</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Ocular anomalies</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hip subluxation</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Acetabular dysplasia</span>
+
+
+                                <span class="tag-list" style="margin-top: 4px;">
+
+                                    <span class="tag tag-mechanistic">
+
+
+                                        <a href="#hypothesis-znf407-transcriptional-dysregulation">ZNF407 transcriptional-dysregulation model</a>
+
+                                    </span>
+
+                                </span>
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32737394" data-dismech-supports="PARTIAL">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
+                    </span>
+
+                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism"</div>
+
+
+                <div class="evidence-explanation">The cohort documents a somatic-developmental phenotype cluster but not a causal molecular pathway.</div>
 
 
 
@@ -4208,7 +5394,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Impaired Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of ZNF407-dependent transcriptional regulation during brain development is proposed to impair neurodevelopment, manifesting as intellectual disability, microcephaly, hypotonia and developmental delay.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Loss of ZNF407 Zinc-Finger Transcription Factor Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZNF407 is a Kruppel-type C2H2 zinc-finger protein that modulates gene expression by binding DNA. A translocation disrupting the gene reduces ZNF407 expression, and missense variants in the linker regions between zinc-finger structures are predicted to disrupt zinc-finger integrity, together implying loss of ZNF407 transcription-factor function as the molecular mechanism.\\n\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"DNA-binding transcription factor activity\", \"zinc ion binding\"]}}], \"edges\": [{\"source\": \"Loss of ZNF407 Zinc-Finger Transcription Factor Function\", \"target\": \"Impaired Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Acetabular dysplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008807\"}}, {\"id\": \"Delayed speech and language development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000750\"}}, {\"id\": \"Facial dysmorphism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The later cohort (PMID:32737394) is reported to have facial dysmorphism, but with specific features differing from the founding family \\u2014 its individuals explicitly lacked the founding family\u0027s synophrys and midface hypoplasia. This generic node carries that cohort-level dysmorphism claim; the specific facial features modeled elsewhere in this entry derive from the founding family (PMID:24907849).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001999\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hip subluxation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030043\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Impaired Neurodevelopment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired ZNF407-dependent transcriptional regulation during brain development is hypothesized to impair neurodevelopment, manifesting as intellectual disability, microcephaly, hypotonia and developmental delay.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Impaired Somatic Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A parallel, untested developmental branch is hypothesized to link altered ZNF407 transcriptional regulation to growth, craniofacial, ocular, and musculoskeletal findings. The literature documents the phenotype cluster but does not identify the relevant cell types, targets, or intermediates.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Intellectual disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001249\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Motor delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"Ocular anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000478\"}}, {\"id\": \"Predicted Impairment of ZNF407 Transcriptional-Regulatory Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ZNF407 is annotated as a Kruppel-type C2H2 zinc-finger protein. Structural modeling of the biallelic p.S1685W allele predicts impaired target-DNA binding, while experiments in mouse adipocytes demonstrate ZFP407 cofactor activity in a non-neural context. Neither result directly establishes the molecular consequence of a disease allele in human neural cells; the extent of impairment and relevant neural targets remain unknown.\\n\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"DNA-binding transcription factor activity\", \"zinc ion binding\"]}}, {\"id\": \"Short stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}], \"edges\": [{\"source\": \"Predicted Impairment of ZNF407 Transcriptional-Regulatory Function\", \"target\": \"Impaired Neurodevelopment\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Predicted Impairment of ZNF407 Transcriptional-Regulatory Function\", \"target\": \"Impaired Somatic Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurodevelopment\", \"target\": \"Intellectual disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurodevelopment\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurodevelopment\", \"target\": \"Motor delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurodevelopment\", \"target\": \"Delayed speech and language development\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurodevelopment\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neurodevelopment\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Somatic Development\", \"target\": \"Short stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Somatic Development\", \"target\": \"Facial dysmorphism\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Somatic Development\", \"target\": \"Ocular anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Somatic Development\", \"target\": \"Hip subluxation\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Somatic Development\", \"target\": \"Acetabular dysplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"hypothesis_groups\": [\"znf407_transcriptional_dysregulation\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4221,7 +5407,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">28</span>
+                <span class="card-count">34</span>
             </div>
 
 
@@ -4237,13 +5423,15 @@
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(11)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(12)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4261,14 +5449,21 @@
                         Hearing impairment
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hearing impairment
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000365">HP:0000365</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0000365</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Deafness, annotated with Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4330,14 +5525,21 @@
                         Delayed puberty
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed puberty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000823">HP:0000823</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000823" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000823</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed pubertal onset, annotated with Delayed puberty (HP:0000823). HP:0000823 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4399,14 +5601,21 @@
                         Ptosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Ptosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000508">HP:0000508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4459,14 +5668,21 @@
                         Strabismus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Strabismus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000486">HP:0000486</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000486</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4528,14 +5744,21 @@
                         Microcephaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microcephaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000252">HP:0000252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4588,14 +5811,21 @@
                         Epicanthus
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Epicanthus
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000286">HP:0000286</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000286</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epicanthus (HP:0000286). HP:0000286 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4648,14 +5878,23 @@
                         Midface hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Midface retrusion
+
+                        <span class="phenotype-term-label">Midface retrusion</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011800">HP:0011800</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011800</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Midface hypoplasia, annotated with Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4733,14 +5972,23 @@ knee mobility observed in the reported family"</div>
                         Facial dysmorphism
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal facial shape
+
+                        <span class="phenotype-term-label">Abnormal facial shape</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001999">HP:0001999</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001999</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Facial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4802,14 +6050,21 @@ knee mobility observed in the reported family"</div>
                         Prominent fingertip pads
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Prominent fingertip pads
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001212" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001212">HP:0001212</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001212</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Persistent fetal fingertip pads, annotated with Prominent fingertip pads (HP:0001212). HP:0001212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4862,23 +6117,107 @@ knee mobility observed in the reported family"</div>
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-subluxation" data-dismech-node="Hip subluxation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hip subluxation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030043" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0030043</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral femoral joint subluxation, annotated with Hip subluxation (HP:0030043). HP:0030043 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The skeletal survey
+showed bilateral femoral joint subluxation, dysplastic left
+acetabulum, and mild kyphosis without scoliosis."</div>
+
+
+                <div class="evidence-explanation">Bilateral hip subluxation was present in the younger founding-family child; the older brother had normal hips.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
                     <span class="cat-count">2</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hypotonia" data-dismech-node="Generalized hypotonia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Generalized hypotonia
+                        Hypotonia
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Generalized hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001290">HP:0001290</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -4931,14 +6270,21 @@ knee mobility observed in the reported family"</div>
                         Kyphosis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Kyphosis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002808">HP:0002808</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002808</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5013,11 +6359,11 @@ knee mobility observed in the reported family"</div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
@@ -5027,14 +6373,21 @@ knee mobility observed in the reported family"</div>
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired intellectual development, annotated with Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5087,14 +6440,21 @@ knee mobility observed in the reported family"</div>
                         Global developmental delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5142,19 +6502,295 @@ knee mobility observed in the reported family"</div>
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-delay" data-dismech-node="Motor delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Motor delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"His development
+has been delayed; he currently sits without support and
+attempts to pull himself to a stand."</div>
+
+
+                <div class="evidence-explanation">At age five, the younger affected brother could sit independently and was only beginning to pull to stand, directly documenting severe motor delay.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gait-disturbance" data-dismech-node="Gait disturbance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gait disturbance
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001288</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Awkward gait, annotated with Gait disturbance (HP:0001288). HP:0001288 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"walked in-
+dependently, with an awkward gait and bent knees, be-
+tween the age of 4 and 5 years"</div>
+
+
+                <div class="evidence-explanation">The older affected brother began walking at four to five years with an awkward, bent-knee gait.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-speech-and-language-development" data-dismech-node="Delayed speech and language development" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed speech and language development
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000750</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe speech delay, annotated with Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"very limited speech at the age of 8 years"</div>
+
+
+                <div class="evidence-explanation">One founding-family child did not begin very limited speech until age eight; the younger affected brother still only babbled infrequently.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperreflexia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Exaggerated deep tendon reflexes, annotated with Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"exaggerated deep tendon re-
+flexes"</div>
+
+
+                <div class="evidence-explanation">Exaggerated deep-tendon reflexes accompanied hypotonia in both affected brothers in the founding family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
                     <div class="item-name">
                         Dysarthria
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dysarthria
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001260">HP:0001260</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001260</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5202,19 +6838,26 @@ knee mobility observed in the reported family"</div>
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic behavior" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-behavior" data-dismech-node="Atypical behavior" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Autistic behavior
+                        Atypical behavior
+
+
+
+
 
 
                     <span class="phenotype-id">
-                        Autistic behavior
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000729">HP:0000729</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000708</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Behavioural anomalies, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5229,10 +6872,10 @@ knee mobility observed in the reported family"</div>
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23195952" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:32737394" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23195952" target="_blank">PMID:23195952</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32737394" target="_blank">PMID:32737394</a>
                     </span>
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
@@ -5242,11 +6885,10 @@ knee mobility observed in the reported family"</div>
 
                 </div>
 
-                <div class="evidence-snippet">"mutations in the ZNF407 gene contribute to the pathogenesis of a group of ID patients with autism"</div>
+                <div class="evidence-snippet">"visual problems, enuresis, encopresis, behavioural anomalies, delayed pubertal onset and facial dysmorphism"</div>
 
 
-                <div class="evidence-explanation">ZNF407 variants are associated with intellectual disability accompanied by autism; behavioural anomalies are also reported in the syndromic cohort.
-</div>
+                <div class="evidence-explanation">Behavioural anomalies are reported in the biallelic syndromic cohort; autism in earlier heterozygous cases is not generalized to this disorder.</div>
 
 
 
@@ -5264,7 +6906,7 @@ knee mobility observed in the reported family"</div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -5276,14 +6918,21 @@ knee mobility observed in the reported family"</div>
                         Short stature
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short stature
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0004322">HP:0004322</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004322</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5336,14 +6985,21 @@ knee mobility observed in the reported family"</div>
                         Failure to thrive
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Failure to thrive
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001508">HP:0001508</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001508</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5393,26 +7049,103 @@ knee mobility observed in the reported family"</div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">11</span>
+                    <span class="cat-count">12</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acetabular-dysplasia" data-dismech-node="Acetabular dysplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acetabular dysplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008807" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0008807</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysplastic left acetabulum, annotated with Acetabular dysplasia (HP:0008807). HP:0008807 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24907849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24907849" target="_blank">PMID:24907849</a>
+                    </span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The skeletal survey
+showed bilateral femoral joint subluxation, dysplastic left
+acetabulum, and mild kyphosis without scoliosis."</div>
+
+
+                <div class="evidence-explanation">Left acetabular dysplasia accompanied bilateral hip subluxation in the younger founding-family child.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ocular-anomalies" data-dismech-node="Ocular anomalies" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ocular anomalies
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormality of the eye
+
+                        <span class="phenotype-term-label">Abnormality of the eye</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000478">HP:0000478</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000478</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ocular anomalies / visual problems, annotated with Abnormality of the eye (HP:0000478). HP:0000478 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5465,14 +7198,21 @@ knee mobility observed in the reported family"</div>
                         Enuresis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Enuresis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000805" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000805">HP:0000805</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000805" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000805</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Enuresis (HP:0000805). HP:0000805 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5525,14 +7265,21 @@ knee mobility observed in the reported family"</div>
                         Encopresis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Encopresis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040183" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0040183">HP:0040183</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040183" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0040183</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Encopresis (HP:0040183). HP:0040183 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5585,14 +7332,21 @@ knee mobility observed in the reported family"</div>
                         Synophrys
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Synophrys
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000664" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000664">HP:0000664</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000664</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5670,14 +7424,23 @@ knee mobility observed in the reported family"</div>
                         Downturned corners of the mouth
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Downturned corners of mouth
+
+                        <span class="phenotype-term-label">Downturned corners of mouth</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002714" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002714">HP:0002714</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002714" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002714</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Downturned corners of the mouth, annotated with Downturned corners of mouth (HP:0002714). HP:0002714 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5730,14 +7493,21 @@ knee mobility observed in the reported family"</div>
                         Thin upper lip vermilion
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thin upper lip vermilion
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000219">HP:0000219</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000219</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5768,7 +7538,7 @@ knee mobility observed in the reported family"</div>
                 <div class="evidence-snippet">"downturned mouth corners, thin upper vermillion border and"</div>
 
 
-                <div class="evidence-explanation">A thin upper vermillion border is a facial dysmorphic feature in the founding family.
+                <div class="evidence-explanation">A thin upper vermilion border is a facial dysmorphic feature in the founding family.
 </div>
 
 
@@ -5790,14 +7560,21 @@ knee mobility observed in the reported family"</div>
                         Protruding ears
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Protruding ear
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000411" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000411">HP:0000411</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000411" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000411</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent ears, annotated with Protruding ear (HP:0000411). HP:0000411 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5850,14 +7627,23 @@ knee mobility observed in the reported family"</div>
                         Camptodactyly of the fifth finger
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Camptodactyly of finger
+
+                        <span class="phenotype-term-label">Camptodactyly of finger</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100490" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0100490">HP:0100490</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0100490</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Camptodactyly of the fifth finger, annotated with Camptodactyly of finger (HP:0100490). HP:0100490 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5935,14 +7721,23 @@ knee mobility observed in the reported family"</div>
                         Short 4th metatarsal
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Short metatarsal
+
+                        <span class="phenotype-term-label">Short metatarsal</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010743" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0010743">HP:0010743</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010743" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0010743</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short 4th metatarsal, annotated with Short metatarsal (HP:0010743). HP:0010743 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6020,14 +7815,21 @@ knee mobility observed in the reported family"</div>
                         Overlapping toes
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Overlapping toe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001845" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001845">HP:0001845</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001845" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001845</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Overriding toes, annotated with Overlapping toe (HP:0001845). HP:0001845 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6080,14 +7882,23 @@ knee mobility observed in the reported family"</div>
                         Limited knee mobility
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Limited knee flexion/extension
+
+                        <span class="phenotype-term-label">Limited knee flexion/extension</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005085" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0005085">HP:0005085</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0005085</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limited knee mobility, annotated with Limited knee flexion/extension (HP:0005085). HP:0005085 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6209,13 +8020,18 @@ knee mobility observed in the reported family"</div>
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: ZNF407
 
 
-    <a href="https://bioregistry.io/hgnc:19904" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:19904">hgnc:19904</a>
+    <a href="https://bioregistry.io/hgnc:19904" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:19904</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ZNF407 (hgnc:19904). hgnc:19904 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -6229,7 +8045,7 @@ knee mobility observed in the reported family"</div>
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -6250,29 +8066,6 @@ knee mobility observed in the reported family"</div>
 
 
                 <div class="evidence-explanation">Documents additional homozygous and compound heterozygous ZNF407 variants in independent families, establishing biallelic ZNF407 variation as the molecular cause.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23195952" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23195952" target="_blank">PMID:23195952</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"we demonstrate that mutations in the ZNF407 gene contribute to the pathogenesis of a group of ID patients with autism"</div>
-
-
-                <div class="evidence-explanation">Earliest report implicating ZNF407 variants in intellectual disability with autism, via a gene-disrupting translocation and missense variants.
 </div>
 
 
@@ -6337,6 +8130,9 @@ knee mobility observed in the reported family"</div>
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -6360,21 +8156,25 @@ synonyms:
 - ZNF407-related intellectual disability
 description: &gt;
   ZNF407-related neurodevelopmental disorder is a rare autosomal recessive
-  condition caused by biallelic loss-of-function variants in ZNF407 (18q23),
-  which encodes a large Kruppel-type C2H2 zinc-finger protein that acts as a
-  DNA-binding transcriptional regulator during brain development. OMIM/MONDO
+  condition caused by biallelic damaging variants in ZNF407 (18q23), which
+  encodes a large Kruppel-type C2H2 zinc-finger protein. Transcriptional
+  impairment is predicted from structural modeling of one disease allele, and
+  cofactor activity has been demonstrated only in mouse adipocytes. Complete
+  loss of function has not been demonstrated for the reported biallelic
+  missense and in-frame variants. OMIM/MONDO
   name the entity after its core clinical features: short stature, impaired
   intellectual development (intellectual disability), microcephaly, hypotonia,
   and ocular anomalies. Intellectual disability (mild to profound) is the
   obligate feature; short stature, microcephaly, developmental delay, hypotonia,
-  dysarthria, hearing loss, visual problems, behavioural anomalies (including
-  autistic features), delayed puberty and facial dysmorphism are variable.
+  dysarthria, hearing loss, visual problems, behavioural anomalies, delayed
+  puberty and facial dysmorphism are variable.
   ZNF407 was first implicated in non-syndromic intellectual disability with
-  autism through a balanced translocation disrupting the gene and linker-region
-  missense variants that impair zinc-finger function. The recessive syndromic
-  entity was delineated in a consanguineous Arab family homozygous for the
-  founding p.S1685W linker variant (2014), then expanded allelically and
-  phenotypically in additional families with biallelic variants (2020).
+  autism through a balanced translocation disrupting the gene and heterozygous
+  linker-region missense variants predicted to impair zinc-finger function;
+  those observations do not establish the same recessive syndrome. The
+  recessive syndromic entity was delineated in a consanguineous Arab family
+  homozygous for the p.S1685W linker variant (2014), then expanded allelically
+  and phenotypically in additional families with biallelic variants (2020).
 disease_term:
   preferred_term: short stature, impaired intellectual development, microcephaly, hypotonia, and ocular anomalies
   term:
@@ -6389,12 +8189,29 @@ prevalence:
   prevalence_class: NOT_YET_DOCUMENTED
   notes: &gt;-
     No population prevalence or incidence estimate has been published. The
-    disorder is known from a small number of families/individuals reported in
-    the literature: the founding consanguineous Arab family homozygous for
-    p.S1685W (PMID:24907849, 2014), the consanguineous Pakistani family (Family I)
-    and additional probands of different ethnic origins in the 2020 expansion
-    (PMID:32737394), and earlier non-syndromic ID/autism cases (PMID:23195952).
-    Ascertainment is genotype-first, so case counts are not a population rate.
+    core biallelic syndrome is represented by nine published affected
+    individuals from four families: two brothers in the founding consanguineous
+    Arab family (PMID:24907849) and seven individuals from three families in the
+    2020 expansion (PMID:32737394). The heterozygous translocation and missense
+    cases reported in PMID:23195952 are not counted because they do not establish
+    the same recessive entity. Ascertainment is genotype-first, so this case
+    count is not a population rate.
+  evidence:
+  - reference: PMID:32737394
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Homozygous c.5054C&gt;G (p.Ser1685Trp) has been reported in two brothers with an ID syndrome&#34;
+    explanation: &gt;-
+      The later cohort report directly summarizes the two affected brothers
+      with the homozygous p.S1685W variant in the founding family.
+  - reference: PMID:32737394
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;five members of a consanguineous Pakistani family (Family I) plus two affected children from families of different ethnic origins&#34;
+    explanation: &gt;-
+      The expansion describes seven affected individuals from three additional
+      families, supporting the literature case count without implying a
+      population prevalence.
 inheritance:
 - name: Autosomal recessive
   inheritance_term:
@@ -6434,9 +8251,9 @@ genetic:
     factor. Reported biallelic variants include homozygous c.2814_2816dup
     (p.Val939dup), homozygous c.2405G&gt;T (p.Gly802Val), compound heterozygous
     c.2884C&gt;G (p.Arg962Gly) / c.3642G&gt;C (p.Lys1214Asn), and homozygous
-    c.5054C&gt;G (p.Ser1685Trp). Earlier non-syndromic ID/autism cases carried a
-    translocation disrupting ZNF407 intron 3 and linker-region missense
-    variants (Y460C, P1195A).
+    c.5054C&gt;G (p.Ser1685Trp). This causative relationship is limited to the
+    biallelic recessive disorder; earlier heterozygous observations are not
+    included as evidence for it.
   evidence:
   - reference: PMID:32737394
     supports: SUPPORT
@@ -6446,13 +8263,6 @@ genetic:
       Documents additional homozygous and compound heterozygous ZNF407 variants
       in independent families, establishing biallelic ZNF407 variation as the
       molecular cause.
-  - reference: PMID:23195952
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;we demonstrate that mutations in the ZNF407 gene contribute to the pathogenesis of a group of ID patients with autism&#34;
-    explanation: &gt;
-      Earliest report implicating ZNF407 variants in intellectual disability
-      with autism, via a gene-disrupting translocation and missense variants.
   - reference: PMID:24907849
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
@@ -6460,16 +8270,45 @@ genetic:
     explanation: &gt;
       Identifies the founding homozygous ZNF407 variant (p.S1685W) at 18q23 in
       the first-reported family, establishing ZNF407 as the causal gene.
+mechanistic_hypotheses:
+- hypothesis_group_id: znf407_transcriptional_dysregulation
+  hypothesis_label: ZNF407 transcriptional-dysregulation model
+  status: EMERGING
+  description: &gt;-
+    The current disease model proposes that biallelic damaging variants impair
+    ZNF407 zinc-finger or cofactor function, altering transcription during fetal
+    brain development and thereby causing the neurodevelopmental phenotype.
+    Disease-specific support is limited to segregation and computational
+    structural modeling of p.S1685W; no patient-derived neural assay has shown
+    altered DNA occupancy, target-gene expression, or rescue. A 2024 study
+    directly demonstrated ZFP407 cofactor activity in mouse adipocytes, but did
+    not test human neurodevelopment or any disease allele.
+  evidence:
+  - reference: PMID:24907849
+    supports: PARTIAL
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;Structural analyses of this mutation shows disruption of an H-bond&#34;
+    explanation: &gt;-
+      Structural modeling supports impaired zinc-finger geometry but does not
+      directly demonstrate altered transcription in patient neural cells.
+  - reference: PMID:38781157
+    supports: PARTIAL
+    evidence_source: IN_VITRO
+    snippet: &#34;ZFP407 was found to interact with the PPARγ/RXRα protein complex in the nucleus of adipocytes&#34;
+    explanation: &gt;-
+      Establishes transcriptional-cofactor activity in an adipocyte system, but
+      only indirectly informs the neurodevelopmental disease mechanism.
 pathophysiology:
-- name: Loss of ZNF407 Zinc-Finger Transcription Factor Function
+- name: Predicted Impairment of ZNF407 Transcriptional-Regulatory Function
   biological_scale: MOLECULAR
+  mechanism_confidence: PROVISIONAL
   description: &gt;
-    ZNF407 is a Kruppel-type C2H2 zinc-finger protein that modulates gene
-    expression by binding DNA. A translocation disrupting the gene reduces
-    ZNF407 expression, and missense variants in the linker regions between
-    zinc-finger structures are predicted to disrupt zinc-finger integrity,
-    together implying loss of ZNF407 transcription-factor function as the
-    molecular mechanism.
+    ZNF407 is annotated as a Kruppel-type C2H2 zinc-finger protein. Structural
+    modeling of the biallelic p.S1685W allele predicts impaired target-DNA
+    binding, while experiments in mouse adipocytes demonstrate ZFP407 cofactor
+    activity in a non-neural context. Neither result directly establishes the
+    molecular consequence of a disease allele in human neural cells; the
+    extent of impairment and relevant neural targets remain unknown.
   molecular_functions:
   - preferred_term: DNA-binding transcription factor activity
     term:
@@ -6482,41 +8321,58 @@ pathophysiology:
       label: zinc ion binding
   downstream:
   - target: Impaired Neurodevelopment
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:24907849
+      supports: PARTIAL
+      evidence_source: COMPUTATIONAL
+      snippet: &#34;interfering with the expression of various genes under ZNF407 control during fetal brain development&#34;
+      explanation: &gt;-
+        The computational model proposes the molecular-to-developmental link;
+        it has not been tested in patient-derived neural cells.
+  - target: Impaired Somatic Development
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:32737394
+      supports: PARTIAL
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism&#34;
+      explanation: &gt;-
+        The cohort establishes a multisystem developmental phenotype but does
+        not test the proposed transcriptional route to those findings.
   evidence:
   - reference: PMID:23195952
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    supports: PARTIAL
+    evidence_source: OTHER
     snippet: &#34;mutations in genes encoding zinc finger proteins. These proteins modulate gene expression via binding to DNA&#34;
-    explanation: &gt;
-      Establishes ZNF407 as a DNA-binding zinc-finger protein that modulates
-      gene expression, the molecular function lost in disease.
-  - reference: PMID:23195952
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;both mutations may result in loss of ZNF407 function&#34;
-    explanation: &gt;
-      Linker-region missense variants are predicted to cause loss of ZNF407
-      function, supporting a loss-of-function mechanism.
+    explanation: &gt;-
+      This is generic background about the zinc-finger protein class, not an
+      experimental demonstration of ZNF407 activity or a biallelic
+      disease-allele effect.
   - reference: PMID:24907849
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    supports: PARTIAL
+    evidence_source: COMPUTATIONAL
     snippet: &#34;decreased probability of binding to the target DNA sequence essentially eliminating the functionality of downstream domains and interfering with the expression of various genes under ZNF407 control during fetal brain development&#34;
-    explanation: &gt;
-      Structural analysis shows a linker-region variant reduces target-DNA
-      binding, eliminating downstream zinc-finger function and dysregulating
-      ZNF407-controlled genes during fetal brain development.
-  - reference: PMID:24907849
-    supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
-    snippet: &#34;ZNF407 is a transcription factor with an essential role in brain development&#34;
-    explanation: &gt;
-      Establishes ZNF407 as a transcription factor essential for brain
-      development, the process disrupted in this disorder.
+    explanation: &gt;-
+      Homology-based structural modeling predicts reduced target-DNA binding;
+      it does not measure binding, downstream expression, or neural effects.
+  - reference: PMID:38781157
+    supports: PARTIAL
+    evidence_source: IN_VITRO
+    snippet: &#34;ZFP407 was found to interact with the PPARγ/RXRα protein complex in the nucleus of adipocytes&#34;
+    explanation: &gt;-
+      The adipocyte experiment demonstrates cofactor activity in a non-neural
+      mouse system but does not test a human disease allele.
 - name: Impaired Neurodevelopment
   biological_scale: TISSUE
+  mechanism_confidence: HYPOTHETICAL
   description: &gt;
-    Loss of ZNF407-dependent transcriptional regulation during brain
-    development is proposed to impair neurodevelopment, manifesting as
+    Impaired ZNF407-dependent transcriptional regulation during brain
+    development is hypothesized to impair neurodevelopment, manifesting as
     intellectual disability, microcephaly, hypotonia and developmental delay.
   biological_processes:
   - preferred_term: nervous system development
@@ -6524,14 +8380,163 @@ pathophysiology:
       id: GO:0007399
       label: nervous system development
     modifier: ABNORMAL
+  downstream:
+  - target: Intellectual disability
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:32737394
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;All affected individuals from families have intellectual disability (ID), ranging from mild to profound&#34;
+      explanation: &gt;-
+        Intellectual disability is the universal clinical endpoint of the
+        hypothesized neurodevelopmental branch.
+  - target: Global developmental delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:32737394
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
+      explanation: &gt;-
+        Developmental delay is a reported clinical endpoint of the
+        neurodevelopmental branch.
+  - target: Motor delay
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:32737394
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;reduced motor and cognitive skills plus variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
+      explanation: &gt;-
+        Reduced motor skills directly support motor delay as an endpoint of the
+        neurodevelopmental branch.
+  - target: Delayed speech and language development
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:24907849
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;very limited speech at the age of 8 years&#34;
+      explanation: &gt;-
+        Severe speech delay is a reported endpoint in the founding family.
+  - target: Microcephaly
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:32737394
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
+      explanation: &gt;-
+        Microcephaly is a reported endpoint of the hypothesized
+        neurodevelopmental branch.
+  - target: Hypotonia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:32737394
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
+      explanation: &gt;-
+        Hypotonia is a reported endpoint of the hypothesized
+        neurodevelopmental branch.
   evidence:
   - reference: PMID:32737394
-    supports: SUPPORT
+    supports: PARTIAL
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All affected individuals from families have intellectual disability (ID), ranging from mild to profound, and reduced motor and cognitive skills&#34;
     explanation: &gt;
-      Impaired neurodevelopment manifests clinically as intellectual disability
-      and reduced motor and cognitive skills in all affected individuals.
+      The cohort documents the clinical neurodevelopmental endpoint but does
+      not establish the proposed upstream transcriptional mechanism.
+- name: Impaired Somatic Development
+  biological_scale: TISSUE
+  mechanism_confidence: HYPOTHETICAL
+  description: &gt;-
+    A parallel, untested developmental branch is hypothesized to link altered
+    ZNF407 transcriptional regulation to growth, craniofacial, ocular, and
+    musculoskeletal findings. The literature documents the phenotype cluster
+    but does not identify the relevant cell types, targets, or intermediates.
+  downstream:
+  - target: Short stature
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:32737394
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
+      explanation: &gt;-
+        Short stature is a reported endpoint of the hypothesized somatic
+        developmental branch.
+  - target: Facial dysmorphism
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:32737394
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;delayed pubertal onset and facial dysmorphism&#34;
+      explanation: &gt;-
+        Facial dysmorphism is a reported endpoint of the hypothesized somatic
+        developmental branch.
+  - target: Ocular anomalies
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:32737394
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;dysarthria, deafness, visual problems, enuresis, encopresis, behavioural anomalies&#34;
+      explanation: &gt;-
+        Ocular or visual abnormalities are a reported endpoint of the
+        hypothesized somatic developmental branch.
+  - target: Hip subluxation
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:24907849
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The skeletal survey\nshowed bilateral femoral joint subluxation, dysplastic left\nacetabulum, and mild kyphosis without scoliosis.&#34;
+      explanation: &gt;-
+        Hip subluxation is a reported musculoskeletal endpoint in the founding
+        family.
+  - target: Acetabular dysplasia
+    causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
+    hypothesis_groups:
+    - znf407_transcriptional_dysregulation
+    evidence:
+    - reference: PMID:24907849
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The skeletal survey\nshowed bilateral femoral joint subluxation, dysplastic left\nacetabulum, and mild kyphosis without scoliosis.&#34;
+      explanation: &gt;-
+        Acetabular dysplasia is a reported musculoskeletal endpoint in the
+        founding family.
+  evidence:
+  - reference: PMID:32737394
+    supports: PARTIAL
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism&#34;
+    explanation: &gt;-
+      The cohort documents a somatic-developmental phenotype cluster but not a
+      causal molecular pathway.
 phenotypes:
 - name: Intellectual disability
   phenotype_term:
@@ -6574,12 +8579,12 @@ phenotypes:
     snippet: &#34;variable features including short stature, microcephaly, developmental delay, hypotonia&#34;
     explanation: &gt;
       Microcephaly is reported among the variable features of the disorder.
-- name: Generalized hypotonia
+- name: Hypotonia
   phenotype_term:
     preferred_term: Hypotonia
     term:
-      id: HP:0001290
-      label: Generalized hypotonia
+      id: HP:0001252
+      label: Hypotonia
   evidence:
   - reference: PMID:32737394
     supports: SUPPORT
@@ -6601,6 +8606,90 @@ phenotypes:
     explanation: &gt;
       Developmental delay is reported among the variable features of the
       disorder.
+- name: Motor delay
+  phenotype_term:
+    preferred_term: Motor delay
+    term:
+      id: HP:0001270
+      label: Motor delay
+  evidence:
+  - reference: PMID:24907849
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;His development\nhas been delayed; he currently sits without support and\nattempts to pull himself to a stand.&#34;
+    explanation: &gt;-
+      At age five, the younger affected brother could sit independently and was
+      only beginning to pull to stand, directly documenting severe motor delay.
+- name: Gait disturbance
+  phenotype_term:
+    preferred_term: Awkward gait
+    term:
+      id: HP:0001288
+      label: Gait disturbance
+  evidence:
+  - reference: PMID:24907849
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;walked in-\ndependently, with an awkward gait and bent knees, be-\ntween the age of 4 and 5 years&#34;
+    explanation: &gt;-
+      The older affected brother began walking at four to five years with an
+      awkward, bent-knee gait.
+- name: Delayed speech and language development
+  phenotype_term:
+    preferred_term: Severe speech delay
+    term:
+      id: HP:0000750
+      label: Delayed speech and language development
+  evidence:
+  - reference: PMID:24907849
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;very limited speech at the age of 8 years&#34;
+    explanation: &gt;-
+      One founding-family child did not begin very limited speech until age
+      eight; the younger affected brother still only babbled infrequently.
+- name: Hyperreflexia
+  phenotype_term:
+    preferred_term: Exaggerated deep tendon reflexes
+    term:
+      id: HP:0001347
+      label: Hyperreflexia
+  evidence:
+  - reference: PMID:24907849
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;exaggerated deep tendon re-\nflexes&#34;
+    explanation: &gt;-
+      Exaggerated deep-tendon reflexes accompanied hypotonia in both affected
+      brothers in the founding family.
+- name: Hip subluxation
+  phenotype_term:
+    preferred_term: Bilateral femoral joint subluxation
+    term:
+      id: HP:0030043
+      label: Hip subluxation
+  evidence:
+  - reference: PMID:24907849
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The skeletal survey\nshowed bilateral femoral joint subluxation, dysplastic left\nacetabulum, and mild kyphosis without scoliosis.&#34;
+    explanation: &gt;-
+      Bilateral hip subluxation was present in the younger founding-family
+      child; the older brother had normal hips.
+- name: Acetabular dysplasia
+  phenotype_term:
+    preferred_term: Dysplastic left acetabulum
+    term:
+      id: HP:0008807
+      label: Acetabular dysplasia
+  evidence:
+  - reference: PMID:24907849
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The skeletal survey\nshowed bilateral femoral joint subluxation, dysplastic left\nacetabulum, and mild kyphosis without scoliosis.&#34;
+    explanation: &gt;-
+      Left acetabular dysplasia accompanied bilateral hip subluxation in the
+      younger founding-family child.
 - name: Ocular anomalies
   phenotype_term:
     preferred_term: Ocular anomalies / visual problems
@@ -6642,20 +8731,20 @@ phenotypes:
     snippet: &#34;dysarthria, deafness, visual problems, enuresis, encopresis, behavioural anomalies&#34;
     explanation: &gt;
       Dysarthria is reported among the variable features of the disorder.
-- name: Autistic behavior
+- name: Atypical behavior
   phenotype_term:
-    preferred_term: Behavioural anomalies (including autistic features)
+    preferred_term: Behavioural anomalies
     term:
-      id: HP:0000729
-      label: Autistic behavior
+      id: HP:0000708
+      label: Atypical behavior
   evidence:
-  - reference: PMID:23195952
+  - reference: PMID:32737394
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;mutations in the ZNF407 gene contribute to the pathogenesis of a group of ID patients with autism&#34;
-    explanation: &gt;
-      ZNF407 variants are associated with intellectual disability accompanied by
-      autism; behavioural anomalies are also reported in the syndromic cohort.
+    snippet: &#34;visual problems, enuresis, encopresis, behavioural anomalies, delayed pubertal onset and facial dysmorphism&#34;
+    explanation: &gt;-
+      Behavioural anomalies are reported in the biallelic syndromic cohort;
+      autism in earlier heterozygous cases is not generalized to this disorder.
 - name: Failure to thrive
   phenotype_term:
     preferred_term: Failure to thrive
@@ -6784,7 +8873,7 @@ phenotypes:
   - reference: PMID:24907849
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;midface hypoplasia, downturned mouth corners, thin upper vermillion border&#34;
+    snippet: &#34;midface hypoplasia, downturned mouth corners, thin upper vermillion border&#34;  # codespell:ignore-line
     explanation: &gt;
       Downturned corners of the mouth are a facial dysmorphic feature in the
       founding family.
@@ -6798,9 +8887,9 @@ phenotypes:
   - reference: PMID:24907849
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;downturned mouth corners, thin upper vermillion border and&#34;
+    snippet: &#34;downturned mouth corners, thin upper vermillion border and&#34;  # codespell:ignore-line
     explanation: &gt;
-      A thin upper vermillion border is a facial dysmorphic feature in the
+      A thin upper vermilion border is a facial dysmorphic feature in the
       founding family.
 - name: Protruding ears
   phenotype_term:
@@ -6959,6 +9048,121 @@ phenotypes:
     explanation: &gt;
       Delayed pubertal onset is reported among the variable features of the
       disorder.
+diagnosis:
+- name: Reported Molecular Testing for Biallelic ZNF407 Variants
+  description: &gt;-
+    Published families were identified through homozygosity mapping and/or
+    exome sequencing, followed by segregation assessment of biallelic ZNF407
+    variants in affected relatives where samples were available. These are the
+    reported study workflows, not a formally established testing requirement;
+    the literature does not establish a validated clinical scoring system or
+    disease-specific functional assay.
+  evidence:
+  - reference: PMID:32737394
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;by exome sequencing identified homozygous ZNF407 c.2814_2816dup (p.Val939dup) in four affected members&#34;
+    explanation: &gt;-
+      Exome sequencing identified the homozygous variant in the largest
+      published family.
+  - reference: PMID:24907849
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The family was studied by homozygosity mapping, candidate gene mutation screening and whole Exome Next Generation Sequencing&#34;
+    explanation: &gt;-
+      The founding family was solved through homozygosity mapping followed by
+      sequence analysis.
+discussions:
+- discussion_id: znf407_neural_mechanism_translation
+  prompt: &gt;-
+    Does impaired ZNF407 zinc-finger or cofactor activity alter a specific
+    transcriptional program in human neural development, and do the reported
+    biallelic variants act through the same mechanism?
+  kind: HUMAN_MODEL_MISMATCH
+  status: OPEN
+  attaches_to:
+  - pathophysiology#Predicted Impairment of ZNF407 Transcriptional-Regulatory Function
+  - pathophysiology#Impaired Neurodevelopment
+  - pathophysiology#Impaired Somatic Development
+  rationale: &gt;-
+    Disease-specific functional evidence is computational structural modeling
+    of one missense allele. The direct experimental evidence for ZFP407 cofactor
+    activity comes from mouse adipocytes and does not test neural cells, human
+    development, or patient alleles. The reported recessive alleles also span
+    missense and in-frame changes, so a uniform complete-loss-of-function model
+    cannot be assumed. Resolving the relevant partners, targets, cell types, and
+    allelic effects is necessary before the proposed transcriptional chain can
+    be treated as established.
+  evidence:
+  - reference: PMID:24907849
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &#34;The mutated gene product was studied by structural bioinformatics methods.&#34;
+    explanation: &gt;-
+      The founding disease-specific functional analysis was computational
+      rather than an assay in patient-derived neural cells.
+  - reference: PMID:38781157
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;ZFP407 was found to interact with the PPARγ/RXRα protein complex in the nucleus of adipocytes&#34;
+    explanation: &gt;-
+      The experimental cofactor evidence comes from adipocytes and therefore
+      directly supports the stated human-neural translation gap.
+  proposed_experiments:
+  - experiment_id: znf407_patient_neural_isogenic_series
+    name: Patient-derived neural isogenic allelic series
+    description: &gt;-
+      Compare patient-derived iPSC neural progenitors and neurons with
+      CRISPR-corrected controls, and engineer representative reported alleles in
+      a shared background. Measure ZNF407 abundance and localization, chromatin
+      occupancy, protein partners, transcriptomic effects, neuronal maturation,
+      and rescue after correction or wild-type complementation.
+    readouts:
+    - name: Allele-specific ZNF407 molecular and neurodevelopmental phenotypes with rescue
+      target: &#34;pathophysiology#Predicted Impairment of ZNF407 Transcriptional-Regulatory Function&#34;
+- discussion_id: znf407_natural_history_and_frequency
+  prompt: &gt;-
+    What are the unbiased phenotype frequencies, developmental trajectories,
+    adult outcomes, and genotype-phenotype relationships of biallelic ZNF407
+    disorder?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - phenotypes#Intellectual disability
+  - phenotypes#Short stature
+  - phenotypes#Microcephaly
+  rationale: &gt;-
+    The core literature contains only nine affected individuals from four
+    families. Most detailed physical findings come from two brothers, while the
+    later abstract reports a heterogeneous seven-person expansion. This is too
+    small and ascertainment-dependent to establish penetrance for variable
+    findings, long-term progression, adult prognosis, or robust allelic
+    correlations.
+  evidence:
+  - reference: PMID:24907849
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;both affected\nindividuals are males&#34;
+    explanation: &gt;-
+      The founding report contributes detailed observations from only two
+      affected individuals in one family.
+  - reference: PMID:32737394
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;five members of a consanguineous Pakistani family (Family I) plus two affected children from families of different ethnic origins&#34;
+    explanation: &gt;-
+      The later report adds seven affected individuals across three families,
+      leaving natural history and unbiased frequencies unresolved.
+  proposed_experiments:
+  - experiment_id: znf407_international_natural_history_registry
+    name: Genotype-first longitudinal natural-history cohort
+    description: &gt;-
+      Assemble an international, genotype-first cohort with harmonized HPO
+      phenotyping, developmental assessments, growth and pubertal trajectories,
+      ophthalmologic and audiologic evaluations, and longitudinal follow-up.
+    readouts:
+    - name: Age-stratified phenotype frequencies and developmental trajectories
+      target: &#34;phenotypes#Intellectual disability&#34;
 references:
 - reference: PMID:24907849
   title: &#34;Mutations in zinc finger 407 [ZNF407] cause a unique autosomal recessive cognitive impairment syndrome.&#34;
@@ -6966,6 +9170,8 @@ references:
   title: &#34;Biallelic ZNF407 mutations in a neurodevelopmental disorder with ID, short stature and variable microcephaly, hypotonia, ocular anomalies and facial dysmorphism.&#34;
 - reference: PMID:23195952
   title: &#34;Balanced translocation t(3;18)(p13;q22.3) and points mutation in the ZNF407 gene detected in patients with both moderate non-syndromic intellectual disability and autism.&#34;
+- reference: PMID:38781157
+  title: &#34;Molecular regulation of PPARγ/RXRα signaling by the novel cofactor ZFP407.&#34;
 </pre>
             </div>
         </div>
@@ -6981,7 +9187,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">3</span>
+                    <span class="card-count">4</span>
                 </div>
 
                 <div class="reference-entry">
@@ -7026,6 +9232,23 @@ references:
                             </div>
 
                             <div class="reference-title">Balanced translocation t(3;18)(p13;q22.3) and points mutation in the ZNF407 gene detected in patients with both moderate non-syndromic intellectual disability and autism.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/38781157" target="_blank">PMID:38781157</a>
+                            </div>
+
+                            <div class="reference-title">Molecular regulation of PPARγ/RXRα signaling by the novel cofactor ZFP407.</div>
 
                         </div>
 
@@ -7445,7 +9668,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ZNF407-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0859198", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ZNF407-Related_Neurodevelopmental_Disorder", "yamlRevision": "f2148149a697"};
+        const OS_CONFIG = {"diseaseName": "ZNF407-Related Neurodevelopmental Disorder", "mondoId": "MONDO:0859198", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ZNF407-Related_Neurodevelopmental_Disorder", "yamlRevision": "ec2dc9292f9d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -7864,5 +10087,73 @@ references:
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

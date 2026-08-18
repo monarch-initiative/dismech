@@ -21,6 +21,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import RESEARCH_REPORT_PATTERN, slugify
 from dismech.graph import (
+    animal_model_label,
     build_causal_graph,
     generate_mermaid,
     graph_to_json,
@@ -28,6 +29,8 @@ from dismech.graph import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.term_labels import label_restates_title
+from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.yaml_io import safe_load, safe_load_path
 
 # Module-local alias kept so existing call sites read unchanged. The
@@ -47,11 +50,21 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     templates never change mid-build. Per-page filters are (re)assigned by each
     caller before rendering, which is safe because rendering is sequential.
     """
-    return Environment(
+    env = Environment(
         loader=FileSystemLoader(template_dir_str),
         autoescape=select_autoescape(["html", "j2"]),
         auto_reload=False,
     )
+    # Ontology-pill hover text (issue #8310). A global rather than a per-page
+    # filter: it depends only on the descriptor and its slot, never on which
+    # page is being rendered.
+    env.globals["term_tooltip"] = term_tooltip
+    env.globals["sample_type_descriptor"] = sample_type_descriptor
+    # Whether a bound term's label restates the card title it sits beside
+    # (issue #8402). A global for the same reason: it depends only on the two
+    # strings, never on which page is being rendered.
+    env.globals["label_restates_title"] = label_restates_title
+    return env
 
 
 _HPO_CATEGORY_CACHE_PATH = Path("app/hpo_category_cache.json")
@@ -572,6 +585,7 @@ def _annotate_model_links(disorder: dict) -> None:
             continue
         item["_anchor_id"] = _make_anchor_id("pathophysiology", name)
         item["_experimental_model_links"] = []
+        item["_animal_model_links"] = []
         item["_computational_model_links"] = []
         patho_by_name[str(name)] = item
 
@@ -608,6 +622,50 @@ def _annotate_model_links(disorder: dict) -> None:
                         "description": link.get("description"),
                         "experimental_model_type": model.get("experimental_model_type"),
                         "namo_type": model.get("namo_type"),
+                    }
+                )
+
+            model["_modeled_mechanisms_resolved"] = resolved_links
+
+    # Animal models reach the pathograph through the same link object. Their
+    # `name` is optional, so fall back to a genotype/species label rather than
+    # dropping the model the way the name-keyed loops above do.
+    animal_models = disorder.get("animal_models") or []
+    if isinstance(animal_models, list):
+        for model in animal_models:
+            if not isinstance(model, dict):
+                continue
+            model_name = animal_model_label(model)
+            if not model_name:
+                continue
+
+            model["_display_name"] = model_name
+            model["_anchor_id"] = _make_anchor_id("animal-model", model_name)
+            resolved_links = []
+
+            for link in model.get("modeled_mechanisms") or []:
+                if not isinstance(link, dict):
+                    continue
+                target = link.get("target")
+                if not target:
+                    continue
+
+                resolved_link = dict(link)
+                target_item = patho_by_name.get(str(target))
+                if target_item is None:
+                    continue
+
+                resolved_link["_target_anchor"] = target_item["_anchor_id"]
+                resolved_links.append(resolved_link)
+                target_item["_animal_model_links"].append(
+                    {
+                        "model_name": model_name,
+                        "model_anchor": model["_anchor_id"],
+                        "description": link.get("description"),
+                        "relationship": link.get("relationship"),
+                        "fidelity": link.get("fidelity"),
+                        "species": model.get("species"),
+                        "genotype": model.get("genotype"),
                     }
                 )
 
@@ -2047,6 +2105,7 @@ def render_disorder(
     html = _strip_line_end_whitespace(
         template.render(
             disorder=disorder,
+            classification_spec=_classification_display_spec(),
             yaml_content=yaml_content,
             source_file=source_file,
             mermaid_code=mermaid_code,
@@ -2552,6 +2611,11 @@ def _curie_url(curie: str | None) -> str | None:
         return f"https://pubmed.ncbi.nlm.nih.gov/{local}/"
     if upper == "DOI":
         return f"https://doi.org/{local}"
+    if upper == "ICTRP":
+        # Bioregistry has no ICTRP prefix, and the trial identifier keeps its
+        # own registry's punctuation (CTRI/2021/05/033585), so link the portal
+        # record directly.
+        return f"https://trialsearch.who.int/Trial2.aspx?TrialID={local}"
     if upper in _OBO_CURIE_PREFIXES:
         return f"http://purl.obolibrary.org/obo/{_OBO_CURIE_PREFIXES[upper]}_{local}"
     return f"https://bioregistry.io/{prefix}:{local}"
@@ -3364,13 +3428,71 @@ def _exact_mondo_descendant_terms(
     return descendant_terms, exact_scope_ids, shadowed_ids, None
 
 
+AUDIT_ORDER = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+
+
+def _coverage_conditions_cell(
+    names: list[str],
+    audit: dict[str, list[dict]],
+    *,
+    is_listed: bool,
+) -> dict:
+    """Aggregate a row's membership-criteria verdict into a single cell.
+
+    ``evaluate_grouping`` only evaluates NECESSARY / NECESSARY_AND_SUFFICIENT
+    blocks, so a NOT_SATISFIED verdict for an entry this grouping *lists* as a
+    member is a contradiction between two curated assertions: "D is a member of
+    G" and "every member of G satisfies C". The cell reports that contradiction
+    without interpreting it — the resolution may be to annotate the entry, to
+    loosen the criteria, or to drop the member, and that is a curator's call.
+    """
+    entries = [
+        (name, block) for name in names for block in audit.get(name, []) if block
+    ]
+    if not entries:
+        return {
+            "result": "",
+            "label": "not evaluated",
+            "contradiction": False,
+            "title": "No membership criteria were evaluated for this row.",
+        }
+
+    worst = min(entries, key=lambda item: AUDIT_ORDER.get(item[1].get("result"), 1))[1]
+    result = worst.get("result") or "UNKNOWN"
+    contradiction = is_listed and result == "NOT_SATISFIED"
+
+    details = []
+    for name, block in entries:
+        verdict = (block.get("result") or "UNKNOWN").replace("_", " ").lower()
+        semantics = (block.get("semantics") or "").replace("_", " ").lower()
+        line = f"{name}: {verdict}"
+        if semantics:
+            line += f" ({semantics})"
+        unmet = block.get("unmet") or []
+        if unmet:
+            line += " — unmet: " + "; ".join(unmet)
+        details.append(line)
+    if contradiction:
+        details.append(
+            "Contradiction: listed as a member but a necessary criterion is "
+            "not satisfied."
+        )
+
+    return {
+        "result": result,
+        "label": "contradiction" if contradiction else result.replace("_", " ").lower(),
+        "contradiction": contradiction,
+        "title": " | ".join(details),
+    }
+
+
 def _coverage_criteria_cells(
     names: list[str],
     criteria_columns: list[dict],
     audit: dict[str, list[dict]],
 ) -> list[dict]:
     """Build criteria cells for one coverage row across one or more entries."""
-    order = {"NOT_SATISFIED": 0, "UNKNOWN": 1, "SATISFIED": 2}
+    order = AUDIT_ORDER
     by_key: dict[str, list[dict]] = defaultdict(list)
     for name in names:
         for audit_entry in audit.get(name, []):
@@ -3516,6 +3638,7 @@ def _build_grouping_coverage_rows(
                 "mondo": None,
                 "dismech_entries": [],
                 "criteria_cells": [],
+                "conditions_cell": {},
                 "status": "",
                 "status_label": "",
                 "is_leaf_gap": False,
@@ -3598,6 +3721,13 @@ def _build_grouping_coverage_rows(
     for row in rows.values():
         names = [entry["name"] for entry in row["dismech_entries"]]
         row["criteria_cells"] = _coverage_criteria_cells(names, criteria_columns, audit)
+        row["conditions_cell"] = _coverage_conditions_cell(
+            names,
+            audit,
+            is_listed=any(
+                entry["member_state"] == "listed" for entry in row["dismech_entries"]
+            ),
+        )
         row["mondo_scope"] = _mondo_scope_state(row, exact_scope_ids)
         status, status_label = _coverage_status(row, exact_scope_ids)
         row["status"] = status
@@ -3648,6 +3778,9 @@ def _build_grouping_coverage_rows(
         },
         "counts": {
             "rows": len(sorted_rows),
+            "contradictions": sum(
+                1 for r in sorted_rows if r["conditions_cell"].get("contradiction")
+            ),
             "mapped": sum(1 for r in sorted_rows if r["status"] == "mapped"),
             "mondo_gap": sum(1 for r in sorted_rows if r["status"] == "mondo_gap"),
             "not_listed": sum(1 for r in sorted_rows if r["status"] == "not_listed"),
@@ -3954,7 +4087,10 @@ def render_all_groupings(
 _PROJECT_ENTITY_KINDS = ("diseases", "modules", "groupings", "drugs", "phenotypes")
 
 _NIH_TOPICS_ENUM_PATH = (
-    Path(__file__).parent / "schema" / "classifications" / "nih_research_priorities.yaml"
+    Path(__file__).parent
+    / "schema"
+    / "classifications"
+    / "nih_research_priorities.yaml"
 )
 
 
@@ -3970,12 +4106,9 @@ def _nih_topic_display() -> dict[str, dict]:
         return {}
     with _NIH_TOPICS_ENUM_PATH.open(encoding="utf-8") as fh:
         doc = safe_load(fh) or {}
-    pvs = (
-        (doc.get("enums") or {})
-        .get("NIHResearchPriorityEnum", {})
-        .get("permissible_values")
-        or {}
-    )
+    pvs = (doc.get("enums") or {}).get("NIHResearchPriorityEnum", {}).get(
+        "permissible_values"
+    ) or {}
     out: dict[str, dict] = {}
     for key, meta in pvs.items():
         desc = (meta or {}).get("description", "") if isinstance(meta, dict) else ""
@@ -4528,6 +4661,75 @@ def _load_classification_enums() -> dict:
     return enums
 
 
+def _classification_display_spec(schema: dict | None = None) -> list[dict]:
+    """Ordered display spec for the disorder page's Classifications card.
+
+    Derived from ``DiseaseClassifications`` in the schema rather than hardcoded
+    in the template, so a newly added classification slot renders without a
+    template edit — the previous hardcoded list had silently drifted, leaving
+    ICIMD, ISDS and NIH assignments curated but invisible.
+
+    Labels come from each slot's LinkML ``title``. Slots that declare a
+    ``slot_group`` are nested under that group, which is the one job LinkML
+    slot groups are actually for ("slot groups do not change the semantics of a
+    model but are a useful way of visually grouping related slots").
+    """
+    if schema is None:
+        # Called once per rendered page; _load_schema re-parses ~270KB of YAML
+        # (~61 ms), which is ~90 s over a full build, so memoize the derived
+        # spec rather than the schema. Treat the result as read-only.
+        return _default_classification_display_spec()
+    slots = schema.get("slots") or {}
+    classifications = (schema.get("classes") or {}).get("DiseaseClassifications") or {}
+
+    def label_for(slot_name: str) -> str:
+        slot_def = slots.get(slot_name) or {}
+        return slot_def.get("title") or slot_name.replace("_", " ").title()
+
+    spec: list[dict] = []
+    group_index: dict[str, dict] = {}
+    for slot_name in classifications.get("slots") or []:
+        entry = {"slot": slot_name, "label": label_for(slot_name)}
+        group_name = (slots.get(slot_name) or {}).get("slot_group")
+        if not group_name:
+            spec.append({"label": entry["label"], "members": [entry]})
+            continue
+        group = group_index.get(group_name)
+        if group is None:
+            group = {"label": label_for(group_name), "members": []}
+            group_index[group_name] = group
+            spec.append(group)
+        group["members"].append(entry)
+    return spec
+
+
+@cache
+def _default_classification_display_spec() -> list[dict]:
+    """Memoized spec for the committed schema. Read-only; do not mutate."""
+    return _classification_display_spec(_load_schema())
+
+
+def _collect_exposure_classifications(disorder: dict) -> dict[str, list]:
+    """Flatten ``environmental[].exposure_classifications`` into one dict.
+
+    Exposure/agent classifications (IARC group, GHS class, route, …) hang off
+    each ``environmental`` entry rather than off the disease, so they need
+    gathering before they can go through the same slot-to-enum lookup as the
+    disease-level ``classifications`` block. Several environmental entries on
+    one disorder may carry the same slot, so values accumulate into a list.
+    """
+    collected: dict[str, list] = {}
+    for entry in disorder.get("environmental") or []:
+        if not isinstance(entry, dict):
+            continue
+        for slot_name, value in (entry.get("exposure_classifications") or {}).items():
+            if value is None:
+                continue
+            items = value if isinstance(value, list) else [value]
+            collected.setdefault(slot_name, []).extend(items)
+    return collected
+
+
 def _assignment_class_to_enum(schema: dict) -> dict[str, str]:
     mapping: dict[str, str] = {}
     classes = schema.get("classes") or {}
@@ -4655,6 +4857,7 @@ def render_classification_pages(
                 "name": name,
                 "slug": slugify(name),
                 "classifications": disorder.get("classifications") or {},
+                "exposure_classifications": _collect_exposure_classifications(disorder),
             }
         )
 
@@ -4662,7 +4865,10 @@ def render_classification_pages(
         name: {} for name in enums
     }
     for disorder in disorders:
-        classifications = disorder.get("classifications") or {}
+        classifications = {
+            **(disorder.get("classifications") or {}),
+            **(disorder.get("exposure_classifications") or {}),
+        }
         for slot_name, entry in classifications.items():
             if entry is None:
                 continue

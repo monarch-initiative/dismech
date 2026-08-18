@@ -537,6 +537,72 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag,
+        .phenotype-id,
+        .subtype-gene-tag,
+        .model-detail-value {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        /* A pill made focusable purely to reach its tooltip still needs a
+           visible focus ring. */
+        .tag:focus-visible,
+        .phenotype-id:focus-visible,
+        .subtype-gene-tag:focus-visible,
+        .model-detail-value:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip),
+        .phenotype-id:has(> .pill-tip),
+        .subtype-gene-tag:has(> .pill-tip),
+        .model-detail-value:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -1518,6 +1584,21 @@
         .phenotype-category {
             font-size: 0.75rem;
             color: #4ade80;
+        }
+
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
         }
 
         .phenotype-id a:not(.curie-chip) {
@@ -2639,6 +2720,7 @@
         treatment: "rect",
         biochemical: "circle",
         experimental_model: "roundrect",
+        animal_model: "roundrect",
         computational_model: "roundrect",
         orphan: "roundrect",
         unknown: "roundrect"
@@ -2651,6 +2733,7 @@
         treatment: "Medical Actions",
         biochemical: "Biochemical",
         experimental_model: "Experimental Models / Non-animal Systems",
+        animal_model: "Animal Models",
         computational_model: "Computational Models",
         orphan: "Uncategorized"
     };
@@ -2662,6 +2745,7 @@
         treatment: "#f9a8d4",
         biochemical: "#a5b4fc",
         experimental_model: "#14b8a6",
+        animal_model: "#8b5cf6",
         computational_model: "#65a30d",
         orphan: "#dc2626"
     };
@@ -2673,6 +2757,7 @@
         treatment: "💊",
         biochemical: "⚗",
         experimental_model: "🧫",
+        animal_model: "🐁",
         computational_model: "🧮",
         orphan: "?"
     };
@@ -2718,8 +2803,27 @@
         return edgeData && edgeData.predicate === "protects_against";
     }
 
+    /* Model-link edge styling, keyed by predicate so it stays in step with
+       EDGE_STYLE_BY_PREDICATE in cx2_export.py. Claims that are not causal --
+       a falsified model, a pure readout, a rescue -- must not end in a causal
+       arrowhead, for the same reason a protective exposure does not. */
+    var MODEL_EDGE_STYLES = {
+        models:           {stroke: "#0f766e", dash: "none", marker: "pg-arrow"},
+        partially_models: {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow"},
+        perturbs:         {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow"},
+        measures:         {stroke: "#0f766e", dash: "2 3",  marker: "pg-arrow-model-readout"},
+        rescues:          {stroke: "#0f766e", dash: "5 3",  marker: "pg-arrow-model-tee"},
+        fails_to_model:   {stroke: "#b91c1c", dash: "2 3",  marker: "pg-arrow-failed-model"}
+    };
+
+    function modelEdgeStyle(edgeData) {
+        return (edgeData && MODEL_EDGE_STYLES[edgeData.predicate]) || null;
+    }
+
     function edgeStroke(edgeData) {
         if (edgeData.is_orphan) return "#dc2626";
+        var modelStyle = modelEdgeStyle(edgeData);
+        if (modelStyle) return modelStyle.stroke;
         if (isReadoutEdge(edgeData)) return "#4f46e5";
         if (isProtectiveEdge(edgeData)) return "#059669";
         if (hasHypothesisGroups(edgeData)) return "#7c3aed";
@@ -2728,6 +2832,8 @@
 
     function edgeDashArray(edgeData) {
         if (edgeData.is_orphan) return "6 4";
+        var modelDash = modelEdgeStyle(edgeData);
+        if (modelDash) return modelDash.dash;
         if (isReadoutEdge(edgeData)) return "3 4";
         if (isProtectiveEdge(edgeData)) return "5 3";
         return "none";
@@ -2735,6 +2841,8 @@
 
     function edgeMarker(edgeData) {
         if (edgeData.is_orphan) return "url(#pg-arrow-orphan)";
+        var modelMarker = modelEdgeStyle(edgeData);
+        if (modelMarker) return "url(#" + modelMarker.marker + ")";
         if (isReadoutEdge(edgeData)) return "url(#pg-arrow-readout)";
         if (isProtectiveEdge(edgeData)) return "url(#pg-arrow-protective)";
         if (hasHypothesisGroups(edgeData)) return "url(#pg-arrow-hypothesis)";
@@ -2884,6 +2992,36 @@
             .append("path")
             .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
             .attr("fill", "#059669");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-failed-model")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#b91c1c");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-tee")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 10).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M8,0 L10,0 L10,6 L8,6 Z")
+            .attr("fill", "#0f766e");
+
+        svg.select("defs").append("marker")
+            .attr("id", "pg-arrow-model-readout")
+            .attr("viewBox", "0 0 10 6")
+            .attr("refX", 9).attr("refY", 3)
+            .attr("markerWidth", 8).attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("circle")
+            .attr("cx", 6).attr("cy", 3).attr("r", 2.5)
+            .attr("fill", "#0f766e");
 
         svg.select("defs").append("marker")
             .attr("id", "pg-arrow-hypothesis")
@@ -3213,6 +3351,30 @@
                 html.push(modelHtml);
             }
 
+            /* Linked animal models */
+            if (meta.animal_models && meta.animal_models.length) {
+                var animalHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
+                animalHtml += '<div style="font-size:11px; font-weight:600; color:#7c3aed; margin-bottom:4px;">Animal models</div>';
+                meta.animal_models.forEach(function(model) {
+                    animalHtml += '<div style="margin:4px 0; font-size:11px;">';
+                    animalHtml += '<span style="font-weight:600; color:#0f172a;">' + escapeHtml('🐁 ' + model.name) + '</span>';
+                    if (model.relationship) {
+                        animalHtml += ' <span style="color:#7c3aed; font-size:10px; text-transform:uppercase; letter-spacing:0.03em;">'
+                            + escapeHtml(humanizeEnum(model.relationship)) + '</span>';
+                    }
+                    if (model.species) {
+                        animalHtml += ' <span style="color:#6b7280; font-style:italic;">' + escapeHtml(model.species) + '</span>';
+                    }
+                    if (model.description) {
+                        animalHtml += '<div style="color:#6b7280; margin-top:2px; line-height:1.4;">'
+                            + escapeHtml(model.description) + '</div>';
+                    }
+                    animalHtml += '</div>';
+                });
+                animalHtml += '</div>';
+                html.push(animalHtml);
+            }
+
             if (meta.computational_models && meta.computational_models.length) {
                 var compHtml = '<div style="margin-top:8px; padding-top:6px; border-top:1px solid #e5e7eb;">';
                 compHtml += '<div style="font-size:11px; font-weight:600; color:#4d7c0f; margin-bottom:4px;">Computational models</div>';
@@ -3524,6 +3686,10 @@
 
 
 
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3671,6 +3837,8 @@
         </div>
 
         <!-- Stats bar -->
+
+
 
 
 
@@ -4855,15 +5023,22 @@
 
 
 
+
+
+
+
     <span class="tag tag-gene">
 
         RARB
 
 
-    <a href="https://bioregistry.io/hgnc:9865" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9865">hgnc:9865</a>
+    <a href="https://bioregistry.io/hgnc:9865" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9865</a>
 
 
 
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RARB (hgnc:9865). hgnc:9865 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4892,16 +5067,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         nuclear receptor activity
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0004879" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0004879">GO:0004879</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0004879" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0004879</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal nuclear receptor activity (GO:0004879). GO:0004879 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4921,16 +5101,21 @@
 
 
 
+
+
                     <span class="tag tag-bio">
                         retinoic acid binding
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001972" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001972">GO:0001972</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001972" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0001972</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves abnormal retinoic acid binding (GO:0001972). GO:0001972 is a molecular function from the Gene Ontology.</span>
                     </span>
 
 
@@ -4951,6 +5136,7 @@
 
 
                 </div>
+
 
 
 
@@ -5096,16 +5282,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         migratory neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000333">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5132,16 +5323,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         retinoic acid receptor signaling pathway
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0048384">GO:0048384</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048384" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0048384</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal retinoic acid receptor signaling pathway (GO:0048384). GO:0048384 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5162,6 +5358,7 @@
 
 
                 </div>
+
 
 
 
@@ -5308,16 +5505,21 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-cell">
                         migratory neural crest cell
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000333">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000333</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
 
 
@@ -5344,16 +5546,89 @@
 
                 <div class="item-meta">
 
+
+
                     <span class="tag tag-bio">
                         eye development
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0001654">GO:0001654</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001654" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0001654</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal eye development (GO:0001654). GO:0001654 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        eye morphogenesis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048592" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0048592</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal eye morphogenesis (GO:0048592). GO:0048592 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        camera-type eye morphogenesis
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0048593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0048593</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal camera-type eye morphogenesis (GO:0048593). GO:0048593 is a biological process from the Gene Ontology.</span>
                     </span>
 
 
@@ -5376,6 +5651,28 @@
                 </div>
 
 
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        eye
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0000970</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in eye (UBERON:0000970). UBERON:0000970 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
 
 
 
@@ -5507,6 +5804,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5563,6 +5861,7 @@
                 <div class="item-name">Abnormal Diaphragm Development</div>
 
                 <div class="item-desc">Disrupted embryonic retinoid signaling perturbs diaphragm formation and produces congenital diaphragmatic hernia or eventration.</div>
+
 
 
 
@@ -5673,6 +5972,7 @@
 
 
 
+
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
@@ -5751,6 +6051,7 @@
                 <div class="item-name">Abnormal Brain Development and Function</div>
 
                 <div class="item-desc">Precise regulation of retinoic acid signaling is required for human brain development and function. RARB disruption produces severe global developmental delay, intellectual disability, and a progressive motor disorder with spasticity, dystonia, and sometimes chorea, together with Chiari type I malformation in the majority of survivors.</div>
+
 
 
 
@@ -5904,7 +6205,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Brain Development and Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Precise regulation of retinoic acid signaling is required for human brain development and function. RARB disruption produces severe global developmental delay, intellectual disability, and a progressive motor disorder with spasticity, dystonia, and sometimes chorea, together with Chiari type I malformation in the majority of survivors.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Abnormal Cardiac Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted embryonic retinoid signaling perturbs cardiac morphogenesis and contributes to the congenital heart malformations of the PDAC pattern.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Abnormal Diaphragm Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted embryonic retinoid signaling perturbs diaphragm formation and produces congenital diaphragmatic hernia or eventration.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Abnormal Eye Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinoic acid signaling coordinates morphogenic movements, cell growth, and differentiation during eye development; disrupted RARB-mediated transcription impairs ocular morphogenesis and produces microphthalmia, anophthalmia, coloboma, and anterior segment defects. Conditional receptor inactivation in mice places the critical site of retinoic acid action during eye morphogenesis in neural crest-derived periocular mesenchyme.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"eye development\"]}}, {\"id\": \"Abnormal Lung Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted embryonic retinoid signaling perturbs pulmonary development and underlies the pulmonary hypoplasia or agenesis of the PDAC malformation pattern.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Abnormal heart morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart disease affects roughly two-fifths of reported individuals with dominant RARB variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anophthalmia is part of the ocular spectrum of RARB-related disease, reflecting the more severe end of disrupted ocular morphogenesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Congenital diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital diaphragmatic hernia or eventration affects roughly half of reported individuals with dominant RARB variants and is a defining feature of the PDAC pattern.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000776\"}}, {\"id\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunctional RARB perturbs transcription of retinoic acid target genes. Dominant gain-of-function variants increase ligand-induced transcriptional activity two- to threefold over the wild-type receptor, loss-of-function alleles eliminate target gene activation, and overexpression of RARB elevates downstream effectors such as FOXC1. In the developing eye, the homeodomain transcription factor Pitx2 is a key retinoic-acid-responsive target gene in neural crest cells.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"retinoic acid receptor signaling pathway\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive dystonia, sometimes generalized, is a prominent feature of the RARB-related movement disorder and can occur with or without chorea.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001332\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All individuals who survive the neonatal period display severe global developmental delay.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral microphthalmia is the characteristic ocular feature, reported in all reviewed individuals with dominant RARB variants; extreme microphthalmia and anterior segment dysgenesis are common.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Pulmonary hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypoplasia or agenesis is a hallmark extraocular feature of the PDAC pattern and a major driver of perinatal lethality in the recessive form.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002089\"}}, {\"id\": \"RARB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"RARB\"], \"gene_terms\": [{\"label\": \"RARB\", \"id\": \"hgnc:9865\"}], \"association\": \"Causal pathogenic variant (dominant de novo or biallelic)\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"RARB Receptor Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in RARB alter the retinoic acid receptor beta protein, a ligand-activated nuclear receptor. De novo dominant missense variants in and around the ligand-binding domain increase ligand-induced transcriptional activity (gain-of-function), biallelic nonsense and frameshift variants abolish receptor activity (recessive loss-of-function), and some heterozygous loss-of-function variants disrupt wild-type receptor function through a dominant-negative effect. Missense variants in the highly conserved DNA-binding domain form a further loss-of-function class, reducing steady-state protein levels and impairing nuclear localization of the receptor.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"nuclear receptor activity\", \"retinoic acid binding\"], \"genes\": [\"RARB\"], \"gene_terms\": [{\"label\": \"RARB\", \"id\": \"hgnc:9865\"}]}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity is part of the progressive motor impairment of RARB-related disease, reported in about 70% of reviewed cases.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}], \"edges\": [{\"source\": \"RARB Receptor Dysfunction\", \"target\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both excessive and absent receptor activity dysregulate retinoic acid target gene transcription during development.\", \"hypothesis_groups\": [\"ra_signaling_gain_of_function\", \"ra_signaling_loss_of_function\", \"dominant_negative_disruption\", \"ra_dosage_window_phenocopy\"]}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Eye Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts ocular morphogenesis.\"}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Lung Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts pulmonary development.\"}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Diaphragm Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts diaphragm formation.\"}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Cardiac Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts cardiac morphogenesis.\"}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Brain Development and Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts brain development and later motor function.\"}, {\"source\": \"Abnormal Eye Development\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted ocular morphogenesis produces abnormally small eyes.\"}, {\"source\": \"Abnormal Eye Development\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe disruption of ocular morphogenesis can produce absent globes.\"}, {\"source\": \"Abnormal Lung Development\", \"target\": \"Pulmonary hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal pulmonary development produces lung underdevelopment.\"}, {\"source\": \"Abnormal Diaphragm Development\", \"target\": \"Congenital diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal diaphragm formation produces hernia or eventration.\"}, {\"source\": \"Abnormal Cardiac Development\", \"target\": \"Abnormal heart morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cardiac morphogenesis produces congenital heart defects.\"}, {\"source\": \"Abnormal Brain Development and Function\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid signaling in the brain produces progressive spasticity, dystonia, and chorea.\"}, {\"source\": \"Abnormal Brain Development and Function\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid signaling in the brain produces progressive spasticity, dystonia, and chorea.\"}, {\"source\": \"Abnormal Brain Development and Function\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal brain development produces severe global developmental delay and intellectual disability.\"}, {\"source\": \"RARB\", \"target\": \"RARB Receptor Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Brain Development and Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Precise regulation of retinoic acid signaling is required for human brain development and function. RARB disruption produces severe global developmental delay, intellectual disability, and a progressive motor disorder with spasticity, dystonia, and sometimes chorea, together with Chiari type I malformation in the majority of survivors.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Abnormal Cardiac Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted embryonic retinoid signaling perturbs cardiac morphogenesis and contributes to the congenital heart malformations of the PDAC pattern.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Abnormal Diaphragm Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted embryonic retinoid signaling perturbs diaphragm formation and produces congenital diaphragmatic hernia or eventration.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Abnormal Eye Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinoic acid signaling coordinates morphogenic movements, cell growth, and differentiation during eye development; disrupted RARB-mediated transcription impairs ocular morphogenesis and produces microphthalmia, anophthalmia, coloboma, and anterior segment defects. Conditional receptor inactivation in mice places the critical site of retinoic acid action during eye morphogenesis in neural crest-derived periocular mesenchyme.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"eye development\", \"eye morphogenesis\", \"camera-type eye morphogenesis\"], \"locations\": [\"eye\"]}}, {\"id\": \"Abnormal Lung Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted embryonic retinoid signaling perturbs pulmonary development and underlies the pulmonary hypoplasia or agenesis of the PDAC malformation pattern.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Abnormal heart morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart disease affects roughly two-fifths of reported individuals with dominant RARB variants.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anophthalmia is part of the ocular spectrum of RARB-related disease, reflecting the more severe end of disrupted ocular morphogenesis.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Congenital diaphragmatic hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital diaphragmatic hernia or eventration affects roughly half of reported individuals with dominant RARB variants and is a defining feature of the PDAC pattern.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000776\"}}, {\"id\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dysfunctional RARB perturbs transcription of retinoic acid target genes. Dominant gain-of-function variants increase ligand-induced transcriptional activity two- to threefold over the wild-type receptor, loss-of-function alleles eliminate target gene activation, and overexpression of RARB elevates downstream effectors such as FOXC1. In the developing eye, the homeodomain transcription factor Pitx2 is a key retinoic-acid-responsive target gene in neural crest cells.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"retinoic acid receptor signaling pathway\"]}}, {\"id\": \"Dystonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive dystonia, sometimes generalized, is a prominent feature of the RARB-related movement disorder and can occur with or without chorea.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001332\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"All individuals who survive the neonatal period display severe global developmental delay.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001263\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral microphthalmia is the characteristic ocular feature, reported in all reviewed individuals with dominant RARB variants; extreme microphthalmia and anterior segment dysgenesis are common.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Pulmonary hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary hypoplasia or agenesis is a hallmark extraocular feature of the PDAC pattern and a major driver of perinatal lethality in the recessive form.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002089\"}}, {\"id\": \"RARB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"RARB\"], \"gene_terms\": [{\"label\": \"RARB\", \"id\": \"hgnc:9865\"}], \"association\": \"Causal pathogenic variant (dominant de novo or biallelic)\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"RARB Receptor Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in RARB alter the retinoic acid receptor beta protein, a ligand-activated nuclear receptor. De novo dominant missense variants in and around the ligand-binding domain increase ligand-induced transcriptional activity (gain-of-function), biallelic nonsense and frameshift variants abolish receptor activity (recessive loss-of-function), and some heterozygous loss-of-function variants disrupt wild-type receptor function through a dominant-negative effect. Missense variants in the highly conserved DNA-binding domain form a further loss-of-function class, reducing steady-state protein levels and impairing nuclear localization of the receptor.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"nuclear receptor activity\", \"retinoic acid binding\"], \"genes\": [\"RARB\"], \"gene_terms\": [{\"label\": \"RARB\", \"id\": \"hgnc:9865\"}]}}, {\"id\": \"Spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spasticity is part of the progressive motor impairment of RARB-related disease, reported in about 70% of reviewed cases.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001257\"}}], \"edges\": [{\"source\": \"RARB Receptor Dysfunction\", \"target\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both excessive and absent receptor activity dysregulate retinoic acid target gene transcription during development.\", \"hypothesis_groups\": [\"ra_signaling_gain_of_function\", \"ra_signaling_loss_of_function\", \"dominant_negative_disruption\", \"ra_dosage_window_phenocopy\"]}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Eye Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts ocular morphogenesis.\"}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Lung Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts pulmonary development.\"}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Diaphragm Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts diaphragm formation.\"}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Cardiac Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts cardiac morphogenesis.\"}, {\"source\": \"Dysregulated Retinoic Acid Target Gene Transcription\", \"target\": \"Abnormal Brain Development and Function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid transcription disrupts brain development and later motor function.\"}, {\"source\": \"Abnormal Eye Development\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted ocular morphogenesis produces abnormally small eyes.\"}, {\"source\": \"Abnormal Eye Development\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe disruption of ocular morphogenesis can produce absent globes.\"}, {\"source\": \"Abnormal Lung Development\", \"target\": \"Pulmonary hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal pulmonary development produces lung underdevelopment.\"}, {\"source\": \"Abnormal Diaphragm Development\", \"target\": \"Congenital diaphragmatic hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal diaphragm formation produces hernia or eventration.\"}, {\"source\": \"Abnormal Cardiac Development\", \"target\": \"Abnormal heart morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal cardiac morphogenesis produces congenital heart defects.\"}, {\"source\": \"Abnormal Brain Development and Function\", \"target\": \"Spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid signaling in the brain produces progressive spasticity, dystonia, and chorea.\"}, {\"source\": \"Abnormal Brain Development and Function\", \"target\": \"Dystonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dysregulated retinoid signaling in the brain produces progressive spasticity, dystonia, and chorea.\"}, {\"source\": \"Abnormal Brain Development and Function\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal brain development produces severe global developmental delay and intellectual disability.\"}, {\"source\": \"RARB\", \"target\": \"RARB Receptor Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5955,14 +6256,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Abnormal heart morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001627">HP:0001627</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001627</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6025,14 +6333,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Feeding difficulties
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0011968">HP:0011968</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011968</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6095,14 +6410,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Microphthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000568">HP:0000568</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000568</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6154,14 +6476,21 @@
                         Coloboma
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Coloboma
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000589">HP:0000589</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000589</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6235,14 +6564,21 @@
                         Corneal opacity
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Corneal opacity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007957">HP:0007957</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0007957</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6294,14 +6630,21 @@
                         Peters anomaly
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Peters anomaly
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000659">HP:0000659</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000659</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6353,14 +6696,21 @@
                         Aniridia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Aniridia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000526" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000526">HP:0000526</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000526" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000526</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aniridia (HP:0000526). HP:0000526 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6423,14 +6773,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Spasticity
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001257">HP:0001257</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001257" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001257</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6504,14 +6861,21 @@
                         Hypotonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Hypotonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001252">HP:0001252</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001252</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6574,14 +6938,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Global developmental delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001263">HP:0001263</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6635,14 +7006,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Intellectual disability
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001249">HP:0001249</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001249</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6696,14 +7074,21 @@
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Motor delay
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001270">HP:0001270</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001270</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6755,14 +7140,23 @@
                         Language delay
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Delayed speech and language development
+
+                        <span class="phenotype-term-label">Delayed speech and language development</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000750">HP:0000750</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000750</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Language delay, annotated with Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6814,14 +7208,21 @@
                         Dystonia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Dystonia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001332">HP:0001332</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001332</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6895,14 +7296,21 @@
                         Chorea
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chorea
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002072">HP:0002072</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002072</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -6954,14 +7362,21 @@
                         Seizure
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Seizure
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0001250">HP:0001250</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001250</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7022,14 +7437,21 @@
                         Pulmonary hypoplasia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Pulmonary hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0002089">HP:0002089</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002089</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7090,14 +7512,21 @@
                         Anophthalmia
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Anophthalmia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000528">HP:0000528</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000528</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7151,14 +7580,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Congenital diaphragmatic hernia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000776">HP:0000776</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000776</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is congenital diaphragmatic hernia (HP:0000776). HP:0000776 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7212,14 +7648,21 @@
                         <span class="phenotype-freq">FREQUENT</span>
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Chiari type I malformation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0007099">HP:0007099</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0007099</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chiari type I malformation (HP:0007099). HP:0007099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7293,14 +7736,21 @@
                         Thin corpus callosum
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Thin corpus callosum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0033725">HP:0033725</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0033725</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7352,14 +7802,21 @@
                         Unilateral renal agenesis
 
 
+
+
+
+
                     <span class="phenotype-id">
-                        Unilateral renal agenesis
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000122" target="_blank" class="curie-chip curie-chip-hp" title="Open HP:0000122">HP:0000122</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000122</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Unilateral renal agenesis (HP:0000122). HP:0000122 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7457,13 +7914,18 @@
 
 
 
+
+
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
                         Gene: RARB
 
 
-    <a href="https://bioregistry.io/hgnc:9865" target="_blank" class="curie-chip curie-chip-hgnc" title="Open hgnc:9865">hgnc:9865</a>
+    <a href="https://bioregistry.io/hgnc:9865" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:9865</a>
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is RARB (hgnc:9865). hgnc:9865 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
@@ -7578,7 +8040,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7678,7 +8145,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">supportive care</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Supportive Care</span>
 
 
@@ -7778,7 +8250,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">surgical procedure</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
@@ -7856,7 +8333,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">physical therapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
                     <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Physical Therapy</span>
 
 
@@ -7934,7 +8416,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Pharmacotherapy</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -7964,16 +8451,21 @@
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
 
+
+
                     <span class="tag tag-treatment">
                         anticonvulsant agent
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C264">NCIT:C264</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C264" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C264</a>
 
 
 
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
@@ -8028,7 +8520,12 @@
                 </div>
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
-                    <span class="tag tag-treatment">Genetic Counseling</span>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
 
 
 
@@ -8120,6 +8617,9 @@
         <!-- Experimental Models -->
 
 
+        <!-- Animal Models -->
+
+
         <!-- Computational Models -->
 
 
@@ -8136,7 +8636,6 @@
             <div class="yaml-content" id="yamlContent">
                 <pre class="yaml-preview">name: RARB-related syndromic microphthalmia
 creation_date: &#34;2026-07-31T04:55:00Z&#34;
-updated_date: &#34;2026-07-31T16:30:00Z&#34;
 description: &gt;-
   RARB-related syndromic microphthalmia (microphthalmia, syndromic 12; MCOPS12)
   is a rare developmental disorder caused by pathogenic variants in RARB,
@@ -8368,6 +8867,7 @@ pathophysiology:
   - target: Abnormal Brain Development and Function
     description: Dysregulated retinoid transcription disrupts brain development and later motor function.
 - name: Abnormal Eye Development
+  conforms_to: &#34;ocular_morphogenesis_failure#Disrupted Optic Cup and Globe Morphogenesis&#34;
   biological_scale: TISSUE
   description: &gt;-
     Retinoic acid signaling coordinates morphogenic movements, cell growth,
@@ -8383,11 +8883,26 @@ pathophysiology:
     term:
       id: GO:0001654
       label: eye development
+  - preferred_term: eye morphogenesis
+    modifier: ABNORMAL
+    term:
+      id: GO:0048592
+      label: eye morphogenesis
+  - preferred_term: camera-type eye morphogenesis
+    modifier: ABNORMAL
+    term:
+      id: GO:0048593
+      label: camera-type eye morphogenesis
   cell_types:
   - preferred_term: migratory neural crest cell
     term:
       id: CL:0000333
       label: migratory neural crest cell
+  locations:
+  - preferred_term: eye
+    term:
+      id: UBERON:0000970
+      label: eye
   evidence:
   - reference: PMID:39450403
     reference_title: &#34;A De Novo Noncoding RARB Variant Associated with Complex Microphthalmia Alters a Putative Regulatory Element.&#34;
@@ -10320,7 +10835,7 @@ v                         v                         v
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "RARB-related syndromic microphthalmia", "mondoId": "MONDO:0014229", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RARB-related_syndromic_microphthalmia", "yamlRevision": "60838258ed29"};
+        const OS_CONFIG = {"diseaseName": "RARB-related syndromic microphthalmia", "mondoId": "MONDO:0014229", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "RARB-related_syndromic_microphthalmia", "yamlRevision": "8d30571c9ace"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
@@ -10739,5 +11254,73 @@ v                         v                         v
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag, .phenotype-id, .subtype-gene-tag, .model-detail-value';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

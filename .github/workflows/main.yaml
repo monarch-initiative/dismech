@@ -261,6 +261,25 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
         run: uv run python scripts/check_snippet_length.py --against-ref "origin/$BASE_REF"
 
+      # Ungated for the same reason as the length ratchet above: the PRs that
+      # add title-quoting snippets are curation PRs touching only kb/, which no
+      # src/tests path filter would catch. Same live grandfathering against the
+      # base branch, so only what this PR adds can fail (issue #8374).
+      - name: Check for new title-quoting evidence snippets
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: uv run python scripts/check_title_snippets.py --against-ref "origin/$BASE_REF"
+
+      # Ungated for the same reason as the two ratchets above: an evidence-free
+      # `environmental:` exposure is added by curation PRs touching only kb/,
+      # which no src/tests path filter would catch. Same live grandfathering
+      # against the base branch, so the pre-existing backlog is not inherited
+      # and only exposures this PR adds can fail (issue #8296).
+      - name: Check for new evidence-free environmental exposures
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: uv run python scripts/check_environmental_evidence.py --against-ref "origin/$BASE_REF"
+
       # Also ungated: there is no `cache/**` path filter, so a curation PR that
       # seeds cache/*/terms.csv alongside its kb/ changes -- precisely the PR
       # shape that can introduce the #7682 concatenation corruption -- would
@@ -268,6 +287,16 @@ jobs:
       # src/tests changes). Deterministic, offline, and sub-second.
       - name: Check term cache structural integrity
         run: uv run python -m dismech.term_cache_integrity cache
+
+      # Ungated and whole-KB on purpose. A duplicated mapping key arrives by
+      # MERGE, not by authoring: two concurrent curation PRs adding the same
+      # block at different points in one file merge without a git conflict, so
+      # each PR stays green against its own base and only the post-merge push
+      # build goes red. Checking only the changed files would therefore have
+      # missed Ulcerative_Colitis.yaml, which sat broken until this sweep found
+      # it (issue #8623). ~12s over kb/ + the schema and conf trees, offline.
+      - name: Check for duplicate YAML keys
+        run: uv run python scripts/check_duplicate_yaml_keys.py
 
       - name: Validate changed disorder KB files
         if: steps.changes.outputs.kb_disorders == 'true'
@@ -314,6 +343,10 @@ jobs:
           # live content, not the committed baseline snapshot (see the fetch
           # step above).
           SNIPPET_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
+          # Same live grandfathering for the environmental-evidence ratchet, so
+          # tests/environmental_evidence_baseline.txt stays a local fallback
+          # rather than something parallel curation PRs race to update (#8296).
+          ENVIRONMENTAL_EVIDENCE_BASELINE_REF: origin/${{ github.event.pull_request.base.ref || 'main' }}
         run: just test-python-code
 
       - name: Run LinkML example tests
