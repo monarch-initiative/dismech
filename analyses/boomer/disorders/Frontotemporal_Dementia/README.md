@@ -28,7 +28,7 @@ That makes them evidenced MONDO gaps rather than open questions:
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0010857` ≡ `DOID:0051060`
+- `MONDO:0010857` ≡ `DOID:0081391`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

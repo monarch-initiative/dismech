@@ -6,19 +6,19 @@
  * 0.0078125 confidence
  * 0.0923645334797905 prior probability
  * 1.922689896528662e-05 posterior probability
- * 0.5504 seconds elapsed
+ * 0.4181 seconds elapsed
 Grounding:
- * True dismech:Paroxysmal_Dyskinesia (Paroxysmal Dyskinesia (dismech entry)) ≡ MONDO:0015427 (paroxysmal dyskinesia) :: prior: 0.9 posterior: 0.967419636393967
- * False dismech:Paroxysmal_Dyskinesia (Paroxysmal Dyskinesia (dismech entry)) ⊆ MONDO:0015427 (paroxysmal dyskinesia) :: prior: 0.07 posterior: 0.004045362876199383
- * False MONDO:0015427 (paroxysmal dyskinesia) ⊆ dismech:Paroxysmal_Dyskinesia (Paroxysmal Dyskinesia (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233105
+ * True dismech:Paroxysmal_Dyskinesia (Paroxysmal Dyskinesia (dismech entry)) ≡ MONDO:0015427 (paroxysmal dyskinesia) :: prior: 0.9 posterior: 0.9674196363939671
+ * False dismech:Paroxysmal_Dyskinesia (Paroxysmal Dyskinesia (dismech entry)) ⊆ MONDO:0015427 (paroxysmal dyskinesia) :: prior: 0.07 posterior: 0.004045362876199382
+ * False MONDO:0015427 (paroxysmal dyskinesia) ⊆ dismech:Paroxysmal_Dyskinesia (Paroxysmal Dyskinesia (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233103
  * True MONDO:0015427 (paroxysmal dyskinesia) ≡ ORDO:1431 :: prior: 0.95 posterior: 0.95
  * True dismech:Paroxysmal_Dyskinesia#PKD (Paroxysmal Dyskinesia / PKD (dismech subtype)) ≡ MONDO:0044202 (episodic kinesigenic dyskinesia) :: prior: 0.9 posterior: 0.967419636393967
- * False dismech:Paroxysmal_Dyskinesia#PKD (Paroxysmal Dyskinesia / PKD (dismech subtype)) ⊆ MONDO:0044202 (episodic kinesigenic dyskinesia) :: prior: 0.07 posterior: 0.004045362876199383
+ * False dismech:Paroxysmal_Dyskinesia#PKD (Paroxysmal Dyskinesia / PKD (dismech subtype)) ⊆ MONDO:0044202 (episodic kinesigenic dyskinesia) :: prior: 0.07 posterior: 0.004045362876199384
  * False MONDO:0044202 (episodic kinesigenic dyskinesia) ⊆ dismech:Paroxysmal_Dyskinesia#PKD (Paroxysmal Dyskinesia / PKD (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233105
  * True MONDO:0044202 (episodic kinesigenic dyskinesia) ≡ ORDO:98809 :: prior: 0.95 posterior: 0.95
- * True dismech:Paroxysmal_Dyskinesia#PNKD (Paroxysmal Dyskinesia / PNKD (dismech subtype)) ≡ MONDO:0700088 (paroxysmal nonkinesigenic dyskinesia) :: prior: 0.9 posterior: 0.967419636393967
- * False dismech:Paroxysmal_Dyskinesia#PNKD (Paroxysmal Dyskinesia / PNKD (dismech subtype)) ⊆ MONDO:0700088 (paroxysmal nonkinesigenic dyskinesia) :: prior: 0.07 posterior: 0.004045362876199383
- * False MONDO:0700088 (paroxysmal nonkinesigenic dyskinesia) ⊆ dismech:Paroxysmal_Dyskinesia#PNKD (Paroxysmal Dyskinesia / PNKD (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233105
+ * True dismech:Paroxysmal_Dyskinesia#PNKD (Paroxysmal Dyskinesia / PNKD (dismech subtype)) ≡ MONDO:0700088 (paroxysmal nonkinesigenic dyskinesia) :: prior: 0.9 posterior: 0.9674196363939671
+ * False dismech:Paroxysmal_Dyskinesia#PNKD (Paroxysmal Dyskinesia / PNKD (dismech subtype)) ⊆ MONDO:0700088 (paroxysmal nonkinesigenic dyskinesia) :: prior: 0.07 posterior: 0.004045362876199382
+ * False MONDO:0700088 (paroxysmal nonkinesigenic dyskinesia) ⊆ dismech:Paroxysmal_Dyskinesia#PNKD (Paroxysmal Dyskinesia / PNKD (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233103
  * True MONDO:0700088 (paroxysmal nonkinesigenic dyskinesia) ≡ ORDO:98810 :: prior: 0.95 posterior: 0.95
  * True dismech:Paroxysmal_Dyskinesia#PED (Paroxysmal Dyskinesia / PED (dismech subtype)) ≡ MONDO:0012805 (childhood onset GLUT1 deficiency syndrome 2) :: prior: 0.9 posterior: 0.9674196363939664
  * False dismech:Paroxysmal_Dyskinesia#PED (Paroxysmal Dyskinesia / PED (dismech subtype)) ⊆ MONDO:0012805 (childhood onset GLUT1 deficiency syndrome 2) :: prior: 0.07 posterior: 0.004045362876199375
@@ -28,8 +28,8 @@ Grounding:
  * True MONDO:0012805 (childhood onset GLUT1 deficiency syndrome 2) ≡ OMIM:612126 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0012805 (childhood onset GLUT1 deficiency syndrome 2) ≡ ORDO:98811 :: prior: 0.95 posterior: 0.9499999999999991
  * True dismech:Paroxysmal_Dyskinesia#PNKD3 (Paroxysmal Dyskinesia / PNKD3 (dismech subtype)) ≡ MONDO:0012276 (generalized epilepsy-paroxysmal dyskinesia syndrome) :: prior: 0.9 posterior: 0.9674196363939664
- * False dismech:Paroxysmal_Dyskinesia#PNKD3 (Paroxysmal Dyskinesia / PNKD3 (dismech subtype)) ⊆ MONDO:0012276 (generalized epilepsy-paroxysmal dyskinesia syndrome) :: prior: 0.07 posterior: 0.004045362876199375
- * False MONDO:0012276 (generalized epilepsy-paroxysmal dyskinesia syndrome) ⊆ dismech:Paroxysmal_Dyskinesia#PNKD3 (Paroxysmal Dyskinesia / PNKD3 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223307
+ * False dismech:Paroxysmal_Dyskinesia#PNKD3 (Paroxysmal Dyskinesia / PNKD3 (dismech subtype)) ⊆ MONDO:0012276 (generalized epilepsy-paroxysmal dyskinesia syndrome) :: prior: 0.07 posterior: 0.0040453628761993755
+ * False MONDO:0012276 (generalized epilepsy-paroxysmal dyskinesia syndrome) ⊆ dismech:Paroxysmal_Dyskinesia#PNKD3 (Paroxysmal Dyskinesia / PNKD3 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233072
  * True MONDO:0012276 (generalized epilepsy-paroxysmal dyskinesia syndrome) ≡ DOID:0070442 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0012276 (generalized epilepsy-paroxysmal dyskinesia syndrome) ≡ MESH:C563719 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0012276 (generalized epilepsy-paroxysmal dyskinesia syndrome) ≡ OMIM:609446 :: prior: 0.95 posterior: 0.9499999999999991

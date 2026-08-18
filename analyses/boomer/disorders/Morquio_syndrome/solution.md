@@ -6,7 +6,7 @@
  * 0.125 confidence
  * 0.23554248977361064 prior probability
  * 0.006226477249544488 posterior probability
- * 8.9964 seconds elapsed
+ * 6.2877 seconds elapsed
 Grounding:
  * True dismech:Morquio_syndrome (Morquio syndrome (dismech entry)) ≡ MONDO:0018938 (mucopolysaccharidosis type 4) :: prior: 0.9 posterior: 0.9674196363939664
  * False dismech:Morquio_syndrome (Morquio syndrome (dismech entry)) ⊆ MONDO:0018938 (mucopolysaccharidosis type 4) :: prior: 0.07 posterior: 0.0040453628761993755
@@ -16,7 +16,7 @@ Grounding:
  * True MONDO:0018938 (mucopolysaccharidosis type 4) ≡ ORDO:582 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0018938 (mucopolysaccharidosis type 4) ≡ icd11f:2078241550 :: prior: 0.95 posterior: 0.9499999999999991
  * True dismech:Morquio_syndrome#Type A (Morquio syndrome / Type A (dismech subtype)) ≡ MONDO:0009659 (mucopolysaccharidosis type 4A) :: prior: 0.9 posterior: 0.9674196363939687
- * False dismech:Morquio_syndrome#Type A (Morquio syndrome / Type A (dismech subtype)) ⊆ MONDO:0009659 (mucopolysaccharidosis type 4A) :: prior: 0.07 posterior: 0.004045362876199373
+ * False dismech:Morquio_syndrome#Type A (Morquio syndrome / Type A (dismech subtype)) ⊆ MONDO:0009659 (mucopolysaccharidosis type 4A) :: prior: 0.07 posterior: 0.004045362876199374
  * False MONDO:0009659 (mucopolysaccharidosis type 4A) ⊆ dismech:Morquio_syndrome#Type A (Morquio syndrome / Type A (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0009659 (mucopolysaccharidosis type 4A) ≡ DOID:0111391 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0009659 (mucopolysaccharidosis type 4A) ≡ ICD10CM:E76.210 :: prior: 0.95 posterior: 0.949999999999998
@@ -25,8 +25,8 @@ Grounding:
  * True MONDO:0009659 (mucopolysaccharidosis type 4A) ≡ ORDO:309297 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0009659 (mucopolysaccharidosis type 4A) ≡ icd11f:1919173641 :: prior: 0.95 posterior: 0.949999999999998
  * True dismech:Morquio_syndrome#Type B (Morquio syndrome / Type B (dismech subtype)) ≡ MONDO:0009660 (mucopolysaccharidosis type 4B) :: prior: 0.9 posterior: 0.9674196363939687
- * False dismech:Morquio_syndrome#Type B (Morquio syndrome / Type B (dismech subtype)) ⊆ MONDO:0009660 (mucopolysaccharidosis type 4B) :: prior: 0.07 posterior: 0.004045362876199374
- * False MONDO:0009660 (mucopolysaccharidosis type 4B) ⊆ dismech:Morquio_syndrome#Type B (Morquio syndrome / Type B (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233111
+ * False dismech:Morquio_syndrome#Type B (Morquio syndrome / Type B (dismech subtype)) ⊆ MONDO:0009660 (mucopolysaccharidosis type 4B) :: prior: 0.07 posterior: 0.004045362876199373
+ * False MONDO:0009660 (mucopolysaccharidosis type 4B) ⊆ dismech:Morquio_syndrome#Type B (Morquio syndrome / Type B (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
  * True MONDO:0009660 (mucopolysaccharidosis type 4B) ≡ DOID:0111392 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0009660 (mucopolysaccharidosis type 4B) ≡ ICD10CM:E76.211 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0009660 (mucopolysaccharidosis type 4B) ≡ NCIT:C84902 :: prior: 0.95 posterior: 0.949999999999998

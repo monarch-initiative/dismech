@@ -5,12 +5,12 @@
  * 1.0 proportion of combinations explored
  * 0.125 confidence
  * 0.35504256224961106 prior probability
- * 0.009385416782305154 posterior probability
- * 0.0909 seconds elapsed
+ * 0.009385416782305152 posterior probability
+ * 0.0939 seconds elapsed
 Grounding:
  * True dismech:Activated_PI3K-delta_Syndrome (Activated PI3K-delta syndrome (dismech entry)) ≡ MONDO:0018338 (activated PI3K-delta syndrome) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Activated_PI3K-delta_Syndrome (Activated PI3K-delta syndrome (dismech entry)) ⊆ MONDO:0018338 (activated PI3K-delta syndrome) :: prior: 0.07 posterior: 0.004045362876199383
- * False MONDO:0018338 (activated PI3K-delta syndrome) ⊆ dismech:Activated_PI3K-delta_Syndrome (Activated PI3K-delta syndrome (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233098
+ * False MONDO:0018338 (activated PI3K-delta syndrome) ⊆ dismech:Activated_PI3K-delta_Syndrome (Activated PI3K-delta syndrome (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233096
  * True MONDO:0018338 (activated PI3K-delta syndrome) ≡ MESH:C585640 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0018338 (activated PI3K-delta syndrome) ≡ ORDO:397596 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Activated_PI3K-delta_Syndrome#APDS1 (Activated PI3K-delta syndrome / APDS1 (dismech subtype)) ≡ MONDO:0014222 (immunodeficiency 14) :: prior: 0.9 posterior: 0.9674196363939683
@@ -20,7 +20,7 @@ Grounding:
  * True MONDO:0014222 (immunodeficiency 14) ≡ OMIM:615513 :: prior: 0.95 posterior: 0.95
  * True MONDO:0014222 (immunodeficiency 14) ≡ ORDO:693661 :: prior: 0.95 posterior: 0.95
  * True dismech:Activated_PI3K-delta_Syndrome#APDS2 (Activated PI3K-delta syndrome / APDS2 (dismech subtype)) ≡ MONDO:0014453 (immunodeficiency 36 with lymphoproliferation) :: prior: 0.9 posterior: 0.9674196363939683
- * False dismech:Activated_PI3K-delta_Syndrome#APDS2 (Activated PI3K-delta syndrome / APDS2 (dismech subtype)) ⊆ MONDO:0014453 (immunodeficiency 36 with lymphoproliferation) :: prior: 0.07 posterior: 0.004045362876199388
+ * False dismech:Activated_PI3K-delta_Syndrome#APDS2 (Activated PI3K-delta syndrome / APDS2 (dismech subtype)) ⊆ MONDO:0014453 (immunodeficiency 36 with lymphoproliferation) :: prior: 0.07 posterior: 0.004045362876199387
  * False MONDO:0014453 (immunodeficiency 36 with lymphoproliferation) ⊆ dismech:Activated_PI3K-delta_Syndrome#APDS2 (Activated PI3K-delta syndrome / APDS2 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0014453 (immunodeficiency 36 with lymphoproliferation) ≡ DOID:0111949 :: prior: 0.95 posterior: 0.95
  * True MONDO:0014453 (immunodeficiency 36 with lymphoproliferation) ≡ OMIM:616005 :: prior: 0.95 posterior: 0.95

@@ -5,12 +5,12 @@
  * 1.0 proportion of combinations explored
  * 0.25 confidence
  * 0.5100495995910742 prior probability
- * 0.04526138512318337 posterior probability
- * 0.0520 seconds elapsed
+ * 0.04526138512318336 posterior probability
+ * 0.0459 seconds elapsed
 Grounding:
  * True dismech:Myoclonus_Dystonia_Syndrome (Myoclonus-Dystonia Syndrome (dismech entry)) ≡ MONDO:0000903 (myoclonus-dystonia syndrome) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Myoclonus_Dystonia_Syndrome (Myoclonus-Dystonia Syndrome (dismech entry)) ⊆ MONDO:0000903 (myoclonus-dystonia syndrome) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0000903 (myoclonus-dystonia syndrome) ⊆ dismech:Myoclonus_Dystonia_Syndrome (Myoclonus-Dystonia Syndrome (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * False MONDO:0000903 (myoclonus-dystonia syndrome) ⊆ dismech:Myoclonus_Dystonia_Syndrome (Myoclonus-Dystonia Syndrome (dismech entry)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0000903 (myoclonus-dystonia syndrome) ≡ DOID:0090033 :: prior: 0.95 posterior: 0.95
  * True MONDO:0000903 (myoclonus-dystonia syndrome) ≡ MESH:C536096 :: prior: 0.95 posterior: 0.95
  * True MONDO:0000903 (myoclonus-dystonia syndrome) ≡ ORDO:36899 :: prior: 0.95 posterior: 0.95

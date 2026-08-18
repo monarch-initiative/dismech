@@ -3,13 +3,13 @@
  * 345 combinations
  * 342 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.125 confidence
- * 0.355042562249611 prior probability
- * 0.009385416782305154 posterior probability
- * 0.6015 seconds elapsed
+ * 0.12500000000000003 confidence
+ * 0.35504256224961117 prior probability
+ * 0.009385416782305155 posterior probability
+ * 0.5698 seconds elapsed
 Grounding:
  * True dismech:Hypokalemic_Periodic_Paralysis (Hypokalemic Periodic Paralysis (dismech entry)) ≡ MONDO:0008223 (hypokalemic periodic paralysis) :: prior: 0.9 posterior: 0.9674196363939713
- * False dismech:Hypokalemic_Periodic_Paralysis (Hypokalemic Periodic Paralysis (dismech entry)) ⊆ MONDO:0008223 (hypokalemic periodic paralysis) :: prior: 0.07 posterior: 0.0040453628761993885
+ * False dismech:Hypokalemic_Periodic_Paralysis (Hypokalemic Periodic Paralysis (dismech entry)) ⊆ MONDO:0008223 (hypokalemic periodic paralysis) :: prior: 0.07 posterior: 0.004045362876199388
  * False MONDO:0008223 (hypokalemic periodic paralysis) ⊆ dismech:Hypokalemic_Periodic_Paralysis (Hypokalemic Periodic Paralysis (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233116
  * True MONDO:0008223 (hypokalemic periodic paralysis) ≡ DOID:14452 :: prior: 0.95 posterior: 0.95
  * True MONDO:0008223 (hypokalemic periodic paralysis) ≡ MESH:D020514 :: prior: 0.95 posterior: 0.95
@@ -22,6 +22,6 @@ Grounding:
  * True MONDO:0042979 (hypokalemic periodic paralysis, type 1) ≡ OMIM:170400 :: prior: 0.95 posterior: 0.95
  * True dismech:Hypokalemic_Periodic_Paralysis#Type 2 (Hypokalemic Periodic Paralysis / Type 2 (dismech subtype)) ≡ MONDO:0013234 (hypokalemic periodic paralysis, type 2) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Hypokalemic_Periodic_Paralysis#Type 2 (Hypokalemic Periodic Paralysis / Type 2 (dismech subtype)) ⊆ MONDO:0013234 (hypokalemic periodic paralysis, type 2) :: prior: 0.07 posterior: 0.004045362876199384
- * False MONDO:0013234 (hypokalemic periodic paralysis, type 2) ⊆ dismech:Hypokalemic_Periodic_Paralysis#Type 2 (Hypokalemic Periodic Paralysis / Type 2 (dismech subtype)) :: prior: 0.03 posterior: 0.00166223305222331
+ * False MONDO:0013234 (hypokalemic periodic paralysis, type 2) ⊆ dismech:Hypokalemic_Periodic_Paralysis#Type 2 (Hypokalemic Periodic Paralysis / Type 2 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
  * True MONDO:0013234 (hypokalemic periodic paralysis, type 2) ≡ MESH:C567635 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0013234 (hypokalemic periodic paralysis, type 2) ≡ OMIM:613345 :: prior: 0.95 posterior: 0.9500000000000001

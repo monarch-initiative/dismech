@@ -3,13 +3,13 @@
  * 796 combinations
  * 792 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.0625 confidence
- * 0.20129957054978614 prior probability
- * 0.0015851621991499045 posterior probability
- * 4.0652 seconds elapsed
+ * 0.06250000000000001 confidence
+ * 0.20129957054978603 prior probability
+ * 0.0015851621991499042 posterior probability
+ * 3.5923 seconds elapsed
 Grounding:
  * True dismech:Gaucher_Disease (Gaucher Disease (dismech entry)) ≡ MONDO:0018150 (Gaucher disease) :: prior: 0.9 posterior: 0.9674196363939687
- * False dismech:Gaucher_Disease (Gaucher Disease (dismech entry)) ⊆ MONDO:0018150 (Gaucher disease) :: prior: 0.07 posterior: 0.004045362876199374
+ * False dismech:Gaucher_Disease (Gaucher Disease (dismech entry)) ⊆ MONDO:0018150 (Gaucher disease) :: prior: 0.07 posterior: 0.004045362876199373
  * False MONDO:0018150 (Gaucher disease) ⊆ dismech:Gaucher_Disease (Gaucher Disease (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233111
  * True MONDO:0018150 (Gaucher disease) ≡ DOID:1926 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0018150 (Gaucher disease) ≡ ICD10CM:E75.22 :: prior: 0.95 posterior: 0.949999999999998
@@ -19,19 +19,19 @@ Grounding:
  * True MONDO:0018150 (Gaucher disease) ≡ icd11f:1923566939 :: prior: 0.95 posterior: 0.949999999999998
  * True dismech:Gaucher_Disease#Type 1 (Gaucher Disease / Type 1 (dismech subtype)) ≡ MONDO:0009265 (Gaucher disease type I) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Gaucher_Disease#Type 1 (Gaucher Disease / Type 1 (dismech subtype)) ⊆ MONDO:0009265 (Gaucher disease type I) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0009265 (Gaucher disease type I) ⊆ dismech:Gaucher_Disease#Type 1 (Gaucher Disease / Type 1 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * False MONDO:0009265 (Gaucher disease type I) ⊆ dismech:Gaucher_Disease#Type 1 (Gaucher Disease / Type 1 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0009265 (Gaucher disease type I) ≡ DOID:0110957 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009265 (Gaucher disease type I) ≡ OMIM:230800 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009265 (Gaucher disease type I) ≡ ORDO:77259 :: prior: 0.95 posterior: 0.95
  * True dismech:Gaucher_Disease#Type 2 (Gaucher Disease / Type 2 (dismech subtype)) ≡ MONDO:0009266 (Gaucher disease type II) :: prior: 0.9 posterior: 0.9674196363939683
- * False dismech:Gaucher_Disease#Type 2 (Gaucher Disease / Type 2 (dismech subtype)) ⊆ MONDO:0009266 (Gaucher disease type II) :: prior: 0.07 posterior: 0.004045362876199388
+ * False dismech:Gaucher_Disease#Type 2 (Gaucher Disease / Type 2 (dismech subtype)) ⊆ MONDO:0009266 (Gaucher disease type II) :: prior: 0.07 posterior: 0.004045362876199387
  * False MONDO:0009266 (Gaucher disease type II) ⊆ dismech:Gaucher_Disease#Type 2 (Gaucher Disease / Type 2 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0009266 (Gaucher disease type II) ≡ DOID:0110958 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009266 (Gaucher disease type II) ≡ OMIM:230900 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009266 (Gaucher disease type II) ≡ ORDO:77260 :: prior: 0.95 posterior: 0.95
  * True dismech:Gaucher_Disease#Type 3 (Gaucher Disease / Type 3 (dismech subtype)) ≡ MONDO:0009267 (Gaucher disease type III) :: prior: 0.9 posterior: 0.9674196363939683
- * False dismech:Gaucher_Disease#Type 3 (Gaucher Disease / Type 3 (dismech subtype)) ⊆ MONDO:0009267 (Gaucher disease type III) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0009267 (Gaucher disease type III) ⊆ dismech:Gaucher_Disease#Type 3 (Gaucher Disease / Type 3 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * False dismech:Gaucher_Disease#Type 3 (Gaucher Disease / Type 3 (dismech subtype)) ⊆ MONDO:0009267 (Gaucher disease type III) :: prior: 0.07 posterior: 0.004045362876199388
+ * False MONDO:0009267 (Gaucher disease type III) ⊆ dismech:Gaucher_Disease#Type 3 (Gaucher Disease / Type 3 (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0009267 (Gaucher disease type III) ≡ DOID:0110959 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009267 (Gaucher disease type III) ≡ OMIM:231000 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009267 (Gaucher disease type III) ≡ ORDO:77261 :: prior: 0.95 posterior: 0.95

@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/Autosomal_Dominant_Polycystic_Liver
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0000447` ≡ `icd11f:423904268`
+- `MONDO:0000447` ≡ `icd11f:1361740083`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a

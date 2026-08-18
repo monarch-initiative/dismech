@@ -3,14 +3,14 @@
  * 798 combinations
  * 792 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.015625000000000003 confidence
- * 0.1197524599583305 prior probability
- * 8.368174576869646e-05 posterior probability
- * 3.8448 seconds elapsed
+ * 0.015625 confidence
+ * 0.11975245995833048 prior probability
+ * 8.368174576869645e-05 posterior probability
+ * 3.2830 seconds elapsed
 Grounding:
  * True dismech:Hereditary_Elliptocytosis (Hereditary Elliptocytosis (dismech entry)) ≡ MONDO:0017319 (hereditary elliptocytosis) :: prior: 0.9 posterior: 0.9674196363939687
- * False dismech:Hereditary_Elliptocytosis (Hereditary Elliptocytosis (dismech entry)) ⊆ MONDO:0017319 (hereditary elliptocytosis) :: prior: 0.07 posterior: 0.004045362876199374
- * False MONDO:0017319 (hereditary elliptocytosis) ⊆ dismech:Hereditary_Elliptocytosis (Hereditary Elliptocytosis (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233111
+ * False dismech:Hereditary_Elliptocytosis (Hereditary Elliptocytosis (dismech entry)) ⊆ MONDO:0017319 (hereditary elliptocytosis) :: prior: 0.07 posterior: 0.004045362876199373
+ * False MONDO:0017319 (hereditary elliptocytosis) ⊆ dismech:Hereditary_Elliptocytosis (Hereditary Elliptocytosis (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233107
  * True MONDO:0017319 (hereditary elliptocytosis) ≡ DOID:2373 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0017319 (hereditary elliptocytosis) ≡ ICD10CM:D58.1 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0017319 (hereditary elliptocytosis) ≡ MESH:D004612 :: prior: 0.95 posterior: 0.949999999999998
@@ -18,28 +18,28 @@ Grounding:
  * True MONDO:0017319 (hereditary elliptocytosis) ≡ ORDO:288 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0017319 (hereditary elliptocytosis) ≡ icd11f:679955609 :: prior: 0.95 posterior: 0.949999999999998
  * True dismech:Hereditary_Elliptocytosis#EL1 (Hereditary Elliptocytosis / EL1 (dismech subtype)) ≡ MONDO:0012731 (elliptocytosis 1) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Hereditary_Elliptocytosis#EL1 (Hereditary Elliptocytosis / EL1 (dismech subtype)) ⊆ MONDO:0012731 (elliptocytosis 1) :: prior: 0.07 posterior: 0.004045362876199382
- * False MONDO:0012731 (elliptocytosis 1) ⊆ dismech:Hereditary_Elliptocytosis#EL1 (Hereditary Elliptocytosis / EL1 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233094
- * True MONDO:0012731 (elliptocytosis 1) ≡ MESH:C567520 :: prior: 0.95 posterior: 0.9500000000000001
- * True MONDO:0012731 (elliptocytosis 1) ≡ OMIM:611804 :: prior: 0.95 posterior: 0.9500000000000001
+ * False dismech:Hereditary_Elliptocytosis#EL1 (Hereditary Elliptocytosis / EL1 (dismech subtype)) ⊆ MONDO:0012731 (elliptocytosis 1) :: prior: 0.07 posterior: 0.004045362876199384
+ * False MONDO:0012731 (elliptocytosis 1) ⊆ dismech:Hereditary_Elliptocytosis#EL1 (Hereditary Elliptocytosis / EL1 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
+ * True MONDO:0012731 (elliptocytosis 1) ≡ MESH:C567520 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0012731 (elliptocytosis 1) ≡ OMIM:611804 :: prior: 0.95 posterior: 0.95
  * True dismech:Hereditary_Elliptocytosis#EL2 (Hereditary Elliptocytosis / EL2 (dismech subtype)) ≡ MONDO:0007533 (elliptocytosis 2) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Hereditary_Elliptocytosis#EL2 (Hereditary Elliptocytosis / EL2 (dismech subtype)) ⊆ MONDO:0007533 (elliptocytosis 2) :: prior: 0.07 posterior: 0.004045362876199383
- * False MONDO:0007533 (elliptocytosis 2) ⊆ dismech:Hereditary_Elliptocytosis#EL2 (Hereditary Elliptocytosis / EL2 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233096
+ * False dismech:Hereditary_Elliptocytosis#EL2 (Hereditary Elliptocytosis / EL2 (dismech subtype)) ⊆ MONDO:0007533 (elliptocytosis 2) :: prior: 0.07 posterior: 0.004045362876199384
+ * False MONDO:0007533 (elliptocytosis 2) ⊆ dismech:Hereditary_Elliptocytosis#EL2 (Hereditary Elliptocytosis / EL2 (dismech subtype)) :: prior: 0.03 posterior: 0.00166223305222331
  * True MONDO:0007533 (elliptocytosis 2) ≡ MESH:C565058 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0007533 (elliptocytosis 2) ≡ OMIM:130600 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Hereditary_Elliptocytosis#EL3 (Hereditary Elliptocytosis / EL3 (dismech subtype)) ≡ MONDO:0054780 (elliptocytosis 3) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Hereditary_Elliptocytosis#EL3 (Hereditary Elliptocytosis / EL3 (dismech subtype)) ⊆ MONDO:0054780 (elliptocytosis 3) :: prior: 0.07 posterior: 0.004045362876199384
- * False MONDO:0054780 (elliptocytosis 3) ⊆ dismech:Hereditary_Elliptocytosis#EL3 (Hereditary Elliptocytosis / EL3 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233103
- * True MONDO:0054780 (elliptocytosis 3) ≡ MESH:C566678 :: prior: 0.95 posterior: 0.95
- * True MONDO:0054780 (elliptocytosis 3) ≡ OMIM:617948 :: prior: 0.95 posterior: 0.95
+ * False dismech:Hereditary_Elliptocytosis#EL3 (Hereditary Elliptocytosis / EL3 (dismech subtype)) ⊆ MONDO:0054780 (elliptocytosis 3) :: prior: 0.07 posterior: 0.004045362876199383
+ * False MONDO:0054780 (elliptocytosis 3) ⊆ dismech:Hereditary_Elliptocytosis#EL3 (Hereditary Elliptocytosis / EL3 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
+ * True MONDO:0054780 (elliptocytosis 3) ≡ MESH:C566678 :: prior: 0.95 posterior: 0.9500000000000001
+ * True MONDO:0054780 (elliptocytosis 3) ≡ OMIM:617948 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Hereditary_Elliptocytosis#SAO (Hereditary Elliptocytosis / SAO (dismech subtype)) ≡ MONDO:0008165 (southeast Asian ovalocytosis) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Hereditary_Elliptocytosis#SAO (Hereditary Elliptocytosis / SAO (dismech subtype)) ⊆ MONDO:0008165 (southeast Asian ovalocytosis) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0008165 (southeast Asian ovalocytosis) ⊆ dismech:Hereditary_Elliptocytosis#SAO (Hereditary Elliptocytosis / SAO (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
+ * False MONDO:0008165 (southeast Asian ovalocytosis) ⊆ dismech:Hereditary_Elliptocytosis#SAO (Hereditary Elliptocytosis / SAO (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
  * True MONDO:0008165 (southeast Asian ovalocytosis) ≡ OMIM:166900 :: prior: 0.95 posterior: 0.95
  * True MONDO:0008165 (southeast Asian ovalocytosis) ≡ ORDO:98868 :: prior: 0.95 posterior: 0.95
  * True MONDO:0008165 (southeast Asian ovalocytosis) ≡ icd11f:835618545 :: prior: 0.95 posterior: 0.95
  * True dismech:Hereditary_Elliptocytosis#Thermal-sensitive HE (Hereditary Elliptocytosis / Thermal-sensitive HE (dismech subtype)) ≡ MONDO:0009334 (hemolytic anemia with thermal sensitivity of red cells) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Hereditary_Elliptocytosis#Thermal-sensitive HE (Hereditary Elliptocytosis / Thermal-sensitive HE (dismech subtype)) ⊆ MONDO:0009334 (hemolytic anemia with thermal sensitivity of red cells) :: prior: 0.07 posterior: 0.004045362876199383
+ * False dismech:Hereditary_Elliptocytosis#Thermal-sensitive HE (Hereditary Elliptocytosis / Thermal-sensitive HE (dismech subtype)) ⊆ MONDO:0009334 (hemolytic anemia with thermal sensitivity of red cells) :: prior: 0.07 posterior: 0.004045362876199384
  * False MONDO:0009334 (hemolytic anemia with thermal sensitivity of red cells) ⊆ dismech:Hereditary_Elliptocytosis#Thermal-sensitive HE (Hereditary Elliptocytosis / Thermal-sensitive HE (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
  * True MONDO:0009334 (hemolytic anemia with thermal sensitivity of red cells) ≡ MESH:C565522 :: prior: 0.95 posterior: 0.95
  * True MONDO:0009334 (hemolytic anemia with thermal sensitivity of red cells) ≡ OMIM:235370 :: prior: 0.95 posterior: 0.95

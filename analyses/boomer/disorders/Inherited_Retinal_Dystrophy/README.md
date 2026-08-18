@@ -20,7 +20,7 @@ Boomer grounding analysis for [`kb/disorders/Inherited_Retinal_Dystrophy.yaml`](
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `MONDO:0019118` ≡ `DOID:8501`
+- `MONDO:0019118` ≡ `DOID:8500`
 - `MONDO:0019118` ≡ `NCIT:C35625`
 
 A retraction means these assertions are jointly unsatisfiable, not that the

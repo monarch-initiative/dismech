@@ -18,7 +18,7 @@ Boomer grounding analysis for [`kb/disorders/Adult_Refsum_Disease.yaml`](../../.
 Boomer could **not** accept every mapping at once and retracted the following
 identity claim(s) to restore consistency:
 
-- `dismech:Adult_Refsum_Disease#Type 1` ≡ `MONDO:0100258`
+- `dismech:Adult_Refsum_Disease` ≡ `MONDO:0009958`
 
 A retraction means these assertions are jointly unsatisfiable, not that the
 retracted mapping is necessarily the wrong one. Which assertion to give up is a
