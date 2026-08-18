@@ -1,0 +1,2465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bainbridge-Ropers syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Bainbridge-Ropers syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Bainbridge-Ropers syndrome</h1>
+                
+                <p class="report-subtitle">Bainbridge–Ropers Syndrome (ASXL3-Related Disorder) — Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014205" target="_blank" rel="noopener noreferrer">MONDO:0014205</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                    <span class="meta-chip">58 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Bainbridge–Ropers Syndrome (ASXL3-Related Disorder) — Comprehensive Research Report</h1>
+<p><strong>Prepared:</strong> 2026-07-31 · <strong>Target:</strong> <code>Bainbridge-Ropers syndrome</code> · <strong>Category:</strong> Mendelian, autosomal dominant, chromatinopathy / neurodevelopmental</p>
+<p><strong>Verification note (per dismech DR policy):</strong> Every PMID below was retrieved from Europe PMC / NCBI E-utilities during this session, and quoted material is taken from the retrieved abstract text. Ontology identifiers marked <strong>[verify]</strong> were assigned by me from domain knowledge and have <em>not</em> been checked with OAK — run <code>just validate-terms</code> before committing. Identifiers marked <strong>[OLS-checked]</strong> were confirmed against OLS4 in this session. HPO annotations in §3 were pulled directly from the HPO annotation API for <a href="https://bioregistry.io/OMIM:615485" target="_blank" rel="noopener noreferrer">OMIM:615485</a> and carry authoritative ID↔label pairs.</p>
+<p><strong>NEC preflight:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0014205" target="_blank" rel="noopener noreferrer">MONDO:0014205</a> xrefs to <a href="https://bioregistry.io/OMIM:615485" target="_blank" rel="noopener noreferrer">OMIM:615485</a> and <a href="https://bioregistry.io/ORPHA:352577" target="_blank" rel="noopener noreferrer">ORPHA:352577</a>; the causal gene named across all retrieved sources is uniformly <strong>ASXL3</strong> (18q12.1). No named-entity confusion detected. The main confusable entities are the <em>sibling</em> ASXL disorders (ASXL1/Bohring–Opitz, ASXL2/Shashi–Pena) — these are distinct diseases and are explicitly treated as differential diagnoses below, not as synonyms.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>1.1 Overview</h3>
+<p>Bainbridge–Ropers syndrome (BRPS), increasingly referred to in the clinical genetics literature as <strong>ASXL3-related disorder</strong>, is a rare autosomal dominant neurodevelopmental syndrome caused by heterozygous loss-of-function (predominantly de novo truncating) variants in <em>ASXL3</em>. It was delineated in 2013 by Bainbridge, Ropers and colleagues through whole-genome/whole-exome sequencing of four undiagnosed probands (<a href="https://pubmed.ncbi.nlm.nih.gov/23383720/" target="_blank" rel="noopener noreferrer">PMID:23383720</a>).</p>
+<p>The core phenotype is: <strong>global developmental delay / moderate-to-severe intellectual disability, profoundly limited or absent speech, infantile hypotonia, feeding difficulties with failure to thrive, autistic features and other neurobehavioral problems, and a recognizable craniofacial gestalt.</strong></p>
+<p>A concise contemporary definition (<a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a>, <em>Front Neurosci</em> 2025):</p>
+<blockquote>
+<p>"Bainbridge-Ropers syndrome (BRPS, OMIM #615485) is a rare, heterogeneous autosomal dominant genetic disease that is mainly characterized by intellectual disability (ID) of varying degrees, developmental delay (DD), language impairments, failure to thrive, behavioral issues, hypotonia, feeding difficulties, and distinctive craniofacial features. It is caused by heterozygous pathogenic variants in the additional sex combs-like 3 (ASXL3, OMIM #615115) gene."</p>
+</blockquote>
+<p>BRPS belongs to the <strong>chromatinopathies / Mendelian disorders of the epigenetic machinery</strong>, and specifically to the <strong>ASXL family disorder triad</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>Syndrome</th>
+<th>OMIM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>ASXL1</em></td>
+<td>Bohring–Opitz syndrome (BOS)</td>
+<td>605039</td>
+</tr>
+<tr>
+<td><em>ASXL2</em></td>
+<td>Shashi–Pena syndrome (SHAPNS)</td>
+<td>617190</td>
+</tr>
+<tr>
+<td><em>ASXL3</em></td>
+<td><strong>Bainbridge–Ropers syndrome (BRPS)</strong></td>
+<td><strong>615485</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>1.2 Key identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO</strong></td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0014205" target="_blank" rel="noopener noreferrer">MONDO:0014205</a></strong> — label: <em>"severe feeding difficulties-failure to thrive-microcephaly due to ASXL3 deficiency syndrome"</em> (OLS-checked)</td>
+</tr>
+<tr>
+<td>OMIM (phenotype)</td>
+<td><strong>615485</strong> — BAINBRIDGE-ROPERS SYNDROME; BRPS</td>
+</tr>
+<tr>
+<td>OMIM (gene)</td>
+<td><strong>615115</strong> — ASXL TRANSCRIPTIONAL REGULATOR 3; ASXL3</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><strong><a href="https://bioregistry.io/ORPHA:352577" target="_blank" rel="noopener noreferrer">ORPHA:352577</a></strong> — "Bainbridge-Ropers syndrome"</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td><strong>Q87.0</strong> (Orphanet maps <a href="https://bioregistry.io/ORPHA:352577" target="_blank" rel="noopener noreferrer">ORPHA:352577</a> as <em>narrower than</em> Q87.0, "Congenital malformation syndromes predominantly affecting facial appearance")</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>Not asserted in the Orphanet cross-reference record retrieved (gap)</td>
+</tr>
+<tr>
+<td>MeSH (supplementary concept)</td>
+<td><strong>C000726367</strong></td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td><strong>C4750837</strong></td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td><strong>1656239</strong></td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/DOID_0080893" target="_blank" rel="noopener noreferrer">DOID:0080893</a></strong></td>
+</tr>
+<tr>
+<td>GARD</td>
+<td><strong>13259</strong></td>
+</tr>
+<tr>
+<td>NCBI Gene</td>
+<td><strong>80816</strong> (ASXL3; 18q12.1; NC_000018.10:33,578,219–33,751,195)</td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td><strong>hgnc:29357</strong> (dismech lowercase-prefix convention)</td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td><strong>Q9C0F0</strong> — Putative Polycomb group protein ASXL3</td>
+</tr>
+<tr>
+<td>Ensembl gene</td>
+<td>ENSG00000141431</td>
+</tr>
+<tr>
+<td>Reference transcript</td>
+<td><strong>NM_030632.3</strong> (used throughout the clinical literature)</td>
+</tr>
+<tr>
+<td>MGI (mouse ortholog)</td>
+<td><a href="https://bioregistry.io/MGI:2685175" target="_blank" rel="noopener noreferrer">MGI:2685175</a>, <em>Asxl3</em>, mouse Chr 18</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>1.3 Synonyms and alternative names</h3>
+<ul>
+<li>Bainbridge-Ropers syndrome / BRPS</li>
+<li><strong>ASXL3-related disorder</strong> (preferred by GeneReviews and by the Balasubramanian/Woods group; increasingly the recommended label because the phenotype extends beyond the original BRPS description)</li>
+<li>ASXL3-related syndrome</li>
+<li>Severe feeding difficulties–failure to thrive–microcephaly due to ASXL3 deficiency syndrome (Orphanet/MONDO label)</li>
+<li>"Bainbridge-Roppers syndrome" (misspelling retained as a MONDO exact synonym)</li>
+<li>ASXL3 deficiency syndrome</li>
+<li>Historically: "Bohring–Opitz-like syndrome" (superseded — see §10.4)</li>
+</ul>
+<h3>1.4 Provenance of information</h3>
+<p>Information in this report is <strong>disease-level aggregated</strong> (OMIM, Orphanet, GeneReviews, MONDO, ClinGen, HPO, ClinVar) plus <strong>individual-patient literature</strong> (case reports and multi-centre cohort series totalling &gt;200 published individuals). There is <strong>no EHR-derived / registry-scale phenotyping dataset</strong>. The closest to systematic patient-level data are:</p>
+<ul>
+<li>The <strong>International ASXL3 Natural History Study</strong> (IRAS 316055; 64 individuals, <a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>) — quasi-natural-history design, direct clinic/caregiver consultation.</li>
+<li>The <strong>ARRE Foundation</strong> patient advocacy registry (ASXL Rare Research Endowment) supporting the ASXL1/2/3 deep-phenotyping work at UCLA/CHLA (<a href="https://pubmed.ncbi.nlm.nih.gov/38027485/" target="_blank" rel="noopener noreferrer">PMID:38027485</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40808361/" target="_blank" rel="noopener noreferrer">PMID:40808361</a>).</li>
+<li>The <strong>DDD (Deciphering Developmental Disorders) study</strong> and <strong>DECIPHER</strong>, which supplied several published cohorts (<a href="https://pubmed.ncbi.nlm.nih.gov/28100473/" target="_blank" rel="noopener noreferrer">PMID:28100473</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29367179/" target="_blank" rel="noopener noreferrer">PMID:29367179</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34436830/" target="_blank" rel="noopener noreferrer">PMID:34436830</a>).</li>
+</ul>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors</h3>
+<p>BRPS is a <strong>monogenic, primarily de novo, haploinsufficiency disorder</strong>. There is no infectious, toxic, or acquired etiology.</p>
+<p><strong>Primary cause:</strong> heterozygous loss-of-function variants in <em>ASXL3</em> — nonsense, frameshift, and canonical splice-site variants clustered in exons 11 and 12.</p>
+<p>Founding evidence (<a href="https://pubmed.ncbi.nlm.nih.gov/23383720/" target="_blank" rel="noopener noreferrer">PMID:23383720</a>, <em>Genome Med</em> 2013, HUMAN_CLINICAL):</p>
+<blockquote>
+<p>"Using genome-wide sequencing, we identified heterozygous, de novo truncating mutations in ASXL3, a transcriptional repressor related to ASXL1, in four unrelated probands. We found that these probands shared similar phenotypes, including severe feeding difficulties, failure to thrive, and neurologic abnormalities with significant developmental delay."</p>
+</blockquote>
+<p>Mechanism of disease causation per GeneReviews (<em>ASXL3-Related Disorder</em>, NBK563693, Balasubramanian &amp; Schirwani): <strong>"Loss of function."</strong> ClinGen Dosage Sensitivity assigns <strong>haploinsufficiency score 3 — Sufficient Evidence for Haploinsufficiency</strong> (last evaluated 2017-11-22), citing a haploinsufficiency index of <strong>13.78</strong> and <strong>pLI 1.00</strong>.</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Genetic risk factors</strong></p>
+<ol>
+<li><strong>Causal variants</strong> — see §4. Essentially all reported pathogenic variants are protein-truncating (PTV) or splice-site.</li>
+<li><strong>Parental germline / gonosomal mosaicism</strong> — a <em>bona fide</em> recurrence-risk factor. GeneReviews: <em>"Sib recurrence due to presumed parental germline mosaicism has been reported in three families."</em> Confirmed by ultra-deep sequencing (<a href="https://pubmed.ncbi.nlm.nih.gov/40980137/" target="_blank" rel="noopener noreferrer">PMID:40980137</a>, 2025):<blockquote>
+<p>"We definitively diagnosed this family by WES and found the lowest level of paternal mosaicism reported to date, with a peripheral blood variant allele frequency (VAF) of 8.17% and a semen VAF of 15.03%."
+   Also <a href="https://pubmed.ncbi.nlm.nih.gov/42194125/" target="_blank" rel="noopener noreferrer">PMID:42194125</a> (2026): a clinically unaffected mother mosaic at <strong>~15% VAF in peripheral blood DNA</strong> transmitted <code>c.1648_1649del; p.Met550Aspfs*5</code> to two half-brothers.</p>
+</blockquote>
+</li>
+<li><strong>Inherited variants from a mildly affected parent</strong> — established (<a href="https://pubmed.ncbi.nlm.nih.gov/36177608/" target="_blank" rel="noopener noreferrer">PMID:36177608</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>).</li>
+<li><strong>Advanced paternal age</strong> — the generic de novo mutation risk factor. Not specifically quantified for <em>ASXL3</em>; <strong>evidence gap</strong>.</li>
+<li><strong>Modifier / second-locus effects</strong> — see §4.3.</li>
+</ol>
+<p><strong>Environmental risk factors:</strong> None identified. No toxin, teratogen, occupational, dietary, or infectious risk factor has been associated with BRPS. Sex does not appear to be a strong risk modifier (see §9.4). <strong>Not applicable / no evidence.</strong></p>
+<h3>2.3 Protective factors</h3>
+<p><strong>No genetic or environmental protective factors have been identified.</strong> Two adjacent observations are worth recording:</p>
+<ul>
+<li><strong>Reduced penetrance / mild expression.</strong> GeneReviews and <a href="https://pubmed.ncbi.nlm.nih.gov/34436830/" target="_blank" rel="noopener noreferrer">PMID:34436830</a> explicitly discuss "nonpenetrance" and mildly affected individuals; <a href="https://pubmed.ncbi.nlm.nih.gov/33242595/" target="_blank" rel="noopener noreferrer">PMID:33242595</a> notes <em>"The exact molecular mechanism of these mutations resulting in the disease phenotype is still uncertain due to the observation of LOF mutations in healthy population."</em> Whatever buffers these individuals is unknown — an important open question, not a documented protective factor.</li>
+<li><strong>A potentially "protective"/therapeutic window</strong> exists in the mouse model: neonatal thyroid hormone supplementation rescues behaviour, but adolescent supplementation does not (bioRxiv PPR1237608; see §6.1 and §12.3).</li>
+</ul>
+<h3>2.4 Gene–environment interactions</h3>
+<p>No documented GxE interaction. The single mechanistic candidate arising from the 2026 mouse work is a <strong>gene–hormone/nutrient interaction</strong>: <em>Asxl3</em> haploinsufficiency depletes brain thyroid hormone via DIO3 derepression, which in principle makes early-life thyroid status a modifiable environmental variable. This is <strong>model-organism-only</strong> and unvalidated in humans.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 GeneReviews frequency table (authoritative aggregate)</h3>
+<p>GeneReviews <em>ASXL3-Related Disorder</em> (NBK563693), Table "Select Features of <em>ASXL3</em>-Related Disorder" — reproduced as printed (confirmed on two independent retrievals):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>% of persons w/feature</th>
+<th>Comment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Speech delay</td>
+<td><strong>100%</strong></td>
+<td>"Most are nonverbal or have very limited speech."</td>
+</tr>
+<tr>
+<td>Intellectual disability</td>
+<td><strong>99%</strong></td>
+<td>"Typically moderate to severe"</td>
+</tr>
+<tr>
+<td>Facial dysmorphism</td>
+<td><strong>98%</strong></td>
+<td>See Suggestive Findings</td>
+</tr>
+<tr>
+<td>Hypotonia</td>
+<td><strong>86%</strong></td>
+<td>"Central hypotonia can be assoc w/↑ tone in upper &amp; lower limbs."</td>
+</tr>
+<tr>
+<td>Behavioral concerns</td>
+<td><strong>78%</strong></td>
+<td>"Incl autistic traits or an ASD diagnosis"</td>
+</tr>
+<tr>
+<td>Feeding difficulties</td>
+<td><strong>78%</strong></td>
+<td>"Most affected persons in the early stages are referred w/feeding difficulties &amp; failure to thrive."</td>
+</tr>
+<tr>
+<td>Skeletal findings</td>
+<td><strong>74%</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Eyes</td>
+<td><strong>~50%</strong></td>
+<td>"Strabismus is the most common finding."</td>
+</tr>
+<tr>
+<td>Seizures</td>
+<td><strong>38%</strong></td>
+<td>"GTCS &amp; absence seizures; most have normal brain MRI imaging."</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Independent systematic review (<a href="https://pubmed.ncbi.nlm.nih.gov/38420660/" target="_blank" rel="noopener noreferrer">PMID:38420660</a>, <em>Clin Genet</em> 2024, Woods et al.):</p>
+<blockquote>
+<p>"Common phenotypic features comprised global developmental delay or intellectual disability (97%), feeding problems (76%), hypotonia (88%) and characteristic facial features (93%)."</p>
+</blockquote>
+<p>Spanish cohort, n=22 (<a href="https://pubmed.ncbi.nlm.nih.gov/39833101/" target="_blank" rel="noopener noreferrer">PMID:39833101</a>, <em>Clin Genet</em> 2025):</p>
+<blockquote>
+<p>"The predominant prenatal finding was intrauterine growth restriction (35%) followed, after birth, by feeding difficulties (90.5%), hypotonia (85.7%), and gastroesophageal reflux disease (82.4%). Later in life, intellectual disability, language impairment, autism spectrum disorder (75%), and joint laxity (73.7%) were noted."</p>
+</blockquote>
+<p>DDD cohort, n=12 (<a href="https://pubmed.ncbi.nlm.nih.gov/28100473/" target="_blank" rel="noopener noreferrer">PMID:28100473</a>, <em>J Med Genet</em> 2017):</p>
+<blockquote>
+<p>"severe intellectual disability (11/12), poor/ absent speech (12/12), autistic traits (9/12)" … hypotonia 11/12, feeding difficulties 9/12.</p>
+</blockquote>
+<h3>3.2 HPO annotations (from HPO annotation API, <a href="https://bioregistry.io/OMIM:615485" target="_blank" rel="noopener noreferrer">OMIM:615485</a>)</h3>
+<p>These are the authoritative curated HPO ID↔label↔frequency triples. Frequencies are <em>n/N</em> as curated from source publications (small denominators — treat as qualitative, not population estimates).</p>
+<p><strong>Neurodevelopmental / behavioral</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HPO ID</th>
+<th>Label</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Intellectual disability</td>
+<td>16/16</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a></td>
+<td>Delayed speech and language development</td>
+<td>12/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" rel="noopener noreferrer">HP:0001344</a></td>
+<td>Absent speech</td>
+<td>5/8</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" rel="noopener noreferrer">HP:0011344</a></td>
+<td>Severe global developmental delay</td>
+<td>4/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></td>
+<td>Global developmental delay</td>
+<td>4/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a></td>
+<td>Autistic behavior</td>
+<td>10/13</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" rel="noopener noreferrer">HP:0000717</a></td>
+<td>Autism</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100023" target="_blank" rel="noopener noreferrer">HP:0100023</a></td>
+<td>Recurrent hand flapping</td>
+<td>3/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" rel="noopener noreferrer">HP:0000733</a></td>
+<td>Motor stereotypy</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100716" target="_blank" rel="noopener noreferrer">HP:0100716</a></td>
+<td>Self-injurious behavior</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031936" target="_blank" rel="noopener noreferrer">HP:0031936</a></td>
+<td>Delayed ability to walk</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" rel="noopener noreferrer">HP:0002540</a></td>
+<td>Inability to walk</td>
+<td>1/4</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Neurologic / tone</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HPO ID</th>
+<th>Label</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></td>
+<td>Hypotonia</td>
+<td>14/15</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" rel="noopener noreferrer">HP:0001290</a></td>
+<td>Generalized hypotonia</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" rel="noopener noreferrer">HP:0001276</a></td>
+<td>Hypertonia</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>Seizure</td>
+<td>4/15</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Growth / feeding / GI</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HPO ID</th>
+<th>Label</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a></td>
+<td>Feeding difficulties</td>
+<td>12/15</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></td>
+<td>Failure to thrive</td>
+<td>4/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033454" target="_blank" rel="noopener noreferrer">HP:0033454</a></td>
+<td>Tube feeding</td>
+<td>3/4 (onset <a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a> infantile)</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040288" target="_blank" rel="noopener noreferrer">HP:0040288</a></td>
+<td>Nasogastric tube feeding</td>
+<td>3/3</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a></td>
+<td>Gastroesophageal reflux</td>
+<td>2/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a></td>
+<td>Vomiting</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002566" target="_blank" rel="noopener noreferrer">HP:0002566</a></td>
+<td>Intestinal malrotation</td>
+<td>1/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" rel="noopener noreferrer">HP:0001510</a></td>
+<td>Growth delay</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a></td>
+<td>Intrauterine growth retardation</td>
+<td>2/3 (onset <a href="http://purl.obolibrary.org/obo/HP_0011461" target="_blank" rel="noopener noreferrer">HP:0011461</a> fetal)</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001519" target="_blank" rel="noopener noreferrer">HP:0001519</a></td>
+<td>Disproportionate tall stature</td>
+<td>3/12</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Craniofacial</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HPO ID</th>
+<th>Label</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" rel="noopener noreferrer">HP:0000218</a></td>
+<td>High palate</td>
+<td>11/16</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" rel="noopener noreferrer">HP:0000494</a></td>
+<td>Downslanted palpebral fissures</td>
+<td>8/15</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002553" target="_blank" rel="noopener noreferrer">HP:0002553</a></td>
+<td>Highly arched eyebrow</td>
+<td>5/7</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" rel="noopener noreferrer">HP:0000463</a></td>
+<td>Anteverted nares</td>
+<td>5/8</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011220" target="_blank" rel="noopener noreferrer">HP:0011220</a></td>
+<td>Prominent forehead</td>
+<td>4/19</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a></td>
+<td>Hypertelorism</td>
+<td>4/17</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" rel="noopener noreferrer">HP:0003196</a></td>
+<td>Short nose</td>
+<td>4/7</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a></td>
+<td>Low-set ears</td>
+<td>4/7</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000358" target="_blank" rel="noopener noreferrer">HP:0000358</a></td>
+<td>Posteriorly rotated ears</td>
+<td>4/20</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000426" target="_blank" rel="noopener noreferrer">HP:0000426</a></td>
+<td>Prominent nasal bridge</td>
+<td>3/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></td>
+<td>Microcephaly</td>
+<td>3/8</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000243" target="_blank" rel="noopener noreferrer">HP:0000243</a></td>
+<td>Trigonocephaly</td>
+<td>2/7</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011330" target="_blank" rel="noopener noreferrer">HP:0011330</a></td>
+<td>Metopic synostosis</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000664" target="_blank" rel="noopener noreferrer">HP:0000664</a></td>
+<td>Synophrys</td>
+<td>2/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000430" target="_blank" rel="noopener noreferrer">HP:0000430</a></td>
+<td>Underdeveloped nasal alae</td>
+<td>2/5</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000331" target="_blank" rel="noopener noreferrer">HP:0000331</a></td>
+<td>Short chin</td>
+<td>2/3</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a></td>
+<td>Micrognathia</td>
+<td>2/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000678" target="_blank" rel="noopener noreferrer">HP:0000678</a></td>
+<td>Dental crowding</td>
+<td>2/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000212" target="_blank" rel="noopener noreferrer">HP:0000212</a></td>
+<td>Gingival overgrowth</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000232" target="_blank" rel="noopener noreferrer">HP:0000232</a></td>
+<td>Everted lower lip vermilion</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000154" target="_blank" rel="noopener noreferrer">HP:0000154</a></td>
+<td>Wide mouth</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000455" target="_blank" rel="noopener noreferrer">HP:0000455</a></td>
+<td>Broad nasal tip</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002000" target="_blank" rel="noopener noreferrer">HP:0002000</a></td>
+<td>Short columella</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" rel="noopener noreferrer">HP:0000431</a></td>
+<td>Wide nasal bridge</td>
+<td>1/3</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000527" target="_blank" rel="noopener noreferrer">HP:0000527</a></td>
+<td>Long eyelashes</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000278" target="_blank" rel="noopener noreferrer">HP:0000278</a></td>
+<td>Retrognathia</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000272" target="_blank" rel="noopener noreferrer">HP:0000272</a></td>
+<td>Malar flattening</td>
+<td>1/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000239" target="_blank" rel="noopener noreferrer">HP:0000239</a></td>
+<td>Large fontanelles</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030799" target="_blank" rel="noopener noreferrer">HP:0030799</a></td>
+<td>Scaphocephaly</td>
+<td>1/12</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Ophthalmologic</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HPO ID</th>
+<th>Label</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a></td>
+<td>Strabismus</td>
+<td>7/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" rel="noopener noreferrer">HP:0000540</a></td>
+<td>Hypermetropia</td>
+<td>2/7</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000490" target="_blank" rel="noopener noreferrer">HP:0000490</a></td>
+<td>Deeply set eye</td>
+<td>1/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" rel="noopener noreferrer">HP:0000520</a></td>
+<td>Proptosis</td>
+<td><strong>0/3</strong> (explicitly negative — key BOS discriminator)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Musculoskeletal / limb</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HPO ID</th>
+<th>Label</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009487" target="_blank" rel="noopener noreferrer">HP:0009487</a></td>
+<td>Ulnar deviation of the hand</td>
+<td>3/7</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006191" target="_blank" rel="noopener noreferrer">HP:0006191</a></td>
+<td>Deep palmar crease</td>
+<td>3/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001188" target="_blank" rel="noopener noreferrer">HP:0001188</a></td>
+<td>Hand clenching</td>
+<td>2/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" rel="noopener noreferrer">HP:0001166</a></td>
+<td>Arachnodactyly</td>
+<td>2/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a></td>
+<td>Scoliosis</td>
+<td>1/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001763" target="_blank" rel="noopener noreferrer">HP:0001763</a></td>
+<td>Pes planus</td>
+<td>1/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009276" target="_blank" rel="noopener noreferrer">HP:0009276</a></td>
+<td>Contracture of 4th finger PIP joint</td>
+<td>1/12</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Neuroimaging</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HPO ID</th>
+<th>Label</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" rel="noopener noreferrer">HP:0002079</a></td>
+<td>Hypoplasia of the corpus callosum</td>
+<td>1/3</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007068" target="_blank" rel="noopener noreferrer">HP:0007068</a></td>
+<td>Inferior cerebellar vermis hypoplasia</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006956" target="_blank" rel="noopener noreferrer">HP:0006956</a></td>
+<td>Lateral ventricle dilatation</td>
+<td>1/1</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Other systems</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HPO ID</th>
+<th>Label</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001601" target="_blank" rel="noopener noreferrer">HP:0001601</a></td>
+<td>Laryngomalacia</td>
+<td>1/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000452" target="_blank" rel="noopener noreferrer">HP:0000452</a></td>
+<td>Choanal stenosis</td>
+<td>1/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" rel="noopener noreferrer">HP:0000826</a></td>
+<td>Precocious puberty</td>
+<td>1/2</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" rel="noopener noreferrer">HP:0001007</a></td>
+<td>Hirsutism</td>
+<td>2/16</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" rel="noopener noreferrer">HP:0008070</a></td>
+<td>Sparse hair</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a></td>
+<td>Recurrent infections</td>
+<td>1/3</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a></td>
+<td>Cryptorchidism</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002558" target="_blank" rel="noopener noreferrer">HP:0002558</a></td>
+<td>Supernumerary nipple</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001522" target="_blank" rel="noopener noreferrer">HP:0001522</a></td>
+<td>Death in infancy</td>
+<td>1/4</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011410" target="_blank" rel="noopener noreferrer">HP:0011410</a></td>
+<td>Caesarean section</td>
+<td>9/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" rel="noopener noreferrer">HP:0001561</a></td>
+<td>Polyhydramnios</td>
+<td>1/12</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001623" target="_blank" rel="noopener noreferrer">HP:0001623</a></td>
+<td>Breech presentation</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a></td>
+<td>Autosomal dominant inheritance</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>3.3 Additional / expanding phenotypes not yet in the HPO annotation set</h3>
+<p>These are recent, well-documented additions worth curating with their own evidence:</p>
+<ul>
+<li><strong>Hyperventilation–athetosis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28955728/" target="_blank" rel="noopener noreferrer">PMID:28955728</a>, <em>Neurol Genet</em> 2017, Dad et al.). Hyperventilation escalating with nervousness, with athetotic movements developing in both upper extremities, especially the hands; interpreted as evidence of "a neural connection, in the context of ASXL3 deficiency, between pathways of respiration and of motor control." Suggested terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0002883" target="_blank" rel="noopener noreferrer">HP:0002883</a> Hyperventilation [verify]</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002305" target="_blank" rel="noopener noreferrer">HP:0002305</a> Athetosis [verify]</strong>.</li>
+<li><strong>Breath-holding spells with dystonic posturing, no ictal EEG correlate; refractory</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/35172777/" target="_blank" rel="noopener noreferrer">PMID:35172777</a>). Refractory to iron, acetazolamide, desipramine.</li>
+<li><strong>Dystonic cerebral palsy phenotype</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/35863334/" target="_blank" rel="noopener noreferrer">PMID:35863334</a>, <em>Neuropediatrics</em> 2022): <em>"infantile-onset limb/trunk dystonic postures and secondarily evolving distal spastic contractures."</em> Authors conclude <em>"ASXL3 should be added to target-gene lists used for molecular evaluation of cerebral palsy."</em> Terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" rel="noopener noreferrer">HP:0001332</a> Dystonia [verify]</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" rel="noopener noreferrer">HP:0002061</a> Lower limb spasticity [verify]</strong>.</li>
+<li><strong>Developmental coordination disorder</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/38027485/" target="_blank" rel="noopener noreferrer">PMID:38027485</a>, <em>Front Neurosci</em> 2023): <em>"100% of individuals who underwent the development questionnaire met a diagnosis of developmental coordination disorder."</em> n=7 ASXL3; hypotonia predominant in BRS vs mixed hypo/hypertonia in BOS.</li>
+<li><strong>Renal phenotype (emerging), obesity in later childhood, antenatal/neonatal structural anomalies, lower-than-expected seizure prevalence</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>, 2025):<blockquote>
+<p>"Findings include: an increased prevalence of antenatal and neonatal structural anomalies, an emerging renal phenotype, a tendency for poor post-natal growth (with novel reports of obesity later in childhood), and a lower-than-expected prevalence of seizures (compared to the existing literature)."</p>
+</blockquote>
+</li>
+<li><strong>Sleep apnea</strong> — statistically enriched in the NMD and MCR1 subgroups (<a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>). Term: <strong><a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" rel="noopener noreferrer">HP:0010535</a> Sleep apnea [verify]</strong>.</li>
+<li><strong>Oro-dental</strong>: high-arched palate, narrow maxilla, posterior crossbite, open bite, fibrotic frenulum, mouth breathing (<a href="https://pubmed.ncbi.nlm.nih.gov/40237215/" target="_blank" rel="noopener noreferrer">PMID:40237215</a>, 2025).</li>
+<li><strong>Prenatal / fetal</strong>: arthrogryposis on ultrasound with neuropathological <strong>pontocerebellar hypoplasia type 1</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29316359/" target="_blank" rel="noopener noreferrer">PMID:29316359</a>). Terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0002505" target="_blank" rel="noopener noreferrer">HP:0002505</a> Arthrogryposis multiplex congenita [verify]</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0007034" target="_blank" rel="noopener noreferrer">HP:0007034</a> Pontocerebellar hypoplasia [verify]</strong>.</li>
+<li><strong>Cardiac</strong>: congenital laryngeal cartilage hypoplasia and <strong>dextrocardia</strong> reported as novel complications (<a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a>, 2025). Term: <strong><a href="http://purl.obolibrary.org/obo/HP_0001651" target="_blank" rel="noopener noreferrer">HP:0001651</a> Dextrocardia [verify]</strong>.</li>
+<li><strong>Progressive cerebral/cerebellar atrophy</strong> in a severe case (<a href="https://pubmed.ncbi.nlm.nih.gov/35172777/" target="_blank" rel="noopener noreferrer">PMID:35172777</a>). Term: <strong><a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" rel="noopener noreferrer">HP:0002059</a> Cerebral atrophy [verify]</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" rel="noopener noreferrer">HP:0001272</a> Cerebellar atrophy [verify]</strong>.</li>
+<li><strong>Precocious/premature pubarche signals</strong> — but note the ASXL1/BOS group carried the stronger signal; <em>"Findings between the BOS (ASXL1) and BRS (ASXL3) individuals differed, representing distinct pubertal phenotypes within these populations"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40808361/" target="_blank" rel="noopener noreferrer">PMID:40808361</a>, 2026).</li>
+<li><strong>Adolescent-onset feeding difficulty / ARFID</strong> — first report (<a href="https://pubmed.ncbi.nlm.nih.gov/38711055/" target="_blank" rel="noopener noreferrer">PMID:38711055</a>, 2024), notable because feeding problems otherwise typically <em>improve</em> with age.</li>
+<li><strong>Precursor B-cell acute lymphoblastic leukemia</strong> — a single pediatric co-occurrence (<a href="https://pubmed.ncbi.nlm.nih.gov/35733401/" target="_blank" rel="noopener noreferrer">PMID:35733401</a>). <strong>Interpretation caution:</strong> this is n=1; ASXL1/ASXL2 are established somatic myeloid drivers, so a germline <em>ASXL3</em> cancer predisposition is biologically speculative and unproven. Do not curate as an established association.</li>
+</ul>
+<h3>3.4 Phenotype characteristics</h3>
+<p><strong>Age of onset.</strong> Congenital to neonatal. IUGR/polyhydramnios/arthrogryposis may be detected prenatally (35% IUGR, <a href="https://pubmed.ncbi.nlm.nih.gov/39833101/" target="_blank" rel="noopener noreferrer">PMID:39833101</a>). Hypotonia, feeding difficulty and failure to thrive are apparent in the neonatal period; developmental delay becomes evident in infancy; seizures are childhood-onset (<a href="https://pubmed.ncbi.nlm.nih.gov/29367179/" target="_blank" rel="noopener noreferrer">PMID:29367179</a>); ASD diagnosis typically in early childhood.</p>
+<p><strong>Severity.</strong> Highly variable. Historically described as severe, but the spectrum now clearly extends to mild. <a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>: <em>"We report significant phenotypic variability… We also provide the first qualitative descriptions of several mildly affected probands, at different ages."</em> Some carriers of inherited variants are clinically unaffected or minimally affected.</p>
+<p><strong>Progression.</strong> Non-degenerative and largely <strong>static with improvement trends</strong>, which is prognostically important:</p>
+<blockquote>
+<p>"…improvement trends in feeding, hypotonia, verbalisation, and motor skills over time." (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>)</p>
+</blockquote>
+<p>Counter-signals: hypotonia may transition to spasticity/contractures (GeneReviews; <a href="https://pubmed.ncbi.nlm.nih.gov/35863334/" target="_blank" rel="noopener noreferrer">PMID:35863334</a>); one severe case showed progressive cerebral/cerebellar atrophy (<a href="https://pubmed.ncbi.nlm.nih.gov/35172777/" target="_blank" rel="noopener noreferrer">PMID:35172777</a>); one case had adolescent-onset feeding decline (<a href="https://pubmed.ncbi.nlm.nih.gov/38711055/" target="_blank" rel="noopener noreferrer">PMID:38711055</a>).</p>
+<p><strong>Course patterns.</strong> Chronic lifelong. Seizures are episodic (GTCS ± atypical absence). Breath-holding/hyperventilation episodes are paroxysmal. Behavioral crises can be episodic and treatable (<a href="https://pubmed.ncbi.nlm.nih.gov/39698206/" target="_blank" rel="noopener noreferrer">PMID:39698206</a>).</p>
+<h3>3.5 Quality-of-life impact</h3>
+<p>No disease-specific EQ-5D/SF-36/PROMIS data exist for BRPS — <strong>evidence gap</strong>. Available proxies:</p>
+<ul>
+<li><strong>Motor impairment → school engagement.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/38027485/" target="_blank" rel="noopener noreferrer">PMID:38027485</a> reports motor impairments "negatively impact school engagement" and are "meaningful intervention targets."</li>
+<li><strong>Unmet rehabilitation need.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/42111080/" target="_blank" rel="noopener noreferrer">PMID:42111080</a> (<em>Front Neurol</em> 2026): <em>"There exists limited evidence-based medical care and rehabilitation regimen for individuals with BRPS. Thus, the health care needs of individuals with BRPS are hugely unmet."</em></li>
+<li><strong>Caregiver-facing burden of behavior.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/34086428/" target="_blank" rel="noopener noreferrer">PMID:34086428</a>: sleep impairment 71%, disruptive behavior 57%, aggression 57%, self-injurious behavior 43%; <em>"All 7 patients (100%) had multiple DSM-5 diagnoses."</em></li>
+<li><strong>Communication.</strong> Near-universal absent/limited speech is the single largest driver of functional dependency.</li>
+<li>A generic instrument potentially applicable: QI-Disability / QID-12 for children with intellectual disability (<a href="https://pubmed.ncbi.nlm.nih.gov/41920472/" target="_blank" rel="noopener noreferrer">PMID:41920472</a>) — not yet applied to BRPS.</li>
+</ul>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal gene</h3>
+<p><strong>ASXL3</strong> (ASXL transcriptional regulator 3), 18q12.1, NCBI Gene 80816, OMIM 615115, <a href="https://bioregistry.io/HGNC:29357" target="_blank" rel="noopener noreferrer">HGNC:29357</a>, aliases <em>BRPS</em>, <em>KIAA1713</em>. Reference transcript <strong>NM_030632.3</strong>. The gene's coding sequence is dominated by two very large exons (11 and 12), which is where essentially all pathogenic variants fall.</p>
+<p><strong>ClinGen Gene–Disease Validity:</strong> <em>ASXL3</em> — <strong>Syndromic intellectual disability (<a href="http://purl.obolibrary.org/obo/MONDO_0000508" target="_blank" rel="noopener noreferrer">MONDO:0000508</a>)</strong> — <strong>Autosomal dominant</strong> — <strong>DEFINITIVE</strong>, Intellectual Disability and Autism GCEP, classified <strong>2021-10-06</strong>. ClinGen explicitly notes: <em>"ASXL3 will be curated for syndromic intellectual disability because of the variability in reported phenotypes that don't necessarily fall within the bounds of Bainbridge-Ropers syndrome."</em></p>
+<h3>4.2 Pathogenic variants</h3>
+<p><strong>Variant class distribution.</strong> Overwhelmingly <strong>protein-truncating</strong>: nonsense and frameshift, plus canonical splice-site variants. <a href="https://pubmed.ncbi.nlm.nih.gov/38420660/" target="_blank" rel="noopener noreferrer">PMID:38420660</a>: <em>"The majority of genetic variants were de novo truncating variants in exon 11 or 12 of the ASXL3 gene."</em> GeneReviews detection rates: sequence analysis <strong>98–99%</strong>, gene-targeted del/dup <strong>1–2%</strong>, CMA rarely.</p>
+<p><strong>Mutational cluster regions (MCRs).</strong> Two clusters are consistently described. The most precise coordinates come from <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a> (2026):</p>
+<ul>
+<li><strong>MCR1</strong> = <code>c.1095_2237</code>, <strong>exon 11</strong> (n=66 published individuals)</li>
+<li><strong>MCR2</strong> = <code>c.3043_4906</code>, <strong>exon 12</strong> (n=101 published individuals)</li>
+</ul>
+<p>MCR2 was the "second mutation cluster region" first identified in <a href="https://pubmed.ncbi.nlm.nih.gov/28100473/" target="_blank" rel="noopener noreferrer">PMID:28100473</a>.</p>
+<p><strong>Representative published variants</strong> (all NM_030632.3, all confirmed de novo unless noted):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (cDNA)</th>
+<th>Protein</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.1897_1898delCA</td>
+<td>frameshift</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24044690/" target="_blank" rel="noopener noreferrer">PMID:24044690</a> (Dinwiddie 2013)</td>
+</tr>
+<tr>
+<td>c.1210C&gt;T</td>
+<td>p.Gln404*</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35863334/" target="_blank" rel="noopener noreferrer">PMID:35863334</a> (dystonic CP)</td>
+</tr>
+<tr>
+<td>c.1276del</td>
+<td>p.Val426*</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a> (novel)</td>
+</tr>
+<tr>
+<td>c.1612G&gt;T</td>
+<td>p.Glu538*</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35172777/" target="_blank" rel="noopener noreferrer">PMID:35172777</a></td>
+</tr>
+<tr>
+<td>c.1648_1649del</td>
+<td>p.Met550Aspfs*5</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42194125/" target="_blank" rel="noopener noreferrer">PMID:42194125</a> (maternal mosaic, inherited)</td>
+</tr>
+<tr>
+<td>c.1667_1668del</td>
+<td>p.Thr556Argfs*3</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39610869/" target="_blank" rel="noopener noreferrer">PMID:39610869</a> (novel)</td>
+</tr>
+<tr>
+<td>c.2791_2792del</td>
+<td>p.Gln931fs</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36177608/" target="_blank" rel="noopener noreferrer">PMID:36177608</a> (father→son)</td>
+</tr>
+<tr>
+<td>p.Pro1010Leufs*14</td>
+<td>—</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29445472/" target="_blank" rel="noopener noreferrer">PMID:29445472</a></td>
+</tr>
+<tr>
+<td>c.3324del</td>
+<td>p.Lys1109Serfs*34</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39610869/" target="_blank" rel="noopener noreferrer">PMID:39610869</a> (novel)</td>
+</tr>
+<tr>
+<td>c.3349C&gt;T</td>
+<td>p.Arg1117*</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29429203/" target="_blank" rel="noopener noreferrer">PMID:29429203</a></td>
+</tr>
+<tr>
+<td>c.3493_3494delTG</td>
+<td>p.Cys1165* (exon 12)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32517662/" target="_blank" rel="noopener noreferrer">PMID:32517662</a></td>
+</tr>
+<tr>
+<td>c.3750del</td>
+<td>p.Glu1251Asnfs*5</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a> (novel)</td>
+</tr>
+<tr>
+<td>c.4330C&gt;T</td>
+<td>p.Arg1444*</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a> (recurrent)</td>
+</tr>
+<tr>
+<td>c.4336_4337delAG</td>
+<td>p.Arg1446fs*2</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a> (recurrent)</td>
+</tr>
+<tr>
+<td>c.4441dup</td>
+<td>p.Leu1481fs</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36177608/" target="_blank" rel="noopener noreferrer">PMID:36177608</a> (mother→daughter)</td>
+</tr>
+<tr>
+<td>c.4534C&gt;T</td>
+<td>p.Gln1512*</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36177608/" target="_blank" rel="noopener noreferrer">PMID:36177608</a> (mother→2 children)</td>
+</tr>
+<tr>
+<td>c.4678C&gt;T</td>
+<td>p.Arg1560*</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39610869/" target="_blank" rel="noopener noreferrer">PMID:39610869</a> (recurrent, 2 unrelated)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Recurrent variants</strong> (useful for prioritization): <code>p.Arg1444*</code>, <code>p.Arg1560*</code>, <code>p.Gln1512*</code> — a systematic recurrent-variant analysis is in <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>.</p>
+<p><strong>ACMG/AMP classification.</strong> PTVs in the established MCRs meeting de novo criteria are typically <strong>Pathogenic</strong> (PVS1 + PS2 + PM2). <strong>Inherited</strong> PTVs are more difficult: <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a> cautions that family reports <em>"may reflect uncertainty about the pathogenicity of inherited ASXL3 variants."</em></p>
+<p><strong>ClinVar (queried 2026-07-31, NCBI E-utilities):</strong> <strong>1,086 total records</strong> for <code>ASXL3[gene]</code>; <strong>453</strong> records with Pathogenic or Likely Pathogenic clinical significance. (Counts are record-level, not unique-allele-level — treat as approximate.)</p>
+<p><strong>Population allele frequency / constraint.</strong> <em>ASXL3</em> is among the most LoF-constrained genes in the genome:
+- <strong>pLI = 1.00</strong> (ClinGen dosage curation, citing gnomAD/ExAC)
+- <strong>Haploinsufficiency Index = 13.78</strong> (ClinGen)
+- <strong>pLI 0.9999</strong> in ExAC (SFARI Gene)
+- <strong>LOEUF ≈ 0.23</strong> (gnomAD v4.0) — <em>reported via secondary source only in this session; </em><em>[verify against gnomAD directly]</em>**</p>
+<p>Pathogenic BRPS variants are absent from gnomAD (PM2). <strong>Caveat worth curating:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/33242595/" target="_blank" rel="noopener noreferrer">PMID:33242595</a> notes <em>"the observation of LOF mutations in healthy population"</em>, which is why the disease mechanism at MCR level is still debated (see §4.4).</p>
+<p><strong>Somatic vs germline.</strong> BRPS variants are <strong>germline</strong> (constitutional) or <strong>parental mosaic</strong>. <em>ASXL3</em> is not an established somatic cancer driver (unlike <em>ASXL1</em>/<em>ASXL2</em> in myeloid neoplasia). Somatic <em>ASXL3</em> mutations appear incidentally in tumour sequencing (e.g., neuroendocrine prostate cancer, ccRCC, T-cell lymphoma studies retrieved in this session) but with <strong>no established driver role</strong>.</p>
+<p><strong>Functional consequence — the NMD vs no-NMD dichotomy.</strong> This is now the leading mechanistic axis. From <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a> (2026):</p>
+<blockquote>
+<p>"Statistical comparisons were made between individuals with variants leading to no protein product (nonsense-mediated messenger RNA decay [NMD], <em>n</em> = 87) and those with protein-truncating variants (no-NMD, <em>n</em> = 117)."
+"Microcephaly, sleep apnea, hyperventilation, and feeding tube use had a statistically increased prevalence in the NMD and MCR1 groups. Intellectual disability and global developmental delay were more severe in the NMD and MCR1 groups and were significant for the MCR1/MCR2 comparison (<em>P</em> = .0031 and <em>P</em> = .0183). Although autistic features were observed across all groups, the no-NMD and MCR2 cohorts had a higher proportion of individuals with formal autism diagnoses."</p>
+</blockquote>
+<p>This implies <strong>two mechanisms coexist</strong>: true haploinsufficiency (NMD, MCR1 — more severe, more microcephaly) and a <strong>truncated-protein / possible dominant-negative or gain-of-function effect</strong> (no-NMD, MCR2 — more formal autism diagnoses). NMD of the mutant allele was directly demonstrated in patient fibroblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>): <em>"ASXL3 mRNA transcripts from the mutated allele are prone to nonsense-mediated decay, and expression of ASXL3 is reduced."</em></p>
+<p><strong>Genotype–phenotype correlation status.</strong> Contradictory across sources — worth curating as a live controversy:
+- GeneReviews (2020): <em>"No genotype-phenotype correlations for ASXL3 have been identified."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/39833101/" target="_blank" rel="noopener noreferrer">PMID:39833101</a> (2025): <em>"Individuals with variants in the 3' mutational cluster region (MCR) of exon 12 exhibited more perinatal feeding problems, and those with variants in the 5' MCR of exon 11 displayed lower percentiles in height and occipitofrontal circumference, as well as higher frequency of arched eyebrows."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a> (2026): statistically significant MCR1 vs MCR2 differences (above).</p>
+<p><strong>Verdict:</strong> correlations are emerging and now statistically supported, superseding the earlier "none identified" statement.</p>
+<p><strong>Missense variants.</strong> Not established as a cause of the autosomal dominant disorder. GeneReviews: <em>"Missense variants are not thought to be causative for autosomal dominant inheritance. Biallelic missense variants have been reported in four individuals with congenital heart defects; further evidence needed."</em> <a href="https://pubmed.ncbi.nlm.nih.gov/34436830/" target="_blank" rel="noopener noreferrer">PMID:34436830</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/38420660/" target="_blank" rel="noopener noreferrer">PMID:38420660</a> both flag <em>"the disease contribution of missense variants"</em> as an open gap. Separately, <a href="https://pubmed.ncbi.nlm.nih.gov/32132929/" target="_blank" rel="noopener noreferrer">PMID:32132929</a> notes: <em>"Human genomic studies also identified missense ASXL3 variants associated with autism spectrum disorder, but lacking more severe Bainbridge-Ropers syndromic features."</em></p>
+<h3>4.3 Modifier genes and multilocus variation</h3>
+<ul>
+<li><strong>15q11.2 BP1–BP2 microdeletion as a modifier.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/41458212/" target="_blank" rel="noopener noreferrer">PMID:41458212</a> (2025) reports a 7-month-old with a de novo <em>ASXL3</em> nonsense variant plus a paternally inherited (asymptomatic father) 15q11.2 BP1-BP2 microdeletion, with <em>"severe global developmental delay, hypotonia, feeding difficulties, microcephaly and recurrent respiratory infections"</em>; authors propose <em>"multilocus pathogenic variation can generate a blended, severe phenotype"</em> with <em>"convergence at the pathway rather than the complex level."</em> n=1 — hypothesis-generating.</li>
+<li><strong>Unidentified modifiers.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>: <em>"The family reports emphasize the possibility of additional, yet currently unidentified, factors influencing phenotypic expression."</em></li>
+<li><strong>Thyroid hormone axis genes</strong> (<em>DIO3</em>, <em>THRA</em>) — mechanistic modifier candidates from the mouse model (§6.1).</li>
+</ul>
+<h3>4.4 Epigenetic information</h3>
+<p><em>ASXL3</em> is itself an epigenetic regulator (§6), so "epigenetic information" here has two senses.</p>
+<p><strong>(a) Downstream chromatin consequence.</strong> Elevated <strong>H2AK119Ub1</strong> in patient fibroblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>) — the direct chromatin readout of PR-DUB dysfunction.</p>
+<p><strong>(b) DNA methylation episignature — a striking NEGATIVE result.</strong> This is an important, curation-worthy finding. Awamleh et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/35361921/" target="_blank" rel="noopener noreferrer">PMID:35361921</a>, <em>EJHG</em> 2022) developed a blood DNAm signature for Bohring-Opitz syndrome and tested it on ASXL2 and ASXL3:</p>
+<blockquote>
+<p>"We identified 763 differentially methylated CpG sites in individuals with BOS. Differentially methylated sites overlapped 323 unique genes, including HOXA5 and HOXB4… The DNAm profile of one individual with the ASXL2 variant was BOS-like, whereas the DNAm profiles of three individuals with <strong>ASXL3 variants were control-like</strong>. We also used Horvath's epigenetic clock, which showed acceleration in DNAm age in individuals with pathogenic ASXL1 variants, and the individual with the pathogenic ASXL2 variant, <strong>but not in individuals with ASXL3 variants</strong>."</p>
+</blockquote>
+<p><strong>Implications:</strong> (i) there is currently <strong>no validated BRPS episignature</strong> and the BOS classifier cannot be used to interpret <em>ASXL3</em> VUS; (ii) <em>ASXL3</em> dysfunction is <strong>mechanistically divergent</strong> from <em>ASXL1</em> despite paralogy — consistent with the distinct clinical syndromes; (iii) no epigenetic age acceleration in BRPS. n=3 ASXL3 individuals — a dedicated, adequately powered BRPS episignature study is a clear knowledge gap.</p>
+<p><strong>(c) Regulation of <em>ASXL3</em> itself.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/38791157/" target="_blank" rel="noopener noreferrer">PMID:38791157</a> (<em>Int J Mol Sci</em> 2024, ASXL-family review): <em>"Their expression is commonly regulated by DNA methylation at CpG islands preceding transcription starting sites."</em> The same review notes <em>"non-coding RNAs have been identified following mutations in the ASXL1 or ASXL3 gene."</em></p>
+<h3>4.5 Chromosomal abnormalities</h3>
+<p>Whole-gene or multi-exon deletions of <em>ASXL3</em> are <strong>rare</strong> (GeneReviews: gene-targeted del/dup analysis detects 1–2%; CMA rarely). ClinGen notes <em>"genomic copy-number variations causing haploinsufficiency in Bainbridge-Ropers syndrome patients have not yet been reported"</em> as of the 2017 dosage curation — so 18q12.1 deletion patients are under-described relative to what pLI 1.00 predicts. <strong>Triplosensitivity score 0</strong> — <em>"At this time there is no evidence that supports the triplosensitivity of ASXL3."</em></p>
+<p>No recurrent translocation, inversion, or aneuploidy mechanism.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental factors:</strong> None. BRPS is a fully penetrant-at-the-molecular-level Mendelian disorder; there is no documented toxin, radiation, pollution, or occupational contribution to causation. No entries in CTD linking environmental chemicals to <em>ASXL3</em>-mediated BRPS pathogenesis.</p>
+<p><strong>Lifestyle factors:</strong> Not applicable to causation. Relevant to <strong>management</strong>: nutritional intake (failure to thrive early, obesity risk later per <a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>), sleep hygiene (sleep disturbance in 71% per <a href="https://pubmed.ncbi.nlm.nih.gov/34086428/" target="_blank" rel="noopener noreferrer">PMID:34086428</a>), and physical activity/rehabilitation (<a href="https://pubmed.ncbi.nlm.nih.gov/42111080/" target="_blank" rel="noopener noreferrer">PMID:42111080</a>).</p>
+<p><strong>Infectious agents:</strong> Not applicable to causation. Recurrent infections are reported as a secondary complication (<a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a>, 1/3; recurrent respiratory infections in <a href="https://pubmed.ncbi.nlm.nih.gov/41458212/" target="_blank" rel="noopener noreferrer">PMID:41458212</a>), plausibly secondary to hypotonia, aspiration, and feeding difficulty rather than intrinsic immunodeficiency. No primary immunodeficiency has been characterized in BRPS — <strong>evidence gap</strong>.</p>
+<p><strong>One indirect environmental/nutritional lead:</strong> the mouse thyroid-hormone axis (§6.1) implies early-life thyroid hormone availability could be a modifiable environmental variable — entirely unvalidated in humans.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 The causal chain</h3>
+<p><strong>Node 1 — Molecular scale: heterozygous ASXL3 loss-of-function variant → reduced ASXL3 protein dosage</strong></p>
+<p>De novo truncating variant in exon 11 or 12 → NMD of the mutant transcript (MCR1/NMD class) or production of a truncated protein (MCR2/no-NMD class).</p>
+<p>Evidence (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>, IN_VITRO, patient fibroblasts):</p>
+<blockquote>
+<p>"ASXL3 mRNA transcripts from the mutated allele are prone to nonsense-mediated decay, and expression of ASXL3 is reduced."</p>
+</blockquote>
+<p>Suggested annotations: <code>biological_scale: MOLECULAR</code>; <a href="http://purl.obolibrary.org/obo/GO_0000184" target="_blank" rel="noopener noreferrer">GO:0000184</a> nuclear-transcribed mRNA catabolic process, nonsense-mediated decay <strong>[verify]</strong>.</p>
+<hr />
+<p><strong>Node 2 — Molecular scale: impaired PR-DUB (Polycomb Repressive Deubiquitinase) complex function</strong></p>
+<p>ASXL3 is a non-catalytic scaffolding subunit of PR-DUB, pairing with the deubiquitinase <strong>BAP1</strong>. Loss of ASXL3 impairs BAP1-mediated removal of monoubiquitin from histone H2A lysine 119.</p>
+<p>Evidence (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>):</p>
+<blockquote>
+<p>"We found that ASXL3 interacts with BAP1, a hydrolase that removes mono-ubiquitin from histone H2A lysine 119 (H2AK119Ub1) as a component of the Polycomb repressive deubiquitination (PR-DUB) complex."</p>
+</blockquote>
+<p>UniProt Q9C0F0 confirms: "Core component of the PR-DUB complex containing BAP1, ASXL proteins, and MBD proteins"; interacts with FOXK1, FOXK2, KDM1B, HCFC1, OGT.</p>
+<p>Annotations: <strong><a href="http://purl.obolibrary.org/obo/GO_0035517" target="_blank" rel="noopener noreferrer">GO:0035517</a> PR-DUB complex [OLS-checked]</strong>; <strong><a href="http://purl.obolibrary.org/obo/GO_0140950" target="_blank" rel="noopener noreferrer">GO:0140950</a> histone H2A deubiquitinase activity [OLS-checked]</strong>; <a href="http://purl.obolibrary.org/obo/GO_0016578" target="_blank" rel="noopener noreferrer">GO:0016578</a> histone deubiquitination <strong>[verify]</strong>; <code>biological_scale: MOLECULAR</code>.</p>
+<hr />
+<p><strong>Node 3 — Molecular scale: increased H2AK119 monoubiquitination (aberrant chromatin state)</strong></p>
+<p>Evidence (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>, IN_VITRO):</p>
+<blockquote>
+<p>"A significant increase in H2AK119Ub1 was observed in ASXL3 patient fibroblasts, highlighting an important functional role for ASXL3 in PR-DUB mediated deubiquitination."
+"This is the first single gene disorder linked to defects in deubiquitination of H2AK119Ub1…"</p>
+</blockquote>
+<p>Annotations: <a href="http://purl.obolibrary.org/obo/GO_0000122" target="_blank" rel="noopener noreferrer">GO:0000122</a> negative regulation of transcription by RNA polymerase II <strong>[verify]</strong>; <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" rel="noopener noreferrer">GO:0006325</a> chromatin organization <strong>[verify]</strong>; <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> nucleus (CC) <strong>[verify]</strong>; <code>biological_scale: MOLECULAR</code>.</p>
+<hr />
+<p><strong>Node 4 — Molecular/cellular scale: genome-wide transcriptional dysregulation</strong></p>
+<p>Evidence (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>, IN_VITRO):</p>
+<blockquote>
+<p>"Out of 564 significantly differentially expressed genes (DEGs) in ASXL3 patient fibroblasts, 52% were upregulated and 48% downregulated. DEGs were enriched in molecular processes impacting transcriptional regulation, development and proliferation, consistent with the features of BRS."</p>
+</blockquote>
+<p>Note the roughly symmetric up/down split — consistent with a chromatin scaffold whose loss both derepresses Polycomb targets and destabilizes activation, not a pure repressor.</p>
+<p>Broader chromatin context (<a href="https://pubmed.ncbi.nlm.nih.gov/38791157/" target="_blank" rel="noopener noreferrer">PMID:38791157</a>): ASXL proteins act <em>"through interactions with chromatin regulators (PRC2, TrxG, PR-DUB, SRC1, HP1α, and BET proteins) and with transcription factors, including nuclear hormone receptors (RAR, PPAR, ER, and LXR)"</em>, with associated marks including <em>"histone H3K9 acetylation and methylation, H3K4 methylation, H3K27 methylation, and H2AK119 deubiquitination."</em> The nuclear-hormone-receptor arm is mechanistically prescient given Node 5.</p>
+<hr />
+<p><strong>Node 5 — Molecular scale (novel, MODEL_ORGANISM): DIO3 derepression → brain thyroid hormone depletion</strong></p>
+<p>This is the single most important new mechanistic result and the first specific, druggable node in BRPS. bioRxiv preprint <strong>PPR1237608</strong> (2026), Ding, Yuan, Hu, Zhang, Wu, Du, Qiu — <em>"An ASXL3–thyroid hormone axis in parvalbumin interneurons controls autism-like behaviors"</em>:</p>
+<blockquote>
+<p>"Mechanistically, Asxl3 loss derepresses the thyroid hormone (TH)–inactivating enzyme DIO3 via altered histone H2A monoubiquitination, depleting brain TH."</p>
+</blockquote>
+<p><strong>Preprint caveat:</strong> not yet peer-reviewed. Flag accordingly if curated; consider <code>evidence_source: MODEL_ORGANISM</code> and a <code>HUMAN_MODEL_MISMATCH</code> discussion node.</p>
+<p>Annotations: <a href="http://purl.obolibrary.org/obo/CHEBI_60311" target="_blank" rel="noopener noreferrer">CHEBI:60311</a> thyroid hormone <strong>[OLS-checked]</strong>; <a href="http://purl.obolibrary.org/obo/GO_0042403" target="_blank" rel="noopener noreferrer">GO:0042403</a> thyroid hormone metabolic process <strong>[verify]</strong>; <code>biological_scale: MOLECULAR</code>.</p>
+<hr />
+<p><strong>Node 6 — Cellular scale: disrupted neural cell-fate specification and cortical development</strong></p>
+<p>Two independent model systems converge here.</p>
+<p><em>Xenopus laevis</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32132929/" target="_blank" rel="noopener noreferrer">PMID:32132929</a>, MODEL_ORGANISM):</p>
+<blockquote>
+<p>"We have found that ASXL3 protein knockdown during early embryo development highly perturbs neural cell fate specification, potentially resembling the Bainbridge-Ropers syndrome phenotype in humans."
+"Dynamic chromatin modifications play important roles in the specification of cell fates during early neural patterning and development."</p>
+</blockquote>
+<p><em>Mouse Asxl3^+/−</em> (PPR1237608):</p>
+<blockquote>
+<p>"Asxl3 haploinsufficiency in mice reduces cortical thickness and upper-layer projection neurons while increasing parvalbumin (PV) interneuron density and producing ASD-like behavioral abnormalities."</p>
+</blockquote>
+<p>Annotations: <a href="http://purl.obolibrary.org/obo/GO_0021895" target="_blank" rel="noopener noreferrer">GO:0021895</a> cerebral cortex neuron differentiation <strong>[verify]</strong>; <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" rel="noopener noreferrer">GO:0030182</a> neuron differentiation <strong>[verify]</strong>; <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" rel="noopener noreferrer">GO:0007399</a> nervous system development <strong>[verify]</strong>. Cell types: <strong><a href="http://purl.obolibrary.org/obo/CL_4023018" target="_blank" rel="noopener noreferrer">CL:4023018</a> pvalb GABAergic interneuron [OLS-checked]</strong>; <a href="http://purl.obolibrary.org/obo/CL_0011001" target="_blank" rel="noopener noreferrer">CL:0011001</a> spinal cord motor neuron <em>(not applicable)</em>; use <a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a> glutamatergic neuron <strong>[verify]</strong> and <a href="http://purl.obolibrary.org/obo/CL_0000099" target="_blank" rel="noopener noreferrer">CL:0000099</a> interneuron <strong>[verify]</strong> for the projection-neuron/interneuron pair. <code>biological_scale: CELLULAR</code>.</p>
+<hr />
+<p><strong>Node 7 — Cellular/tissue scale: excitation–inhibition imbalance via PV interneuron expansion</strong></p>
+<p>PPR1237608 establishes causality through a receptor-conditional knockout:</p>
+<blockquote>
+<p>"Conditional deletion of the TH receptor Thra in inhibitory neuron progenitors phenocopies the PV interneuron expansion, linking impaired TH signaling to PV circuit remodeling."</p>
+</blockquote>
+<p>Annotations: <a href="http://purl.obolibrary.org/obo/GO_0051966" target="_blank" rel="noopener noreferrer">GO:0051966</a> regulation of synaptic transmission, glutamatergic <strong>[verify]</strong>; <a href="http://purl.obolibrary.org/obo/GO_0060079" target="_blank" rel="noopener noreferrer">GO:0060079</a> excitatory postsynaptic potential <strong>[verify]</strong>. <code>biological_scale: CELLULAR</code>.</p>
+<hr />
+<p><strong>Node 8 — Organism scale: neurodevelopmental phenotype</strong></p>
+<p>Cortical thinning + PV interneuron expansion + E/I imbalance → developmental delay, ID, absent speech, ASD, hypotonia, seizures. In humans, cortical/structural correlates are often subtle or absent — GeneReviews notes seizures occur with <em>"most have normal brain MRI imaging"</em> — but where imaging is abnormal the findings are: thin corpus callosum, widened frontal subarachnoid space, deepened sulci (<a href="https://pubmed.ncbi.nlm.nih.gov/32517662/" target="_blank" rel="noopener noreferrer">PMID:32517662</a>); cerebellar vermis hypoplasia, ventriculomegaly (HPO); prominence of the Sylvian fissure with bitemporal hollowing (<a href="https://pubmed.ncbi.nlm.nih.gov/29445472/" target="_blank" rel="noopener noreferrer">PMID:29445472</a>); pontocerebellar hypoplasia type 1 in a fetus (<a href="https://pubmed.ncbi.nlm.nih.gov/29316359/" target="_blank" rel="noopener noreferrer">PMID:29316359</a>); progressive cerebral/cerebellar atrophy in a severe case (<a href="https://pubmed.ncbi.nlm.nih.gov/35172777/" target="_blank" rel="noopener noreferrer">PMID:35172777</a>).</p>
+<hr />
+<p><strong>Parallel branch — cardiomyocyte proliferation/apoptosis (biallelic missense, congenital heart disease)</strong></p>
+<p>Distinct from the dominant BRPS mechanism. <a href="https://pubmed.ncbi.nlm.nih.gov/37435360/" target="_blank" rel="noopener noreferrer">PMID:37435360</a> (<em>Biochem Biophys Rep</em> 2023, IN_VITRO/MODEL_ORGANISM, mouse cardiomyocytes): compound heterozygous <em>ASXL3</em> mutations <em>"inhibited the proliferation of cardiomyocytes and accelerated cell apoptosis by promoting the expression of lncRNAs,"</em> via lncRNA NONMMUT063967.2 → suppression of FGFR2 → inhibition of Ras/ERK signaling; <em>"suppression of lncRNA NONMMUT063967.2 and overexpression of FGFR2 reversed the effects."</em> This corresponds to the GeneReviews note about biallelic missense variants in four individuals with congenital heart defects. <strong>Treat as a separate, provisional allelic mechanism</strong>, not part of the BRPS pathograph.</p>
+<h3>6.2 Upstream vs downstream summary</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Position</th>
+<th>Node</th>
+<th>Scale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Upstream (trigger)</td>
+<td><em>ASXL3</em> LoF variant → reduced dosage / truncated product</td>
+<td>MOLECULAR</td>
+</tr>
+<tr>
+<td>Upstream</td>
+<td>PR-DUB (ASXL3–BAP1) dysfunction</td>
+<td>MOLECULAR</td>
+</tr>
+<tr>
+<td>Convergent hub</td>
+<td>↑ H2AK119Ub1 → transcriptional dysregulation</td>
+<td>MOLECULAR</td>
+</tr>
+<tr>
+<td>Mid</td>
+<td>DIO3 derepression → brain TH depletion → THRA signaling loss</td>
+<td>MOLECULAR</td>
+</tr>
+<tr>
+<td>Downstream</td>
+<td>Disrupted neural cell-fate specification; ↓ cortical thickness, ↓ upper-layer projection neurons, ↑ PV interneurons</td>
+<td>CELLULAR</td>
+</tr>
+<tr>
+<td>Downstream</td>
+<td>Excitation–inhibition imbalance</td>
+<td>CELLULAR/TISSUE</td>
+</tr>
+<tr>
+<td>Terminal</td>
+<td>DD/ID, absent speech, ASD, hypotonia, seizures, feeding failure, dysmorphism</td>
+<td>ORGANISM</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>6.3 Other mechanism dimensions</h3>
+<ul>
+<li><strong>Protein dysfunction.</strong> UniProt Q9C0F0: 2,248 aa; <strong>HTH HARE-type domain (aa 10–84)</strong>, <strong>DEUBAD domain (aa 254–363)</strong> — the BAP1-binding module — and an <strong>atypical PHD-type zinc finger (aa 2,210–2,247)</strong>. Note that <strong>MCR1 (c.1095_2237 ≈ aa 365–746) lies immediately C-terminal to the DEUBAD domain</strong>, while <strong>MCR2 (c.3043_4906 ≈ aa 1015–1635)</strong> is mid-protein; <strong>both classes of truncation remove the C-terminal PHD finger</strong>, which is a plausible structural explanation for the shared core phenotype. Mechanism: loss of function (GeneReviews).</li>
+<li><strong>Metabolic changes.</strong> No classic metabolic derangement. The only metabolic axis implicated is <strong>thyroid hormone inactivation via DIO3</strong> (mouse only). No routine metabolic screen abnormality is described in BRPS.</li>
+<li><strong>Immune system involvement.</strong> None established. Recurrent infections are likely secondary (aspiration/hypotonia). <strong>Evidence gap.</strong></li>
+<li><strong>Tissue damage mechanisms.</strong> BRPS is a <strong>developmental/patterning</strong> disorder, not a degenerative or injury-driven one. No oxidative stress, ischemia, fibrosis, or necrosis mechanism is described. The occasional reports of progressive atrophy are unexplained outliers.</li>
+<li><strong>Biochemical abnormalities.</strong> No enzyme deficiency, receptor defect, or channelopathy. No diagnostic biomarker.</li>
+<li><strong>Molecular profiling.</strong></li>
+<li><em>Transcriptomics:</em> 564 DEGs in patient fibroblasts, 52% up / 48% down (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>). Cortical transcriptomics in mouse (PPR1237608).</li>
+<li><em>Proteomics:</em> none for BRPS — <strong>gap</strong>.</li>
+<li><em>Metabolomics / lipidomics:</em> none — <strong>gap</strong>.</li>
+<li><em>Epigenomics:</em> H2AK119Ub1 ChIP in fibroblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>); blood DNAm profiling with <strong>no BRPS-specific signature</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/35361921/" target="_blank" rel="noopener noreferrer">PMID:35361921</a>).</li>
+<li><em>Single-cell / spatial:</em> none published for BRPS specifically — <strong>gap</strong>. PV-interneuron density quantification in mouse (PPR1237608) is the closest.</li>
+<li><em>Functional genomics screens:</em> no BRPS-directed CRISPR/RNAi screen — <strong>gap</strong>.</li>
+<li><strong>Expression pattern.</strong> Human Protein Atlas: low tissue specificity (tau 0.66), with the strongest signal in testis-associated clusters; brain-region RNA data sparse; highest single-cell signal in pituitary stem cells. GeneReviews states ASXL3 is <em>"expressed in similar tissues to ASXL1 including brain, spinal cord, kidney, liver, and bone marrow, but at a lower level."</em> MGI GXD records 608 assay results across 9 tissues with embryonic expression across nervous, cardiovascular, musculoskeletal and reproductive systems. <strong>Note the tension:</strong> bulk adult-tissue data understate brain expression, while the developmental and model data place the critical requirement in the <strong>embryonic/fetal brain</strong>. Chromatin regulators binding <em>"primarily during fetal development"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42111080/" target="_blank" rel="noopener noreferrer">PMID:42111080</a>).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ level</h3>
+<p><strong>Primary:</strong> central nervous system — cerebral cortex (thinning, reduced upper-layer projection neurons), corpus callosum (thin/hypoplastic), cerebellum (vermis hypoplasia; pontocerebellar hypoplasia in a fetal case), ventricular system (dilatation).</p>
+<p><strong>Body systems involved:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>Involvement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nervous</td>
+<td>Primary — DD/ID, speech, hypotonia→spasticity, seizures, dystonia/athetosis, respiratory-motor coupling abnormality</td>
+</tr>
+<tr>
+<td>Musculoskeletal</td>
+<td>Hypotonia, contractures, ulnar deviation, arachnodactyly, scoliosis, kyphosis, pes planus/planovarus, coxa valga, joint laxity (73.7%)</td>
+</tr>
+<tr>
+<td>Craniofacial / skeletal</td>
+<td>Distinctive gestalt; trigonocephaly/metopic synostosis; high-arched palate; narrow maxilla</td>
+</tr>
+<tr>
+<td>Digestive</td>
+<td>Feeding difficulty, GERD (82.4%), dysphagia/aspiration, intestinal malrotation</td>
+</tr>
+<tr>
+<td>Respiratory</td>
+<td>Laryngomalacia, congenital laryngeal cartilage hypoplasia, sleep apnea, breath-holding/hyperventilation, aspiration pneumonia</td>
+</tr>
+<tr>
+<td>Ophthalmic</td>
+<td>Strabismus (most common), hypermetropia, refractive error</td>
+</tr>
+<tr>
+<td>Genitourinary / renal</td>
+<td><strong>Emerging renal phenotype</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>) → baseline renal imaging now recommended; cryptorchidism</td>
+</tr>
+<tr>
+<td>Endocrine</td>
+<td>Growth failure then later obesity; pubertal timing questions (<a href="https://pubmed.ncbi.nlm.nih.gov/40808361/" target="_blank" rel="noopener noreferrer">PMID:40808361</a>); TH axis (mouse)</td>
+</tr>
+<tr>
+<td>Cardiovascular</td>
+<td>Dextrocardia (single report); congenital heart defects with biallelic missense (provisional)</td>
+</tr>
+<tr>
+<td>Dental</td>
+<td>Crowding, hypodontia, malocclusion, crossbite, open bite, gingival overgrowth</td>
+</tr>
+<tr>
+<td>Integumentary</td>
+<td>Hirsutism, sparse hair, long eyelashes</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Secondary/complication organs:</strong> lung (aspiration), esophagus (reflux esophagitis), spine (neuromuscular scoliosis), skin (self-injury sequelae).</p>
+<p><strong>UBERON suggestions [all verify]:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> brain; <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a> cerebral cortex; <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a> corpus callosum; <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> cerebellum; <a href="http://purl.obolibrary.org/obo/UBERON_0004720" target="_blank" rel="noopener noreferrer">UBERON:0004720</a> cerebellar vermis; <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a> spinal cord; <a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" rel="noopener noreferrer">UBERON:0001004</a> respiratory system; <a href="http://purl.obolibrary.org/obo/UBERON_0001007" target="_blank" rel="noopener noreferrer">UBERON:0001007</a> digestive system; <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> kidney; <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> eye; <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> face; <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a> bone element.</p>
+<h3>7.2 Tissue and cell level</h3>
+<p><strong>Tissues:</strong> nervous tissue (cerebral cortical grey matter, white matter tracts, cerebellar cortex); skeletal muscle (secondarily, via central hypotonia — muscle biopsy is not characteristically abnormal); connective tissue (joint laxity); oral mucosa/gingiva.</p>
+<p><strong>Cell populations (CL):</strong>
+- <strong><a href="http://purl.obolibrary.org/obo/CL_4023018" target="_blank" rel="noopener noreferrer">CL:4023018</a> pvalb GABAergic interneuron [OLS-checked]</strong> — expanded in <em>Asxl3^+/−</em> mouse cortex; the central cellular node of the new mechanism. (Human-specific alternative: <strong><a href="http://purl.obolibrary.org/obo/CL_4072029" target="_blank" rel="noopener noreferrer">CL:4072029</a> pvalb GABAergic interneuron (Homo sapiens) [OLS-checked]</strong>; related: <strong><a href="http://purl.obolibrary.org/obo/CL_0020071" target="_blank" rel="noopener noreferrer">CL:0020071</a> parvalbumin-positive basket cell [OLS-checked]</strong>.)
+- Cortical upper-layer projection (glutamatergic) neurons — reduced. <a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a> glutamatergic neuron <strong>[verify]</strong>; <a href="http://purl.obolibrary.org/obo/CL_0011005" target="_blank" rel="noopener noreferrer">CL:0011005</a> GABAergic interneuron <strong>[verify]</strong>.
+- Neural progenitor / neural stem cells — cell-fate specification perturbed (Xenopus). <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" rel="noopener noreferrer">CL:0011020</a> neural progenitor cell <strong>[verify]</strong>.
+- Cardiomyocyte — <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a> cardiac muscle cell <strong>[verify]</strong> (biallelic-missense branch only).
+- Dermal fibroblast — the principal <em>ex vivo</em> experimental cell type (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> fibroblast <strong>[verify]</strong>); not a disease-affected cell type per se.</p>
+<h3>7.3 Subcellular level</h3>
+<ul>
+<li><strong>Nucleus</strong> — <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> <strong>[verify]</strong>; the site of all ASXL3 function.</li>
+<li><strong>Chromatin / nucleosome</strong> — <a href="http://purl.obolibrary.org/obo/GO_0000785" target="_blank" rel="noopener noreferrer">GO:0000785</a> chromatin <strong>[verify]</strong>.</li>
+<li><strong>PR-DUB complex</strong> — <strong><a href="http://purl.obolibrary.org/obo/GO_0035517" target="_blank" rel="noopener noreferrer">GO:0035517</a> [OLS-checked]</strong> (the most specific and best-supported cellular-component annotation for ASXL3).</li>
+</ul>
+<h3>7.4 Localization and lateralization</h3>
+<p>CNS involvement is <strong>bilateral and diffuse/symmetric</strong>. Craniofacial features are symmetric. Ulnar deviation and contractures are typically bilateral. One reported <strong>dextrocardia</strong> (situs abnormality) is a laterality exception in a single patient (<a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a>) — do not generalize.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset</strong>
+- <strong>Prenatal (fetal):</strong> IUGR ~35% (<a href="https://pubmed.ncbi.nlm.nih.gov/39833101/" target="_blank" rel="noopener noreferrer">PMID:39833101</a>); polyhydramnios; breech presentation; arthrogryposis; pontocerebellar hypoplasia detectable at fetopathology (<a href="https://pubmed.ncbi.nlm.nih.gov/29316359/" target="_blank" rel="noopener noreferrer">PMID:29316359</a>). <em>"An increased prevalence of antenatal and neonatal structural anomalies"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>).
+- <strong>Neonatal/infantile:</strong> hypotonia, feeding difficulty, failure to thrive — the presenting complaint in most. Caesarean delivery 9/12 (HPO).
+- <strong>Early childhood:</strong> developmental delay recognized; absent/limited speech; autistic features; strabismus.
+- <strong>Childhood:</strong> seizure onset — <em>"All three had childhood-onset generalized epilepsy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29367179/" target="_blank" rel="noopener noreferrer">PMID:29367179</a>).
+- <strong>Adolescence/adulthood:</strong> behavioral escalation; possible obesity; pubertal timing questions; rare late-onset feeding decline (<a href="https://pubmed.ncbi.nlm.nih.gov/38711055/" target="_blank" rel="noopener noreferrer">PMID:38711055</a>); rare adult diagnosis (a 28-year-old first diagnosed, <a href="https://pubmed.ncbi.nlm.nih.gov/39698206/" target="_blank" rel="noopener noreferrer">PMID:39698206</a>).</p>
+<p><strong>Onset pattern:</strong> congenital, insidious. Not acute.</p>
+<p><strong>Progression</strong>
+- <strong>Rate:</strong> slow; substantially <strong>non-progressive/static with improvement</strong> in core domains. <a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>: <em>"improvement trends in feeding, hypotonia, verbalisation, and motor skills over time."</em>
+- <strong>Stages:</strong> no formal staging system exists. A pragmatic natural-history framing from the literature: (1) <em>infantile</em> — feeding/hypotonia/FTT dominate; (2) <em>early childhood</em> — developmental and communication deficits dominate, seizures may appear; (3) <em>school-age/adolescent</em> — behavior, sleep, motor/orthopedic and dental issues dominate, feeding often improves; (4) <em>adult</em> — behavioral/psychiatric management, mobility and contracture management.
+- <strong>Course:</strong> chronic, lifelong; not relapsing-remitting; seizures and breath-holding are episodic.
+- <strong>Divergent trajectories:</strong> hypotonia→spasticity/contracture conversion; rare progressive atrophy.</p>
+<p><strong>Remission patterns:</strong> No spontaneous remission of the core disorder. <strong>Symptom-level remission is achievable</strong>: near-complete remission of self-aggression with pregabalin (<a href="https://pubmed.ncbi.nlm.nih.gov/39698206/" target="_blank" rel="noopener noreferrer">PMID:39698206</a>); behavioral reduction of self-injury with ABA (<a href="https://pubmed.ncbi.nlm.nih.gov/36249891/" target="_blank" rel="noopener noreferrer">PMID:36249891</a>); feeding independence is often regained.</p>
+<p><strong>Critical periods (intervention windows)</strong>
+- <strong>Neonatal/infantile feeding window</strong> — early feeding therapy and timely G-tube placement determine growth trajectory.
+- <strong>Early intervention 0–3 years</strong> — GeneReviews-recommended; standard for DD/ID.
+- <strong>A biologically defined neonatal window in the mouse model</strong> — PPR1237608: <em>"Neonatal, but not adolescent, TH supplementation restores PV interneuron numbers and rescues behavior in Asxl3 +/− mice, defining a critical early window for intervention."</em> If translatable, this would be the most consequential finding in the field. Currently MODEL_ORGANISM only.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology</h3>
+<ul>
+<li><strong>Prevalence: unknown.</strong> GeneReviews: <em>"The prevalence of ASXL3-related disorder is not known. However, to date ASXL3 is one of the top ten genes in which pathogenic variants have been found in large-scale exome sequencing studies of individuals with ID."</em></li>
+<li><strong>Orphanet (<a href="https://bioregistry.io/ORPHA:352577" target="_blank" rel="noopener noreferrer">ORPHA:352577</a>, via Orphadata API):</strong></li>
+<li>Point prevalence, <strong>class <code>&lt;1 / 1 000 000</code></strong>, Worldwide, Validated → in dismech terms: <code>measure_type: POINT_PREVALENCE</code>, <code>prevalence_class: BELOW_1_IN_1000000</code>, <code>rate_per_100000: &lt;0.1</code>.</li>
+<li>Cases/families: <strong>77</strong>, Worldwide, Validated (<code>measure_type: CASES_IN_LITERATURE</code>), sourced to <a href="https://pubmed.ncbi.nlm.nih.gov/28955728/" target="_blank" rel="noopener noreferrer">PMID:28955728</a>. This is now clearly out of date.</li>
+<li><strong>Published case count over time</strong> (a useful ascertainment curve): 4 (2013, <a href="https://pubmed.ncbi.nlm.nih.gov/23383720/" target="_blank" rel="noopener noreferrer">PMID:23383720</a>) → 9 (2016, <a href="https://pubmed.ncbi.nlm.nih.gov/27901041/" target="_blank" rel="noopener noreferrer">PMID:27901041</a>) → 27 (2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28955728/" target="_blank" rel="noopener noreferrer">PMID:28955728</a>) → 29–33 (2018–2021, <a href="https://pubmed.ncbi.nlm.nih.gov/29316359/" target="_blank" rel="noopener noreferrer">PMID:29316359</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33242595/" target="_blank" rel="noopener noreferrer">PMID:33242595</a>) → 45 new + literature (2021, <a href="https://pubmed.ncbi.nlm.nih.gov/34436830/" target="_blank" rel="noopener noreferrer">PMID:34436830</a>) → 64 (2025 NHS, <a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>) → <strong>204 individuals in the 2026 literature review</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>). Note <a href="https://pubmed.ncbi.nlm.nih.gov/40237215/" target="_blank" rel="noopener noreferrer">PMID:40237215</a> (2025) still cites "only 45 cases" — the literature is inconsistent; prefer the 2026 figure.</li>
+<li><strong>Incidence:</strong> no published estimate. <strong>Gap.</strong></li>
+<li><strong>Relative diagnostic yield:</strong> ASXL3 recurs in ID/ASD/DD exome cohorts (DDD, DECIPHER, ASC). <a href="https://pubmed.ncbi.nlm.nih.gov/28100473/" target="_blank" rel="noopener noreferrer">PMID:28100473</a> notes the condition's <em>"surprisingly high frequency."</em> SFARI: exome-wide significance for ASD in Zhou et al. 2022 (42,607 ASD cases, P &lt; 2.5E-06).</li>
+</ul>
+<p><strong>Curation recommendation:</strong> record Orphanet's <code>BELOW_1_IN_1000000</code> point-prevalence class with a note that it is likely an underestimate driven by ascertainment, and record <code>CASES_IN_LITERATURE: 204</code> from <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a> as the current best count.</p>
+<h3>9.2 Inheritance</h3>
+<ul>
+<li><strong>Mode:</strong> <strong>Autosomal dominant</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a>; HPO-annotated for <a href="https://bioregistry.io/OMIM:615485" target="_blank" rel="noopener noreferrer">OMIM:615485</a>). GeneReviews: <em>"ASXL3-related disorder is an autosomal dominant disorder typically caused by a de novo pathogenic variant."</em></li>
+<li><strong>De novo fraction:</strong> the large majority. <a href="https://pubmed.ncbi.nlm.nih.gov/29429203/" target="_blank" rel="noopener noreferrer">PMID:29429203</a>'s literature review found <em>"31 variations in ASXL3 gene…all de novo variations."</em></li>
+<li><strong>Penetrance:</strong> GeneReviews has <strong>no Penetrance heading</strong> (confirmed on direct retrieval). Penetrance is therefore formally <strong>not established</strong>; multiple sources discuss reduced penetrance and nonpenetrance in inherited-variant families (<a href="https://pubmed.ncbi.nlm.nih.gov/34436830/" target="_blank" rel="noopener noreferrer">PMID:34436830</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33242595/" target="_blank" rel="noopener noreferrer">PMID:33242595</a> on LoF in healthy individuals). <strong>This is a genuine and important knowledge gap</strong> — flag for a <code>KNOWLEDGE_GAP</code> discussion node.</li>
+<li><strong>Expressivity:</strong> <strong>highly variable, including intrafamilial.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/36177608/" target="_blank" rel="noopener noreferrer">PMID:36177608</a>: <em>"This report demonstrates intrafamilial phenotypic heterogeneity and confirms heritability of ASXL3-related disorder."</em></li>
+<li><strong>Genetic anticipation:</strong> not applicable (no repeat expansion). No evidence.</li>
+<li><strong>Germline / parental mosaicism:</strong> <strong>Established and clinically important.</strong> GeneReviews documents germline mosaicism in three families. Directly demonstrated: paternal mosaicism at 8.17% blood VAF / 15.03% semen VAF (<a href="https://pubmed.ncbi.nlm.nih.gov/40980137/" target="_blank" rel="noopener noreferrer">PMID:40980137</a>); maternal mosaicism ~15% blood VAF transmitted to two half-brothers (<a href="https://pubmed.ncbi.nlm.nih.gov/42194125/" target="_blank" rel="noopener noreferrer">PMID:42194125</a>); parental mosaicism causing non-twin sibling recurrence in the Spanish cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/39833101/" target="_blank" rel="noopener noreferrer">PMID:39833101</a>); presumed de novo variant shared by siblings (<a href="https://pubmed.ncbi.nlm.nih.gov/29305346/" target="_blank" rel="noopener noreferrer">PMID:29305346</a>).</li>
+<li><strong>Founder effects:</strong> none identified. Recurrent variants (<code>p.Arg1444*</code>, <code>p.Arg1560*</code>) reflect mutational hotspots (likely CpG transitions), not founders.</li>
+<li><strong>Consanguinity:</strong> irrelevant for the dominant disorder. Potentially relevant only for the unproven biallelic-missense/CHD branch.</li>
+<li><strong>Carrier frequency:</strong> not applicable (dominant, de novo). Population carrier frequency of pathogenic <em>ASXL3</em> PTVs is effectively zero (pLI 1.00).</li>
+</ul>
+<p><strong>Recurrence risk counseling (from GeneReviews):</strong>
+- Parent carries the variant → <strong>50%</strong> to each sib.
+- Variant undetectable in parental leukocyte DNA → <em>"recurrence risk to sibs is slightly greater than that of the general population because of the possibility of parental germline mosaicism."</em>
+- Offspring of an affected individual → <strong>50%</strong>.
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40980137/" target="_blank" rel="noopener noreferrer">PMID:40980137</a> argues for upgrading this: <em>"This study establishes parental chimerism as an important genetic mechanism for ASXL3-associated disorders and emphasizes the need for ultrasensitive testing in genetic counseling."</em></p>
+<h3>9.3 Population demographics</h3>
+<ul>
+<li><strong>Ethnicity/ancestry:</strong> GeneReviews — affected individuals reported <em>"across all ethnicities,"</em> with ascertainment concentrated in countries performing genomic testing. Published cohorts: UK/DDD (<a href="https://pubmed.ncbi.nlm.nih.gov/28100473/" target="_blank" rel="noopener noreferrer">PMID:28100473</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34436830/" target="_blank" rel="noopener noreferrer">PMID:34436830</a>), Germany/Europe (<a href="https://pubmed.ncbi.nlm.nih.gov/27901041/" target="_blank" rel="noopener noreferrer">PMID:27901041</a>), Spain n=22 (<a href="https://pubmed.ncbi.nlm.nih.gov/39833101/" target="_blank" rel="noopener noreferrer">PMID:39833101</a>), multiple Chinese cohorts (<a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39610869/" target="_blank" rel="noopener noreferrer">PMID:39610869</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32517662/" target="_blank" rel="noopener noreferrer">PMID:32517662</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/35276034/" target="_blank" rel="noopener noreferrer">PMID:35276034</a>), Japan (<a href="https://pubmed.ncbi.nlm.nih.gov/29445472/" target="_blank" rel="noopener noreferrer">PMID:29445472</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38711055/" target="_blank" rel="noopener noreferrer">PMID:38711055</a>), Turkey (<a href="https://pubmed.ncbi.nlm.nih.gov/40237215/" target="_blank" rel="noopener noreferrer">PMID:40237215</a>), Sudan (<a href="https://pubmed.ncbi.nlm.nih.gov/34886823/" target="_blank" rel="noopener noreferrer">PMID:34886823</a>), India (<a href="https://pubmed.ncbi.nlm.nih.gov/31638014/" target="_blank" rel="noopener noreferrer">PMID:31638014</a>), USA, Switzerland, Slovakia.</li>
+<li><strong>Geographic distribution:</strong> worldwide; no endemic focus. Apparent regional clustering reflects genomic-testing access, not biology.</li>
+<li><strong>Variant geography:</strong> no ancestry-specific variants. <a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/39610869/" target="_blank" rel="noopener noreferrer">PMID:39610869</a> both suggest <em>"subtle distinctions in clinical manifestations between Chinese patients and other racial groups"</em> — likely ascertainment/reporting differences; treat cautiously.</li>
+<li><strong>Sex ratio:</strong> no significant skew reported. Individual series are small and mixed (<a href="https://pubmed.ncbi.nlm.nih.gov/34086428/" target="_blank" rel="noopener noreferrer">PMID:34086428</a>: 5 males, 2 females). <strong>No formal sex-ratio analysis published — gap.</strong></li>
+<li><strong>Age distribution:</strong> cohorts are predominantly pediatric, reflecting ascertainment via developmental-disorder testing. Adults are increasingly recognized (28- and 30-year-olds in <a href="https://pubmed.ncbi.nlm.nih.gov/39698206/" target="_blank" rel="noopener noreferrer">PMID:39698206</a>; late-onset epilepsy in an older adult male, <a href="https://pubmed.ncbi.nlm.nih.gov/29628764/" target="_blank" rel="noopener noreferrer">PMID:29628764</a>). One HPO-annotated "death in infancy" (1/4) at the severe end.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Genetic testing — the definitive modality</h3>
+<p>GeneReviews: <em>"The diagnosis of ASXL3-related disorder is established in a proband by identification of a heterozygous pathogenic (or likely pathogenic) variant in ASXL3 by molecular genetic testing."</em></p>
+<p><strong>Recommended approach (GeneReviews):</strong>
+1. <strong>Chromosomal microarray (CMA)</strong> first-line, to detect large deletions/duplications (rarely identifies <em>ASXL3</em> variants but is standard-of-care for undiagnosed DD/ID).
+2. <strong>Intellectual disability multigene panel</strong> or <strong>exome sequencing</strong> if CMA nondiagnostic.
+3. <strong>Trio-based exome sequencing</strong> is the workhorse in practice — used in essentially every published cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/28100473/" target="_blank" rel="noopener noreferrer">PMID:28100473</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39610869/" target="_blank" rel="noopener noreferrer">PMID:39610869</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41659201/" target="_blank" rel="noopener noreferrer">PMID:41659201</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40980137/" target="_blank" rel="noopener noreferrer">PMID:40980137</a>).</p>
+<p><strong>Detection rates:</strong> sequence analysis <strong>98–99%</strong>; gene-targeted deletion/duplication analysis <strong>1–2%</strong>; CMA rarely.</p>
+<p><strong>Other modalities:</strong>
+- <strong>Whole genome sequencing (WGS):</strong> used in the founding study (<a href="https://pubmed.ncbi.nlm.nih.gov/23383720/" target="_blank" rel="noopener noreferrer">PMID:23383720</a>). Adds value for splice/deep-intronic/structural variants; no BRPS-specific WGS yield data.
+- <strong>Single-gene testing:</strong> appropriate only for targeted familial-variant testing or prenatal/cascade testing.
+- <strong>Sanger sequencing:</strong> confirmatory and for segregation analysis (universal in published reports).
+- <strong>Ultra-deep / targeted deep sequencing of parental DNA (blood ± semen):</strong> newly recommended when a variant appears de novo but the family wants accurate recurrence-risk counseling (<a href="https://pubmed.ncbi.nlm.nih.gov/40980137/" target="_blank" rel="noopener noreferrer">PMID:40980137</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42194125/" target="_blank" rel="noopener noreferrer">PMID:42194125</a>). This is an actionable practice change.
+- <strong>Karyotyping, FISH, mtDNA testing, repeat-expansion testing:</strong> <strong>not indicated</strong> for BRPS.</p>
+<h3>10.2 Omics-based diagnostics</h3>
+<ul>
+<li><strong>DNA methylation episignature: NOT available for BRPS.</strong> <em>"the DNAm profiles of three individuals with ASXL3 variants were control-like"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35361921/" target="_blank" rel="noopener noreferrer">PMID:35361921</a>). Do not use the BOS classifier for <em>ASXL3</em> VUS. This is a real diagnostic gap for missense/VUS interpretation.</li>
+<li><strong>RNA sequencing:</strong> not established diagnostically. Research-only demonstration of NMD and 564 DEGs in fibroblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>). RNA-seq could in principle confirm NMD for splice VUS.</li>
+<li><strong>Proteomics, metabolomics, liquid biopsy:</strong> none. <strong>Not applicable.</strong></li>
+</ul>
+<h3>10.3 Clinical, laboratory, imaging, and functional tests</h3>
+<ul>
+<li><strong>Laboratory tests / biomarkers:</strong> <strong>none.</strong> There is no diagnostic or prognostic biomarker for BRPS. Labs are used for supportive management (nutritional status, growth) only.</li>
+<li><strong>Imaging:</strong> Brain MRI — most individuals have normal imaging even with seizures (GeneReviews). When abnormal: thin corpus callosum, widened frontal subarachnoid space, deep sulci (<a href="https://pubmed.ncbi.nlm.nih.gov/32517662/" target="_blank" rel="noopener noreferrer">PMID:32517662</a>); ventriculomegaly; cerebellar vermis hypoplasia; prominence of the Sylvian fissure with bitemporal hollowing (<a href="https://pubmed.ncbi.nlm.nih.gov/29445472/" target="_blank" rel="noopener noreferrer">PMID:29445472</a>); pontocerebellar hypoplasia (fetal, <a href="https://pubmed.ncbi.nlm.nih.gov/29316359/" target="_blank" rel="noopener noreferrer">PMID:29316359</a>). <strong>Renal ultrasound</strong> is now recommended at baseline (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>). Spine radiography for scoliosis. Prenatal ultrasound may show IUGR/arthrogryposis.</li>
+<li><strong>Electrophysiology — EEG:</strong> the most informative functional test. <a href="https://pubmed.ncbi.nlm.nih.gov/29367179/" target="_blank" rel="noopener noreferrer">PMID:29367179</a>:<blockquote>
+<p>"EEG typically showed features consistent with generalized epilepsy including generalized spike-wave, photoparoxysmal response, and occipital intermittent rhythmic epileptiform activity."
+  Critically, breath-holding/dystonic episodes are <strong>non-epileptic</strong>: <em>"frequent episodes of breath-holding accompanied by dystonic posturing… without ictal EEG correlate"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35172777/" target="_blank" rel="noopener noreferrer">PMID:35172777</a>). Video-EEG is therefore essential to avoid over-treatment with anti-seizure medication.</p>
+</blockquote>
+</li>
+<li><strong>Functional/motor assessment:</strong> quantitative gait analysis + neurological examination + developmental questionnaires (<a href="https://pubmed.ncbi.nlm.nih.gov/38027485/" target="_blank" rel="noopener noreferrer">PMID:38027485</a>); a proposed structured neuromotor assessment framework borrowed from cerebral palsy and spina bifida (<a href="https://pubmed.ncbi.nlm.nih.gov/42111080/" target="_blank" rel="noopener noreferrer">PMID:42111080</a>).</li>
+<li><strong>Other functional:</strong> sleep study (polysomnography) for sleep apnea; swallow study / videofluoroscopy for aspiration risk; formal ophthalmologic and dental evaluation; audiology as part of DD workup.</li>
+<li><strong>Biopsy / histopathology:</strong> <strong>no diagnostic role.</strong> Skin biopsy fibroblasts are used for research only. Fetal neuropathology contributed to one prenatal case (<a href="https://pubmed.ncbi.nlm.nih.gov/29316359/" target="_blank" rel="noopener noreferrer">PMID:29316359</a>).</li>
+</ul>
+<h3>10.4 Clinical criteria and differential diagnosis</h3>
+<p><strong>Suggestive findings (GeneReviews):</strong> DD/ID (typically moderate-to-severe) <strong>plus</strong> any of — speech/language delay or absent speech; ASD or autistic traits; the dysmorphic gestalt (prominent forehead, highly arched eyebrows, synophrys, widely spaced eyes, downslanted palpebral fissures, long tubular nose, wide mouth with full everted lower lip, crowded teeth); feeding difficulties; hypotonia; poor postnatal growth; epilepsy (GTCS and absence); vision impairment/strabismus; skeletal abnormalities (Marfanoid habitus, pectus excavatum, scoliosis, arachnodactyly, joint contractures).</p>
+<p>There is <strong>no consensus clinical diagnostic criteria set</strong> (no DSM/ICD/society criteria); diagnosis is molecular.</p>
+<p><strong>Differential diagnosis — the key discriminations:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Gene</th>
+<th>How to distinguish from BRPS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Bohring–Opitz syndrome</strong></td>
+<td><em>ASXL1</em></td>
+<td>The historically critical differential. <a href="https://pubmed.ncbi.nlm.nih.gov/27901041/" target="_blank" rel="noopener noreferrer">PMID:27901041</a>: <em>"The majority of key features characteristic for Bohring-Opitz syndrome were absent in our patients (eg, the typical posture of arms, intrauterine growth retardation, microcephaly, trigonocephaly, typical facial gestalt with nevus flammeus of the forehead and exophthalmos). Therefore we emphasize that BRPS syndrome, caused by ASXL3 loss-of-function variants, is a clinically distinct intellectual disability syndrome with a recognizable phenotype distinguishable from that of Bohring-Opitz syndrome."</em> Also: mixed hypo/hypertonia in BOS vs hypotonia in BRS (<a href="https://pubmed.ncbi.nlm.nih.gov/38027485/" target="_blank" rel="noopener noreferrer">PMID:38027485</a>); BOS has a DNAm episignature and epigenetic age acceleration, BRPS does not (<a href="https://pubmed.ncbi.nlm.nih.gov/35361921/" target="_blank" rel="noopener noreferrer">PMID:35361921</a>).</td>
+</tr>
+<tr>
+<td><strong>Shashi–Pena syndrome</strong></td>
+<td><em>ASXL2</em></td>
+<td>Macrocephaly and abnormal brain imaging (GeneReviews).</td>
+</tr>
+<tr>
+<td><strong>Angelman syndrome / AS-like</strong></td>
+<td><em>UBE3A</em> and mimics</td>
+<td><em>ASXL3</em> appears in AS-like cohorts (<a href="https://pubmed.ncbi.nlm.nih.gov/34653234/" target="_blank" rel="noopener noreferrer">PMID:34653234</a>). Overlap: absent speech, happy demeanor, seizures, ataxia.</td>
+</tr>
+<tr>
+<td><strong>Dystonic cerebral palsy</strong></td>
+<td>—</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35863334/" target="_blank" rel="noopener noreferrer">PMID:35863334</a>: <em>"ASXL3 should be added to target-gene lists used for molecular evaluation of cerebral palsy."</em></td>
+</tr>
+<tr>
+<td><strong>Pontocerebellar hypoplasia type 1</strong></td>
+<td><em>EXOSC3</em>, <em>VRK1</em>, etc.</td>
+<td><em>ASXL3</em> now a recognized prenatal PCH1 mimic (<a href="https://pubmed.ncbi.nlm.nih.gov/29316359/" target="_blank" rel="noopener noreferrer">PMID:29316359</a>).</td>
+</tr>
+<tr>
+<td><strong>Rett/Rett-like, Pitt–Hopkins, Coffin–Siris, Kleefstra, other chromatinopathies</strong></td>
+<td>—</td>
+<td>Clinically overlapping ID + limited speech + behaviour; separated by molecular testing.</td>
+</tr>
+<tr>
+<td><strong>Nonspecific syndromic ID</strong></td>
+<td>—</td>
+<td>GeneReviews notes the DD is nonspecific, so the differential is effectively "all ID disorders"; consult the OMIM AD/AR/XL intellectual developmental disorder phenotypic series.</td>
+</tr>
+<tr>
+<td><strong>Breath-holding spells (benign, idiopathic)</strong></td>
+<td>—</td>
+<td>In BRPS these are refractory and dystonic (<a href="https://pubmed.ncbi.nlm.nih.gov/35172777/" target="_blank" rel="noopener noreferrer">PMID:35172777</a>) — do not dismiss as benign.</td>
+</tr>
+<tr>
+<td><strong>Limbic encephalitis</strong></td>
+<td>—</td>
+<td>Excluded in the adolescent-onset feeding-decline case (<a href="https://pubmed.ncbi.nlm.nih.gov/38711055/" target="_blank" rel="noopener noreferrer">PMID:38711055</a>).</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>10.5 Screening</h3>
+<ul>
+<li><strong>Newborn screening:</strong> <strong>not applicable</strong> — no biochemical marker; not on any NBS panel.</li>
+<li><strong>Carrier screening:</strong> <strong>not applicable</strong> (dominant, de novo).</li>
+<li><strong>Cascade screening:</strong> applicable once a familial variant is identified, especially given documented inherited variants and mildly affected/nonpenetrant relatives.</li>
+<li><strong>Parental ultra-deep sequencing</strong> (blood ± semen) after an apparently de novo diagnosis — an emerging recommendation (<a href="https://pubmed.ncbi.nlm.nih.gov/40980137/" target="_blank" rel="noopener noreferrer">PMID:40980137</a>).</li>
+<li><strong>Prenatal diagnosis:</strong> amniocentesis with targeted variant testing once the familial variant is known (successfully applied at 18 weeks in <a href="https://pubmed.ncbi.nlm.nih.gov/40980137/" target="_blank" rel="noopener noreferrer">PMID:40980137</a>). <a href="https://pubmed.ncbi.nlm.nih.gov/36317208/" target="_blank" rel="noopener noreferrer">PMID:36317208</a> reports prenatal diagnosis for a Chinese BRPS pedigree.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Survival and mortality</strong>
+- <strong>No survival curve, 5-/10-year survival, or life-expectancy estimate exists</strong> for BRPS. <strong>Major evidence gap.</strong>
+- HPO annotates <strong><a href="http://purl.obolibrary.org/obo/HP_0001522" target="_blank" rel="noopener noreferrer">HP:0001522</a> Death in infancy at 1/4</strong> in one small early series — this reflects severe-end ascertainment and should <strong>not</strong> be read as a general infant mortality rate.
+- Long-term survival to adulthood is clearly the norm in more recent series: patients diagnosed at 28 and managed at 30 (<a href="https://pubmed.ncbi.nlm.nih.gov/39698206/" target="_blank" rel="noopener noreferrer">PMID:39698206</a>); an older adult male with late-onset epilepsy (<a href="https://pubmed.ncbi.nlm.nih.gov/29628764/" target="_blank" rel="noopener noreferrer">PMID:29628764</a>); the 2025 NHS cohort spans a wide age range (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>).
+- Mortality risk is presumably driven by <strong>aspiration, respiratory compromise, refractory seizures, and severe feeding failure</strong> — plausible but not quantified.</p>
+<p><strong>Morbidity and function</strong>
+- Morbidity is high and lifelong: near-universal ID with absent/limited speech means most individuals require substantial lifelong support.
+- 100% of assessed individuals met criteria for <strong>developmental coordination disorder</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/38027485/" target="_blank" rel="noopener noreferrer">PMID:38027485</a>).
+- Motor: ranges from independent ambulation to inability to walk (<a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" rel="noopener noreferrer">HP:0002540</a>, 1/4).
+- No BRPS-specific ICF/disability or QoL instrument data — <strong>gap</strong>.</p>
+<p><strong>Disease course / complications</strong>
+- Aspiration pneumonia and respiratory infections; GERD and esophagitis; failure to thrive then possible obesity; neuromuscular scoliosis and contractures; refractory epilepsy in a minority; refractory breath-holding spells; severe self-injury and aggression; sleep apnea; dental disease; strabismus/amblyopia; emerging renal involvement.
+- Single reported precursor B-ALL (<a href="https://pubmed.ncbi.nlm.nih.gov/35733401/" target="_blank" rel="noopener noreferrer">PMID:35733401</a>) — <strong>not an established complication.</strong></p>
+<p><strong>Recovery potential</strong>
+- No cure; the underlying developmental lesion is not reversible with current therapy.
+- <strong>Meaningful functional gains are documented</strong> and should be communicated to families: <em>"improvement trends in feeding, hypotonia, verbalisation, and motor skills over time"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>). Many children wean off tube feeding.
+- Behavioral symptoms can respond dramatically to targeted intervention (<a href="https://pubmed.ncbi.nlm.nih.gov/39698206/" target="_blank" rel="noopener noreferrer">PMID:39698206</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36249891/" target="_blank" rel="noopener noreferrer">PMID:36249891</a>).</p>
+<p><strong>Prognostic factors</strong>
+- <strong>Variant class and location</strong> are the best-supported prognostic markers: NMD-predicted variants and MCR1 (exon 11) variants associate with more severe ID/GDD, more microcephaly, more sleep apnea, more hyperventilation, and more feeding-tube use; MCR2 (exon 12) / no-NMD associate with more formal autism diagnoses and more perinatal feeding problems (<a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39833101/" target="_blank" rel="noopener noreferrer">PMID:39833101</a>).
+- Presence of refractory seizures or refractory breath-holding spells marks a severe phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/35172777/" target="_blank" rel="noopener noreferrer">PMID:35172777</a>).
+- Age is favorable — older individuals do better in feeding, tone, motor and verbal domains.
+- <strong>Prognostic biomarkers: none.</strong></p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>There is no disease-modifying therapy.</strong> Management is entirely symptomatic, supportive, and multidisciplinary, per GeneReviews.</p>
+<h3>12.1 Supportive and rehabilitative care (the mainstay)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Manifestation</th>
+<th>Intervention</th>
+<th>Suggested NCIT / CHEBI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DD/ID</td>
+<td>Early intervention (0–3 y), developmental preschool (3–5 y), IEP, developmental pediatrics, transition planning</td>
+<td>NCIT:C15315 Rehabilitation <strong>[verify]</strong></td>
+</tr>
+<tr>
+<td>Gross motor / hypotonia / contractures</td>
+<td>Physical therapy; durable medical equipment (wheelchairs, walkers, orthotics)</td>
+<td><strong>NCIT:C15302 Physical Therapy</strong>; modality <code>BEHAVIORAL</code></td>
+</tr>
+<tr>
+<td>Fine motor / adaptive</td>
+<td>Occupational therapy</td>
+<td>NCIT:C121351 Occupational Therapy <strong>[verify]</strong></td>
+</tr>
+<tr>
+<td>Speech / communication</td>
+<td>Speech-language therapy; <strong>AAC is essential</strong> given near-universal absent speech</td>
+<td>NCIT:C159273 Speech Therapy <strong>[verify]</strong></td>
+</tr>
+<tr>
+<td>Feeding / FTT</td>
+<td>Feeding therapy; low threshold for clinical feeding evaluation; NG tube then <strong>gastrostomy</strong> if persistent</td>
+<td><strong>NCIT:C52006 Gastrostomy [OLS-checked]</strong>; NCIT:C157864 Gastrostomy Tube Procedure [OLS-checked]; NCIT:C15433 Nutritional Support <strong>[verify]</strong></td>
+</tr>
+<tr>
+<td>GERD</td>
+<td>Anti-reflux medication; fundoplication in severe cases</td>
+<td>NCIT:C15986 Pharmacotherapy; NCIT:C15329 Surgical Procedure <strong>[verify]</strong></td>
+</tr>
+<tr>
+<td>Contractures / scoliosis / pes planus</td>
+<td>Standard orthopedic management + PT</td>
+<td><strong>NCIT:C16186 Orthopedic Surgical Procedure</strong></td>
+</tr>
+<tr>
+<td>Sleep apnea</td>
+<td>ENT / sleep specialist; standard treatment</td>
+<td>NCIT:C15747 Supportive Care <strong>[verify]</strong></td>
+</tr>
+<tr>
+<td>Dental</td>
+<td>Preventive dentistry — fissure sealants, fluoride varnish, dietary regulation, interceptive orthodontics (<a href="https://pubmed.ncbi.nlm.nih.gov/40237215/" target="_blank" rel="noopener noreferrer">PMID:40237215</a>)</td>
+<td>NCIT:C15320 Dental Procedure <strong>[verify]</strong></td>
+</tr>
+<tr>
+<td>Strabismus / refractive error</td>
+<td>Standard ophthalmologic management, refractive correction</td>
+<td>NCIT:C15329 Surgical Procedure <strong>[verify]</strong></td>
+</tr>
+<tr>
+<td>Family</td>
+<td>Genetic counseling; social work support</td>
+<td><strong>NCIT:C15240 Genetic Counseling</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>A structured, CP/spina-bifida-derived neuromotor assessment-and-management framework is proposed in <a href="https://pubmed.ncbi.nlm.nih.gov/42111080/" target="_blank" rel="noopener noreferrer">PMID:42111080</a> — the first BRPS-specific rehabilitation protocol proposal, though it is a perspective paper, not a trial.</p>
+<h3>12.2 Pharmacotherapy</h3>
+<p><strong>Anti-seizure medications.</strong> Standard management by a neurologist for childhood-onset generalized epilepsy with GTCS ± atypical absence (<a href="https://pubmed.ncbi.nlm.nih.gov/29367179/" target="_blank" rel="noopener noreferrer">PMID:29367179</a>). Given the generalized phenotype, broad-spectrum agents (valproate, levetiracetam, lamotrigine) are the rational choice; <strong>note there are no BRPS-specific ASM efficacy data.</strong> Encoding: <code>treatment_term</code> NCIT:C15986 Pharmacotherapy + <code>therapeutic_agent</code> CHEBI term per agent <strong>[verify]</strong>.</p>
+<p><strong>Pregabalin for severe challenging behavior — a notable single-case success.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/39698206/" target="_blank" rel="noopener noreferrer">PMID:39698206</a> (<em>Front Psychiatry</em> 2024), a 30-year-old with BRPS, severe ID, ASD and epilepsy admitted for self-aggression, agitation, hetero-aggression and mood change:</p>
+<blockquote>
+<p>"The introduction of Pregabalin leads to rapid stabilization of the clinical state, almost complete improvement in challenging behavior and gradual withdrawal of other treatments (class 2 analgesics, neuroleptics, antidepressants, and benzodiazepines). At the neurological check-up 9 months after discharge from hospital, clinical stability was confirmed… with almost complete disappearance of auto-aggressive gestures."
+Encoding: <code>treatment_term</code> NCIT:C15986 Pharmacotherapy; <code>therapeutic_agent</code> <strong><a href="http://purl.obolibrary.org/obo/CHEBI_64356" target="_blank" rel="noopener noreferrer">CHEBI:64356</a> pregabalin [OLS-checked]</strong>; <code>therapeutic_modality: SMALL_MOLECULE</code>. <strong>n=1 — curate with appropriate evidence weighting.</strong></p>
+</blockquote>
+<p><strong>Failed pharmacotherapy — worth recording as negative evidence.</strong> Refractory breath-holding spells did <strong>not</strong> respond to iron supplementation, acetazolamide, or desipramine (<a href="https://pubmed.ncbi.nlm.nih.gov/35172777/" target="_blank" rel="noopener noreferrer">PMID:35172777</a>). Suitable for <code>supports: REFUTE</code> / <code>NO_EVIDENCE</code> evidence items.</p>
+<p><strong>Psychotropics generally.</strong> Standard management of ADHD, aggression, self-injury, and sleep disturbance; <a href="https://pubmed.ncbi.nlm.nih.gov/34086428/" target="_blank" rel="noopener noreferrer">PMID:34086428</a> documents the high psychiatric comorbidity burden requiring this. No BRPS-specific evidence base.</p>
+<p><strong>Pharmacogenomics:</strong> none specific to BRPS.</p>
+<h3>12.3 Advanced therapeutics — preclinical only</h3>
+<p><strong>AAV-delivered split-intein ASXL3 gene replacement — the most advanced therapeutic concept.</strong> From bioRxiv PPR1237608 (2026):</p>
+<blockquote>
+<p>"An intein-based AAV system that reconstitutes full-length ASXL3 normalizes cortical architecture and behavior in Asxl3 +/− mice and drives efficient ASXL3 expression in non-human primate brain, establishing an ASXL3–TH–PV interneuron axis as a targetable pathway in ASD."</p>
+</blockquote>
+<p>This solves the central obstacle for <em>ASXL3</em> gene therapy — the 2,248-aa coding sequence far exceeds AAV packaging capacity — by splitting the transgene across two vectors and reconstituting the protein via split inteins. NHP expression data raise translational plausibility. Encoding if curated: <code>therapeutic_modality: GENE_THERAPY</code>; NCIT:C15238 Gene Therapy <strong>[verify]</strong>. <strong>Status: preprint, mouse + NHP expression only. No human data.</strong></p>
+<p><strong>Neonatal thyroid hormone supplementation.</strong> Same preprint: rescues PV interneuron numbers and behaviour in <em>Asxl3^+/−</em> mice when given neonatally but not in adolescence. Potentially repurposable (levothyroxine/liothyronine are approved, cheap, and safe) — but the target is <em>brain</em> TH depletion via DIO3, and whether systemic supplementation reaches the brain compartment in humans, and whether a comparable window exists postnatally in humans, is unknown. <strong>Do not present as a clinical option.</strong> Suggested CHEBI: <strong><a href="http://purl.obolibrary.org/obo/CHEBI_60311" target="_blank" rel="noopener noreferrer">CHEBI:60311</a> thyroid hormone [OLS-checked]</strong>; specific agents (levothyroxine, liothyronine) <strong>[verify]</strong>.</p>
+<p><strong>Cell therapy, ASO, siRNA, mRNA, gene editing, immunotherapy, targeted small molecules:</strong> <strong>none reported.</strong> Note that ASO/siRNA knockdown strategies are conceptually inapplicable to a haploinsufficiency disorder; upregulation approaches (TANGO-style, CRISPRa) would be the logical modality and have not been attempted.</p>
+<h3>12.4 Behavioral intervention (best-evidenced non-pharmacologic modality for behavior)</h3>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/36249891/" target="_blank" rel="noopener noreferrer">PMID:36249891</a> (<em>Behav Anal Pract</em> 2023) — first published behavioral treatment in BRPS:</p>
+<blockquote>
+<p>"There are no published treatments for BRPS. We targeted self-injury in a child with BRPS using a functional analysis and differential reinforcement, with several extensions to common procedures. Results present the first example of behavioral reduction for self-injury in BRPS. • ABA strategies can reduce self-injury in BRPS • Evaluating multiply maintained self-injury following identification of an automatic function is important. • Sleep deficits may complicate assessment."</p>
+</blockquote>
+<p>Encoding: <code>therapeutic_modality: BEHAVIORAL</code>; NCIT:C181743 Behavioral Counseling <strong>[verify]</strong> (note: OLS search for "applied behavior analysis" returned only NCIT:C204364 <em>Behavioral Analyst</em>, a role term, not an intervention — do not use it as a <code>treatment_term</code>).</p>
+<h3>12.5 Surgical / interventional</h3>
+<p>Gastrostomy; Nissen fundoplication for severe GERD; orthopedic surgery for contractures/scoliosis; strabismus surgery; ENT/airway surgery for laryngomalacia or obstructive sleep apnea. All standard-of-care, none BRPS-specific.</p>
+<h3>12.6 Experimental treatments / clinical trials</h3>
+<p><strong>No interventional clinical trials in BRPS were identified.</strong> No NCT identifiers. The only registered study found is observational: the <strong>International ASXL3 Natural History Study (IRAS 316055)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>). This is a therapeutic desert and, given the AAV-intein preclinical result, a natural target for trial-readiness work (biomarker development, outcome-measure validation, patient registry expansion).</p>
+<h3>12.7 Treatment outcomes and strategy</h3>
+<ul>
+<li><strong>Response rates:</strong> not quantifiable — no controlled data. Anecdotal: pregabalin near-complete behavioral remission (n=1); ABA effective for self-injury (n=1); breath-holding refractory to three agents (n=1).</li>
+<li><strong>Adverse events:</strong> no BRPS-specific safety signal. Standard agent-specific risks apply.</li>
+<li><strong>Treatment algorithm:</strong> the GeneReviews evaluation/treatment/surveillance tables (§12.1, §13) constitute the de facto algorithm. <a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a> adds two explicit new recommendations: <em>"baseline renal imaging after diagnosis, and Dental and Ophthalmological follow-up for all."</em></li>
+<li><strong>Personalized/genotype-guided treatment:</strong> none yet — but the MCR1/MCR2 and NMD/no-NMD stratification (<a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>) is the natural substrate for genotype-guided surveillance intensity (e.g., prioritize sleep-apnea and microcephaly surveillance in NMD/MCR1; prioritize autism-specific supports in no-NMD/MCR2).</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> Not possible for de novo variants. The only genuine primary-prevention lever is <strong>reproductive</strong>: preimplantation genetic testing (PGT-M) or prenatal diagnosis for a family with a known variant — GeneReviews: <em>"Once the ASXL3 pathogenic variant has been identified in an affected family member, prenatal testing for a pregnancy at increased risk and preimplantation genetic testing are possible."</em> No behavioral, dietary, vaccination, environmental, or public-health intervention prevents BRPS.</p>
+<p><strong>Secondary prevention (early detection):</strong>
+- No population or newborn screening.
+- Early trio-ES in infants with hypotonia + feeding difficulty + FTT + developmental delay is the practical secondary-prevention route, enabling early intervention.
+- <strong>Prenatal detection:</strong> possible via WES in fetuses with arthrogryposis / IUGR / PCH1-pattern findings (<a href="https://pubmed.ncbi.nlm.nih.gov/29316359/" target="_blank" rel="noopener noreferrer">PMID:29316359</a>); amniocentesis with targeted testing when a parental mosaic or affected-parent variant is known (<a href="https://pubmed.ncbi.nlm.nih.gov/40980137/" target="_blank" rel="noopener noreferrer">PMID:40980137</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36317208/" target="_blank" rel="noopener noreferrer">PMID:36317208</a>).</p>
+<p><strong>Tertiary prevention (preventing complications) — the highest-yield category.</strong> Per GeneReviews surveillance table plus 2025 additions:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>Surveillance</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Development</td>
+<td>Monitor progress and educational needs</td>
+<td>Each visit</td>
+</tr>
+<tr>
+<td>Psychiatric/behavioral</td>
+<td>Assess attention, aggression, self-injury; screen for sleep disturbance</td>
+<td>Each visit</td>
+</tr>
+<tr>
+<td>Feeding/growth</td>
+<td>Growth measurement, nutritional status, GERD assessment (add obesity screening in later childhood)</td>
+<td>Each visit</td>
+</tr>
+<tr>
+<td>Neurologic</td>
+<td>Monitor seizures; assess new manifestations</td>
+<td>Each visit / as indicated</td>
+</tr>
+<tr>
+<td>Musculoskeletal</td>
+<td>Physical medicine / PT / OT assessment (contractures, scoliosis)</td>
+<td>Each visit</td>
+</tr>
+<tr>
+<td>Respiratory</td>
+<td>Sleep disturbance / apnea signs</td>
+<td>Each visit</td>
+</tr>
+<tr>
+<td><strong>Renal</strong></td>
+<td><strong>Baseline renal imaging after diagnosis</strong> (new, <a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>)</td>
+<td>At diagnosis</td>
+</tr>
+<tr>
+<td>Dental</td>
+<td>Dentist evaluation</td>
+<td><strong>Every 6 months after age 3 y</strong> — and <em>"Dental… follow-up for all"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>)</td>
+</tr>
+<tr>
+<td>Eyes</td>
+<td>Ophthalmology evaluation</td>
+<td><strong>Annually</strong> — and <em>"Ophthalmological follow-up for all"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40552904/" target="_blank" rel="noopener noreferrer">PMID:40552904</a>)</td>
+</tr>
+<tr>
+<td>Family</td>
+<td>Social-work / support assessment</td>
+<td>Each visit</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Additional tertiary measures: aspiration precautions and timely gastrostomy; seizure action plan and caregiver education; AAC provision to reduce frustration-driven behavior; multidisciplinary dental prevention (<a href="https://pubmed.ncbi.nlm.nih.gov/40237215/" target="_blank" rel="noopener noreferrer">PMID:40237215</a>).</p>
+<p><strong>Genetic counseling:</strong> central. Must cover (i) 50% recurrence for a carrier parent, 50% for offspring of an affected individual; (ii) the <strong>elevated-above-background</strong> sib recurrence risk from germline mosaicism even when parental blood testing is negative; (iii) the case for <strong>ultra-deep parental sequencing</strong> including semen where feasible (<a href="https://pubmed.ncbi.nlm.nih.gov/40980137/" target="_blank" rel="noopener noreferrer">PMID:40980137</a>); (iv) the reality of <strong>variable expressivity and possible nonpenetrance</strong> in inherited-variant families, which complicates counseling of apparently unaffected relatives (<a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>).</p>
+<p><strong>Immunization:</strong> routine schedule; no contraindication and no disease-specific vaccine. <strong>Not applicable.</strong></p>
+<p><strong>Public health / environmental interventions:</strong> <strong>Not applicable.</strong></p>
+<p><strong>Prophylaxis:</strong> No specific prophylactic medication. Aspiration and respiratory-infection prophylaxis is supportive.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy of species with characterized <em>ASXL3</em> orthologs used in disease research:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Species</th>
+<th>NCBI Taxon</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Homo sapiens</em></td>
+<td>NCBITaxon:9606</td>
+<td>Disease species</td>
+</tr>
+<tr>
+<td><em>Mus musculus</em></td>
+<td>NCBITaxon:10090</td>
+<td>Principal disease model (§15)</td>
+</tr>
+<tr>
+<td><em>Xenopus laevis</em></td>
+<td>NCBITaxon:8355</td>
+<td>Developmental model (<a href="https://pubmed.ncbi.nlm.nih.gov/32132929/" target="_blank" rel="noopener noreferrer">PMID:32132929</a>)</td>
+</tr>
+<tr>
+<td>Non-human primate (species not specified in preprint)</td>
+<td>NCBITaxon:9443 (Primates) [verify]</td>
+<td>AAV expression/translational testing (PPR1237608)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Orthologous genes:</strong> mouse <em>Asxl3</em> (<strong><a href="https://bioregistry.io/MGI:2685175" target="_blank" rel="noopener noreferrer">MGI:2685175</a></strong>, Chr 18, 22,477,303–22,663,072 bp, + strand, 11.96 cM) — direct ortholog of human <em>ASXL3</em> (18q12.1). <em>Xenopus laevis asxl3</em> — ortholog used for knockdown. The ASXL family (<em>ASXL1/2/3</em>) descends from <em>Drosophila melanogaster</em> <strong>Additional sex combs (Asx)</strong>; <a href="https://pubmed.ncbi.nlm.nih.gov/38791157/" target="_blank" rel="noopener noreferrer">PMID:38791157</a> notes <em>"Genes in this family and their neighbor genes are evolutionary conserved in humans and mice."</em></p>
+<p><strong>Natural disease in other species:</strong> <strong>None reported.</strong> No OMIA entry, no naturally occurring <em>ASXL3</em> disorder in companion animals or wildlife has been described. Veterinary relevance: <strong>none</strong>. (An incidental hit for canine gastrointestinal lymphoma somatic mutations, <a href="https://pubmed.ncbi.nlm.nih.gov/40046420/" target="_blank" rel="noopener noreferrer">PMID:40046420</a>, is unrelated to BRPS.)</p>
+<p><strong>Comparative pathology:</strong> BRPS-like phenotypes exist only in engineered models. <em>Asxl3^+/−</em> mice recapitulate the ASD-like behavior and cortical architectural changes but the full human syndrome (craniofacial gestalt, absent speech, feeding failure) is not modeled — see §15.</p>
+<p><strong>Evolutionary conservation of mechanism:</strong> strongly conserved. The Asx→ASXL1/2/3 lineage and the PR-DUB complex (Asx–Calypso in fly; ASXL–BAP1 in mammals) are deeply conserved, and H2AK119Ub1 regulation is a core metazoan chromatin mechanism. The <em>Xenopus</em> knockdown reproducing neural cell-fate perturbation is direct evidence of conserved developmental function across ~350 My of vertebrate divergence.</p>
+<p><strong>Transmission / zoonotic potential:</strong> <strong>Not applicable</strong> — non-communicable genetic disorder.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 Mouse (<em>Mus musculus</em>) — the principal model</h3>
+<p><strong>Resources:</strong> <a href="https://bioregistry.io/MGI:2685175" target="_blank" rel="noopener noreferrer">MGI:2685175</a>, <em>Asxl3</em>. <strong>8 alleles</strong> available (3 endonuclease-mediated, 1 gene-trapped, 4 targeted); <strong>97 strains/lines</strong> listed through IMSR. MGI records <strong>13 phenotypes from multigenic genotypes</strong> and 11 phenotype references. GXD holds 608 expression assay results across 9 tissues with embryonic expression in nervous, cardiovascular, musculoskeletal and reproductive systems.</p>
+<p><strong>IMPC status (Data Release 24.0):</strong> <em>Asxl3</em> has been phenotyped with <strong>0 significant phenotypes</strong> across 15 of 24 physiological systems tested (9 systems untested); no adult or embryonic expression data recorded. <strong>This is an important negative:</strong> the standard IMPC broad-based pipeline does not detect the <em>Asxl3</em> heterozygote phenotype — CNS/behavioral deep phenotyping is required, which is exactly what the 2026 study supplied.</p>
+<p><strong>The definitive model — <em>Asxl3^+/−</em> haploinsufficient mouse</strong> (bioRxiv PPR1237608, 2026; Ding, Yuan, Hu, Zhang, Wu, Du, Qiu):
+- <strong>Model type:</strong> germline heterozygous null — genetically faithful to the human dominant LoF mechanism (the correct design; homozygous nulls would model a non-existent human genotype).
+- <strong>Phenotype recapitulation:</strong> reduced cortical thickness; reduced upper-layer projection neurons; <strong>increased PV interneuron density</strong>; ASD-like behavioral abnormalities. Molecular: DIO3 derepression via altered H2A monoubiquitination → brain TH depletion.
+- <strong>Mechanistic validation:</strong> <em>Thra</em> conditional deletion in inhibitory neuron progenitors phenocopies the PV expansion.
+- <strong>Therapeutic validation:</strong> neonatal (not adolescent) TH supplementation rescues PV number and behavior; intein-based AAV reconstitution of full-length ASXL3 normalizes cortical architecture and behavior.
+- <strong>Limitations:</strong> does not model the craniofacial gestalt, feeding failure/FTT, absent speech (no analog), seizures (not reported), or the human MCR1/MCR2 and NMD/no-NMD distinction (a single null allele cannot capture the truncated-protein class). Preprint status.</p>
+<p><strong>Other mouse work:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/37435360/" target="_blank" rel="noopener noreferrer">PMID:37435360</a> used mouse cardiomyocytes to model <em>biallelic missense</em> ASXL3 mutations and congenital heart disease — a different genotype and a different disease question; not a BRPS model. A closely relevant family model is <em>Asxl1</em> loss in mice causing microcephaly via neural stem cell survival (<a href="https://pubmed.ncbi.nlm.nih.gov/40276524/" target="_blank" rel="noopener noreferrer">PMID:40276524</a>) — useful for comparative interpretation.</p>
+<h3>15.2 <em>Xenopus laevis</em> — developmental patterning model</h3>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/32132929/" target="_blank" rel="noopener noreferrer">PMID:32132929</a> (<em>Front Physiol</em> 2020, Lichtig et al.), MODEL_ORGANISM:</p>
+<blockquote>
+<p>"In this study, we utilize the frog, <em>Xenopus laevis</em> as a simpler and more accessible vertebrate neurodevelopmental model system to understand the embryological cause of Bainbridge-Ropers syndrome. We have found that ASXL3 protein knockdown during early embryo development highly perturbs neural cell fate specification, potentially resembling the Bainbridge-Ropers syndrome phenotype in humans. Thus, the frog embryo is a powerful tool for understanding the etiology of Bainbridge-Ropers syndrome in humans."</p>
+</blockquote>
+<ul>
+<li><strong>Model type:</strong> morpholino/protein knockdown in early embryos (not a genetic null; standard morpholino specificity caveats apply).</li>
+<li><strong>Recapitulation:</strong> early neural cell-fate specification defects — captures the <em>developmental patterning</em> arm.</li>
+<li><strong>Limitations:</strong> knockdown rather than heterozygous LoF; early embryonic window only; no behavioral, craniofacial-gestalt, or postnatal readouts; morpholino off-target risk.</li>
+<li><strong>Applications:</strong> rapid screening of variant function; early neural patterning mechanism; potentially a variant-function assay for missense VUS interpretation (an unexploited opportunity given the absent episignature).</li>
+</ul>
+<h3>15.3 Cellular / in vitro models</h3>
+<ul>
+<li><strong>Patient-derived primary dermal fibroblasts</strong> — the workhorse for the founding mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/26647312/" target="_blank" rel="noopener noreferrer">PMID:26647312</a>): NMD demonstration, H2AK119Ub1 quantification, and RNA-seq (564 DEGs). Limitation: fibroblasts are not a disease-relevant cell type for a brain disorder, so the 564-DEG signature should not be over-interpreted as the neuronal program.</li>
+<li><strong>iPSC-derived neurons / cortical organoids / neural progenitors:</strong> <strong>not reported for <em>ASXL3</em></strong> — a conspicuous gap. Given the PV-interneuron and upper-layer-projection-neuron findings in mouse, human iPSC-derived cortical and MGE-derived interneuron models are the obvious next step and would be the natural place for MorPhiC-style null-allele cellular phenotyping (<code>category: Cellular</code>, <code>evidence_source: IN_VITRO</code>). <em>ASXL3</em> is not among the MorPhiC anchor genes (ISL1, EOMES, GCM1, NKX2-1).</li>
+<li><strong>Mouse cardiomyocytes</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37435360/" target="_blank" rel="noopener noreferrer">PMID:37435360</a>) — biallelic-missense/CHD branch only.</li>
+</ul>
+<h3>15.4 Model resources</h3>
+<p>MGI (informatics.jax.org, <a href="https://bioregistry.io/MGI:2685175" target="_blank" rel="noopener noreferrer">MGI:2685175</a>); IMPC (mousephenotype.org, Data Release 24.0, CC BY 4.0); IMSR (97 <em>Asxl3</em> lines); Xenbase; Alliance of Genome Resources.</p>
+<hr />
+<h2>Summary of Evidence Gaps (for <code>KNOWLEDGE_GAP</code> / <code>HUMAN_MODEL_MISMATCH</code> curation)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Gap</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Penetrance is not established.</strong> GeneReviews has no Penetrance section; LoF variants observed in apparently healthy individuals (<a href="https://pubmed.ncbi.nlm.nih.gov/33242595/" target="_blank" rel="noopener noreferrer">PMID:33242595</a>); nonpenetrance discussed in inherited-variant families (<a href="https://pubmed.ncbi.nlm.nih.gov/34436830/" target="_blank" rel="noopener noreferrer">PMID:34436830</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a>)</td>
+<td>KNOWLEDGE_GAP</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>No prevalence or incidence estimate.</strong> Orphanet's <code>&lt;1/1,000,000</code> class and 77-case count are ascertainment-limited and out of date (204 published individuals by 2026)</td>
+<td>KNOWLEDGE_GAP</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>No survival, life-expectancy, or mortality data</strong></td>
+<td>KNOWLEDGE_GAP</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>No validated DNAm episignature</strong> — the BOS classifier returns control-like profiles for ASXL3 (<a href="https://pubmed.ncbi.nlm.nih.gov/35361921/" target="_blank" rel="noopener noreferrer">PMID:35361921</a>, n=3), leaving VUS/missense interpretation without a functional assay</td>
+<td>KNOWLEDGE_GAP</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Role of missense variants unresolved</strong>; the biallelic-missense/CHD association needs replication (GeneReviews; <a href="https://pubmed.ncbi.nlm.nih.gov/38420660/" target="_blank" rel="noopener noreferrer">PMID:38420660</a>)</td>
+<td>KNOWLEDGE_GAP</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>No human neuronal model.</strong> All neural mechanism is mouse/Xenopus; the PV-interneuron/TH axis has never been tested in human iPSC-derived neurons or patient tissue</td>
+<td>HUMAN_MODEL_MISMATCH</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Neonatal-TH-window rescue is mouse-only</strong> and the human developmental equivalent of that window is unknown; the AAV-intein result is mouse + NHP expression only, both in a preprint</td>
+<td>HUMAN_MODEL_MISMATCH</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>IMPC broad pipeline detects 0 significant phenotypes</strong> for <em>Asxl3</em>, despite a clear deep-phenotyping CNS phenotype — model-sensitivity mismatch</td>
+<td>HUMAN_MODEL_MISMATCH</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Contradiction on genotype–phenotype correlation:</strong> GeneReviews (2020) says none exist; <a href="https://pubmed.ncbi.nlm.nih.gov/39833101/" target="_blank" rel="noopener noreferrer">PMID:39833101</a> (2025) and <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/" target="_blank" rel="noopener noreferrer">PMID:42494517</a> (2026) report statistically significant MCR/NMD correlations. Curate the 2026 position and note the superseded statement</td>
+<td>Controversy</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>No interventional clinical trials</strong>, no BRPS-specific QoL instrument data, no proteomic/metabolomic/single-cell/spatial/CRISPR-screen data, no formal sex-ratio analysis, no ICD-11 mapping</td>
+<td>KNOWLEDGE_GAP</td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>Precursor B-ALL co-occurrence (n=1)</strong> — insufficient to assert cancer predisposition; ASXL1/2 somatic myeloid biology makes it tempting but unsupported</td>
+<td>Do not curate as association</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Sources</h2>
+<p><strong>Primary literature (PubMed / Europe PMC)</strong>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/23383720/">PMID:23383720</a> — Bainbridge MN et al. <em>Genome Med</em> 2013 — founding description
+- <a href="https://pubmed.ncbi.nlm.nih.gov/24044690/">PMID:24044690</a> — Dinwiddie DL et al. <em>BMC Med Genomics</em> 2013
+- <a href="https://pubmed.ncbi.nlm.nih.gov/26647312/">PMID:26647312</a> — Srivastava A et al. <em>Hum Mol Genet</em> 2016 — PR-DUB/H2AK119Ub1 mechanism
+- <a href="https://pubmed.ncbi.nlm.nih.gov/27901041/">PMID:27901041</a> — Kuechler A et al. <em>Eur J Hum Genet</em> 2017 — recognizable condition; BOS distinction
+- <a href="https://pubmed.ncbi.nlm.nih.gov/28100473/">PMID:28100473</a> — Balasubramanian M et al. <em>J Med Genet</em> 2017 — DDD cohort, second MCR
+- <a href="https://pubmed.ncbi.nlm.nih.gov/28955728/">PMID:28955728</a> — Dad R et al. <em>Neurol Genet</em> 2017 — hyperventilation-athetosis
+- <a href="https://pubmed.ncbi.nlm.nih.gov/29316359/">PMID:29316359</a> — Bacrot S et al. <em>Birth Defects Res</em> 2018 — first fetal case / PCH1
+- <a href="https://pubmed.ncbi.nlm.nih.gov/29367179/">PMID:29367179</a> — Myers KA et al. <em>Epilepsy Res</em> 2018 — childhood-onset generalized epilepsy
+- <a href="https://pubmed.ncbi.nlm.nih.gov/29445472/">PMID:29445472</a> — Chinen Y et al. <em>Clin Case Rep</em> 2018
+- <a href="https://pubmed.ncbi.nlm.nih.gov/29429203/">PMID:29429203</a> — Zhang R et al. <em>Zhonghua Er Ke Za Zhi</em> 2018
+- <a href="https://pubmed.ncbi.nlm.nih.gov/32132929/">PMID:32132929</a> — Lichtig H et al. <em>Front Physiol</em> 2020 — Xenopus model
+- <a href="https://pubmed.ncbi.nlm.nih.gov/32517662/">PMID:32517662</a> — Yang L et al. <em>BMC Pediatr</em> 2020 — imaging
+- <a href="https://pubmed.ncbi.nlm.nih.gov/33242595/">PMID:33242595</a> — Yu KP et al. <em>Eur J Med Genet</em> 2021 — MCR genotype-phenotype
+- <a href="https://pubmed.ncbi.nlm.nih.gov/33751773/">PMID:33751773</a> — Cuddapah VA et al. <em>Am J Med Genet A</em> 2021 — ASXL family spectrum
+- <a href="https://pubmed.ncbi.nlm.nih.gov/34086428/">PMID:34086428</a> — Ikekwere JC et al. <em>Prim Care Companion CNS Disord</em> 2021 — psychiatric comorbidity
+- <a href="https://pubmed.ncbi.nlm.nih.gov/34436830/">PMID:34436830</a> — Schirwani S et al. <em>Am J Med Genet A</em> 2021 — 45 unpublished individuals
+- <a href="https://pubmed.ncbi.nlm.nih.gov/35172777/">PMID:35172777</a> — Khan TR et al. <em>BMC Neurol</em> 2022 — breath-holding + intractable epilepsy
+- <a href="https://pubmed.ncbi.nlm.nih.gov/35361921/">PMID:35361921</a> — Awamleh Z et al. <em>Eur J Hum Genet</em> 2022 — DNAm signature (ASXL3 control-like)
+- <a href="https://pubmed.ncbi.nlm.nih.gov/35733401/">PMID:35733401</a> — Slatnick LR et al. <em>Pediatr Blood Cancer</em> 2023 — B-ALL case
+- <a href="https://pubmed.ncbi.nlm.nih.gov/35863334/">PMID:35863334</a> — Švantnerová J et al. <em>Neuropediatrics</em> 2022 — dystonic CP
+- <a href="https://pubmed.ncbi.nlm.nih.gov/36177608/">PMID:36177608</a> — Schirwani S et al. <em>Am J Med Genet A</em> 2023 — familial inheritance, milder phenotype
+- <a href="https://pubmed.ncbi.nlm.nih.gov/36249891/">PMID:36249891</a> — Scheithauer M et al. <em>Behav Anal Pract</em> 2023 — ABA for self-injury
+- <a href="https://pubmed.ncbi.nlm.nih.gov/37435360/">PMID:37435360</a> — Liu Z et al. <em>Biochem Biophys Rep</em> 2023 — cardiomyocyte / biallelic missense
+- <a href="https://pubmed.ncbi.nlm.nih.gov/38027485/">PMID:38027485</a> — Ayoub MC et al. <em>Front Neurosci</em> 2023 — motor phenotyping BOS vs BRS
+- <a href="https://pubmed.ncbi.nlm.nih.gov/38420660/">PMID:38420660</a> — Woods E et al. <em>Clin Genet</em> 2024 — molecular phenotyping review
+- <a href="https://pubmed.ncbi.nlm.nih.gov/38711055/">PMID:38711055</a> — Arai Y et al. <em>BMC Pediatr</em> 2024 — adolescent-onset feeding difficulty
+- <a href="https://pubmed.ncbi.nlm.nih.gov/38791157/">PMID:38791157</a> — Kim N et al. <em>Int J Mol Sci</em> 2024 — ASXL family epigenetics review
+- <a href="https://pubmed.ncbi.nlm.nih.gov/39610869/">PMID:39610869</a> — Ling S et al. <em>Front Neurosci</em> 2024
+- <a href="https://pubmed.ncbi.nlm.nih.gov/39698206/">PMID:39698206</a> — Geiser M et al. <em>Front Psychiatry</em> 2024 — pregabalin
+- <a href="https://pubmed.ncbi.nlm.nih.gov/39833101/">PMID:39833101</a> — Trujillano L et al. <em>Clin Genet</em> 2025 — Spanish cohort n=22
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40237215/">PMID:40237215</a> — Aşık A et al. <em>Am J Med Genet A</em> 2025 — dentofacial
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40552904/">PMID:40552904</a> — Woods E et al. <em>Am J Med Genet A</em> 2025 — International Natural History Study
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40808361/">PMID:40808361</a> — Piring A et al. <em>Am J Med Genet A</em> 2026 — pubertal timing
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40980137/">PMID:40980137</a> — Zhao B et al. <em>Front Pediatr</em> 2025 — paternal mosaicism
+- <a href="https://pubmed.ncbi.nlm.nih.gov/41458212/">PMID:41458212</a> — Yang M et al. <em>Front Genet</em> 2025 — 15q11.2 modifier
+- <a href="https://pubmed.ncbi.nlm.nih.gov/41659201/">PMID:41659201</a> — Yang Q et al. <em>Front Neurosci</em> 2025 — four Chinese patients
+- <a href="https://pubmed.ncbi.nlm.nih.gov/42111080/">PMID:42111080</a> — Yaddanapudi S et al. <em>Front Neurol</em> 2026 — rehabilitation framework
+- <a href="https://pubmed.ncbi.nlm.nih.gov/42194125/">PMID:42194125</a> — Mariano D et al. <em>Children (Basel)</em> 2026 — familial, maternal mosaicism
+- <a href="https://pubmed.ncbi.nlm.nih.gov/42494517/">PMID:42494517</a> — Woods E et al. <em>Genet Med Open</em> 2026 — 204 individuals, NMD/MCR analysis
+- <a href="https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=%22ASXL3%22%20AND%20%22parvalbumin%22">bioRxiv PPR1237608</a> — Ding C et al. 2026 — ASXL3–thyroid hormone–PV interneuron axis (<strong>preprint</strong>)</p>
+<p><strong>Databases and resources</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK563693/">GeneReviews: ASXL3-Related Disorder (NBK563693)</a> — Balasubramanian M, Schirwani S
+- <a href="https://omim.org/entry/615485">OMIM 615485</a> (403 during this session; identifiers confirmed via MONDO/Orphanet xrefs) · <a href="https://omim.org/entry/615115">OMIM 615115</a>
+- <a href="https://www.ebi.ac.uk/ols4/api/ontologies/mondo/terms?iri=http%3A%2F%2Fpurl.obolibrary.org%2Fobo%2FMONDO_0014205">MONDO:0014205 via OLS4</a>
+- <a href="https://api.orphadata.com/rd-cross-referencing/orphacodes/352577?lang=en">Orphanet ORPHA:352577 — Orphadata API</a> · <a href="https://api.orphadata.com/rd-epidemiology/orphacodes/352577?lang=en">epidemiology</a>
+- <a href="https://ontology.jax.org/api/network/annotation/OMIM:615485">HPO annotations for OMIM:615485</a>
+- <a href="https://search.clinicalgenome.org/kb/genes/HGNC:29357">ClinGen ASXL3 gene curation</a> · <a href="https://search.clinicalgenome.org/kb/gene-dosage/HGNC:29357">ClinGen ASXL3 dosage sensitivity</a>
+- <a href="https://rest.uniprot.org/uniprotkb/Q9C0F0.json">UniProt Q9C0F0</a>
+- <a href="https://www.ncbi.nlm.nih.gov/gene/80816">NCBI Gene 80816</a> · <a href="https://www.ncbi.nlm.nih.gov/clinvar/?term=ASXL3%5Bgene%5D">ClinVar ASXL3</a>
+- <a href="https://www.informatics.jax.org/marker/MGI:2685175">MGI:2685175 (mouse Asxl3)</a> · <a href="https://www.mousephenotype.org/data/genes/MGI:2685175">IMPC Asxl3</a>
+- <a href="https://gene.sfari.org/database/human-gene/ASXL3">SFARI Gene: ASXL3</a> — score 1S (High Confidence, Syndromic)
+- <a href="https://www.proteinatlas.org/ENSG00000141431-ASXL3/tissue">Human Protein Atlas: ASXL3</a>
+- <a href="https://rarediseases.org/rare-diseases/asxl3-related-disorder/">NORD: ASXL3-Related Disorder</a> · <a href="https://arrefoundation.org/article/genereviews-asxl3-related-disorder/">ARRE Foundation</a></p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Bailey-Bloch_Congenital_Myopathy-claude_code.html">← Bailey-Bloch Congenital Myopathy (Claude Code)</a>
+                
+                
+                <a href="Bannayan-Riley-Ruvalcaba_Syndrome-claude_code.html">Bannayan-Riley-Ruvalcaba Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Bainbridge-Ropers_syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Bainbridge-Ropers_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

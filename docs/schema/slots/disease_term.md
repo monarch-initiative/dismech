@@ -22,9 +22,9 @@ Alias: disease_term
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [GroupingMember](../classes/GroupingMember.md) | One member of a grouping, referenced by foreign key, together with the mechan... |  no  |
-| [Disease](../classes/Disease.md) |  |  no  |
 | [DifferentialDiagnosis](../classes/DifferentialDiagnosis.md) | A disease or condition that presents similarly to the focal disease and must ... |  no  |
+| [Disease](../classes/Disease.md) |  |  no  |
+| [GroupingMember](../classes/GroupingMember.md) | One member of a grouping, referenced by foreign key, together with the mechan... |  no  |
 
 
 

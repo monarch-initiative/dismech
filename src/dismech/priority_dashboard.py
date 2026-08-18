@@ -12,6 +12,7 @@ from pathlib import Path
 from string import Template
 from typing import Any
 
+from dismech.compare.mondo_export import load_candidates_meta
 from dismech.compare.mondo_priority import (
     _extract_family_stem,
     _grouping_term,
@@ -22,7 +23,24 @@ from dismech.compare.mondo_priority import (
     load_config,
     score_candidates,
 )
+from dismech.nec_risk import (
+    build_eponym_owners,
+    classify_terms,
+    colliding_eponyms,
+)
 from dismech.render import curie_to_url
+
+# Where a curator is sent when a candidate carries a Named Entity Confusion
+# (NEC) risk flag. Relative to the repository root, not to dashboard/, because
+# the register is a curation artefact rather than a dashboard page.
+NEC_RISK_REGISTER = "research/nec_risk_disease_classes.md"
+
+# A short all-caps synonym is a real NEC risk, but only if the DR query is made
+# with the acronym rather than the label -- and a large share of MONDO terms
+# carry one. Flagged rows that have *nothing else* therefore stay out of the
+# table badge (a badge on half the table warns about nothing) while remaining
+# in the payload and the selected-candidate panel.
+NEC_WEAK_ALONE_CLASSES = frozenset({"ACRONYM_AMBIGUITY"})
 
 PRIORITY_BLOCK_START = "<!-- DISMECH-PRIORITY-START -->"
 PRIORITY_BLOCK_END = "<!-- DISMECH-PRIORITY-END -->"
@@ -136,6 +154,29 @@ def _slugify_token(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", value.casefold()).strip("-")
 
 
+def _nec_shared_eponyms(candidates: list[Any], coverage: Any) -> set[str]:
+    """Surnames shared by more than one entity across candidates plus the KB.
+
+    An eponym collision only matters if the two entities that share the surname
+    are both reachable by a DR query, so the corpus deliberately spans *both*
+    sides: the uncurated MONDO candidates and the diseases already curated in
+    ``kb/disorders``. The Temtamy case had one member curated and the other not.
+
+    Curated names are recovered from the coverage index's filenames rather than
+    its label keys, because those keys are casefolded and eponym detection is
+    capitalization-driven.
+    """
+    named_entities: list[tuple[str, str]] = []
+    for candidate in candidates:
+        named_entities.append((candidate.mondo_id, candidate.label))
+        for synonym in candidate.synonyms:
+            named_entities.append((candidate.mondo_id, synonym))
+    for filename in set(getattr(coverage, "label_to_file", {}).values()):
+        stem = filename.rsplit(".", 1)[0].replace("_", " ")
+        named_entities.append((f"kb:{filename}", stem))
+    return colliding_eponyms(build_eponym_owners(named_entities))
+
+
 def _build_rows(
     candidates_path: Path,
     kb_dir: Path,
@@ -156,6 +197,7 @@ def _build_rows(
     over_specific_leaf_min_words = int(
         thresholds.get("over_specific_leaf_min_words", 8)
     )
+    nec_shared_eponyms = _nec_shared_eponyms(candidates, coverage)
     candidate_by_id = {candidate.mondo_id: candidate for candidate in candidates}
     known_labels = {
         _normalize_text(candidate.label): candidate.label for candidate in candidates
@@ -203,11 +245,20 @@ def _build_rows(
             candidate.child_count,
             over_specific_leaf_min_words,
         )
+        nec_risk = [
+            flag.as_dict()
+            for flag in classify_terms(
+                candidate.label,
+                candidate.synonyms,
+                shared_eponyms=nec_shared_eponyms,
+            )
+        ]
         rows.append(
             {
                 "mondo_id": item.mondo_id,
                 "mondo_url": curie_to_url(item.mondo_id),
                 "label": item.label,
+                "nec_risk": nec_risk,
                 "score": item.score,
                 "recommended_action": item.recommended_action,
                 "recommended_action_tone": _action_tone(item.recommended_action),
@@ -240,12 +291,25 @@ def _build_rows(
     return rows
 
 
-def _build_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    total_candidates = len(rows)
-    already_curated = sum(
+def _build_summary(
+    rows: list[dict[str, Any]],
+    excluded_curated: int = 0,
+) -> dict[str, Any]:
+    """Summarize the candidate queue.
+
+    ``excluded_curated`` is the number of already-curated roots the exporter
+    dropped before writing the TSV (see ``mondo_export.candidates_meta_path``).
+    Those rows never reach ``rows``, so counting only the surviving
+    ``ALREADY_CURATED`` rows reported zero curated diseases against a KB with
+    well over a thousand of them (#7425). They belong in *both* halves of the
+    coverage fraction: they are curated, and they were candidates.
+    """
+    curated_rows = sum(
         1 for row in rows if row["recommended_action"] == _CURATED_ACTION
     )
-    remaining_candidates = total_candidates - already_curated
+    already_curated = curated_rows + max(excluded_curated, 0)
+    remaining_candidates = len(rows) - curated_rows
+    total_candidates = remaining_candidates + already_curated
     root_action_candidates = sum(
         1 for row in rows if row["recommended_action"] in _ROOT_ACTIONS
     )
@@ -259,9 +323,18 @@ def _build_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         None,
     )
 
+    nec_risk_candidates = sum(
+        1
+        for row in rows
+        if row["recommended_action"] != _CURATED_ACTION
+        and _nec_badge_worthy(row.get("nec_risk"))
+    )
+
     return {
         "total_candidates": total_candidates,
+        "nec_risk_candidates": nec_risk_candidates,
         "already_curated": already_curated,
+        "already_curated_excluded_from_export": max(excluded_curated, 0),
         "remaining_candidates": remaining_candidates,
         "root_action_candidates": root_action_candidates,
         "coverage_percent": coverage_percent,
@@ -383,6 +456,37 @@ def _render_category_table(rows: list[dict[str, Any]]) -> str:
     return "\n".join(rendered)
 
 
+def _nec_risk_summary(nec_risk: list[dict[str, Any]] | None) -> str:
+    """One-line, human-readable rendering of a row's NEC-risk flags."""
+    parts: list[str] = []
+    for flag in nec_risk or []:
+        detail = [str(token) for token in (flag.get("detail") or [])]
+        risk_class = str(flag.get("risk_class", ""))
+        parts.append(
+            f"{risk_class} ({', '.join(detail)})" if detail else risk_class
+        )
+    return "; ".join(parts)
+
+
+def _nec_badge_worthy(nec_risk: list[dict[str, Any]] | None) -> bool:
+    """True when the flags include something stronger than a bare acronym."""
+    classes = {str(flag.get("risk_class", "")) for flag in nec_risk or []}
+    return bool(classes - NEC_WEAK_ALONE_CLASSES)
+
+
+def _render_nec_pill(nec_risk: list[dict[str, Any]] | None) -> str:
+    """A single compact pill, not one per class, so the table stays readable."""
+    if not _nec_badge_worthy(nec_risk):
+        return ""
+    summary = _nec_risk_summary(nec_risk)
+    if not summary:
+        return ""
+    return (
+        f' <span class="nec-pill" title="{html.escape(summary, quote=True)}">'
+        "NEC risk</span>"
+    )
+
+
 def _render_priority_table(rows: list[dict[str, Any]]) -> str:
     if not rows:
         return '<tr><td colspan="6">No uncurated MONDO candidates found.</td></tr>'
@@ -397,7 +501,7 @@ def _render_priority_table(rows: list[dict[str, Any]]) -> str:
             f"<td>{badge}</td>"
             f'<td><a href="{html.escape(row["mondo_url"], quote=True)}" target="_blank" rel="noopener">'
             f"{html.escape(row['mondo_id'])}</a></td>"
-            f"<td>{html.escape(row['label'])}</td>"
+            f"<td>{html.escape(row['label'])}{_render_nec_pill(row.get('nec_risk'))}</td>"
             f'<td class="score-cell">{row["score"]:.1f}</td>'
             f'<td><span class="pill pill-{row["recommended_action_tone"]}">{html.escape(row["recommended_action"])}</span></td>'
             f'<td><span class="subtle-pill subtle-pill-{_slugify_token(row["specificity_bucket"])}">'
@@ -460,6 +564,13 @@ def _render_priority_report_page(payload: dict[str, Any]) -> str:
     thresholds = dict(scoring.get("thresholds") or {})
     curated_width = summary["coverage_percent"]
     remaining_width = max(0.0, 100.0 - curated_width)
+    excluded_curated = int(summary.get("already_curated_excluded_from_export", 0) or 0)
+    export_exclusion_note = (
+        f" {excluded_curated} of them were dropped from the candidate export "
+        "and so do not appear in the table below."
+        if excluded_curated
+        else ""
+    )
     weight_controls = _render_weight_controls(scoring.get("weights") or {})
     action_options = _render_action_filter_options()
     bucket_options = _render_bucket_filter_options(rows)
@@ -783,6 +894,19 @@ def _render_priority_report_page(payload: dict[str, Any]) -> str:
             color: #51606f;
             font-weight: 600;
         }
+        .nec-pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 0.1rem 0.5rem;
+            margin-left: 0.4rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            white-space: nowrap;
+            background: rgba(231, 76, 60, 0.12);
+            color: #b42318;
+            cursor: help;
+        }
         .detail-chip-row {
             display: flex;
             gap: 0.5rem;
@@ -982,7 +1106,7 @@ def _render_priority_report_page(payload: dict[str, Any]) -> str:
         <section class="chart-card">
             <h2>Coverage Summary</h2>
             <p class="priority-note">
-                $already_curated of $total_candidates candidates already have a local dismech root.
+                $already_curated of $total_candidates candidates already have a local dismech root.$export_exclusion_note
                 Remaining candidates still include review and drop recommendations; the bar only reflects current root coverage.
             </p>
             <div class="progress-legend">
@@ -1076,6 +1200,17 @@ $category_section
             <h2>Top Uncurated Diseases</h2>
             <p class="priority-note">
                 The table starts with uncurated rows only. Click any row to inspect the current score contribution list and the fixed heuristics behind its action label.
+            </p>
+            <p class="priority-note">
+                <strong>$nec_risk_candidates</strong> uncurated candidates carry a
+                <span class="nec-pill">NEC risk</span> badge: the label sits in a numbered series, shares a
+                surname with another entity, or carries a synonym pointing at a different eponym. These are
+                the names a deep-research tool is most likely to resolve to the <em>wrong disease</em>, so
+                preflight any report before curating from it &mdash;
+                <code>just preflight-dr &lt;report.md&gt; &lt;MONDO ID&gt;</code>. Hover a badge for the
+                trigger; <code>$nec_risk_register</code> is the risk-class register. A candidate whose only
+                flag is an ambiguous short acronym is not badged here, but the flag still appears under
+                <em>Selected Candidate</em>.
             </p>
             <div class="table-toolbar" id="table-toolbar"></div>
             <div class="table-shell">
@@ -1181,6 +1316,26 @@ $category_section
             function toNumber(value) {
                 const numeric = Number(value);
                 return Number.isFinite(numeric) ? numeric : 0;
+            }
+
+            function necRiskSummary(row) {
+                return (row.nec_risk || [])
+                    .map(function (flag) {
+                        const detail = (flag.detail || []).join(", ");
+                        return detail ? flag.risk_class + " (" + detail + ")" : flag.risk_class;
+                    })
+                    .join("; ");
+            }
+
+            function necRiskPill(row) {
+                const strong = (row.nec_risk || []).some(function (flag) {
+                    return flag.risk_class !== "ACRONYM_AMBIGUITY";
+                });
+                const summary = strong ? necRiskSummary(row) : "";
+                if (!summary) {
+                    return "";
+                }
+                return ' <span class="nec-pill" title="' + escapeHtml(summary) + '">NEC risk</span>';
             }
 
             function round2(value) {
@@ -1574,6 +1729,8 @@ $category_section
                 const curatedText = row.curated_match
                     ? "Already curated in " + row.curated_match + "."
                     : "No curated dismech root matched.";
+                const necText = necRiskSummary(row) ||
+                    "No structural Named Entity Confusion pattern in this label.";
                 const parentsText = (row.parents || []).length
                     ? (row.parents || []).join(", ")
                     : "No parent labels supplied in the export.";
@@ -1614,6 +1771,7 @@ $category_section
                     '<li class="detail-item"><strong>Subtype series:</strong> ' + subtypeText + '</li>' +
                     '<li class="detail-item"><strong>Grouping term:</strong> ' + groupingText + '</li>' +
                     '<li class="detail-item"><strong>Over-specific leaf:</strong> ' + leafText + '</li>' +
+                    '<li class="detail-item"><strong>NEC risk:</strong> ' + escapeHtml(necText) + '</li>' +
                     '<li class="detail-item"><strong>Curated status:</strong> ' + escapeHtml(curatedText) + '</li>' +
                     '<li class="detail-item"><strong>Parents:</strong> ' + escapeHtml(parentsText) + '</li>' +
                     '<li class="detail-item"><strong>Categories:</strong> ' + escapeHtml(categoriesText) + '</li>' +
@@ -1741,7 +1899,7 @@ $category_section
                             '<tr data-mondo-id="' + escapeHtml(row.mondo_id) + '"' + selectedClass + '>' +
                             '<td>' + badge + '</td>' +
                             '<td><a href="' + escapeHtml(row.mondo_url) + '" target="_blank" rel="noopener">' + escapeHtml(row.mondo_id) + '</a></td>' +
-                            '<td>' + escapeHtml(row.label) + '</td>' +
+                            '<td>' + escapeHtml(row.label) + necRiskPill(row) + '</td>' +
                             '<td class="score-cell">' + formatNumber(entry.score) + '</td>' +
                             '<td class="' + deltaClass + '">' + formatSigned(delta) + '</td>' +
                             '<td><span class="pill pill-' + escapeHtml(row.recommended_action_tone) + '">' + escapeHtml(row.recommended_action) + '</span></td>' +
@@ -1883,7 +2041,10 @@ $category_section
         candidates_path=html.escape(str(payload["candidates_path"])),
         config_path=html.escape(str(payload["config_path"])),
         total_candidates=str(summary["total_candidates"]),
+        nec_risk_candidates=str(summary.get("nec_risk_candidates", 0)),
+        nec_risk_register=html.escape(NEC_RISK_REGISTER),
         already_curated=str(summary["already_curated"]),
+        export_exclusion_note=export_exclusion_note,
         remaining_candidates=str(summary["remaining_candidates"]),
         root_action_candidates=str(summary["root_action_candidates"]),
         coverage_percent=f"{summary['coverage_percent']:.1f}",
@@ -1923,6 +2084,11 @@ def _build_index_block(summary: dict[str, Any]) -> str:
                 <strong>{summary["remaining_candidates"]}</strong> of <strong>{summary["total_candidates"]}</strong>
                 MONDO candidates remain after accounting for
                 <strong>{summary["already_curated"]}</strong> already curated diseases.{top_candidate}
+            </p>
+            <p class="priority-note">
+                <strong>{summary.get("nec_risk_candidates", 0)}</strong> of those remaining candidates carry a
+                Named Entity Confusion (NEC) risk flag &mdash; names a deep-research tool may resolve to the
+                wrong disease. Risk classes: <code>{html.escape(NEC_RISK_REGISTER)}</code>.
             </p>
             <p><a href="priority.html">View the curation priority dashboard</a></p>
         </section>
@@ -1975,7 +2141,12 @@ def generate_priority_dashboard_report(
         kb_dir=kb_dir,
         config_path=config_path,
     )
-    summary = _build_summary(rows)
+    meta = load_candidates_meta(candidates_path) or {}
+    try:
+        excluded_curated = int(meta.get("excluded_curated") or 0)
+    except (TypeError, ValueError):
+        excluded_curated = 0
+    summary = _build_summary(rows, excluded_curated=excluded_curated)
     action_breakdown = _build_action_breakdown(rows)
     category_summary = _build_category_summary(rows)
     generated_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
