@@ -1,0 +1,53 @@
+---
+reference_id: DOI:10.1161/CIRCULATIONAHA.123.065987
+title: Meta-Analysis of Penetrance and Systematic Review on Transition to Disease in Genetic Hypertrophic Cardiomyopathy
+authors:
+- Constantin-Cristian Topriceanu
+- Alexandre C. Pereira
+- James C. Moon
+- Gabriella Captur
+- Carolyn Y. Ho
+journal: Circulation
+year: '2024'
+doi: 10.1161/CIRCULATIONAHA.123.065987
+content_type: abstract_only
+is_preprint: false
+---
+
+# Meta-Analysis of Penetrance and Systematic Review on Transition to Disease in Genetic Hypertrophic Cardiomyopathy
+**Authors:** Constantin-Cristian Topriceanu, Alexandre C. Pereira, James C. Moon, Gabriella Captur, Carolyn Y. Ho
+**Journal:** Circulation (2024)
+**DOI:** [10.1161/CIRCULATIONAHA.123.065987](https://doi.org/10.1161/CIRCULATIONAHA.123.065987)
+
+## Content
+
+BACKGROUND:
+Hypertrophic cardiomyopathy (HCM) is characterized by unexplained left ventricular hypertrophy and is classically caused by pathogenic or likely pathogenic variants (P/LP) in genes encoding sarcomere proteins. Not all subclinical variant carriers will manifest clinically overt disease because penetrance (proportion of sarcomere or sarcomere-related P/LP variant carriers who develop disease) is variable, age dependent, and not reliably predicted.
+
+
+METHODS:
+A systematic search of the literature was performed. We used random-effects generalized linear mixed model meta-analyses to contrast the cross-sectional prevalence and penetrance of sarcomere or sarcomere-related genes in 2 different contexts: clinically-based studies on patients and families with HCM versus population or community-based studies. Longitudinal family/clinical studies were additionally analyzed to investigate the rate of phenotypic conversion from subclinical to overt HCM during follow-up.
+
+
+RESULTS:
+
+              In total, 455 full-text manuscripts and articles were assessed. In family/clinical studies, the prevalence of sarcomere variants in patients diagnosed with HCM was 34%. The penetrance across all genes in nonproband relatives carrying P/LP variants identified during cascade screening was 57% (95% CI, 52%–63%), and the mean age at HCM diagnosis was 38 years (95% CI, 36%–40%). Penetrance varied from ≈32% for
+              MYL3
+              (myosin light chain 3) to ≈55% for
+              MYBPC3
+              (myosin-binding protein C3), ≈60% for
+              TNNT2
+              (troponin T2) and
+              TNNI3
+              (troponin I3), and ≈65% for
+              MYH7
+              (myosin heavy chain 7). Population-based genetic studies demonstrate that P/LP sarcomere variants are present in the background population but at a low prevalence of <1%. The penetrance of HCM in incidentally identified P/LP variant carriers was also substantially lower at ≈11%, ranging from 0% in Atherosclerosis Risk in Communities to 18% in UK Biobank. In longitudinal family studies, the pooled phenotypic conversion across all genes was 15% over an average of ≈8 years of follow-up, starting from a mean of ≈16 years of age. However, short-term gene-specific phenotypic conversion varied between ≈12% for
+              MYBPC3
+              and ≈23% for
+              MYH7
+              .
+            
+
+
+CONCLUSIONS:
+The penetrance of P/LP variants is highly variable and influenced by currently undefined and context-dependent genetic and environmental factors. Additional longitudinal studies are needed to improve our understanding of true lifetime penetrance in families and in the community and to identify drivers of the transition from subclinical to overt HCM.

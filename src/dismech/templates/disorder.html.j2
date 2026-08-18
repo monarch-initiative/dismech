@@ -1427,6 +1427,21 @@
             color: #4ade80;
         }
 
+        /* The bound term's label sits immediately after a free-text card title
+           that often already says the same thing, so at title size and title
+           colour the two ran together into one nonsense heading -- "Severe
+           global developmental delay Global developmental delay" (issue #8402).
+           Give it the subordinate, chip-like weight the CURIE beside it has. */
+        .phenotype-term-label {
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(15, 78, 74, 0.16);
+            background: rgba(255, 255, 255, 0.7);
+            color: #475569;
+        }
+
         .phenotype-id a:not(.curie-chip) {
             font-size: 0.8rem;
             color: var(--secondary);
@@ -4561,64 +4576,48 @@
 
         <!-- Classifications -->
         {% if disorder.classifications %}
+        {# Slots whose values are mechanism/pathway statements rather than nosology #}
+        {# placements; styled differently, as they were before this became a loop.  #}
+        {% set mechanistic_slots = ['mechanistic_category', 'lysosomal_storage_category', 'channelopathy_category'] %}
+        {% set groups_with_content = [] %}
+        {% for group in classification_spec %}
+        {% set present = [] %}
+        {% for member in group.members %}
+        {% if disorder.classifications.get(member.slot) %}{% set _ = present.append(member) %}{% endif %}
+        {% endfor %}
+        {% if present %}{% set _ = groups_with_content.append({'label': group.label, 'members': present, 'multi': group.members | length > 1}) %}{% endif %}
+        {% endfor %}
+        {% if groups_with_content %}
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            {% if disorder.classifications.harrisons_chapter %}
+            {# Driven by classification_spec, derived from DiseaseClassifications in the   #}
+            {# schema, so a newly added classification slot renders with no template edit. #}
+            {# Labels are the slots' LinkML `title`; nesting follows their `slot_group`.   #}
+            {% for group in groups_with_content %}
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">{{ group.label }}</div>
+                {% for member in group.members %}
+                {% set entry = disorder.classifications[member.slot] %}
+                {% set items = entry if entry is sequence and entry is not mapping else [entry] %}
                 <div class="tag-list">
-                    {% for hc in disorder.classifications.harrisons_chapter %}
-                    <span class="tag tag-classification">{{ hc.classification_value }}</span>
+                    {# A grouped slot needs its own sub-label; a lone slot would just #}
+                    {# repeat the group heading it is the sole member of.             #}
+                    {% if group.multi %}
+                    <span style="font-size: 0.78rem; color: #6b7280;">{{ member.label }}</span>
+                    {% endif %}
+                    {% for item in items %}
+                    {% set value = item.classification_value %}
+                    <span class="tag {{ 'tag-mechanistic' if member.slot in mechanistic_slots else 'tag-classification' }}"{% if item.notes %} title="{{ item.notes }}"{% endif %}>{{ value | replace('_', ' ') }}{% if value is string and value.startswith('suspected_') %} (Annex II — suspected){% endif %}</span>
                     {% endfor %}
                 </div>
+                {% endfor %}
             </div>
-            {% endif %}
-            {% if disorder.classifications.mechanistic_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Mechanistic Nosology</div>
-                <div class="tag-list">
-                    {% for mc in disorder.classifications.mechanistic_category %}
-                    <span class="tag tag-mechanistic">{{ mc.classification_value }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.icdo_morphology %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">ICD-O Morphology</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.icdo_morphology.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.lysosomal_storage_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Lysosomal Storage</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.lysosomal_storage_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.iuis_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">IUIS Category</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.iuis_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.channelopathy_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Channelopathy</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.channelopathy_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
+            {% endfor %}
         </div>
+        {% endif %}
         {% endif %}
 
         <!-- Mappings -->
@@ -5591,8 +5590,19 @@
                     {% if pheno.phenotype_term and pheno.phenotype_term.term %}
                     {% set tooltip = term_tooltip(pheno.phenotype_term, "phenotype.phenotype_term") %}
                     {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    {# The card title is curator free text and the bound term carries
+                       its own label, so the two routinely say the same thing (issue
+                       #8402). Drop the label when the title already says it -- the
+                       CURIE chip and its tooltip still name the term -- and show it
+                       as its own muted pill when it does add something, so it can
+                       never read as the second half of the title. The bare `term.id`
+                       fallback is gone with it: the chip beside it already is the ID.
+                       See `dismech.term_labels` for what "already says it" means. #}
+                    {% set pheno_term_label = pheno.phenotype_term.term.label %}
                     <span class="phenotype-id">
-                        {{ pheno.phenotype_term.term.label or pheno.phenotype_term.term.id }}
+                        {% if pheno_term_label and not label_restates_title(pheno.name, pheno_term_label) %}
+                        <span class="phenotype-term-label">{{ pheno_term_label }}</span>
+                        {% endif %}
                         {{ render_curie_link(pheno.phenotype_term.term.id, describedby=tip_id) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
@@ -6027,6 +6037,32 @@
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
+                </div>
+                {% endif %}
+                {# Exposure/agent-level classifications: hazard type, route, duration, IARC group, #}
+                {# GHS class, exposome domain. These classify the AGENT, not the disease, which is #}
+                {# why they render on the exposure card rather than in the Classifications card. #}
+                {% if env.exposure_classifications %}
+                {% set exposure_axes = [
+                    ("Hazard type", env.exposure_classifications.hazard_agent_type),
+                    ("Route", env.exposure_classifications.exposure_route),
+                    ("Duration", env.exposure_classifications.exposure_duration),
+                    ("IARC group", env.exposure_classifications.iarc_carcinogen_group),
+                    ("GHS hazard class", env.exposure_classifications.ghs_health_hazard_class),
+                    ("Exposome domain", env.exposure_classifications.exposome_domain)
+                ] %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    {% for axis_label, axis_value in exposure_axes %}
+                    {% if axis_value %}
+                    {% set axis_items = axis_value if axis_value is sequence and axis_value is not mapping else [axis_value] %}
+                    <div style="margin: 4px 0; font-size: 0.85rem;">
+                        <strong style="font-size: 0.8rem; color: #0f766e;">{{ axis_label }}:</strong>
+                        {% for assignment in axis_items %}
+                        <span class="tag tag-classification"{% if assignment.notes %} title="{{ assignment.notes }}"{% endif %}>{{ assignment.classification_value | replace('_', ' ') }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
                 </div>
                 {% endif %}
                 {% if env.notes %}

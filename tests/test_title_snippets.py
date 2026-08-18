@@ -363,19 +363,82 @@ def test_resolve_baseline_falls_back_when_the_ref_is_unreadable(monkeypatch):
 # --- the committed backlog ---------------------------------------------------
 
 
-def test_committed_baseline_matches_the_working_tree(repo_findings):
-    """The committed snapshot is the local fallback; keep it honest.
+def _baseline_drift(repo_findings):
+    """Return ``(stale, missing)`` between the committed baseline and the tree.
 
-    CI grandfathers against the base branch and never reads this file, so it can
-    drift silently. Comparing it to the working tree here means a PR that fixes
-    backlog entries without regenerating shows up as a failing test rather than
-    as spurious local findings later.
+    ``stale``   -- baselined entries no longer present (the backlog shrank).
+    ``missing`` -- violations in the tree that the baseline does not grandfather.
     """
     committed = load_baseline()
     current = Counter(_baseline_key(rel, snippet) for rel, _, _, snippet in repo_findings)
     stale = {k: committed[k] for k in committed if current.get(k, 0) < committed[k]}
     missing = {k: current[k] for k in current if committed.get(k, 0) < current[k]}
-    assert not stale and not missing, (
-        f"{len(stale)} baselined entr(y/ies) no longer present and "
-        f"{len(missing)} not baselined; run `just update-title-snippet-baseline`"
+    return stale, missing
+
+
+def test_baseline_drift_separates_a_new_violation_from_a_fixed_one(monkeypatch):
+    """The split above is only worth having if it still catches a new violation.
+
+    Loosening a guard so it tolerates progress is one edit away from loosening it
+    so it tolerates everything, and the repository-wide checks cannot demonstrate
+    the failing case (kb/ is, correctly, clean of new violations). So drive
+    ``_baseline_drift`` directly in both directions.
+    """
+    fixed = "kb/disorders/Fixed.yaml\tA title that has since been replaced."
+    monkeypatch.setattr(
+        "tests.test_title_snippets.load_baseline", lambda *_a, **_k: Counter({fixed: 1})
     )
+
+    # A violation in the tree that the baseline does not cover -> `missing`.
+    findings = [("kb/disorders/New.yaml", "evidence[0].snippet", "title", "A brand new title snippet.")]
+    stale, missing = _baseline_drift(findings)
+    assert list(missing) == ["kb/disorders/New.yaml\tA brand new title snippet."]
+    assert list(stale) == [fixed]  # and the baselined one is simultaneously gone
+
+    # An empty tree is pure shrinkage: stale, but nothing new to gate on.
+    stale, missing = _baseline_drift([])
+    assert list(stale) == [fixed]
+    assert not missing
+
+
+def test_committed_baseline_grandfathers_every_current_violation(repo_findings):
+    """The committed snapshot is the local fallback; keep it honest.
+
+    CI grandfathers against the base branch and never reads this file, so it can
+    drift silently. This is the half of that honesty check worth gating on: a
+    violation present in the tree but absent from the baseline would show up as
+    a spurious "new" finding on someone else's unrelated branch later.
+
+    Deliberately says nothing about baselined entries that have since been
+    *fixed* -- see the companion advisory check below for why.
+    """
+    _stale, missing = _baseline_drift(repo_findings)
+    assert not missing, (
+        f"{len(missing)} title-quoting snippet(s) in kb/ are not grandfathered by "
+        f"{cts.BASELINE_PATH.relative_to(ROOT)}; if they are genuinely new, fix "
+        "the snippets (see issue #8374) rather than baselining them"
+    )
+
+
+def test_committed_baseline_carries_no_fixed_entries(repo_findings):
+    """Advisory only: a shrinking backlog is progress, not a defect (#8434).
+
+    This used to be asserted together with the check above, which meant fixing a
+    title snippet in kb/ turned a *passing* suite red on the next unrelated
+    branch that touched src/ or tests/. It fired exactly that way within a day
+    of the baseline being created: #8334 and #8346 each correctly replaced
+    title-only snippets, neither regenerated the file, and the bill landed on a
+    dependency bump.
+
+    An over-full baseline cannot hide a new violation -- it can only
+    over-grandfather entries that no longer exist -- and CI does not read the
+    file at all. So this skips rather than fails, and the
+    `title-snippet-baseline` workflow regenerates the file on merge to main.
+    """
+    stale, _missing = _baseline_drift(repo_findings)
+    if stale:
+        pytest.skip(
+            f"{len(stale)} baselined entr(y/ies) no longer present -- the backlog "
+            "shrank. Harmless; the title-snippet-baseline workflow refreshes this "
+            "on merge, or run `just update-title-snippet-baseline` to do it now."
+        )
