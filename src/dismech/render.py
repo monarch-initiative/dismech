@@ -2610,6 +2610,11 @@ def _curie_url(curie: str | None) -> str | None:
         return f"https://pubmed.ncbi.nlm.nih.gov/{local}/"
     if upper == "DOI":
         return f"https://doi.org/{local}"
+    if upper == "ICTRP":
+        # Bioregistry has no ICTRP prefix, and the trial identifier keeps its
+        # own registry's punctuation (CTRI/2021/05/033585), so link the portal
+        # record directly.
+        return f"https://trialsearch.who.int/Trial2.aspx?TrialID={local}"
     if upper in _OBO_CURIE_PREFIXES:
         return f"http://purl.obolibrary.org/obo/{_OBO_CURIE_PREFIXES[upper]}_{local}"
     return f"https://bioregistry.io/{prefix}:{local}"
