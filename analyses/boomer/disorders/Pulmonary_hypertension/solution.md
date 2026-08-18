@@ -1,12 +1,12 @@
 
  ## dismech-Pulmonary_hypertension
- * 185 combinations
+ * 184 combinations
  * 180 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.25 confidence
  * 0.024227355980576043 prior probability
  * 0.02205041839334574 posterior probability
- * 0.1760 seconds elapsed
+ * 0.1838 seconds elapsed
 Grounding:
  * True dismech:Pulmonary_hypertension (Pulmonary_hypertension (dismech entry)) ≡ MONDO:0005149 (pulmonary hypertension) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Pulmonary_hypertension (Pulmonary_hypertension (dismech entry)) ⊆ MONDO:0005149 (pulmonary hypertension) :: prior: 0.07 posterior: 0.004045362876199387

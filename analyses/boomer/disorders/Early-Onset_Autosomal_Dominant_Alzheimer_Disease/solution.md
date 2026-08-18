@@ -4,13 +4,13 @@
  * 387 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.03125 confidence
- * 0.19062033338231904 prior probability
+ * 0.19062033338231907 prior probability
  * 0.00044715469844789686 posterior probability
- * 0.3056 seconds elapsed
+ * 0.3316 seconds elapsed
 Grounding:
- * True dismech:Early-Onset_Autosomal_Dominant_Alzheimer_Disease (Early-Onset Autosomal Dominant Alzheimer Disease (dismech entry)) ≡ MONDO:0015140 (early-onset autosomal dominant Alzheimer disease) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Early-Onset_Autosomal_Dominant_Alzheimer_Disease (Early-Onset Autosomal Dominant Alzheimer Disease (dismech entry)) ⊆ MONDO:0015140 (early-onset autosomal dominant Alzheimer disease) :: prior: 0.07 posterior: 0.004045362876199382
- * False MONDO:0015140 (early-onset autosomal dominant Alzheimer disease) ⊆ dismech:Early-Onset_Autosomal_Dominant_Alzheimer_Disease (Early-Onset Autosomal Dominant Alzheimer Disease (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233103
+ * True dismech:Early-Onset_Autosomal_Dominant_Alzheimer_Disease (Early-Onset Autosomal Dominant Alzheimer Disease (dismech entry)) ≡ MONDO:0015140 (early-onset autosomal dominant Alzheimer disease) :: prior: 0.9 posterior: 0.967419636393967
+ * False dismech:Early-Onset_Autosomal_Dominant_Alzheimer_Disease (Early-Onset Autosomal Dominant Alzheimer Disease (dismech entry)) ⊆ MONDO:0015140 (early-onset autosomal dominant Alzheimer disease) :: prior: 0.07 posterior: 0.004045362876199383
+ * False MONDO:0015140 (early-onset autosomal dominant Alzheimer disease) ⊆ dismech:Early-Onset_Autosomal_Dominant_Alzheimer_Disease (Early-Onset Autosomal Dominant Alzheimer Disease (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233105
  * True MONDO:0015140 (early-onset autosomal dominant Alzheimer disease) ≡ ORDO:1020 :: prior: 0.95 posterior: 0.95
  * True dismech:Early-Onset_Autosomal_Dominant_Alzheimer_Disease#PSEN1 (Early-Onset Autosomal Dominant Alzheimer Disease / PSEN1 (dismech subtype)) ≡ MONDO:0011913 (Alzheimer disease 3) :: prior: 0.9 posterior: 0.9674196363939664
  * False dismech:Early-Onset_Autosomal_Dominant_Alzheimer_Disease#PSEN1 (Early-Onset Autosomal Dominant Alzheimer Disease / PSEN1 (dismech subtype)) ⊆ MONDO:0011913 (Alzheimer disease 3) :: prior: 0.07 posterior: 0.0040453628761993755

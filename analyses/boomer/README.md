@@ -84,15 +84,15 @@ result.
 
 | Per pair | n | | Per disorder | n |
 |---|---|---|---|---|
-| `AGREES` | 1,022 | | `ALL_MAPPINGS_CONSISTENT` | 244 |
-| `SILENT` | 118 | | `RETRACTED` | 42 |
+| `AGREES` | 1,022 | | `ALL_MAPPINGS_CONSISTENT` | 246 |
+| `SILENT` | 118 | | `RETRACTED` | 40 |
 | `SAME_TERM` | 11 | | timed out | 0 |
 | `REVERSED` | 1 | | | |
 
 **88.7% of pairs agree.** Where a curator asserted a subtype relation and both
 sides are grounded, MONDO independently corroborates it nearly nine times in ten.
 
-Adding the external sources took retractions from **14 to 42**. The pair-level
+Adding the external sources took retractions from **14 to 40**. The pair-level
 verdicts are unchanged — those only involve dismech and MONDO — but three times
 as many disorders now carry a constraint set that cannot be satisfied, because
 there are more independent opinions to disagree.
@@ -103,10 +103,32 @@ Solving a whole disorder at once — rather than each pair separately — is wha
 makes the second and third of these visible at all. Each pair looks fine in
 isolation.
 
-1. **A directional contradiction** (1 disorder).
-   [`Adult_Refsum_Disease`](disorders/Adult_Refsum_Disease/): MONDO has the
-   entry's term *under* its own subtype's term, so the chain closes to
-   `Type 1 < Type 1`.
+1. **A directional contradiction** — MONDO placing the entry's term *under* its
+   own subtype's term, so the chain closes to `subtype < subtype`.
+
+   The worked case, [`Adult_Refsum_Disease`](disorders/Adult_Refsum_Disease/),
+   has since been **resolved and now reports consistent**, which is worth
+   following as the intended workflow. MONDO defines `MONDO:0009958` clinically
+   but axiomatizes it `is_a MONDO:0100258` phytanoyl-CoA hydroxylase deficiency,
+   restricting adult Refsum disease to PHYH-caused disease — false, since
+   GeneReviews gives *PHYH* >90% and *PEX7* <10%, and MONDO's own
+   `MONDO:0100307` is defined as "an adult Refsum disease… caused by PEX7".
+   MONDO tracks the fix in
+   [mondo#10377](https://github.com/monarch-initiative/mondo/issues/10377).
+
+   dismech's structure was correct; what was wrong was reading the grounding as
+   identity. The entry now records `MONDO:0009958` as `skos:narrowMatch` — its
+   own scope is broader than the MONDO class as axiomatized — and the
+   contradiction dissolves. The pair verdict stays `REVERSED`, because MONDO's
+   hierarchy genuinely is inverted; it is simply no longer unsatisfiable.
+
+   **Curated predicates are respected.** Where an entry records a
+   narrow/broad/relatedMatch on its own `disease_term`, that predicate sets the
+   priors instead of the default identity assumption. Asserting identity over a
+   curator who explicitly said otherwise manufactures contradictions out of
+   correct curation. Relatedly, a rejected identity claim only counts as a
+   retraction when it was asserted at prior ≥ 0.5 — rejecting a deliberately
+   low-prior alternative is the expected outcome, not a conflict.
 
 2. **A subtype grounded to its parent's term** (11 pairs). If both are identity
    claims, the subtype and the entry are the same thing — which contradicts the
@@ -131,7 +153,7 @@ isolation.
 4. **A MONDO "proxy merge"** — one MONDO term claiming identity with several
    terms in the same external vocabulary. This class only appears once external
    sources are loaded, and is now the largest: 35 of the 50 retracted
-   equivalences are MONDO↔external rather than dismech↔MONDO.
+   equivalences (35 of 48) are MONDO↔external rather than dismech↔MONDO.
 
    It arises from merging. When MONDO merges two of its classes, the
    merged-away class's xrefs move to the survivor — so if the source ontology

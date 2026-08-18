@@ -14,14 +14,8 @@ Boomer grounding analysis for [`kb/disorders/GABRG2-Related_Epilepsy.yaml`](../.
 
 ## What boomer did
 
-Boomer could **not** accept every mapping at once and retracted the following
-identity claim(s) to restore consistency:
-
-- `dismech:GABRG2-Related_Epilepsy#DEE74` ≡ `MONDO:0032725`
-
-A retraction means these assertions are jointly unsatisfiable, not that the
-retracted mapping is necessarily the wrong one. Which assertion to give up is a
-curation decision.
+All identity mappings were accepted together - dismech's subtype hierarchy, the
+mappings, and MONDO's hierarchy are jointly consistent for this entry.
 
 ## Verdict meanings
 

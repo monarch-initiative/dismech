@@ -3,10 +3,10 @@
  * 510 combinations
  * 495 satisfiable combinations
  * 1.0 proportion of combinations explored
- * 0.00012207031250000005 confidence
- * 0.0009236844574161784 prior probability
- * 1.3780637596102493e-09 posterior probability
- * 0.1723 seconds elapsed
+ * 0.0001220703125 confidence
+ * 0.0009236844574161781 prior probability
+ * 1.378063759610249e-09 posterior probability
+ * 0.2322 seconds elapsed
 Grounding:
  * True dismech:Autosomal_Agammaglobulinemia (Autosomal Agammaglobulinemia (dismech entry)) ≡ MONDO:0011096 (autosomal agammaglobulinemia) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Autosomal_Agammaglobulinemia (Autosomal Agammaglobulinemia (dismech entry)) ⊆ MONDO:0011096 (autosomal agammaglobulinemia) :: prior: 0.07 posterior: 0.004045362876199383
@@ -25,49 +25,49 @@ Grounding:
  * False MONDO:0013287 (agammaglobulinemia 2, autosomal recessive) ≡ DOID:0081135 :: prior: 0.95 posterior: 0.48717948717948756
  * True MONDO:0013287 (agammaglobulinemia 2, autosomal recessive) ≡ OMIM:613500 :: prior: 0.95 posterior: 0.9500000000000005
  * True dismech:Autosomal_Agammaglobulinemia#AGM3 (Autosomal Agammaglobulinemia / AGM3 (dismech subtype)) ≡ MONDO:0013288 (agammaglobulinemia 3, autosomal recessive) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Autosomal_Agammaglobulinemia#AGM3 (Autosomal Agammaglobulinemia / AGM3 (dismech subtype)) ⊆ MONDO:0013288 (agammaglobulinemia 3, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199382
- * False MONDO:0013288 (agammaglobulinemia 3, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM3 (Autosomal Agammaglobulinemia / AGM3 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233094
+ * False dismech:Autosomal_Agammaglobulinemia#AGM3 (Autosomal Agammaglobulinemia / AGM3 (dismech subtype)) ⊆ MONDO:0013288 (agammaglobulinemia 3, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199383
+ * False MONDO:0013288 (agammaglobulinemia 3, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM3 (Autosomal Agammaglobulinemia / AGM3 (dismech subtype)) :: prior: 0.03 posterior: 0.00166223305222331
  * True MONDO:0013288 (agammaglobulinemia 3, autosomal recessive) ≡ DOID:0081137 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0013288 (agammaglobulinemia 3, autosomal recessive) ≡ OMIM:613501 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Autosomal_Agammaglobulinemia#AGM4 (Autosomal Agammaglobulinemia / AGM4 (dismech subtype)) ≡ MONDO:0013289 (agammaglobulinemia 4, autosomal recessive) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Autosomal_Agammaglobulinemia#AGM4 (Autosomal Agammaglobulinemia / AGM4 (dismech subtype)) ⊆ MONDO:0013289 (agammaglobulinemia 4, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199382
- * False MONDO:0013289 (agammaglobulinemia 4, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM4 (Autosomal Agammaglobulinemia / AGM4 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233096
+ * False MONDO:0013289 (agammaglobulinemia 4, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM4 (Autosomal Agammaglobulinemia / AGM4 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233094
  * True MONDO:0013289 (agammaglobulinemia 4, autosomal recessive) ≡ DOID:0060027 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0013289 (agammaglobulinemia 4, autosomal recessive) ≡ OMIM:613502 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Autosomal_Agammaglobulinemia#AGM5 (Autosomal Agammaglobulinemia / AGM5 (dismech subtype)) ≡ MONDO:0013290 (agammaglobulinemia 5, autosomal dominant) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Autosomal_Agammaglobulinemia#AGM5 (Autosomal Agammaglobulinemia / AGM5 (dismech subtype)) ⊆ MONDO:0013290 (agammaglobulinemia 5, autosomal dominant) :: prior: 0.07 posterior: 0.004045362876199383
- * False MONDO:0013290 (agammaglobulinemia 5, autosomal dominant) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM5 (Autosomal Agammaglobulinemia / AGM5 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233096
+ * False dismech:Autosomal_Agammaglobulinemia#AGM5 (Autosomal Agammaglobulinemia / AGM5 (dismech subtype)) ⊆ MONDO:0013290 (agammaglobulinemia 5, autosomal dominant) :: prior: 0.07 posterior: 0.004045362876199384
+ * False MONDO:0013290 (agammaglobulinemia 5, autosomal dominant) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM5 (Autosomal Agammaglobulinemia / AGM5 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
  * True MONDO:0013290 (agammaglobulinemia 5, autosomal dominant) ≡ DOID:0080588 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0013290 (agammaglobulinemia 5, autosomal dominant) ≡ OMIM:613506 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Autosomal_Agammaglobulinemia#AGM6 (Autosomal Agammaglobulinemia / AGM6 (dismech subtype)) ≡ MONDO:0012987 (agammaglobulinemia 6, autosomal recessive) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Autosomal_Agammaglobulinemia#AGM6 (Autosomal Agammaglobulinemia / AGM6 (dismech subtype)) ⊆ MONDO:0012987 (agammaglobulinemia 6, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199384
- * False MONDO:0012987 (agammaglobulinemia 6, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM6 (Autosomal Agammaglobulinemia / AGM6 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233096
- * True MONDO:0012987 (agammaglobulinemia 6, autosomal recessive) ≡ DOID:0081138 :: prior: 0.95 posterior: 0.9500000000000001
- * True MONDO:0012987 (agammaglobulinemia 6, autosomal recessive) ≡ OMIM:612692 :: prior: 0.95 posterior: 0.9500000000000001
+ * False MONDO:0012987 (agammaglobulinemia 6, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM6 (Autosomal Agammaglobulinemia / AGM6 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
+ * True MONDO:0012987 (agammaglobulinemia 6, autosomal recessive) ≡ DOID:0081138 :: prior: 0.95 posterior: 0.95
+ * True MONDO:0012987 (agammaglobulinemia 6, autosomal recessive) ≡ OMIM:612692 :: prior: 0.95 posterior: 0.95
  * True dismech:Autosomal_Agammaglobulinemia#AGM7 (Autosomal Agammaglobulinemia / AGM7 (dismech subtype)) ≡ MONDO:0014083 (agammaglobulinemia 7, autosomal recessive) :: prior: 0.9 posterior: 0.9674196363939671
- * False dismech:Autosomal_Agammaglobulinemia#AGM7 (Autosomal Agammaglobulinemia / AGM7 (dismech subtype)) ⊆ MONDO:0014083 (agammaglobulinemia 7, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199382
- * False MONDO:0014083 (agammaglobulinemia 7, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM7 (Autosomal Agammaglobulinemia / AGM7 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
+ * False dismech:Autosomal_Agammaglobulinemia#AGM7 (Autosomal Agammaglobulinemia / AGM7 (dismech subtype)) ⊆ MONDO:0014083 (agammaglobulinemia 7, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199383
+ * False MONDO:0014083 (agammaglobulinemia 7, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM7 (Autosomal Agammaglobulinemia / AGM7 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233096
  * True MONDO:0014083 (agammaglobulinemia 7, autosomal recessive) ≡ DOID:0081139 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0014083 (agammaglobulinemia 7, autosomal recessive) ≡ OMIM:615214 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Autosomal_Agammaglobulinemia#AGM8 (Autosomal Agammaglobulinemia / AGM8 (dismech subtype)) ≡ MONDO:0014840 (agammaglobulinemia 8, autosomal dominant) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Autosomal_Agammaglobulinemia#AGM8 (Autosomal Agammaglobulinemia / AGM8 (dismech subtype)) ⊆ MONDO:0014840 (agammaglobulinemia 8, autosomal dominant) :: prior: 0.07 posterior: 0.004045362876199384
- * False MONDO:0014840 (agammaglobulinemia 8, autosomal dominant) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM8 (Autosomal Agammaglobulinemia / AGM8 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233103
+ * False MONDO:0014840 (agammaglobulinemia 8, autosomal dominant) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM8 (Autosomal Agammaglobulinemia / AGM8 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
  * True MONDO:0014840 (agammaglobulinemia 8, autosomal dominant) ≡ DOID:0081140 :: prior: 0.95 posterior: 0.95
  * True MONDO:0014840 (agammaglobulinemia 8, autosomal dominant) ≡ OMIM:616941 :: prior: 0.95 posterior: 0.95
  * True dismech:Autosomal_Agammaglobulinemia#AGM8B (Autosomal Agammaglobulinemia / AGM8B (dismech subtype)) ≡ MONDO:0859234 (agammaglobulinemia 8b, autosomal recessive) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Autosomal_Agammaglobulinemia#AGM8B (Autosomal Agammaglobulinemia / AGM8B (dismech subtype)) ⊆ MONDO:0859234 (agammaglobulinemia 8b, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199383
- * False MONDO:0859234 (agammaglobulinemia 8b, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM8B (Autosomal Agammaglobulinemia / AGM8B (dismech subtype)) :: prior: 0.03 posterior: 0.00166223305222331
+ * False MONDO:0859234 (agammaglobulinemia 8b, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM8B (Autosomal Agammaglobulinemia / AGM8B (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
  * True MONDO:0859234 (agammaglobulinemia 8b, autosomal recessive) ≡ DOID:0081143 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0859234 (agammaglobulinemia 8b, autosomal recessive) ≡ OMIM:619824 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Autosomal_Agammaglobulinemia#AGM9 (Autosomal Agammaglobulinemia / AGM9 (dismech subtype)) ≡ MONDO:0030519 (agammaglobulinemia 9, autosomal recessive) :: prior: 0.9 posterior: 0.9674196363939683
- * False dismech:Autosomal_Agammaglobulinemia#AGM9 (Autosomal Agammaglobulinemia / AGM9 (dismech subtype)) ⊆ MONDO:0030519 (agammaglobulinemia 9, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199388
- * False MONDO:0030519 (agammaglobulinemia 9, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM9 (Autosomal Agammaglobulinemia / AGM9 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233111
+ * False dismech:Autosomal_Agammaglobulinemia#AGM9 (Autosomal Agammaglobulinemia / AGM9 (dismech subtype)) ⊆ MONDO:0030519 (agammaglobulinemia 9, autosomal recessive) :: prior: 0.07 posterior: 0.004045362876199387
+ * False MONDO:0030519 (agammaglobulinemia 9, autosomal recessive) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM9 (Autosomal Agammaglobulinemia / AGM9 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233105
  * True MONDO:0030519 (agammaglobulinemia 9, autosomal recessive) ≡ DOID:0081141 :: prior: 0.95 posterior: 0.95
  * True MONDO:0030519 (agammaglobulinemia 9, autosomal recessive) ≡ OMIM:619693 :: prior: 0.95 posterior: 0.95
  * True MONDO:0030519 (agammaglobulinemia 9, autosomal recessive) ≡ ORDO:693627 :: prior: 0.95 posterior: 0.95
  * True dismech:Autosomal_Agammaglobulinemia#AGM10 (Autosomal Agammaglobulinemia / AGM10 (dismech subtype)) ≡ MONDO:0030529 (agammaglobulinemia 10, autosomal dominant) :: prior: 0.9 posterior: 0.9674196363939671
  * False dismech:Autosomal_Agammaglobulinemia#AGM10 (Autosomal Agammaglobulinemia / AGM10 (dismech subtype)) ⊆ MONDO:0030529 (agammaglobulinemia 10, autosomal dominant) :: prior: 0.07 posterior: 0.004045362876199384
- * False MONDO:0030529 (agammaglobulinemia 10, autosomal dominant) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM10 (Autosomal Agammaglobulinemia / AGM10 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233098
+ * False MONDO:0030529 (agammaglobulinemia 10, autosomal dominant) ⊆ dismech:Autosomal_Agammaglobulinemia#AGM10 (Autosomal Agammaglobulinemia / AGM10 (dismech subtype)) :: prior: 0.03 posterior: 0.00166223305222331
  * True MONDO:0030529 (agammaglobulinemia 10, autosomal dominant) ≡ DOID:0081142 :: prior: 0.95 posterior: 0.9500000000000001
  * True MONDO:0030529 (agammaglobulinemia 10, autosomal dominant) ≡ OMIM:619707 :: prior: 0.95 posterior: 0.9500000000000001
  * True dismech:Autosomal_Agammaglobulinemia#FNIP1 (Autosomal Agammaglobulinemia / FNIP1 (dismech subtype)) ≡ MONDO:0100432 (FNIP1-associated syndrome) :: prior: 0.9 posterior: 0.967419636393967

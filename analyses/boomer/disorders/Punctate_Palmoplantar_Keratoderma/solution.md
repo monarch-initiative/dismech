@@ -6,11 +6,11 @@
  * 0.25 confidence
  * 0.5368943153590254 prior probability
  * 0.04764356328756144 posterior probability
- * 0.0382 seconds elapsed
+ * 0.0413 seconds elapsed
 Grounding:
  * True dismech:Punctate_Palmoplantar_Keratoderma (Punctate Palmoplantar Keratoderma (dismech entry)) ≡ MONDO:0017675 (punctate palmoplantar keratoderma) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Punctate_Palmoplantar_Keratoderma (Punctate Palmoplantar Keratoderma (dismech entry)) ⊆ MONDO:0017675 (punctate palmoplantar keratoderma) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0017675 (punctate palmoplantar keratoderma) ⊆ dismech:Punctate_Palmoplantar_Keratoderma (Punctate Palmoplantar Keratoderma (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233111
+ * False MONDO:0017675 (punctate palmoplantar keratoderma) ⊆ dismech:Punctate_Palmoplantar_Keratoderma (Punctate Palmoplantar Keratoderma (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233107
  * True MONDO:0017675 (punctate palmoplantar keratoderma) ≡ DOID:0060361 :: prior: 0.95 posterior: 0.95
  * True MONDO:0017675 (punctate palmoplantar keratoderma) ≡ ORDO:307967 :: prior: 0.95 posterior: 0.95
  * True MONDO:0017675 (punctate palmoplantar keratoderma) ≡ icd11f:1212361548 :: prior: 0.95 posterior: 0.95

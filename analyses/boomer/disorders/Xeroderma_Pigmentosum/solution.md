@@ -4,12 +4,12 @@
  * 1800 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.001953125 confidence
- * 0.02182587840262874 prior probability
+ * 0.021825878402628722 prior probability
  * 4.031727434731183e-07 posterior probability
- * 6.1717 seconds elapsed
+ * 7.4583 seconds elapsed
 Grounding:
  * True dismech:Xeroderma_Pigmentosum (Xeroderma Pigmentosum (dismech entry)) ≡ MONDO:0019600 (xeroderma pigmentosum) :: prior: 0.9 posterior: 0.9674196363939687
- * False dismech:Xeroderma_Pigmentosum (Xeroderma Pigmentosum (dismech entry)) ⊆ MONDO:0019600 (xeroderma pigmentosum) :: prior: 0.07 posterior: 0.004045362876199374
+ * False dismech:Xeroderma_Pigmentosum (Xeroderma Pigmentosum (dismech entry)) ⊆ MONDO:0019600 (xeroderma pigmentosum) :: prior: 0.07 posterior: 0.004045362876199375
  * False MONDO:0019600 (xeroderma pigmentosum) ⊆ dismech:Xeroderma_Pigmentosum (Xeroderma Pigmentosum (dismech entry)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0019600 (xeroderma pigmentosum) ≡ DOID:0050427 :: prior: 0.95 posterior: 0.949999999999998
  * True MONDO:0019600 (xeroderma pigmentosum) ≡ ICD10CM:Q82.1 :: prior: 0.95 posterior: 0.949999999999998
@@ -19,7 +19,7 @@ Grounding:
  * True MONDO:0019600 (xeroderma pigmentosum) ≡ icd11f:1243068849 :: prior: 0.95 posterior: 0.949999999999998
  * True dismech:Xeroderma_Pigmentosum#XP-A (Xeroderma Pigmentosum / XP-A (dismech subtype)) ≡ MONDO:0010210 (xeroderma pigmentosum group A) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Xeroderma_Pigmentosum#XP-A (Xeroderma Pigmentosum / XP-A (dismech subtype)) ⊆ MONDO:0010210 (xeroderma pigmentosum group A) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0010210 (xeroderma pigmentosum group A) ⊆ dismech:Xeroderma_Pigmentosum#XP-A (Xeroderma Pigmentosum / XP-A (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * False MONDO:0010210 (xeroderma pigmentosum group A) ⊆ dismech:Xeroderma_Pigmentosum#XP-A (Xeroderma Pigmentosum / XP-A (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0010210 (xeroderma pigmentosum group A) ≡ DOID:0110843 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010210 (xeroderma pigmentosum group A) ≡ NCIT:C3965 :: prior: 0.95 posterior: 0.95
  * True MONDO:0010210 (xeroderma pigmentosum group A) ≡ OMIM:278700 :: prior: 0.95 posterior: 0.95
@@ -45,15 +45,15 @@ Grounding:
  * True MONDO:0010212 (xeroderma pigmentosum group D) ≡ NCIT:C3967 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0010212 (xeroderma pigmentosum group D) ≡ OMIM:278730 :: prior: 0.95 posterior: 0.9499999999999991
  * True dismech:Xeroderma_Pigmentosum#XP-E (Xeroderma Pigmentosum / XP-E (dismech subtype)) ≡ MONDO:0010213 (xeroderma pigmentosum group E) :: prior: 0.9 posterior: 0.9674196363939664
- * False dismech:Xeroderma_Pigmentosum#XP-E (Xeroderma Pigmentosum / XP-E (dismech subtype)) ⊆ MONDO:0010213 (xeroderma pigmentosum group E) :: prior: 0.07 posterior: 0.0040453628761993755
+ * False dismech:Xeroderma_Pigmentosum#XP-E (Xeroderma Pigmentosum / XP-E (dismech subtype)) ⊆ MONDO:0010213 (xeroderma pigmentosum group E) :: prior: 0.07 posterior: 0.004045362876199375
  * False MONDO:0010213 (xeroderma pigmentosum group E) ⊆ dismech:Xeroderma_Pigmentosum#XP-E (Xeroderma Pigmentosum / XP-E (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233072
  * True MONDO:0010213 (xeroderma pigmentosum group E) ≡ DOID:0110846 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0010213 (xeroderma pigmentosum group E) ≡ MESH:C564732 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0010213 (xeroderma pigmentosum group E) ≡ NCIT:C114771 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0010213 (xeroderma pigmentosum group E) ≡ OMIM:278740 :: prior: 0.95 posterior: 0.9499999999999991
  * True dismech:Xeroderma_Pigmentosum#XP-F (Xeroderma Pigmentosum / XP-F (dismech subtype)) ≡ MONDO:0010215 (xeroderma pigmentosum group F) :: prior: 0.9 posterior: 0.9674196363939664
- * False dismech:Xeroderma_Pigmentosum#XP-F (Xeroderma Pigmentosum / XP-F (dismech subtype)) ⊆ MONDO:0010215 (xeroderma pigmentosum group F) :: prior: 0.07 posterior: 0.004045362876199375
- * False MONDO:0010215 (xeroderma pigmentosum group F) ⊆ dismech:Xeroderma_Pigmentosum#XP-F (Xeroderma Pigmentosum / XP-F (dismech subtype)) :: prior: 0.03 posterior: 0.001662233052223307
+ * False dismech:Xeroderma_Pigmentosum#XP-F (Xeroderma Pigmentosum / XP-F (dismech subtype)) ⊆ MONDO:0010215 (xeroderma pigmentosum group F) :: prior: 0.07 posterior: 0.0040453628761993755
+ * False MONDO:0010215 (xeroderma pigmentosum group F) ⊆ dismech:Xeroderma_Pigmentosum#XP-F (Xeroderma Pigmentosum / XP-F (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233074
  * True MONDO:0010215 (xeroderma pigmentosum group F) ≡ DOID:0110848 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0010215 (xeroderma pigmentosum group F) ≡ MESH:C562592 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0010215 (xeroderma pigmentosum group F) ≡ NCIT:C3968 :: prior: 0.95 posterior: 0.9499999999999991

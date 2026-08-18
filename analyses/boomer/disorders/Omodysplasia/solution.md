@@ -4,13 +4,13 @@
  * 504 satisfiable combinations
  * 1.0 proportion of combinations explored
  * 0.125 confidence
- * 0.28918438596832224 prior probability
+ * 0.2891843859683223 prior probability
  * 0.007644480628042436 posterior probability
- * 0.8003 seconds elapsed
+ * 0.9000 seconds elapsed
 Grounding:
  * True dismech:Omodysplasia (Omodysplasia (dismech entry)) ≡ MONDO:0017136 (omodysplasia) :: prior: 0.9 posterior: 0.9674196363939683
  * False dismech:Omodysplasia (Omodysplasia (dismech entry)) ⊆ MONDO:0017136 (omodysplasia) :: prior: 0.07 posterior: 0.004045362876199387
- * False MONDO:0017136 (omodysplasia) ⊆ dismech:Omodysplasia (Omodysplasia (dismech entry)) :: prior: 0.03 posterior: 0.0016622330522233107
+ * False MONDO:0017136 (omodysplasia) ⊆ dismech:Omodysplasia (Omodysplasia (dismech entry)) :: prior: 0.03 posterior: 0.001662233052223311
  * True MONDO:0017136 (omodysplasia) ≡ DOID:0060288 :: prior: 0.95 posterior: 0.95
  * True MONDO:0017136 (omodysplasia) ≡ ORDO:2733 :: prior: 0.95 posterior: 0.95
  * True MONDO:0017136 (omodysplasia) ≡ icd11f:1081897527 :: prior: 0.95 posterior: 0.95
@@ -22,7 +22,7 @@ Grounding:
  * True MONDO:0009779 (autosomal recessive omodysplasia) ≡ ORDO:93329 :: prior: 0.95 posterior: 0.9499999999999991
  * True MONDO:0009779 (autosomal recessive omodysplasia) ≡ icd11f:350802889 :: prior: 0.95 posterior: 0.9499999999999991
  * True dismech:Omodysplasia#OMOD2 (Omodysplasia / OMOD2 (dismech subtype)) ≡ MONDO:0008123 (autosomal dominant omodysplasia) :: prior: 0.9 posterior: 0.9674196363939713
- * False dismech:Omodysplasia#OMOD2 (Omodysplasia / OMOD2 (dismech subtype)) ⊆ MONDO:0008123 (autosomal dominant omodysplasia) :: prior: 0.07 posterior: 0.004045362876199389
+ * False dismech:Omodysplasia#OMOD2 (Omodysplasia / OMOD2 (dismech subtype)) ⊆ MONDO:0008123 (autosomal dominant omodysplasia) :: prior: 0.07 posterior: 0.004045362876199388
  * False MONDO:0008123 (autosomal dominant omodysplasia) ⊆ dismech:Omodysplasia#OMOD2 (Omodysplasia / OMOD2 (dismech subtype)) :: prior: 0.03 posterior: 0.0016622330522233116
  * True MONDO:0008123 (autosomal dominant omodysplasia) ≡ DOID:0080845 :: prior: 0.95 posterior: 0.95
  * True MONDO:0008123 (autosomal dominant omodysplasia) ≡ MESH:C567664 :: prior: 0.95 posterior: 0.95
