@@ -43,6 +43,10 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
 from koza import KozaTransform
 
 from dismech.export import sepio_export
+from dismech.export.utils import (
+    pathophysiology_node_names,
+    phenotype_is_upstream_risk_state,
+)
 
 # Knowledge source for all edges
 KNOWLEDGE_SOURCE = "infores:dismech"
@@ -141,18 +145,30 @@ def _get_term_id(obj: dict[str, Any] | None, path: list[str]) -> str | None:
     return current if isinstance(current, str) else None
 
 
-def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPhenotypicFeatureAssociation | None:
+def phenotype_to_edge(
+    disease_id: str,
+    phenotype: dict[str, Any],
+    pathophysiology_names: set[str] | None = None,
+) -> Association | None:
     """
     Convert a phenotype entry to a KGX edge.
 
     Args:
         disease_id: The disease term ID (e.g., "MONDO:0004979")
         phenotype: A phenotype dict from phenotypes[]
+        pathophysiology_names: Names of the disorder's pathophysiology nodes,
+            used to detect upstream risk-state phenotypes (see below).
 
     Returns:
-        DiseaseToPhenotypicFeatureAssociation, or None if phenotype_term.term.id
-        is missing or refers to a MONDO concept (which is routed through
+        DiseaseToPhenotypicFeatureAssociation (``has_phenotype``) for a normal
+        manifestation; a direction-neutral ``associated_with`` Association for an
+        upstream risk-state phenotype; or None if phenotype_term.term.id is
+        missing or refers to a MONDO concept (routed through
         disease_comorbidity_to_edge instead).
+
+    Note the risk-state branch emits a plain ``Association``, which has no
+    ``frequency_qualifier`` - a ``frequency:`` curated on such a node is dropped,
+    since a manifestation frequency does not apply to an upstream driver.
     """
     term_id = _get_term_id(phenotype, ["phenotype_term", "term", "id"])
     if not term_id:
@@ -163,12 +179,34 @@ def phenotype_to_edge(disease_id: str, phenotype: dict[str, Any]) -> DiseaseToPh
     if term_id.startswith("MONDO:"):
         return None
 
+    # Format evidence (direct - attached to phenotype)
+    publications, supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
+
+    # An HP-typed "phenotype" that drives a pathophysiology node is an UPSTREAM
+    # risk state (e.g. a nutritional deficiency), not a manifestation. Emitting
+    # `<disease> has_phenotype <term>` would invert the curated causal direction,
+    # so export a direction-neutral association instead (the HP object is still a
+    # PhenotypicFeature - we just do not claim it is a feature *of* the disease).
+    if pathophysiology_names and phenotype_is_upstream_risk_state(
+        phenotype, pathophysiology_names
+    ):
+        return Association(
+            id=_make_edge_id(),
+            subject=disease_id,
+            predicate="biolink:associated_with",
+            object=term_id,
+            subject_category="biolink:Disease",
+            object_category="biolink:PhenotypicFeature",
+            publications=publications if publications else None,
+            supporting_text=supporting_text if supporting_text else None,
+            primary_knowledge_source=KNOWLEDGE_SOURCE,
+            knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+            agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+        )
+
     # Map frequency enum to HP term for qualifier
     frequency = phenotype.get("frequency")
     frequency_qualifier = FREQUENCY_TO_HP.get(frequency) if frequency else None
-
-    # Format evidence (direct - attached to phenotype)
-    publications, supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
 
     predicate = "biolink:has_phenotype"
     return DiseaseToPhenotypicFeatureAssociation(
@@ -1217,11 +1255,14 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
         return
 
     # Extract phenotype edges. MONDO-typed "phenotypes" are actually comorbid
-    # diseases and produce a disease-to-disease association instead.
+    # diseases and produce a disease-to-disease association instead. Upstream
+    # risk-state phenotypes (those driving a pathophysiology node) are routed to
+    # a direction-neutral associated_with rather than has_phenotype.
+    patho_names = pathophysiology_node_names(record)
     for phenotype in record.get("phenotypes") or []:
-        edge = phenotype_to_edge(disease_id, phenotype) or disease_comorbidity_to_edge(
-            disease_id, phenotype
-        )
+        edge = phenotype_to_edge(
+            disease_id, phenotype, patho_names
+        ) or disease_comorbidity_to_edge(disease_id, phenotype)
         if edge:
             yield EdgeWithEvidence(edge, phenotype.get("evidence"), "phenotypes")
 
