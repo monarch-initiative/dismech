@@ -69,8 +69,11 @@ def phenotype_is_upstream_risk_state(
     ``biolink:associated_with`` (KGX) or to skip them (HPOA) instead.
 
     This is a purely structural signal - no schema change - and is deliberately
-    narrow: a manifestation's ``sequelae`` point at other phenotypes, never at a
-    pathophysiology node.
+    narrow. It is a *convention*, not a schema invariant: no manifestation in the
+    KB currently points a ``sequelae`` edge at a pathophysiology node, but nothing
+    prevents one (e.g. a curator modelling a feed-forward loop where a
+    manifestation aggravates a mechanism), and such a node would silently lose its
+    ``has_phenotype`` edge and HPOA row. See dismech#8453 review discussion.
     """
     for edge in phenotype.get("sequelae") or []:
         if isinstance(edge, dict) and edge.get("target") in pathophysiology_names:

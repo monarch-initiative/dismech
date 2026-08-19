@@ -232,13 +232,6 @@ def hpoa_rows_for_disorder(
         term_label = term.get("label") or ""
         phen_name = phenotype.get("name") or term_label or "unnamed phenotype"
 
-        # An upstream risk-state phenotype (one driving a pathophysiology node,
-        # e.g. a nutritional deficiency) is not a manifestation of the disease.
-        # Emitting a phenotype.hpoa row would assert `disease has_phenotype <term>`
-        # and invert the curated causal direction, so skip it entirely.
-        if term_id and phenotype_is_upstream_risk_state(phenotype, patho_names):
-            continue
-
         if term_id.startswith("MONDO:"):
             for ev in _human_evidence(phenotype.get("evidence")):
                 comorb_rows.append(
@@ -253,6 +246,17 @@ def hpoa_rows_for_disorder(
                         "biocuration": biocuration,
                     }
                 )
+            continue
+
+        # An upstream risk-state phenotype (one driving a pathophysiology node,
+        # e.g. a nutritional deficiency) is not a manifestation of the disease.
+        # Emitting a phenotype.hpoa row would assert `disease has_phenotype <term>`
+        # and invert the curated causal direction, so skip it entirely. This is
+        # checked after the MONDO branch above, which keeps its already
+        # direction-neutral `biolink:associated_with` comorbidity row; and it is
+        # deliberately unguarded by `term_id`, so an ontology-unbound risk state
+        # cannot slip through onto the synthetic `DISMECH:` id below.
+        if phenotype_is_upstream_risk_state(phenotype, patho_names):
             continue
 
         hpo_id = term_id or f"DISMECH:{entry_slug}#{slugify(phen_name)}"

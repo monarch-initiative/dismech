@@ -165,6 +165,10 @@ def phenotype_to_edge(
         upstream risk-state phenotype; or None if phenotype_term.term.id is
         missing or refers to a MONDO concept (routed through
         disease_comorbidity_to_edge instead).
+
+    Note the risk-state branch emits a plain ``Association``, which has no
+    ``frequency_qualifier`` - a ``frequency:`` curated on such a node is dropped,
+    since a manifestation frequency does not apply to an upstream driver.
     """
     term_id = _get_term_id(phenotype, ["phenotype_term", "term", "id"])
     if not term_id:
