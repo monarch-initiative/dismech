@@ -12,10 +12,11 @@ never rewrites or deletes an existing stub.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from dismech.yaml_io import safe_load
 
@@ -162,8 +163,54 @@ def render_stub(
     if nomination.tags:
         source["source_tags"] = nomination.tags
     payload["sources"] = [source]
-    payload["added_date"] = added or date.today().isoformat()
+    # UTC rather than the local date, matching the `creation_date` convention
+    # in kb/ entries and keeping the seed reproducible across timezones.
+    payload["added_date"] = added or datetime.now(UTC).date().isoformat()
     return payload
+
+
+def yaml_scalar(value: Any) -> str:
+    """Emit a value as a YAML scalar that reads back as the same string.
+
+    Shared with `scripts/enrich_curation_stubs.py`, which writes into the same
+    files and had its own copy of this with the same newline hole.
+
+    Two failure modes this has to cover, both latent rather than theoretical:
+    a control character (a newline in a label) emitted bare produces a file
+    that will not parse at all, and a numeric-looking string (`22`, `3.5`)
+    emitted bare reads back as a number, not the string that went in. The
+    round-trip check at the end is the actual guarantee -- the explicit
+    conditions above it are just the fast path.
+    """
+    text = str(value)
+    if any(ch in text for ch in "\n\r\t\x00"):
+        return _quote(text)
+    if (
+        text == ""
+        or text[0] in "!&*?|>%@`'\"[]{}#,-"
+        or text[-1] in " :"
+        or ": " in text
+        or " #" in text
+    ):
+        return _quote(text)
+    # Anything YAML resolves to a non-string -- bools, numbers, null, dates.
+    try:
+        if not isinstance(safe_load(text), str):
+            return _quote(text)
+    except Exception:
+        return _quote(text)
+    return text
+
+
+def _quote(text: str) -> str:
+    escaped = (
+        text.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+    return f'"{escaped}"'
 
 
 def _dump(payload: dict[str, Any]) -> str:
@@ -175,21 +222,6 @@ def _dump(payload: dict[str, Any]) -> str:
     """
     lines: list[str] = []
 
-    def scalar(value: Any) -> str:
-        text = str(value)
-        needs_quotes = (
-            text == ""
-            or text[0] in "!&*?|>%@`'\"[]{}#,-"
-            or text[-1] in " :"
-            or ": " in text
-            or " #" in text
-            or text.lower() in {"true", "false", "null", "yes", "no", "on", "off"}
-        )
-        if needs_quotes:
-            escaped = text.replace("\\", "\\\\").replace('"', '\\"')
-            return f'"{escaped}"'
-        return text
-
     for key in (
         "mondo_id",
         "label",
@@ -200,23 +232,25 @@ def _dump(payload: dict[str, Any]) -> str:
         "rationale",
     ):
         if key in payload:
-            lines.append(f"{key}: {scalar(payload[key])}")
+            lines.append(f"{key}: {yaml_scalar(payload[key])}")
     if payload.get("synonyms"):
         lines.append("synonyms:")
-        lines.extend(f"- {scalar(s)}" for s in payload["synonyms"])
+        lines.extend(f"- {yaml_scalar(s)}" for s in payload["synonyms"])
     if payload.get("sources"):
         lines.append("sources:")
         for source in payload["sources"]:
-            lines.append(f"- source_name: {scalar(source['source_name'])}")
+            lines.append(f"- source_name: {yaml_scalar(source['source_name'])}")
             for key in ("source_url", "source_identifier"):
                 if source.get(key):
-                    lines.append(f"  {key}: {scalar(source[key])}")
+                    lines.append(f"  {key}: {yaml_scalar(source[key])}")
             if source.get("source_tags"):
                 lines.append("  source_tags:")
-                lines.extend(f"  - {scalar(t)}" for t in source["source_tags"])
-    for key in ("claimed_by", "issue", "notes"):
-        if payload.get(key):
-            lines.append(f"{key}: {scalar(payload[key])}")
+                lines.extend(f"  - {yaml_scalar(t)}" for t in source["source_tags"])
+    # `claimed_by` and `issue` used to be emitted here. They were removed from
+    # the schema when claiming moved to GitHub, and emitting them would now
+    # produce a stub that fails validation.
+    if payload.get("notes"):
+        lines.append(f"notes: {yaml_scalar(payload['notes'])}")
     if payload.get("added_date"):
         # Quoted so YAML hands it back as a string, matching the `creation_date`
         # convention in kb/ entries. Unquoted, PyYAML resolves it to a

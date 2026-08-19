@@ -27,6 +27,7 @@ from .model import (
     iter_stub_files,
     load_stub,
     load_stubs,
+    load_stubs_reporting_errors,
     slugify_label,
     stub_filename,
 )
@@ -45,6 +46,7 @@ __all__ = [
     "iter_stub_files",
     "load_stub",
     "load_stubs",
+    "load_stubs_reporting_errors",
     "parse_claims",
     "slugify_label",
     "stub_filename",

@@ -21,8 +21,12 @@ from .model import (
     check_stubs,
     default_stub_dir,
     load_stubs,
+    load_stubs_reporting_errors,
 )
 from .seed import seed_stubs
+
+#: Must match the `--limit` in the `just fetch-claims` recipe.
+CLAIM_FETCH_LIMIT = 1000
 
 app = typer.Typer(
     name="dismech-stubs",
@@ -67,7 +71,10 @@ def check_command(
     issues = check_stubs(stub_dir)
     errors = [i for i in issues if i.severity == "error"]
     advisories = [i for i in issues if i.severity != "error"]
-    count = len(load_stubs(stub_dir))
+    # Counted from the same loader `check_stubs` used, so a malformed file is
+    # reported as an `unparseable` error rather than raising here.
+    stubs, _ = load_stubs_reporting_errors(stub_dir)
+    count = len(stubs)
 
     for issue in errors:
         typer.echo(issue.format())
@@ -206,6 +213,14 @@ def claims_command(
     keyed = [c for c in claims if c.mondo_id]
 
     typer.echo(f"open claims: {len(claims)} ({len(keyed)} carrying a MONDO ID)")
+    if len(claims) >= CLAIM_FETCH_LIMIT:
+        # `gh issue list --limit N` truncates silently, and a truncated claim
+        # list means the two-phase check can hand out a disease somebody holds.
+        typer.echo(
+            f"WARNING: exactly {CLAIM_FETCH_LIMIT} claims returned — the fetch "
+            "limit was probably hit and this list may be truncated. Re-fetch "
+            "with a higher --limit before trusting it."
+        )
 
     orphaned = [c for c in keyed if c.mondo_id not in stub_ids]
     if orphaned:

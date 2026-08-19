@@ -207,17 +207,12 @@ class CoverageIndex:
     """MONDO IDs already accounted for by a committed KB entry."""
 
     ids: dict[str, str] = field(default_factory=dict)
-    #: Entry filename stem -> "disorders/Foo.yaml", for the name-collision advisory.
-    stems: dict[str, str] = field(default_factory=dict)
     #: Normalized label/synonym -> "disorders/Foo.yaml". Catches a disease the KB
     #: curated under a *different* MONDO ID, which the ID index cannot see.
     labels: dict[str, str] = field(default_factory=dict)
 
     def covered_by(self, mondo_id: str) -> str | None:
         return self.ids.get(mondo_id)
-
-    def entry_named(self, stem: str) -> str | None:
-        return self.stems.get(stem)
 
     def entry_labelled(self, label: str) -> str | None:
         normalized = normalize_label(label)
@@ -276,7 +271,6 @@ def build_coverage_index(kb_dirs: list[Path] | None = None) -> CoverageIndex:
             if not isinstance(data, dict):
                 continue
             rel = f"{kb_dir.name}/{path.name}"
-            index.stems.setdefault(path.stem, rel)
             for label in entry_label_strings(data):
                 normalized = normalize_label(label)
                 if is_informative_label(normalized):
@@ -308,6 +302,31 @@ def load_stubs(stub_dir: Path | None = None) -> list[Stub]:
     return [load_stub(path) for path in iter_stub_files(stub_dir)]
 
 
+def load_stubs_reporting_errors(
+    stub_dir: Path | None = None,
+) -> tuple[list[Stub], list[StubIssue]]:
+    """Load every stub, turning a parse failure into a finding rather than a raise.
+
+    Anyone can add a stub by pull request, so a malformed one is a normal thing
+    to encounter. Letting it propagate meant a single bad file aborted the whole
+    check with a traceback and said nothing about the other 1,866 -- the least
+    useful moment to lose the report.
+    """
+    stubs: list[Stub] = []
+    issues: list[StubIssue] = []
+    for path in iter_stub_files(stub_dir):
+        try:
+            stubs.append(load_stub(path))
+        except Exception as exc:
+            # YAML parse errors are multi-line; flattened so the report stays
+            # one finding per line, with the filename in front of it.
+            detail = " ".join(str(exc).split())
+            issues.append(
+                StubIssue(path, "unparseable", f"{type(exc).__name__}: {detail}")
+            )
+    return stubs, issues
+
+
 def check_stubs(
     stub_dir: Path | None = None,
     kb_dirs: list[Path] | None = None,
@@ -319,8 +338,7 @@ def check_stubs(
     by a committed KB entry must be deleted. That is what makes "delete the stub,
     add the entry" a checkable contract rather than a convention.
     """
-    issues: list[StubIssue] = []
-    stubs = load_stubs(stub_dir)
+    stubs, issues = load_stubs_reporting_errors(stub_dir)
     index = coverage if coverage is not None else build_coverage_index(kb_dirs)
 
     seen_ids: dict[str, Path] = {}

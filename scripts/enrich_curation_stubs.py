@@ -36,6 +36,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from dismech.stubs.seed import yaml_scalar
 from dismech.yaml_io import safe_load
 
 DEFAULT_MONDO_DB = Path.home() / ".data" / "oaklib" / "mondo.db"
@@ -47,8 +48,8 @@ CAUSAL_GENE = "RO:0004003"
 
 #: Descendant lists are capped so a grouping term like `rickets` (868
 #: descendants) does not bury the rest of the stub. The true total is kept in
-#: `mondo_descendant_count`, so truncation is never silent. Only ~19 of 1,867
-#: stubs have more than 36 descendants, so this loses very little.
+#: `mondo_descendant_count`, so truncation is never silent. 25 of the 1,867
+#: stubs are actually truncated at this cap.
 DESCENDANT_CAP = 25
 
 
@@ -79,18 +80,6 @@ def term_block(curie: str, label: str | None, indent: str = "") -> list[str]:
     if label:
         lines.append(f"{indent}  label: {yaml_scalar(label)}")
     return lines
-
-
-def yaml_scalar(text: str) -> str:
-    text = str(text)
-    risky = (
-        text == ""
-        or text[0] in "!&*?|>%@`'\"[]{}#,-"
-        or text[-1] in " :"
-        or ": " in text
-        or " #" in text
-    )
-    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"' if risky else text
 
 
 def render(mondo_id: str, parents, descendants, total, genes) -> list[str]:
@@ -194,11 +183,13 @@ def main() -> int:
                 for g in sorted(genes.get(mondo_id, []))
             ],
         )
-        if not block:
-            continue
         original = path.read_text(encoding="utf-8")
+        # Strip unconditionally, including when `block` is empty. Short-circuiting
+        # on an empty block would leave a stale block in place forever if a MONDO
+        # term later lost every parent, descendant, and gene -- the one case where
+        # a refresh most needs to remove something.
         base = strip_existing(original)
-        updated = base + "\n".join(block) + "\n"
+        updated = base + ("\n".join(block) + "\n" if block else "")
         if updated != original:
             changed += 1
             if not args.dry_run:

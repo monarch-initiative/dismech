@@ -7,20 +7,12 @@ add the entry" a contract CI can check rather than a convention people remember.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from linkml.validator import Validator
 
-from dismech.stubs.claims import (
-    Claim,
-    double_claims,
-    index_claims,
-    non_disease_claims,
-    parse_claims,
-    unkeyed_claims,
-)
 from dismech.stubs import (
     build_coverage_index,
     check_stubs,
@@ -29,10 +21,20 @@ from dismech.stubs import (
     slugify_label,
     stub_filename,
 )
+from dismech.stubs.claims import (
+    Claim,
+    double_claims,
+    index_claims,
+    non_disease_claims,
+    parse_claims,
+    unkeyed_claims,
+)
 from dismech.stubs.seed import (
     Nomination,
+    _dump,
     parse_rare_disease_identification,
     render_stub,
+    yaml_scalar,
 )
 
 ROOT_DIR = Path(__file__).parent.parent
@@ -202,7 +204,7 @@ _GH_ROWS = [
     },
 ]
 
-_NOW = datetime(2026, 8, 19, tzinfo=timezone.utc)
+_NOW = datetime(2026, 8, 19, tzinfo=UTC)
 
 
 def test_parse_claims_keys_on_the_mondo_id_in_the_title():
@@ -289,3 +291,79 @@ def test_stub_schema_has_no_claim_fields():
     assert "CLAIMED" not in STATUSES
     schema = (STUB_SCHEMA_PATH).read_text(encoding="utf-8")
     assert "claimed_by" not in schema
+
+
+# --- Emitter and loader error paths (PR #8993 review findings 1-4) ------------
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "a plain label",
+        "multi\nline",  # a bare newline made the whole file unparseable
+        "22",  # bare, this reads back as int
+        "3.5",
+        "yes",  # YAML 1.1 boolean
+        "null",
+        "2026-08-19",  # reads back as a date object
+        "tab\there",
+        "",
+        " leading and trailing ",
+        "#hash",
+        "a: b",
+    ],
+)
+def test_emitted_scalars_round_trip_as_the_same_string(value):
+    """The emitter's only real guarantee: what goes in comes back out."""
+    import yaml
+
+    loaded = yaml.safe_load(_dump({"mondo_id": "MONDO:0000001", "label": value}))
+    assert loaded["label"] == value
+    assert isinstance(loaded["label"], str)
+
+
+def test_yaml_scalar_is_shared_with_the_enrichment_script():
+    """One emitter, so a fix in it cannot leave a second copy behind."""
+    assert yaml_scalar("multi\nline") == '"multi\\nline"'
+
+
+def test_dump_never_emits_removed_claim_fields():
+    """`claimed_by`/`issue` left the schema when claiming moved to GitHub."""
+    emitted = _dump(
+        {
+            "mondo_id": "MONDO:0000001",
+            "label": "test",
+            "claimed_by": "someone",
+            "issue": "42",
+            "notes": "kept",
+        }
+    )
+    assert "claimed_by" not in emitted
+    assert "issue:" not in emitted
+    assert "notes: kept" in emitted
+
+
+def test_a_malformed_stub_is_reported_not_raised(tmp_path):
+    """Anyone can add a stub by PR, so a broken one must not abort the check."""
+    (tmp_path / "Good_Stub.yaml").write_text(
+        "mondo_id: MONDO:0000001\nlabel: good stub\n", encoding="utf-8"
+    )
+    (tmp_path / "Broken.yaml").write_text(
+        "mondo_id: MONDO:0000002\nlabel: [unclosed\n", encoding="utf-8"
+    )
+    found = check_stubs(tmp_path, coverage=build_coverage_index([]))
+    kinds = {i.kind for i in found}
+    assert "unparseable" in kinds
+    unparseable = next(i for i in found if i.kind == "unparseable")
+    assert unparseable.path.name == "Broken.yaml"
+    # One line, so a report of many findings stays readable.
+    assert "\n" not in unparseable.format()
+
+
+def test_a_term_ref_without_a_label_still_validates(stub_validator):
+    """A gene outside the HGNC term cache keeps its id rather than being dropped."""
+    report = stub_validator.validate(
+        {"mondo_id": "MONDO:0000001", "label": "t", "genes": [{"id": "hgnc:99999"}]},
+        target_class="CurationStub",
+    )
+    assert not [r.message for r in report.results]

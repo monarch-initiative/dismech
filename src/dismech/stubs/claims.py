@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 #: MONDO ID as it appears in a claim issue title: `Curate rickets (MONDO:0005520)`.
@@ -59,10 +59,10 @@ class Claim:
         if not self.created_at:
             return None
         try:
-            created = datetime.fromisoformat(self.created_at.replace("Z", "+00:00"))
+            created = datetime.fromisoformat(self.created_at)
         except ValueError:
             return None
-        reference = now or datetime.now(timezone.utc)
+        reference = now or datetime.now(UTC)
         return (reference - created).total_seconds() / 86400.0
 
     def is_stale(
@@ -103,9 +103,7 @@ def _has_linked_pr(row: dict[str, Any]) -> bool:
     refs = row.get("closedByPullRequestsReferences")
     if isinstance(refs, dict):
         refs = refs.get("references") or refs.get("nodes")
-    if isinstance(refs, list) and refs:
-        return True
-    return False
+    return bool(isinstance(refs, list) and refs)
 
 
 def parse_claims(payload: Any) -> list[Claim]:
