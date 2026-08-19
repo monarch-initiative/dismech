@@ -6,8 +6,14 @@ symbol in HGNC via OAK.
 For each disorder YAML, walks `genetic[]` and `has_subtypes[*].genetic[]` and
 adds a `gene_term` block populated from HGNC whenever:
 
-- `gene_term.term.id` is absent, AND
+- the entry has no `gene_term` key at all, AND
 - `name` resolves to exactly one HGNC CURIE via `sqlite:obo:hgnc`.
+
+The first condition deliberately tests the key rather than
+`gene_term.term.id`: an entry holding a partial `gene_term` (a
+`preferred_term` with no grounded `term`) must be skipped outright, since
+inserting a block would give the mapping a second `gene_term:` key (#8623).
+Completing a partial block is a curation decision, not a mechanical one.
 
 Entries whose `name` does not resolve (chromosomal aneuploidies, multi-word
 disease classes, variant/allele strings, retired symbols, ambiguous matches)
