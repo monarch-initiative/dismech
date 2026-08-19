@@ -36,7 +36,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 DEFAULT_MONDO_DB = Path.home() / ".data" / "oaklib" / "mondo.db"
 HGNC_CACHE = ROOT / "cache" / "hgnc" / "terms.csv"
