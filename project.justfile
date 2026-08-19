@@ -644,9 +644,46 @@ check-cache-order:
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
 
+# --- Curation stub queue (stubs/) ------------------------------------------
+# The outstanding curation queue: one YAML per disease we intend to curate but
+# have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
+# curation PR deletes the stub and adds the kb/ entry. See docs/curation-stubs.md.
+
+# MONDO IDs well-formed and unique, filenames matching labels, and — the one
+# that matters — no stub left behind for a disease the KB already covers.
+# Advisories (name collisions with KB entries) are reported but never gate.
+# Check the curation stub queue under stubs/
+[group('Curation')]
+check-stubs *args="":
+    uv run dismech-stubs check {{args}}
+
+# Schema-validate every stub file against the CurationStub class.
+[group('Curation')]
+validate-stubs:
+    uv run linkml-validate -s src/dismech/schema/curation_stub.yaml -C CurationStub stubs/*.yaml
+
+# Ordering is the hand-set priority band, then an arbitrary but stable spread —
+# not a computed score. Pick one you know something about, not the first row.
+# Show the next stub(s) to curate
+[group('Curation')]
+next-stubs count="5" *args="":
+    uv run dismech-stubs next {{count}} {{args}}
+
+# Summarize the queue by status, entry type, and priority.
+[group('Curation')]
+stub-stats:
+    uv run dismech-stubs stats
+
+# Never overwrites an existing stub. Default source format is the Monarch
+# rare-disease-identification prioritised list.
+# Add stubs for nominated diseases that are neither curated nor already stubbed
+[group('Curation')]
+seed-stubs source *args="":
+    uv run dismech-stubs seed {{source}} {{args}}
+
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage

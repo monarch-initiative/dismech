@@ -1,0 +1,151 @@
+"""Tests for the curation stub queue under `stubs/`.
+
+The load-bearing test is `test_no_stub_survives_curation`: a disease that has
+been curated must not still have a stub. That is what makes "delete the stub,
+add the entry" a contract CI can check rather than a convention people remember.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from linkml.validator import Validator
+
+from dismech.stubs import (
+    build_coverage_index,
+    check_stubs,
+    iter_stub_files,
+    load_stubs,
+    slugify_label,
+    stub_filename,
+)
+from dismech.stubs.seed import (
+    Nomination,
+    parse_rare_disease_identification,
+    render_stub,
+)
+
+ROOT_DIR = Path(__file__).parent.parent
+STUB_DIR = ROOT_DIR / "stubs"
+STUB_SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "curation_stub.yaml"
+
+STUB_FILES = iter_stub_files(STUB_DIR)
+
+
+@pytest.fixture(scope="module")
+def coverage():
+    return build_coverage_index()
+
+
+@pytest.fixture(scope="module")
+def issues():
+    return check_stubs(STUB_DIR)
+
+
+@pytest.fixture(scope="module")
+def stub_validator():
+    return Validator(str(STUB_SCHEMA_PATH))
+
+
+def test_stub_dir_exists():
+    assert STUB_DIR.is_dir(), "stubs/ is the curation queue and must exist"
+
+
+@pytest.mark.parametrize("path", STUB_FILES, ids=lambda p: p.name)
+def test_stub_validates_against_schema(path, stub_validator):
+    from dismech.yaml_io import safe_load
+
+    data = safe_load(path.read_text(encoding="utf-8"))
+    report = stub_validator.validate(data, target_class="CurationStub")
+    messages = [r.message for r in report.results]
+    assert not messages, f"{path.name}: {messages}"
+
+
+def test_no_stub_survives_curation(issues):
+    """A curated disease must not still have a stub file."""
+    stale = [i for i in issues if i.kind == "already_curated"]
+    assert not stale, (
+        "These stubs name a MONDO ID the KB already covers. A curation PR must "
+        "delete the stub it curates:\n" + "\n".join(i.format() for i in stale)
+    )
+
+
+def test_stub_mondo_ids_are_unique(issues):
+    dupes = [i for i in issues if i.kind == "duplicate_mondo_id"]
+    assert not dupes, "\n".join(i.format() for i in dupes)
+
+
+def test_stub_filenames_match_labels(issues):
+    mismatched = [i for i in issues if i.kind == "filename_mismatch"]
+    assert not mismatched, "\n".join(i.format() for i in mismatched)
+
+
+def test_stub_enum_values_are_valid(issues):
+    bad = [
+        i for i in issues if i.kind.startswith("bad_") or i.kind.startswith("missing_")
+    ]
+    assert not bad, "\n".join(i.format() for i in bad)
+
+
+def test_check_reports_no_errors(issues):
+    """`just check-stubs` gates on errors only; advisories are informational."""
+    errors = [i for i in issues if i.severity == "error"]
+    assert not errors, "\n".join(i.format() for i in errors)
+
+
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        ("alcohol sensitivity, acute", "Alcohol_Sensitivity_Acute"),
+        ("22q11.2 deletion syndrome", "22q11.2_Deletion_Syndrome"),
+        ("Behçet disease", "Behcet_Disease"),
+        ("IgG4-related disease", "IgG4-related_Disease"),
+    ],
+)
+def test_slugify_label(label, expected):
+    assert slugify_label(label) == expected
+
+
+def test_stub_filename_falls_back_to_mondo_id():
+    assert stub_filename("!!!", "MONDO:0000001") == "MONDO_0000001.yaml"
+
+
+def test_rdi_parser_normalizes_an_entry():
+    payload = {
+        "diseases": [
+            {
+                "mondo_id": "MONDO:0012454",
+                "mondo_label": "alcohol sensitivity, acute",
+                "mondo_synonyms": ["alcohol intolerance"],
+                "justification_summary": ["Diagnostic delay impact"],
+                "prioritization_category": "initial",
+                "prevalence_category": "H",
+            }
+        ]
+    }
+    (nomination,) = parse_rare_disease_identification(payload)
+    assert nomination.mondo_id == "MONDO:0012454"
+    assert nomination.rationale == "Diagnostic delay impact"
+    assert "prioritization_category=initial" in nomination.tags
+
+
+def test_seeded_stubs_do_not_prejudge_entry_type():
+    """A seeder cannot decide Disease vs Grouping; that is a curator's call."""
+    payload = render_stub(
+        Nomination(mondo_id="MONDO:0000001", label="test disease"),
+        source_name="test",
+        source_url=None,
+        added="2026-01-01",
+    )
+    assert payload["entry_type"] == "UNDECIDED"
+    assert payload["priority"] == "NORMAL"
+    assert payload["status"] == "OPEN"
+
+
+def test_stubs_are_not_all_claimed():
+    """Sanity check that the queue still has work in it."""
+    stubs = load_stubs(STUB_DIR)
+    if not stubs:
+        pytest.skip("stub queue is empty")
+    assert any(s.status == "OPEN" for s in stubs)
