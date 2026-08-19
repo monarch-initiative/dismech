@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import re
 import sqlite3
 import sys
@@ -73,14 +74,33 @@ def mondo_version(conn: sqlite3.Connection) -> str | None:
     return match.group(1) if match else str(row[0])
 
 
-def write_manifest(version: str | None, stub_count: int) -> None:
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_manifest(version: str | None, stubs_processed: int, mondo_db: Path) -> None:
+    """Pin the MONDO release the committed enrichment came from.
+
+    A release date alone does not catch a locally rebuilt `mondo.db` drifting at
+    the same release, so the database's sha256 is recorded too — the same thing
+    `data/orphadata/MANIFEST.yaml` pins for its bulk XML. OAK serves a prebuilt
+    `mondo.db.gz`, so the digest is reproducible for anyone who downloaded the
+    same artifact.
+    """
     MANIFEST.parent.mkdir(parents=True, exist_ok=True)
     MANIFEST.write_text(
         "# Which MONDO release the committed stub enrichment was generated from.\n"
         "# Written by scripts/enrich_curation_stubs.py; do not hand-edit.\n"
         "source: mondo\n"
         f"version: {version or 'unknown'}\n"
-        f"enriched_stubs: {stub_count}\n",
+        f"sha256: {file_sha256(mondo_db)}\n"
+        "# Stubs the enrichment pass read, not the number that received a block:\n"
+        "# a MONDO leaf with no causal gene is processed and gets nothing.\n"
+        f"stubs_processed: {stubs_processed}\n",
         encoding="utf-8",
     )
 
@@ -227,8 +247,12 @@ def main() -> int:
                 path.write_text(updated, encoding="utf-8")
 
     version = mondo_version(conn)
-    if not args.dry_run:
-        write_manifest(version, len(stub_ids))
+    # Only pin when enriching the committed queue. Running against a subset
+    # (`--stub-dir /tmp/...`) must not rewrite the repository's manifest with a
+    # count for a directory that is not `stubs/`.
+    is_canonical_run = args.stub_dir.resolve() == (ROOT / "stubs").resolve()
+    if not args.dry_run and is_canonical_run:
+        write_manifest(version, len(stub_ids), args.mondo_db)
 
     print(
         f"mondo: {version or 'unknown'}  "

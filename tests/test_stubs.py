@@ -393,7 +393,7 @@ def test_a_term_ref_without_a_label_still_validates(stub_validator):
     assert not [r.message for r in report.results]
 
 
-def test_tidy_survives_a_stub_that_is_stale_twice_over(tmp_path, monkeypatch):
+def test_tidy_survives_a_stub_that_is_stale_twice_over(tmp_path):
     """One stub can be both obsolete and already curated — deleting it twice crashed.
 
     MONDO retiring a term some time after somebody curated the disease under it
