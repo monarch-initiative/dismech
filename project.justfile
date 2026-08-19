@@ -674,6 +674,28 @@ next-stubs count="5" *args="":
 stub-stats:
     uv run dismech-stubs stats
 
+# Fetch every open claim issue in one list-API call (immediately consistent,
+# unlike a search) and write it where the other recipes can read it.
+# Fetch the open curation claims
+[group('Curation')]
+fetch-claims out="tmp/claims.json":
+    mkdir -p "$(dirname {{out}})"
+    gh issue list --repo monarch-initiative/dismech --label claim --state open       --json number,title,assignees,url,createdAt,closedByPullRequestsReferences       --limit 1000 > {{out}}
+    echo "wrote {{out}}"
+
+# Reports double-claims, claims with no MONDO ID in the title (they lock
+# nothing), and stale claims — old with no PR. An open PR is never stale.
+# Cross-check open claim issues against the stub queue
+[group('Curation')]
+check-claims claims="tmp/claims.json" *args="":
+    uv run dismech-stubs claims {{claims}} {{args}}
+
+# The two-phase pick: open claim issues, then the stub queue.
+# Show the next unclaimed stub(s) to curate
+[group('Curation')]
+next-unclaimed count="5" claims="tmp/claims.json" *args="":
+    uv run dismech-stubs next {{count}} --claims {{claims}} {{args}}
+
 # Never overwrites an existing stub. Default source format is the Monarch
 # rare-disease-identification prioritised list.
 # Add stubs for nominated diseases that are neither curated nor already stubbed

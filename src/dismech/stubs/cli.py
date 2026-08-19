@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import typer
 
+from .claims import (
+    DEFAULT_STALE_DAYS,
+    double_claims,
+    index_claims,
+    parse_claims,
+    unkeyed_claims,
+)
 from .model import (
     build_coverage_index,
     check_stubs,
@@ -79,26 +87,46 @@ def next_command(
     count: int = typer.Argument(1, min=1, help="How many stubs to show."),
     stub_dir: Path = _STUB_DIR_OPTION,
     include_claimed: bool = typer.Option(
-        False, "--include-claimed", help="Also show CLAIMED stubs."
+        False,
+        "--include-claimed",
+        help="Do not filter out diseases with an open claim issue.",
     ),
     alpha: bool = typer.Option(
         False, "--alpha", help="Sort alphabetically within a band instead of by hash."
     ),
+    claims_path: str = typer.Option(
+        None,
+        "--claims",
+        help=(
+            "Open claim issues as JSON, to exclude already-claimed diseases. "
+            "Use '-' for stdin. Produce it with: gh issue list --label claim "
+            "--state open --json number,title,assignees,url,createdAt --limit 1000"
+        ),
+    ),
     as_json: bool = typer.Option(False, "--json", help="Emit JSON instead of text."),
 ) -> None:
     """Show the next stubs to curate.
+
+    Two phases, both cheap. Phase 1 is `--claims`: what somebody has already
+    taken, read from the open `claim`-labelled issues. Phase 2 is the stub
+    queue: what is left to do at all. Without `--claims` you get phase 2 only,
+    and the output may include diseases that are already spoken for.
 
     Ordering is the hand-set `priority` band, then an arbitrary but stable
     spread — there is no computed score, and no ranking within a band. This is a
     pool to choose from, not a recommendation: pick the disease you actually
     know something about rather than the first row.
     """
-    wanted = {"OPEN"} if not include_claimed else {"OPEN", "CLAIMED"}
     stubs = [
         s
         for s in load_stubs(stub_dir)
-        if s.status in wanted and s.entry_type in {"UNDECIDED", "DISEASE"}
+        if s.status == "OPEN" and s.entry_type in {"UNDECIDED", "DISEASE"}
     ]
+
+    claimed = _load_claim_index(claims_path)
+    if claimed is not None and not include_claimed:
+        stubs = [s for s in stubs if s.mondo_id not in claimed]
+
     stubs.sort(key=lambda s: s.alpha_sort_key if alpha else s.sort_key)
     picked = stubs[:count]
 
@@ -131,6 +159,78 @@ def next_command(
     for stub in picked:
         typer.echo(f"{stub.priority:6s} {stub.mondo_id}  {stub.label}")
         typer.echo(f"       {stub.path.name}")
+
+
+def _read_json_arg(path: str | None):
+    if not path:
+        return None
+    if path == "-":
+        return json.loads(sys.stdin.read())
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _load_claim_index(path: str | None):
+    payload = _read_json_arg(path)
+    if payload is None:
+        return None
+    return index_claims(parse_claims(payload))
+
+
+@app.command("claims")
+def claims_command(
+    claims_path: str = typer.Argument(
+        "-",
+        help="Claim issues as JSON ('-' for stdin). See `next --claims` for the gh command.",
+    ),
+    stub_dir: Path = _STUB_DIR_OPTION,
+    stale_days: int = typer.Option(
+        DEFAULT_STALE_DAYS,
+        "--stale-days",
+        help="Report claims older than this with no linked PR.",
+    ),
+) -> None:
+    """Cross-check open claim issues against the stub queue.
+
+    Reports four things a person should look at: claims whose disease has no
+    stub (already curated, or never queued), stubs that are claimed twice,
+    claims with no MONDO ID in the title (they lock nothing), and stale claims —
+    old, with no PR to show for them. A claim with an open PR is never stale;
+    long-running curation PRs are normal and the lock should outlast them.
+    """
+    claims = parse_claims(_read_json_arg(claims_path))
+    stub_ids = {s.mondo_id: s for s in load_stubs(stub_dir)}
+    keyed = [c for c in claims if c.mondo_id]
+
+    typer.echo(f"open claims: {len(claims)} ({len(keyed)} carrying a MONDO ID)")
+
+    orphaned = [c for c in keyed if c.mondo_id not in stub_ids]
+    if orphaned:
+        typer.echo(f"\nclaimed but not in the stub queue ({len(orphaned)}):")
+        for claim in orphaned:
+            typer.echo(f"  #{claim.number} {claim.title}")
+
+    doubles = double_claims(claims)
+    if doubles:
+        typer.echo(f"\nclaimed more than once ({len(doubles)}):")
+        for mondo_id, group in sorted(doubles.items()):
+            numbers = ", ".join(f"#{c.number}" for c in group)
+            typer.echo(f"  {mondo_id}: {numbers}")
+
+    unkeyed = unkeyed_claims(claims)
+    if unkeyed:
+        typer.echo(f"\nno MONDO ID in the title, so locking nothing ({len(unkeyed)}):")
+        for claim in unkeyed:
+            typer.echo(f"  #{claim.number} {claim.title}")
+
+    stale = [c for c in claims if c.is_stale(stale_days)]
+    if stale:
+        typer.echo(
+            f"\nstale — over {stale_days}d old with no linked PR ({len(stale)}):"
+        )
+        for claim in sorted(stale, key=lambda c: -(c.age_days() or 0)):
+            age = claim.age_days()
+            who = ", ".join(claim.assignees) or "unassigned"
+            typer.echo(f"  #{claim.number} {int(age or 0):4d}d {who:20s} {claim.title}")
 
 
 @app.command("stats")

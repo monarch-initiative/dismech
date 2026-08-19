@@ -7,11 +7,19 @@ add the entry" a contract CI can check rather than a convention people remember.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from linkml.validator import Validator
 
+from dismech.stubs.claims import (
+    Claim,
+    double_claims,
+    index_claims,
+    parse_claims,
+    unkeyed_claims,
+)
 from dismech.stubs import (
     build_coverage_index,
     check_stubs,
@@ -149,3 +157,103 @@ def test_stubs_are_not_all_claimed():
     if not stubs:
         pytest.skip("stub queue is empty")
     assert any(s.status == "OPEN" for s in stubs)
+
+
+# --- Claims: GitHub is the live lock -----------------------------------------
+
+_GH_ROWS = [
+    {
+        "number": 8955,
+        "title": "Curate rickets (MONDO:0005520)",
+        "assignees": [{"login": "sierra-moxon"}],
+        "createdAt": "2026-08-19T15:49:27Z",
+    },
+    {
+        # Long-open, no PR — the stale case.
+        "number": 1675,
+        "title": "Curate autosomal dominant cerebellar ataxia type I (MONDO:0019792)",
+        "assignees": [{"login": "dragon-ai-agent"}],
+        "createdAt": "2026-04-24T21:26:21Z",
+    },
+    {
+        # Real issue #2029: no MONDO ID in the title, so it locks nothing.
+        "number": 2029,
+        "title": "curate peripartum cardiomyopathy",
+        "assignees": [],
+        "createdAt": "2026-05-04T17:44:35Z",
+    },
+]
+
+_NOW = datetime(2026, 8, 19, tzinfo=timezone.utc)
+
+
+def test_parse_claims_keys_on_the_mondo_id_in_the_title():
+    claims = parse_claims(_GH_ROWS)
+    assert [c.mondo_id for c in claims] == [
+        "MONDO:0005520",
+        "MONDO:0019792",
+        None,
+    ]
+    assert claims[0].assignees == ["sierra-moxon"]
+
+
+def test_parse_claims_accepts_both_assignee_shapes():
+    (plain,) = parse_claims(
+        [{"number": 1, "title": "Curate x (MONDO:0000001)", "assignees": ["bob"]}]
+    )
+    assert plain.assignees == ["bob"]
+
+
+def test_unkeyed_claims_are_reported_not_silently_dropped():
+    """An issue with no MONDO ID locks nothing; it must surface for retitling."""
+    (unkeyed,) = unkeyed_claims(parse_claims(_GH_ROWS))
+    assert unkeyed.number == 2029
+
+
+def test_index_claims_maps_mondo_id_to_claim():
+    index = index_claims(parse_claims(_GH_ROWS))
+    assert index["MONDO:0005520"].number == 8955
+    assert None not in index
+
+
+def test_double_claims_detects_two_issues_on_one_disease():
+    rows = _GH_ROWS + [
+        {"number": 9001, "title": "Curate rickets (MONDO:0005520)", "assignees": []}
+    ]
+    doubles = double_claims(parse_claims(rows))
+    assert set(doubles) == {"MONDO:0005520"}
+    assert [c.number for c in doubles["MONDO:0005520"]] == [8955, 9001]
+
+
+def test_a_claim_with_an_open_pr_is_never_stale():
+    """Curation PRs sit in review for weeks; the lock must outlast them."""
+    old_with_pr = Claim(
+        number=1,
+        title="Curate x (MONDO:0000001)",
+        mondo_id="MONDO:0000001",
+        created_at="2026-01-01T00:00:00Z",
+        has_linked_pr=True,
+    )
+    assert old_with_pr.age_days(_NOW) > 200
+    assert old_with_pr.is_stale(30, _NOW) is False
+
+
+def test_an_old_claim_with_no_pr_is_stale():
+    old, fresh = parse_claims(_GH_ROWS)[1], parse_claims(_GH_ROWS)[0]
+    assert old.is_stale(30, _NOW) is True
+    assert fresh.is_stale(30, _NOW) is False
+
+
+def test_claims_with_no_created_at_are_not_guessed_stale():
+    claim = Claim(number=1, title="t", mondo_id="MONDO:0000001")
+    assert claim.age_days(_NOW) is None
+    assert claim.is_stale(30, _NOW) is False
+
+
+def test_stub_schema_has_no_claim_fields():
+    """One fact, one source of truth: claiming lives on GitHub, not in YAML."""
+    from dismech.stubs.model import STATUSES
+
+    assert "CLAIMED" not in STATUSES
+    schema = (STUB_SCHEMA_PATH).read_text(encoding="utf-8")
+    assert "claimed_by" not in schema

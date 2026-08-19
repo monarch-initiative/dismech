@@ -14,8 +14,10 @@ from dismech.yaml_io import safe_load
 
 MONDO_ID_PATTERN = re.compile(r"^MONDO:[0-9]{7}$")
 
-#: Statuses a stub may carry. Mirrors StubStatusEnum in the schema.
-STATUSES = ("OPEN", "CLAIMED", "BLOCKED", "DEFERRED")
+#: Statuses a stub may carry. Mirrors StubStatusEnum in the schema. There is no
+#: CLAIMED: claims live on GitHub as `claim`-labelled issues, because a claim
+#: written into YAML only becomes visible when its PR merges. See claims.py.
+STATUSES = ("OPEN", "BLOCKED", "DEFERRED")
 #: Entry-type decisions. Mirrors StubEntryTypeEnum in the schema.
 ENTRY_TYPES = ("UNDECIDED", "DISEASE", "GROUPING", "SUBTYPE", "OUT_OF_SCOPE")
 #: Priority bands. Mirrors StubPriorityEnum in the schema.

@@ -103,6 +103,71 @@ If you want a disease curated sooner, open a PR raising its `priority` and say
 why in `notes`. That is a reviewable claim other people can disagree with, which
 a weight in a YAML config file was not.
 
+## Claiming: GitHub is the live lock, the stub is not
+
+The stub queue says what is left to do. It deliberately does **not** say who is
+doing it. Those are different kinds of fact and they want different instruments:
+
+|  | Stub queue (`stubs/`) | Claim (`claim`-labelled issue) |
+|---|---|---|
+| Fact | what is left to curate | who is curating what, right now |
+| Changes | rarely, by considered PR | many times a day |
+| Visible | when the PR merges — days | the instant the issue is created |
+| Arbiter | review | GitHub |
+
+A claim recorded in a stub file would only become visible on merge, which is far
+too late to stop two agents picking the same disease. So the schema has no
+`claimed_by` and no `CLAIMED` status: one fact, one source of truth.
+
+**A claim is an open GitHub issue labelled `claim`**, titled:
+
+```
+Curate <label> (MONDO:NNNNNNN)
+```
+
+assigned to the person driving the work. Two parts are load-bearing:
+
+- **The `claim` label.** `gh issue list --label claim` hits GitHub's *list*
+  endpoint, which is immediately consistent — an issue filed thirty seconds ago
+  is already visible. The `--search` form the old preflight used hits the search
+  API, whose index lags creation by seconds to minutes, which is exactly the
+  width of the race it was supposed to close. The label is also why the check is
+  cheap: one call fetches every claim and matching happens locally, so the cost
+  does not scale with the size of the candidate pool.
+- **The MONDO ID in the title.** It is the key everything matches on. An issue
+  titled `curate peripartum cardiomyopathy` locks nothing; `just check-claims`
+  reports those separately so they can be retitled.
+
+```bash
+just fetch-claims          # one API call -> tmp/claims.json
+just next-unclaimed 5      # phase 1 claims, phase 2 stubs
+just check-claims          # double-claims, unkeyed titles, stale claims
+```
+
+### Long-running PRs, and when a claim goes stale
+
+A curation PR can sit in review for weeks. That is normal, and the claim must
+hold that whole time — so **a claim with an open PR is never stale, however old
+it is**. Only *old with no PR to show for it* is questionable:
+
+```
+stale — over 30d old with no linked PR (2):
+  #1675  116d dragon-ai-agent      Curate autosomal dominant cerebellar ataxia type I (MONDO:0019792)
+  #2029  107d unassigned           curate peripartum cardiomyopathy
+```
+
+`check-claims` **reports** these; it never releases them. Reassigning somebody
+else's work is a conversation, not a timeout. Ask the assignee or the user
+before taking one.
+
+### Releasing a claim
+
+The curation PR carries `Closes #<issue>`, so merging deletes the stub and
+releases the claim in one step. If the answer turned out to be `GROUPING`,
+`SUBTYPE`, or `OUT_OF_SCOPE`, the PR still deletes the stub — record the
+decision in `notes` and close the issue explaining it. That is a completed
+curation.
+
 ## The delete-the-stub contract
 
 `just check-stubs` fails when a stub names a MONDO ID that a committed
@@ -163,7 +228,10 @@ Other nomination lists can be added by writing a parser in
 ## Commands
 
 ```bash
-just next-stubs 5          # next stubs to curate (priority band, then stable spread)
+just fetch-claims          # open claim issues -> tmp/claims.json (one API call)
+just next-unclaimed 5      # the two-phase pick: claims, then stubs
+just check-claims          # double-claims, unkeyed titles, stale claims
+just next-stubs 5          # stubs only, no claim filter
 just next-stubs 5 --json   # same, machine-readable
 just stub-stats            # queue summary by status / entry type / priority
 just check-stubs           # invariants; runs as part of `just qc`
@@ -171,6 +239,23 @@ just validate-stubs        # schema validation
 just seed-stubs <file>     # import nominations; never overwrites
 uv run dismech-stubs coverage   # how many MONDO IDs the KB already covers
 ```
+
+## What happened to #1079
+
+Issue #1079 was the other half of the old arrangement: a 67KB EPIC holding a
+checkbox per disease for four keyword-matched themes (neurodevelopmental,
+neurodegenerative, neuroimmune, cardiac — about 620 of the 3,079), rewritten by
+`sync-epic-checkboxes.yml` on every push to `main`.
+
+It is superseded. The stub queue is drawn from the same source list, covers all
+of it rather than four themes, sees `kb/groupings/`, and can express "this is a
+grouping, retire it" rather than only tick or not-tick. Two bugs in the EPIC's
+sync go away with it: the script only ever ticks boxes and never unticks, and it
+never read `kb/groupings/`. New claim issues no longer carry
+`Tracker: part of #1079` — that line was decorative anyway, since most claims
+(`rickets`, `glioblastoma`) fall outside its four themes.
+
+Progress is now `just stub-stats` and the file count of `stubs/`.
 
 ## What happened to the dashboard
 

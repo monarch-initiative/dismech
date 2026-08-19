@@ -1,12 +1,13 @@
 ---
 name: claim-disease
-description: Use when claiming the next disease to curate from the dismech curation stub queue in `stubs/`. Picks an open stub, opens a GitHub curation issue, assigns it to the current GitHub user, and marks the stub CLAIMED. Accepts an optional integer 1–8 to claim N diseases at once.
+description: Use when claiming the next disease to curate in dismech. Two-phase pick — open `claim`-labelled issues for what is already taken, then the `stubs/` queue for what is left — then files a `Curate <label> (MONDO:NNNNNNN)` claim issue assigned to the current GitHub user. Accepts an optional integer 1–8 to claim N diseases at once.
 ---
 
 # claim-disease
 
-Claim the next disease(s) to curate from the stub queue in `stubs/`. Opens GitHub
-issues and assigns them to whoever is running the skill.
+Claim the next disease(s) to curate. The queue of remaining work is `stubs/`;
+the live lock on who has what is an open GitHub issue labelled `claim`. This
+skill checks both, then files the claim.
 
 ## When to use
 
@@ -66,79 +67,99 @@ dodging work, and it should be reported as work done.
   **1**, maximum **8**. If the argument is non-integer, `<= 0`, or `> 8`, stop and
   ask the user rather than guessing. Never silently cap a request for `N > 8`.
 
+## How claiming works
+
+**An open GitHub issue labelled `claim` is the lock.** Not the stub file — a
+stub edit only becomes visible when its PR merges, which is far too late to stop
+two agents picking the same disease.
+
+The two phases are cheap and, importantly, correct:
+
+1. **Claims** — `gh issue list --label claim` hits GitHub's *list* endpoint,
+   which is immediately consistent. An issue filed thirty seconds ago is already
+   there. (The old preflight used `--search`, whose index lags creation by
+   seconds to minutes — the exact width of the race it was meant to close.)
+2. **Stubs** — `stubs/` says what is left to do at all.
+
+One call fetches every claim, so the check costs one request no matter how big
+the candidate pool is.
+
+**A claim survives a long PR.** Curation PRs sit in review for weeks and that is
+normal; the claim holds the whole time. Only a claim that is *old with no PR* is
+questionable, and `just check-claims` reports those rather than releasing them.
+
 ## Workflow
 
 1. **Read N** from the user's argument (default 1).
 
-2. **Resolve the current GitHub user**: `gh api user -q .login`. This is the assignee.
+2. **Resolve the current GitHub user**: `gh api user -q .login`. This is the
+   assignee — the person driving the agent, never a hardcoded name.
 
-3. **Pull the candidate pool** — ask for headroom, since candidates get skipped:
+3. **Fetch the claims and pick, in one pass:**
 
    ```bash
-   just next-stubs $((N + 20)) --json
+   just fetch-claims                        # -> tmp/claims.json, one API call
+   just check-claims                        # double-claims, unkeyed, stale
+   just next-unclaimed $((N + 20))          # stubs minus claimed, as a pool
    ```
 
-   Each row gives `mondo_id`, `label`, `priority`, `proposed_name`, `rationale`,
-   and `stub_path`. `next` already excludes stubs that are CLAIMED, BLOCKED,
-   DEFERRED, or resolved as `GROUPING` / `SUBTYPE` / `OUT_OF_SCOPE`.
+   `next-unclaimed` takes `--json` if you want it machine-readable. Ask for
+   headroom (`N + 20`), because you will skip candidates.
 
-4. **Read the pool and choose deliberately.** Do not take rows in order. Prefer
-   candidates you can curate well; apply the suspicion list above. Note which
-   ones you skipped and why — you will report this.
+4. **Read the pool and choose deliberately.** Do not take rows in order — within
+   a priority band the order is an arbitrary hash spread. Prefer candidates you
+   can curate well; apply the suspicion list above. Note what you skipped and
+   why; you will report it.
 
-5. **Duplicate preflight for each candidate you intend to claim.** `check-stubs`
-   only catches exact MONDO-ID overlap. Conceptual coverage under a different
-   term will not be caught, so check by hand:
+5. **Duplicate preflight, for each candidate you intend to claim.** The claim
+   check is by MONDO ID, so it cannot see a disease curated or claimed under a
+   different term:
 
    ```bash
    git fetch origin main
-
-   # Still absent from the latest upstream KB?
    git grep -n -i -e "<MONDO_ID>" -e "<label>" origin/main -- kb/disorders kb/groupings || true
-
-   # Lexical sweep for a synonym curated under another name.
    grep -rli "<distinctive word from the label>" kb/disorders/ kb/groupings/
-
-   # PRs and issues, all states; repeat for important synonyms.
-   gh pr list --repo monarch-initiative/dismech --state all \
-     --search "\"<MONDO_ID>\" OR \"<label>\"" \
-     --json number,title,state,url,headRefName --limit 100
-   gh issue list --repo monarch-initiative/dismech --state all \
-     --search "\"<MONDO_ID>\" OR \"<label>\"" \
-     --json number,title,state,url,labels --limit 100
    ```
 
-   Open *and* closed records both matter: a closed PR may already be merged, and
-   a closed issue may explain why a similar target should not be curated
-   separately. If a candidate turns out to be covered, delete its stub in the PR
-   (that is the fix) rather than only skipping it.
+   Also scan `tmp/claims.json` titles for the label and its synonyms — an
+   agent may have claimed the same disease under a different MONDO ID. If a
+   candidate turns out to be already curated, delete its stub in your PR; that
+   is the fix, not just skipping it.
 
-6. **File the issue and mark the stub claimed**, for each of the N candidates.
+6. **File the claim issue.** This is the claim — file it *before* starting work,
+   not after.
 
-7. **Report**: the issue URLs, the stubs you marked CLAIMED, and — explicitly —
-   every candidate you skipped with the reason. If you filed fewer than N, say
-   so; do not pad the count.
+7. **Report**: the issue URLs, and — explicitly — every candidate you skipped
+   with the reason. If you filed fewer than N, say so; do not pad the count.
 
-## Marking a stub claimed
+## Filing a claim
 
-Edit the stub file in place and commit it on a branch with the issue link:
+Two things make the issue a usable lock, and both are load-bearing:
 
-```yaml
-status: CLAIMED
-claimed_by: <github-handle>
-issue: <issue number or URL>
-```
+- **The `claim` label.** It is what makes the check a fast, immediately
+  consistent list query instead of a laggy search.
+- **The MONDO ID in the title.** It is the key everything matches on. An issue
+  titled `curate peripartum cardiomyopathy` locks nothing — `just check-claims`
+  reports those separately so they can be retitled.
 
-This is what stops two people claiming the same disease. `status` and
-`claimed_by` are the only fields you should change when claiming — leave
-`entry_type` as `UNDECIDED` until you have actually made the lump/split call.
-
-## Issue template
-
-Title:
+Title, exactly:
 
 ```
 Curate <label> (<MONDO_ID>)
+```
+
+```bash
+# The label may not exist yet in a fresh fork; this is idempotent.
+gh label create claim --description "Reserves a disease for curation" --color 0E8A16 --force
+
+gh issue create \
+  --title "Curate <label> (<MONDO_ID>)" \
+  --assignee "$(gh api user -q .login)" \
+  --label claim,curation,enhancement \
+  --body "$(cat <<'EOF'
+...body...
+EOF
+)"
 ```
 
 Body:
@@ -152,26 +173,16 @@ Curate a dismech entry for **<label>** ([<MONDO_ID>](https://monarchinitiative.o
 
 Stub: `stubs/<file>.yaml`
 Nominated by: <source_name from the stub>
-
-Tracker: part of #1079.
 ```
 
-Create with:
-
-```bash
-gh issue create \
-  --title "Curate <label> (<MONDO_ID>)" \
-  --assignee "$(gh api user -q .login)" \
-  --label curation,enhancement \
-  --body "$(cat <<'EOF'
-...body...
-EOF
-)"
-```
+**Do not edit the stub to record the claim.** The stub has no `claimed_by` or
+`status: CLAIMED` — that was removed on purpose. Two sources of truth for one
+fact is how they drift, and the YAML one is the slow, invisible one.
 
 ## Finishing a curation
 
-The curation PR **deletes the stub and adds the KB entry** in the same PR:
+The curation PR **deletes the stub and adds the KB entry**, and closes the claim
+issue:
 
 ```
 - stubs/Yao_Syndrome.yaml
@@ -179,9 +190,14 @@ The curation PR **deletes the stub and adds the KB entry** in the same PR:
 + history/disorders/Yao_Syndrome/...
 ```
 
-`just check-stubs` (part of `just qc`, and enforced by
+Put `Closes #<issue>` in the PR body so merging releases the claim. `just
+check-stubs` (in `just qc`, and enforced by
 `tests/test_stubs.py::test_no_stub_survives_curation`) fails if you leave the
 stub behind.
+
+If the answer turns out to be `GROUPING` / `SUBTYPE` / `OUT_OF_SCOPE`, the PR
+still deletes the stub — record the decision and reasoning in the PR body, and
+close the claim issue explaining it. That is a completed curation.
 
 ## Common mistakes
 
@@ -190,11 +206,19 @@ stub behind.
 - **Filing a curation issue for a grouping.** Check the suspicion list. Editing
   the stub's `entry_type` is the right output, and it counts as work done.
 - **Hardcoding a username.** Always resolve via `gh api user -q .login`.
-- **Claiming a disease that already has a KB entry, PR, or issue.** Run the
-  duplicate preflight. Coverage detection in tooling is by MONDO ID only;
+- **Claiming a disease that already has a KB entry or claim.** Run the
+  duplicate preflight. Both checks are by MONDO ID only;
   conceptual coverage under a different term (e.g. "Zellweger spectrum
   disorders" → `Peroxisome_Biogenesis_Disorder.yaml`) passes straight through.
-- **Claiming without marking the stub.** An unmarked stub gets claimed twice.
+- **Starting work before filing the claim issue.** The issue *is* the lock. Work
+  done before it exists is unprotected.
+- **Filing a claim without the `claim` label or without the MONDO ID in the
+  title.** Either one makes the issue invisible to the next person's check.
+- **Editing the stub to record a claim.** The stub has no claim fields. Use the
+  issue.
+- **Treating an old claim as free.** A claim with an open PR is live however old
+  it is. `just check-claims` flags old-with-no-PR claims; ask the assignee or
+  the user before taking one — do not just take it.
 - **Filing fewer issues than requested without saying so.** Report the shortfall.
 
 ## Adding to the queue
@@ -212,7 +236,8 @@ notes: Why this jumps the queue.
 Filename is the label slugged (`3MC_Syndrome_1.yaml`); `just check-stubs` will
 tell you if you got it wrong. See `docs/curation-stubs.md`.
 
-## Tracker
+## Not a tracker issue
 
-The umbrella issue for priority curation is **#1079**. Always link new curation
-issues back to it.
+Do **not** add `Tracker: part of #1079` to the body. That EPIC is a static
+keyword-scoped checklist covering four themes; most claims are not in it, so the
+line was decorative. Progress is `just stub-stats` and the size of `stubs/`.

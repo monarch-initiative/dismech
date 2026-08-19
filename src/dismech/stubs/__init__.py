@@ -9,6 +9,13 @@ This replaces reading a ranked score out of `dashboard/priority.json`. See
 `docs/curation-stubs.md`.
 """
 
+from .claims import (
+    Claim,
+    double_claims,
+    index_claims,
+    parse_claims,
+    unkeyed_claims,
+)
 from .model import (
     CoverageIndex,
     Stub,
@@ -25,6 +32,7 @@ from .model import (
 )
 
 __all__ = [
+    "Claim",
     "CoverageIndex",
     "Stub",
     "StubIssue",
@@ -32,9 +40,13 @@ __all__ = [
     "check_stubs",
     "default_repo_root",
     "default_stub_dir",
+    "double_claims",
+    "index_claims",
     "iter_stub_files",
     "load_stub",
     "load_stubs",
+    "parse_claims",
     "slugify_label",
     "stub_filename",
+    "unkeyed_claims",
 ]

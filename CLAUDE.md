@@ -208,8 +208,35 @@ Recording `GROUPING`, `SUBTYPE`, or `OUT_OF_SCOPE` and deleting the stub is a
 concept is not re-nominated.
 
 Anyone can change the queue by PR: add a stub (only `mondo_id` and `label` are
-required), raise or lower `priority` with a reason in `notes`, claim one with
-`status: CLAIMED` + `claimed_by`, or argue one out via `entry_type`.
+required), raise or lower `priority` with a reason in `notes`, or argue one out
+via `entry_type`.
+
+**Claiming a disease is NOT done in the stub.** The stub queue says what is left;
+an **open GitHub issue labelled `claim`**, titled `Curate <label>
+(MONDO:NNNNNNN)` and assigned to whoever is driving the work, says who has it
+right now. A claim written into YAML would only become visible when its PR
+merged — days too late to stop two agents picking the same disease — so the
+schema has no `claimed_by` and no `CLAIMED` status.
+
+```bash
+just fetch-claims          # one API call -> tmp/claims.json
+just next-unclaimed 5      # the two-phase pick: claims, then stubs
+just check-claims          # double-claims, unkeyed titles, stale claims
+```
+
+The `claim` label is what makes this correct as well as fast: `gh issue list
+--label claim` uses the immediately-consistent list endpoint, where the older
+`--search` preflight used the search API, whose index lag *was* the race window.
+The MONDO ID in the title is the key everything matches on — an issue titled
+`curate peripartum cardiomyopathy` locks nothing.
+
+A claim with an open PR is **never** stale, however old; long-running curation
+PRs are normal. `check-claims` reports old-with-no-PR claims for a person to
+follow up, and never releases one automatically. The curation PR carries
+`Closes #<issue>`, so merging deletes the stub and releases the claim together.
+
+This supersedes the #1079 EPIC checklist; new claim issues should not carry a
+`Tracker: part of #1079` line.
 
 The initial 1,879 stubs were seeded from the Monarch
 [rare-disease-identification](https://github.com/monarch-initiative/rare-disease-identification)
