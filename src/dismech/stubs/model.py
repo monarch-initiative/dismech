@@ -14,6 +14,19 @@ from dismech.yaml_io import safe_load
 
 MONDO_ID_PATTERN = re.compile(r"^MONDO:[0-9]{7}$")
 
+#: MONDO marks retired concepts by prefixing the label. Such a term is not a
+#: curation target under any reading, so a stub for one is an error rather than
+#: a judgement call. Same backstop the prioritizer config carries, for candidate
+#: exports that do not populate `is_obsolete`.
+OBSOLETE_LABEL_PATTERN = re.compile(r"^\s*obsolete\b", re.IGNORECASE)
+
+#: A label or synonym has to carry some information before a collision with a KB
+#: entry means anything. An acronym -- `AIP`, `Bss`, `CRD` -- collides by
+#: coincidence, so short or single-word strings are not compared.
+_MIN_INFORMATIVE_CHARS = 8
+_MIN_INFORMATIVE_WORDS = 2
+_NORMALIZE_STRIP = re.compile(r"[^a-z0-9 ]+")
+
 #: Statuses a stub may carry. Mirrors StubStatusEnum in the schema. There is no
 #: CLAIMED: claims live on GitHub as `claim`-labelled issues, because a claim
 #: written into YAML only becomes visible when its PR merges. See claims.py.
@@ -30,6 +43,43 @@ _PRIORITY_ORDER = {"HIGH": 0, "NORMAL": 1, "LOW": 2}
 # (`22q11.2_Deletion_Syndrome.yaml`), so the stub slug uses the same alphabet.
 _SLUG_KEEP = re.compile(r"[^A-Za-z0-9.\- ]+")
 _SLUG_SPACE = re.compile(r"\s+")
+
+
+def normalize_label(value: Any) -> str:
+    """Casefold and strip punctuation so labels compare across styles.
+
+    `Wilms' tumor` and `Wilms tumor`, `Desanto-Shinawi` and `DeSanto-Shinawi`.
+    """
+    if not value:
+        return ""
+    folded = unicodedata.normalize("NFKD", str(value))
+    folded = "".join(c for c in folded if not unicodedata.combining(c))
+    folded = _NORMALIZE_STRIP.sub(" ", folded.lower())
+    return re.sub(r"\s+", " ", folded).strip()
+
+
+def is_informative_label(normalized: str) -> bool:
+    """Whether a normalized label is specific enough to match on."""
+    return (
+        len(normalized) >= _MIN_INFORMATIVE_CHARS
+        and len(normalized.split()) >= _MIN_INFORMATIVE_WORDS
+    )
+
+
+def entry_label_strings(data: dict[str, Any]) -> list[str]:
+    """Every name a KB entry answers to: name, display name, term label, synonyms."""
+    disease_term = data.get("disease_term") or {}
+    labels: list[Any] = [
+        data.get("name"),
+        data.get("display_name"),
+        (disease_term.get("term") or {}).get("label"),
+        disease_term.get("preferred_term"),
+    ]
+    for synonym in data.get("synonyms") or []:
+        labels.append(
+            synonym if isinstance(synonym, str) else (synonym or {}).get("name")
+        )
+    return [str(label) for label in labels if label]
 
 
 def default_repo_root() -> Path:
@@ -159,12 +209,21 @@ class CoverageIndex:
     ids: dict[str, str] = field(default_factory=dict)
     #: Entry filename stem -> "disorders/Foo.yaml", for the name-collision advisory.
     stems: dict[str, str] = field(default_factory=dict)
+    #: Normalized label/synonym -> "disorders/Foo.yaml". Catches a disease the KB
+    #: curated under a *different* MONDO ID, which the ID index cannot see.
+    labels: dict[str, str] = field(default_factory=dict)
 
     def covered_by(self, mondo_id: str) -> str | None:
         return self.ids.get(mondo_id)
 
     def entry_named(self, stem: str) -> str | None:
         return self.stems.get(stem)
+
+    def entry_labelled(self, label: str) -> str | None:
+        normalized = normalize_label(label)
+        if not is_informative_label(normalized):
+            return None
+        return self.labels.get(normalized)
 
 
 def _grouping_mondo_ids(data: dict[str, Any]) -> list[str]:
@@ -218,6 +277,10 @@ def build_coverage_index(kb_dirs: list[Path] | None = None) -> CoverageIndex:
                 continue
             rel = f"{kb_dir.name}/{path.name}"
             index.stems.setdefault(path.stem, rel)
+            for label in entry_label_strings(data):
+                normalized = normalize_label(label)
+                if is_informative_label(normalized):
+                    index.labels.setdefault(normalized, rel)
             if is_grouping:
                 for mondo_id in _grouping_mondo_ids(data):
                     index.ids.setdefault(mondo_id, rel)
@@ -274,6 +337,14 @@ def check_stubs(
             )
         if not stub.label:
             issues.append(StubIssue(path, "missing_label", "no `label`"))
+        elif OBSOLETE_LABEL_PATTERN.match(stub.label):
+            issues.append(
+                StubIssue(
+                    path,
+                    "obsolete_term",
+                    f"{mondo_id} is an obsolete MONDO term — delete this stub",
+                )
+            )
 
         if stub.status not in STATUSES:
             issues.append(
@@ -324,19 +395,31 @@ def check_stubs(
             )
             continue
 
-        # Same common name, different MONDO ID. Usually the KB curated a
-        # narrower concept (`familial long QT syndrome` for a `long QT syndrome`
-        # stub); sometimes it is the same disease under a different ID. A person
-        # has to decide, so this is advisory.
-        same_name = index.entry_named(path.stem)
-        if same_name:
+        # Same name, different MONDO ID. The ID index cannot see this, and the
+        # answer genuinely varies: `Friedreich ataxia 1` (MONDO:0100340) against
+        # a curated `Friedreich_Ataxia` may want deleting or may want a mapping
+        # added to the existing entry, while `Leber congenital amaurosis type 1`
+        # against a gene-first `GUCY2D-Related_Retinopathy` is arguably a
+        # distinct entry. A person has to decide, so this is advisory.
+        candidates = [stub.label, *(stub.data.get("synonyms") or [])]
+        for candidate in candidates:
+            same_disease = index.entry_labelled(candidate)
+            if not same_disease:
+                continue
+            via = (
+                ""
+                if normalize_label(candidate) == normalize_label(stub.label)
+                else (f" (via synonym {candidate!r})")
+            )
             issues.append(
                 StubIssue(
                     path,
                     "possible_kb_duplicate",
-                    f"{same_name} shares this name but curates a different MONDO ID",
+                    f"{same_disease} answers to this name{via} "
+                    "but curates a different MONDO ID",
                     severity="advisory",
                 )
             )
+            break
 
     return issues

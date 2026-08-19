@@ -152,6 +152,23 @@ def test_seeded_stubs_do_not_prejudge_entry_type():
     assert payload["status"] == "OPEN"
 
 
+def test_no_stub_names_an_obsolete_mondo_term(issues):
+    """MONDO prefixes a retired concept's label; it is never a curation target."""
+    obsolete = [i for i in issues if i.kind == "obsolete_term"]
+    assert not obsolete, "\n".join(i.format() for i in obsolete)
+
+
+def test_duplicate_detection_matches_synonyms_not_acronyms():
+    """`Wilms tumor 1` must match a curated `Wilms' tumor`; `AIP` must not match."""
+    from dismech.stubs.model import is_informative_label, normalize_label
+
+    assert normalize_label("Wilms' tumor") == normalize_label("Wilms tumor")
+    assert normalize_label("DeSanto-Shinawi") == normalize_label("Desanto shinawi")
+    assert is_informative_label(normalize_label("Wilms tumor")) is True
+    for acronym in ("AIP", "Bss", "CRD", "AMC"):
+        assert is_informative_label(normalize_label(acronym)) is False
+
+
 def test_stubs_are_not_all_claimed():
     """Sanity check that the queue still has work in it."""
     stubs = load_stubs(STUB_DIR)

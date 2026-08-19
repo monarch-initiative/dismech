@@ -20,6 +20,7 @@ from typing import Any, Iterable
 from dismech.yaml_io import safe_load
 
 from .model import (
+    OBSOLETE_LABEL_PATTERN,
     Stub,
     build_coverage_index,
     load_stubs,
@@ -36,6 +37,7 @@ class SeedResult:
     nominated: int = 0
     already_curated: int = 0
     already_stubbed: int = 0
+    obsolete: int = 0
     skipped: int = 0
     written: int = 0
     paths: list[Path] = None  # type: ignore[assignment]
@@ -251,6 +253,11 @@ def seed_stubs(
     stub_dir.mkdir(parents=True, exist_ok=True)
 
     for nomination in nominations:
+        if OBSOLETE_LABEL_PATTERN.match(nomination.label):
+            # MONDO marks a retired concept by prefixing its label. Nothing
+            # downstream should ever ask a curator to model one.
+            result.obsolete += 1
+            continue
         if coverage.covered_by(nomination.mondo_id):
             result.already_curated += 1
             continue

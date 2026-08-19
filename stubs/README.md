@@ -59,7 +59,7 @@ Defined by [`src/dismech/schema/curation_stub.yaml`](../src/dismech/schema/curat
 
 ## Seeded from
 
-The initial 1,879 stubs come from the Monarch
+The initial 1,867 stubs come from the Monarch
 [rare-disease-identification](https://github.com/monarch-initiative/rare-disease-identification)
 prioritised rare disease list, minus every concept the KB already covers. Those
 stubs are `entry_type: UNDECIDED` and `priority: NORMAL` across the board on

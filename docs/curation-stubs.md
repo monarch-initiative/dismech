@@ -207,17 +207,38 @@ So the workflow is enforced rather than remembered:
 The check runs in `just qc` and in `tests/test_stubs.py`
 (`test_no_stub_survives_curation`).
 
-There is one advisory finding that never gates: `possible_kb_duplicate`, raised
-when a stub's filename matches an existing KB entry curated under a *different*
-MONDO ID. Both current cases are real and want a human — `stubs/Long_QT_Syndrome.yaml`
-(`MONDO:0002442`) against `kb/disorders/Long_QT_Syndrome.yaml`, which curates the
-narrower `familial long QT syndrome` (`MONDO:0019171`), and the same pattern for
-GLUT1 deficiency. Either the stub is redundant, or the KB entry should gain a
-mapping. The tool cannot tell, so it says so and stops.
+### Did anything already curated get a stub?
+
+No — the seeder skips any nomination whose MONDO ID a KB entry already covers
+(1,200 of the 3,079 nominations), and `check-stubs` errors if one slips through.
+Two things the MONDO-ID check *cannot* see are handled separately.
+
+**Obsolete terms are an error.** MONDO prefixes a retired concept's label with
+`obsolete`, and such a term is not a curation target under any reading. The
+seeder skips them and `check-stubs` errors on one. Twelve were seeded before this
+was added, and were deleted.
+
+**Curated under a different MONDO ID is an advisory.** `possible_kb_duplicate`
+fires when a stub's label — or any of its synonyms — matches a name an existing
+KB entry answers to, while the MONDO IDs differ. There are 40, and they need a
+person because the answer genuinely varies:
+
+- `stubs/Friedreich_Ataxia_1.yaml` (`MONDO:0100340`) against a curated
+  `Friedreich_Ataxia`. Probably redundant, or the entry should gain the mapping.
+- `stubs/Long_QT_Syndrome.yaml` (`MONDO:0002442`) against
+  `kb/disorders/Long_QT_Syndrome.yaml`, which curates the narrower *familial*
+  long QT syndrome (`MONDO:0019171`). Arguably both should exist.
+- `stubs/Leber_Congenital_Amaurosis_1.yaml` against a gene-first
+  `GUCY2D-Related_Retinopathy`. Arguably a distinct entry that wants keeping.
+
+Matching normalizes case, accents, and punctuation (`Wilms' tumor` ≡
+`Wilms tumor`; `DeSanto-Shinawi` ≡ `Desanto shinawi`) and ignores anything under
+eight characters or one word, so acronyms — `AIP`, `Bss`, `CRD` — do not collide
+by coincidence. The tool reports and stops; it never deletes.
 
 ## Where the initial queue came from
 
-1,879 stubs, seeded from the Monarch
+1,867 stubs, seeded from the Monarch
 [rare-disease-identification](https://github.com/monarch-initiative/rare-disease-identification)
 prioritised rare disease list (3,079 diseases, human-curated for phenotypic
 characterization research), minus the 1,200 already covered by the KB.

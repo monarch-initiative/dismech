@@ -238,7 +238,7 @@ follow up, and never releases one automatically. The curation PR carries
 This supersedes the #1079 EPIC checklist; new claim issues should not carry a
 `Tracker: part of #1079` line.
 
-The initial 1,879 stubs were seeded from the Monarch
+The initial 1,867 stubs were seeded from the Monarch
 [rare-disease-identification](https://github.com/monarch-initiative/rare-disease-identification)
 prioritised rare disease list, minus concepts the KB already covers. The MONDO
 prioritizer and `dashboard/priority.html` still exist as a *browsable pool* for

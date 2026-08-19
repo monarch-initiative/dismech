@@ -299,6 +299,7 @@ def seed_command(
         f"nominated={result.nominated} "
         f"already_curated={result.already_curated} "
         f"already_stubbed={result.already_stubbed} "
+        f"obsolete={result.obsolete} "
         f"skipped={result.skipped} "
         f"written={result.written}"
     )
