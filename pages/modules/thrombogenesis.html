@@ -51,6 +51,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -256,6 +375,61 @@
             font-weight: 500;
         }
 
+        /* Ontology term pills explain themselves on hover AND on focus
+           (issues #8310, #8355). The text lives in a real element rather than a
+           `title` attribute so it reaches four audiences with one copy: mouse
+           hover, keyboard focus, a touch tap (which focuses), and screen
+           readers via aria-describedby. */
+        .tag {
+            position: relative;
+        }
+
+        .pill-tip {
+            display: none;
+            position: absolute;
+            z-index: 60;
+            left: 0;
+            top: calc(100% + 6px);
+            width: max-content;
+            max-width: min(34rem, 80vw);
+            white-space: pre-line;
+            text-align: left;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 400;
+            line-height: 1.45;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        }
+
+        /* `.pill-tip:hover` keeps it open while the pointer is on the tooltip
+           itself, which WCAG 2.1 SC 1.4.13 requires of hover-triggered content. */
+        *:hover > .pill-tip,
+        *:focus-within > .pill-tip,
+        .pill-tip:hover {
+            display: block;
+        }
+
+        /* Escape sets [hidden]; this must out-rank the show rules above. */
+        *:hover > .pill-tip[hidden],
+        *:focus-within > .pill-tip[hidden],
+        .pill-tip[hidden]:hover {
+            display: none;
+        }
+
+        .tag:focus-visible {
+            outline: 2px solid #4338ca;
+            outline-offset: 2px;
+        }
+
+        /* Ontology term pills carry a plain-language tooltip (issue #8310);
+           the help cursor is the only hint that hovering is worthwhile. */
+        .tag:has(> .pill-tip) {
+            cursor: help;
+        }
+
         .tag-cell {
             background: #fce7f3;
             color: #9d174d;
@@ -316,7 +490,6 @@
         .curie-chip-hgnc { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
         .curie-chip-mondo { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
         .curie-chip-uberon { background: #ccfbf1; color: #115e59; border-color: #99f6e4; }
-        .curie-chip-maxo { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
         .curie-chip-ncit { background: #e0e7ff; color: #3730a3; border-color: #c7d2fe; }
         .curie-chip-chebi { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
         .curie-chip-geno { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
@@ -354,6 +527,24 @@
             scroll-margin-top: 96px;
         }
 
+        /* Flash a card after jumping to it from a pathograph node */
+        @keyframes dismech-jump-flash {
+            0%   { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.65); background-color: rgba(219, 234, 254, 0.85); }
+            70%  { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35); background-color: rgba(219, 234, 254, 0.45); }
+            100% { box-shadow: 0 0 0 3px rgba(37, 99, 235, 0);    background-color: transparent; }
+        }
+
+        .dismech-jump-flash {
+            animation: dismech-jump-flash 1.6s ease-out 1;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dismech-jump-flash {
+                animation-duration: 0.01s;
+                outline: 3px solid rgba(37, 99, 235, 0.65);
+            }
+        }
+
         /* Mechanistic hypotheses */
         .hypothesis-box {
             background: linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%);
@@ -361,6 +552,8 @@
             border-left: 4px solid #059669;
         }
         .hypothesis-box .item-name { color: #065f46; }
+        /* Keep curator-written paragraph breaks in hypothesis descriptions. */
+        .hypothesis-box .item-desc { white-space: pre-line; }
 
         /* Deprecated hypotheses: strip the green "accepted-model" cue and mute */
         .hypothesis-box.hypothesis-deprecated {
@@ -380,6 +573,57 @@
         .tag-hypothesis-ALTERNATIVE { background: #e0e7ff; color: #3730a3; }
         .tag-hypothesis-EMERGING { background: #cffafe; color: #155e75; }
         .tag-hypothesis-DEPRECATED { background: #fde68a; color: #92400e; }
+
+        /* Explicit editorial callout on a deprecated/refuted hypothesis. */
+        .hypothesis-overturned {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fcd34d;
+            border-left: 4px solid #d97706;
+            border-radius: 6px;
+            background: #fffbeb;
+        }
+        .hypothesis-overturned-title {
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: #92400e;
+            margin-bottom: 6px;
+        }
+        .hypothesis-overturned p {
+            margin: 0 0 6px 0;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #78350f;
+        }
+        .hypothesis-overturned p:last-child { margin-bottom: 0; }
+
+        /* Supporting-vs-refuting split for a hypothesis's own evidence list */
+        .hypothesis-evidence-balance {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .hypothesis-evidence-balance-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+        .evidence-support {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .support-SUPPORT { background: #d1fae5; color: #065f46; }
+        .support-PARTIAL { background: #fef3c7; color: #92400e; }
+        .support-REFUTE { background: #fee2e2; color: #991b1b; }
+        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
+        .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
             font-size: 0.82rem;
@@ -524,8 +768,16 @@
             max-width: 320px;
             z-index: 100;
             opacity: 0;
-            transition: opacity 0.15s;
+            /* Hidden tooltips must leave the tab order, or the jump button stays
+               focusable while invisible. Delay visibility so the fade survives. */
+            visibility: hidden;
+            transition: opacity 0.15s, visibility 0s linear 0.15s;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .pathograph-tooltip.is-visible {
+            visibility: visible;
+            transition: opacity 0.15s, visibility 0s;
         }
 
         .pathograph-tooltip .tt-title {
@@ -555,6 +807,35 @@
         .pathograph-tooltip .tt-meta span {
             display: block;
             margin: 2px 0;
+        }
+
+        .pathograph-tooltip.is-pinned {
+            pointer-events: auto;
+        }
+
+        .pathograph-tooltip .tt-jump {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 3px 8px;
+            font: inherit;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #dbeafe;
+            background: rgba(37, 99, 235, 0.35);
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pathograph-tooltip .tt-jump:hover {
+            background: rgba(37, 99, 235, 0.6);
+            color: #fff;
+        }
+
+        .pathograph-tooltip .tt-hint {
+            margin-top: 6px;
+            font-size: 0.68rem;
+            opacity: 0.6;
         }
 
         .graph-warning {
@@ -678,6 +959,47 @@
         return parts.join("\n");
     }
 
+    /* -- Jump from a pathograph node to the matching card on the page -- */
+    function findCardForNode(nodeId, nodeType) {
+        var candidates = document.querySelectorAll("[data-dismech-node]");
+        var fallback = null;
+        for (var i = 0; i < candidates.length; i++) {
+            var el = candidates[i];
+            if (el.getAttribute("data-dismech-node") !== nodeId) continue;
+            /* Prefer the card whose section matches the node type, since the same
+               name can appear in more than one section. */
+            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!fallback) fallback = el;
+        }
+        if (fallback) return fallback;
+        /* Dangling semantic refs arrive as "section#Name" and are drawn as orphan
+           nodes, but the card they name is usually right there on the page. */
+        var hash = nodeId.indexOf("#");
+        if (hash > 0) {
+            return findCardForNode(nodeId.slice(hash + 1), nodeId.slice(0, hash));
+        }
+        return null;
+    }
+
+    function jumpToCard(nodeId, nodeType) {
+        var target = findCardForNode(nodeId, nodeType);
+        if (!target) return false;
+        /* Expand any collapsed <details> ancestors, e.g. phenotype category groups. */
+        var ancestor = target.parentElement;
+        while (ancestor) {
+            if (ancestor.tagName === "DETAILS") ancestor.open = true;
+            ancestor = ancestor.parentElement;
+        }
+        target.scrollIntoView({behavior: "smooth", block: "start"});
+        target.classList.remove("dismech-jump-flash");
+        void target.offsetWidth; /* restart the animation on a repeat jump */
+        target.classList.add("dismech-jump-flash");
+        window.setTimeout(function() {
+            target.classList.remove("dismech-jump-flash");
+        }, 2500);
+        return true;
+    }
+
     function renderPathograph(containerId, data) {
         var container = document.getElementById(containerId);
         var svgEl = document.getElementById(containerId + "-svg");
@@ -689,6 +1011,9 @@
         var g = new dagre.graphlib.Graph();
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
+
+        /* Node id of the tooltip the user clicked (pinned), if any. */
+        var pinnedNodeId = null;
 
         var nodeMap = {};
         data.nodes.forEach(function(n) {
@@ -859,19 +1184,39 @@
                 .text(label);
 
             nodeG.on("mouseenter", function(event) {
+                /* A pinned tooltip stays put until the user dismisses it. */
+                if (pinnedNodeId && pinnedNodeId !== n.id) return;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             }).on("mouseleave", function() {
+                if (pinnedNodeId) return;
                 highlightNode(n.id, false);
                 hideTooltip();
             }).on("click", function(event) {
                 event.stopPropagation();
+                pinnedNodeId = n.id;
                 highlightNode(n.id, true);
                 showTooltip(event, n);
             });
         });
 
         svg.on("click", function() {
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        /* Escape, or a click anywhere outside the graph, dismisses a pinned tooltip. */
+        document.addEventListener("keydown", function(event) {
+            if (event.key !== "Escape" || !pinnedNodeId) return;
+            unpinTooltip();
+            clearHighlight();
+            hideTooltip();
+        });
+
+        document.addEventListener("click", function(event) {
+            if (!pinnedNodeId || container.contains(event.target)) return;
+            unpinTooltip();
             clearHighlight();
             hideTooltip();
         });
@@ -1007,8 +1352,26 @@
                 html.push(readoutHtml);
             }
 
+            var isPinned = pinnedNodeId === n.id;
+            if (findCardForNode(n.id, n.node_type)) {
+                if (isPinned) {
+                    html.push('<button type="button" class="tt-jump">Jump to details \u2193</button>');
+                } else {
+                    html.push('<div class="tt-hint">Click to pin and jump to details</div>');
+                }
+            }
+
             tooltipEl.innerHTML = html.join("");
+            tooltipEl.classList.toggle("is-pinned", isPinned);
+            var jumpBtn = tooltipEl.querySelector(".tt-jump");
+            if (jumpBtn) {
+                jumpBtn.addEventListener("click", function(clickEvent) {
+                    clickEvent.stopPropagation();
+                    jumpToCard(n.id, n.node_type);
+                });
+            }
             tooltipEl.style.opacity = "1";
+            tooltipEl.classList.add("is-visible");
 
             var rect = container.getBoundingClientRect();
             var x = event.clientX - rect.left + 14;
@@ -1021,6 +1384,12 @@
 
         function hideTooltip() {
             tooltipEl.style.opacity = "0";
+            tooltipEl.classList.remove("is-pinned");
+            tooltipEl.classList.remove("is-visible");
+        }
+
+        function unpinTooltip() {
+            pinnedNodeId = null;
         }
 
         function escapeHtml(str) {
@@ -1086,11 +1455,55 @@
 </head>
 <body>
     
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
 
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     
 
     
 
+    
+
+    
     
     <nav class="site-nav">
         <div class="nav-inner">
@@ -1127,13 +1540,13 @@
             <div class="header-meta">
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">thrombogenesis</span>
-                <span class="badge badge-count">0 disorders</span>
+                <span class="badge badge-count">8 disorders</span>
                 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
                 
             </div>
             
-            <div class="header-description">A conserved pathophysiology module representing the formation of a thrombus - the pathological intravascular clot that recurs across venous thromboembolism (deep vein thrombosis, pulmonary embolism), arterial thrombosis (myocardial infarction, ischemic stroke), cancer-associated thrombosis, antiphospholipid syndrome, and immobilization. Thrombosis is driven by Virchow&#39;s triad - endothelial injury, blood stasis, and hypercoagulability. These predisposing states promote platelet adhesion, activation, and aggregation at the vessel wall while simultaneously activating the coagulation cascade: tissue factor triggers thrombin generation, and thrombin cleaves fibrinogen into a crosslinked, insoluble fibrin network. Fibrin and aggregated platelets assemble into a thrombus that propagates and occludes the vessel; fragments may embolize downstream. The occlusion and embolization cause ischemic tissue injury and thromboembolic disease. The module captures the shared core across venous and arterial thrombotic disorders. Conforming disorder nodes substitute the disease-specific dominant limb of Virchow&#39;s triad (venous stasis in immobilization, endothelial injury/plaque rupture in arterial thrombosis, a hypercoagulable state in cancer, thrombophilia, or antiphospholipid syndrome) while preserving the triad -&gt; platelet activation -&gt; coagulation/fibrin -&gt; thrombus propagation/occlusion -&gt; thromboembolism causal chain.</div>
+            <div class="header-description">A conserved pathophysiology module representing conventional platelet-assisted, thrombin/fibrin thrombogenesis across venous and arterial thrombotic disorders. One or more Virchow-triad conditions - vessel-wall perturbation, altered or stagnant blood flow, and hypercoagulability - can create the prothrombotic context. Platelet adhesion, activation, secretion, and aggregation participate alongside tissue-factor-initiated thrombin generation and fibrin formation. The evidence used here does not establish a fixed platelet contribution, thrombus composition, or sequence across arterial and venous settings, so those features remain disease-specific. The defining output is pathological intravascular fibrin-platelet thrombus formation. A formed thrombus may remain nonocclusive or may later grow and obstruct local blood flow. If obstruction compromises tissue perfusion, ischemic injury can follow as a conditional, site-dependent consequence. A venous thrombus may instead dislodge and travel to the pulmonary arteries; this narrowly evidenced embolic branch is separate from local ischemic injury. None of occlusion, ischemia, or embolization is required for conformance. Conformance is branch- and node-qualified: disorder entries map only the stages their evidence directly represents and do not imply the entire module chain from a downstream match.</div>
             
         </header>
 
@@ -1142,10 +1555,10 @@
                 <div class="card-header">
                     <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                     <h2 class="card-title">Pathophysiology Nodes</h2>
-                    <span class="card-count">5</span>
+                    <span class="card-count">6</span>
                 </div>
                 <div class="empty-state">
-                    5 shared nodes are defined in this module.
+                    6 shared nodes are defined in this module.
                 </div>
             </div>
 
@@ -1153,31 +1566,12 @@
                 <div class="card-header">
                     <div class="card-icon" style="background: #fce7f3; color: #be185d;">◉</div>
                     <h2 class="card-title">Cell Types</h2>
-                    <span class="card-count">2</span>
+                    <span class="card-count">1</span>
                 </div>
                 
                 <div class="tag-list">
                     
-                    <span class="tag tag-cell">
-                        vascular endothelial cell
-                        
-                        
-    
-    
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
-    
-    
-                        
-                    </span>
                     
-    
-    
-    
-    
-    
-    
-    
-    
                     
                     <span class="tag tag-cell">
                         platelet
@@ -1185,10 +1579,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000233</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this mechanism module involves this cell type
+This mechanism module involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1213,28 +1610,7 @@
                 
                 <div class="tag-list">
                     
-                    <span class="tag tag-bio">
-                        blood coagulation
-                        
-                        
-    
-    
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
-    
-    
-                        
-                    </span>
                     
-    
-    <span class="tag tag-modifier">INCREASED</span>
-    
-    
-    
-    
-    
-    
-    
-    
                     
                     <span class="tag tag-bio">
                         platelet activation
@@ -1242,10 +1618,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030168">GO:0030168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030168</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased platelet activation (GO:0030168). GO:0030168 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1258,6 +1637,8 @@
     
     
     
+                    
+                    
                     
                     <span class="tag tag-bio">
                         platelet aggregation
@@ -1265,10 +1646,13 @@
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070527">GO:0070527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0070527</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1282,16 +1666,49 @@
     
     
                     
+                    
+                    
+                    <span class="tag tag-bio">
+                        blood coagulation
+                        
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007596</a>
+    
+    
+                        
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
+                    </span>
+                    
+    
+    <span class="tag tag-modifier">INCREASED</span>
+    
+    
+    
+    
+    
+    
+    
+    
+                    
+                    
+                    
                     <span class="tag tag-bio">
                         fibrin clot formation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072378">GO:0072378</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0072378</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this mechanism module involves this biological process
+This mechanism module involves increased fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1316,8 +1733,10 @@
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
                 <h2 class="card-title">Notes</h2>
             </div>
-            <div class="item-desc">This is a mechanism module, not a specific disease. It is a pathological structure-formation (&#34;Xogenesis&#34;) module. Xogenesis anchor: the terminal output is a thrombus, an OGMS:0000078 pathological anatomical structure produced by an OGMS:0000081 pathological derivation (a new intravascular formation); process genus OGMS:0000061 pathological bodily process; site UBERON:0001981 blood vessel. MPATH represents the process as MPATH:125 (thrombosis) but has no distinct &#34;thrombus&#34; continuant class, an OBO gap noted for upstream contribution. SNOMED &#34;Morphologically abnormal structure&#34; (49755003) is used only as an external census/gap guide and is not bound here. Disorder entries reference individual nodes via conforms_to (for example, &#34;thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation&#34;). The module defines the expected pathophysiology structure; conforming nodes in disorder files should include the corresponding cell types, biological processes, and causal edges, specialized to their disease context. Key disease-specific substitutions: venous thromboembolism substitutes stasis (immobilization) as the dominant trigger; arterial thrombosis substitutes endothelial injury / atherosclerotic plaque rupture and a platelet-rich white thrombus; cancer-associated and antiphospholipid thrombosis substitute a systemic hypercoagulable state. Modules bind GO and CL terms only and do not use chemical (CHEBI) or disease (MONDO) term bindings, except in the treatments block where the therapeutic agent carries an ontology identifier per the treatment schema.</div>
+            <div class="item-desc">This is a mechanism module, not a specific disease. It is a pathological structure-formation (&#34;Xogenesis&#34;) module. Xogenesis anchor: the terminal output is a thrombus, an OGMS:0000078 pathological anatomical structure produced by an OGMS:0000081 pathological derivation (a new intravascular formation); process genus OGMS:0000061 pathological bodily process; site UBERON:0001981 blood vessel. MPATH represents the process as MPATH:125 (thrombosis) but has no distinct &#34;thrombus&#34; continuant class, an OBO gap noted for upstream contribution. SNOMED &#34;Morphologically abnormal structure&#34; (49755003) is used only as an external census/gap guide and is not bound here. Disorder entries reference individual nodes via conforms_to (for example, &#34;thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation&#34;). The module defines the expected pathophysiology structure; conforming nodes in disorder files should include the corresponding cell types, biological processes, and causal edges, specialized to their disease context. Operational conformance boundary: a disease branch is in scope when it directly represents pathological intravascular formation of a platelet-assisted, thrombin-generated fibrin thrombus. That formed fibrin-platelet thrombus is necessary and sufficient for branch-level qualification, but each conforms_to assertion remains local to the stage actually modeled. This is an operational curation boundary, not a formal Grouping criteria assertion. A Virchow-triad context, a separately represented platelet amplifier, and local occlusion, ischemic injury, or venous embolization are not all required as separate nodes. Conversely, ischemia, infarction, vessel occlusion, or embolism alone is not sufficient to infer thrombogenesis. The module evidence identifies platelet processes and thrombin/fibrin formation as interacting components but does not license fixed arterial-versus-venous composition or platelet dominance; conformers must specialize their relative contribution using disease-specific evidence. Physiologic hemostatic plugs, nonthrombotic emboli or occlusions, and VWF-platelet microangiopathy such as thrombotic thrombocytopenic purpura are out of scope unless a distinct conventional thrombin/fibrin thrombosis branch is explicitly evidenced. Key disease-specific substitutions include venous stasis in immobilization, arterial plaque disruption, and systemic hypercoagulability in cancer, thrombophilia, or thrombotic antiphospholipid syndrome. The module&#39;s treatment is a mechanistic target pattern, not an inherited treatment recommendation; agent selection and contraindications remain disease-specific. Pathophysiology nodes bind GO biological processes, CL cell types, and, where needed, UBERON anatomy; they do not bind CHEBI chemicals or MONDO diseases. The treatments block may bind a therapeutic agent per the treatment schema.</div>
         </div>
+        
+
         
 
         
@@ -1328,10 +1747,192 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">0</span>
+                <span class="card-count">8</span>
             </div>
             
-            <div class="empty-state">No disorder entries currently reference this module via <code>conforms_to</code>.</div>
+            <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Amniotic_Fluid_Embolism.html">Amniotic Fluid Embolism</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Coagulation Activation and Fibrinogen Consumption → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Antiphospholipid_Syndrome.html">Antiphospholipid Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Platelet activation → Platelet Adhesion, Activation, and Aggregation
+                        
+                        
+                        , 
+                        
+                        Coagulation cascade activation and thrombin-driven fibrin formation → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        
+                        
+                        , 
+                        
+                        Arterial and venous thrombosis → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                        , 
+                        
+                        Acute thrombotic vascular occlusion and ischemic tissue injury → Thrombotic Vascular Occlusion and Ischemic Tissue Injury
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Dilated_Cardiomyopathy_1A.html">Dilated Cardiomyopathy 1A</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Intracardiac Thrombus Formation → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/HELLP_Syndrome.html">HELLP Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Platelet Activation and Consumptive Thrombocytopenia → Platelet Adhesion, Activation, and Aggregation
+                        
+                        
+                        , 
+                        
+                        Hepatic Sinusoidal Microthrombosis and Fibrin Deposition → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        FcgammaRIIA-Mediated Platelet Activation by Immune Complexes → Platelet Adhesion, Activation, and Aggregation
+                        
+                        
+                        , 
+                        
+                        Explosive Thrombin Generation → Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation
+                        
+                        
+                        , 
+                        
+                        Venous and Arterial Thrombosis → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                        , 
+                        
+                        Thrombotic Occlusion and Ischemic Tissue Injury → Thrombotic Vascular Occlusion and Ischemic Tissue Injury
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Infective_Endocarditis.html">Infective Endocarditis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Endothelial injury and sterile thrombus formation → Platelet Adhesion, Activation, and Aggregation
+                        
+                        
+                        , 
+                        
+                        Vegetation maturation with biofilm-like protection → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                        , 
+                        
+                        Systemic embolization of vegetation fragments → Thrombotic Vascular Occlusion and Ischemic Tissue Injury
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Posterior_Myocardial_Infarction.html">Posterior Myocardial Infarction</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Coronary thrombosis and occlusion → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                        , 
+                        
+                        Posterior myocardial ischemic cell death → Thrombotic Vascular Occlusion and Ischemic Tissue Injury
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Pulmonary_Embolism.html">Pulmonary Embolism</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Prothrombotic venous context → Virchow-Triad Prothrombotic Context
+                        
+                        
+                        , 
+                        
+                        Deep venous thrombus formation → Pathological Fibrin-Platelet Thrombus Formation
+                        
+                        
+                        , 
+                        
+                        Embolization to the pulmonary arterial tree → Venous Thrombus Embolization to Pulmonary Arteries
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+            </div>
             
         </div>
 
@@ -1353,7 +1954,7 @@
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anticoagulation (Factor Xa / Thrombin Inhibition)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anticoagulants blunt thrombus formation by inhibiting the coagulation cascade. Direct oral anticoagulants act on the central effector directly: factor Xa inhibitors (e.g., rivaroxaban, apixaban) block prothrombinase-driven thrombin generation, and direct thrombin inhibitors block thrombin itself, preventing fibrin formation and thrombus growth. Represents the thrombogenesis drug-target design pattern for conforming disorders, acting on the coagulation/thrombin node rather than on the established clot.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"rivaroxaban\"]}}, {\"id\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The rate-limiting central effector of thrombogenesis. Tissue factor exposed by injury forms the extrinsic tenase complex, driving assembly of the prothrombinase complex (FXa-FVa) that converts prothrombin to thrombin; intrinsic tenase amplifies thrombin generation on the activated platelet surface. Thrombin then cleaves fibrinogen into fibrin monomers that polymerize and crosslink into an insoluble fibrin network. This thrombin-driven fibrin formation is the disorder-agnostic convergence step that solidifies the thrombus and is the key conformance target of the module.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation\", \"fibrin clot formation\"], \"role\": \"central_effector\"}}, {\"id\": \"Fibrin-Platelet Thrombus Propagation and Vascular Occlusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The crosslinked fibrin network and aggregated platelets assemble into a thrombus that grows and propagates along the vessel, progressively narrowing and then occluding the lumen. The thrombus is the pathological intravascular structure produced by the module; its growth converts a localized clot into a flow-limiting obstruction.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation, fibrin clot formation\"], \"role\": \"effector\", \"locations\": [\"blood vessel\"]}}, {\"id\": \"Platelet Adhesion, Activation, and Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"At the site of endothelial injury or prothrombotic activation, circulating platelets adhere to exposed subendothelial matrix, become activated, secrete their granule contents, and aggregate with one another. Platelet activation both builds the cellular mass of the thrombus and provides the negatively charged phospholipid surface on which coagulation reactions are amplified, coupling the platelet arm to the coagulation arm of thrombus formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\", \"platelet aggregation\"], \"role\": \"amplifier\"}}, {\"id\": \"Thromboembolism and Ischemic Tissue Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical end state of the module. An occlusive thrombus obstructs blood flow and causes downstream ischemic tissue injury (myocardial infarction, stroke, limb ischemia); alternatively, the thrombus or a fragment detaches and embolizes, lodging in a distant vessel (pulmonary embolism from a deep-vein thrombus). Venous thromboembolism is a common, prognostically important complication and the consequence of the conserved thrombogenesis chain.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Virchow\u0027s Triad - Endothelial Injury, Stasis, Hypercoagulability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximal trigger of thrombosis is Virchow\u0027s triad: endothelial injury, blood stasis, and a hypercoagulable (prothrombotic) state, arising singly or in combination. Endothelial injury exposes subendothelial matrix and tissue factor; stasis prevents dilution and clearance of activated clotting factors; hypercoagulability shifts the balance of pro- and anti-thrombotic factors toward clot formation. Which limb dominates differs by disorder, but the prothrombotic state they create is the shared upstream condition for thrombus formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"vascular endothelial cell\"], \"biological_processes\": [\"blood coagulation\"], \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"Virchow\u0027s Triad - Endothelial Injury, Stasis, Hypercoagulability\", \"target\": \"Platelet Adhesion, Activation, and Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Virchow\u0027s Triad - Endothelial Injury, Stasis, Hypercoagulability\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Platelet Adhesion, Activation, and Aggregation\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"target\": \"Fibrin-Platelet Thrombus Propagation and Vascular Occlusion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Fibrin-Platelet Thrombus Propagation and Vascular Occlusion\", \"target\": \"Thromboembolism and Ischemic Tissue Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Anticoagulation (Factor Xa / Thrombin Inhibition)\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anticoagulation via Heparin-Potentiated Antithrombin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Therapeutic heparins potentiate antithrombin-mediated inhibition of thrombin and activated coagulation factors, including factor Xa. This is a mechanism-level anticoagulation pattern aimed at the coagulation/thrombin node rather than a recommendation inherited by conforming disorders. Agent or class selection, dose, intensity, duration, bleeding risk, and other contraindications must be assessed and evidenced in each disease context.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"heparin\"]}}, {\"id\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central coagulation convergence step of thrombogenesis. Tissue factor exposed by injury forms the extrinsic tenase complex, driving assembly of the prothrombinase complex (FXa-FVa) that converts prothrombin to thrombin; intrinsic tenase amplifies thrombin generation on the activated platelet surface. Thrombin then cleaves fibrinogen into fibrin monomers that polymerize and crosslink into an insoluble fibrin network. This thrombin-driven fibrin formation solidifies the thrombus and is the module\u0027s principal anticoagulant target, without claiming that one universal rate-limiting step applies across every arterial and venous context.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation\", \"fibrin clot formation\"], \"role\": \"central_effector\"}}, {\"id\": \"Pathological Fibrin-Platelet Thrombus Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The crosslinked fibrin network and aggregated platelets assemble into a pathological intravascular thrombus, the atomic structure-formation output of this Xogenesis module. Subsequent growth, propagation, narrowing, or complete vascular occlusion are conditional later states and are not part of the defining formation claim.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"blood coagulation, fibrin clot formation\"], \"role\": \"effector\", \"locations\": [\"blood vessel\"]}}, {\"id\": \"Platelet Adhesion, Activation, and Aggregation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelet adhesion, activation, secretion, and aggregation participate in thrombus formation alongside tissue-factor-initiated thrombin generation and fibrin formation. This amplifier node represents platelet participation and its interaction with coagulation without asserting a fixed sequence, abundance, composition, or dominance in arterial versus venous thrombi.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"platelet\"], \"biological_processes\": [\"platelet activation\", \"platelet aggregation\"], \"role\": \"amplifier\"}}, {\"id\": \"Thrombotic Vascular Occlusion and Ischemic Tissue Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A conditional local consequence, distinct from the thrombus formed by the Xogenesis module. A formed thrombus may grow and obstruct local blood flow; when the affected vessel supplies perfusion-dependent tissue, the obstruction can cause ischemia or infarction. Nonocclusive thrombi may cause neither, so this consequence is not required for every conforming branch.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\"}}, {\"id\": \"Venous Thrombus Embolization to Pulmonary Arteries\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A separate, conditional venous consequence in which a formed thrombus dislodges and travels to the pulmonary arteries, producing pulmonary embolism. This narrow node does not generalize the evidence to arterial embolization, every distant vascular bed, or every formed thrombus.\", \"meta\": {\"evidence_count\": 1, \"role\": \"consequence\", \"locations\": [\"pulmonary artery\"]}}, {\"id\": \"Virchow-Triad Prothrombotic Context\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An optional upstream context in which one or more of vessel-wall perturbation, altered or stagnant blood flow, and hypercoagulability predisposes to thrombosis. The dominant limb and its concrete cells and processes are disease-specific. This generic context node intentionally has no endothelial-cell or coagulation-process binding; those belong on a specialized disease trigger or the downstream coagulation node when directly evidenced.\", \"meta\": {\"evidence_count\": 1, \"role\": \"trigger\"}}], \"edges\": [{\"source\": \"Virchow-Triad Prothrombotic Context\", \"target\": \"Platelet Adhesion, Activation, and Aggregation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Virchow-Triad Prothrombotic Context\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Platelet Adhesion, Activation, and Aggregation\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"target\": \"Pathological Fibrin-Platelet Thrombus Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pathological Fibrin-Platelet Thrombus Formation\", \"target\": \"Thrombotic Vascular Occlusion and Ischemic Tissue Injury\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Pathological Fibrin-Platelet Thrombus Formation\", \"target\": \"Venous Thrombus Embolization to Pulmonary Arteries\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Anticoagulation via Heparin-Potentiated Antithrombin\", \"target\": \"Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -1365,78 +1966,40 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
             
-            <div class="item-box anchor-target" id="module-pathophysiology-virchow-s-triad-endothelial-injury-stasis-hypercoagulability" data-dismech-node="Virchow&#39;s Triad - Endothelial Injury, Stasis, Hypercoagulability" data-dismech-type="pathophysiology">
-                <div class="item-name">Virchow&#39;s Triad - Endothelial Injury, Stasis, Hypercoagulability</div>
+            <div class="item-box anchor-target" id="module-pathophysiology-virchow-triad-prothrombotic-context" data-dismech-node="Virchow-Triad Prothrombotic Context" data-dismech-type="pathophysiology">
+                <div class="item-name">Virchow-Triad Prothrombotic Context</div>
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
                 
-                <div class="item-desc">The proximal trigger of thrombosis is Virchow&#39;s triad: endothelial injury, blood stasis, and a hypercoagulable (prothrombotic) state, arising singly or in combination. Endothelial injury exposes subendothelial matrix and tissue factor; stasis prevents dilution and clearance of activated clotting factors; hypercoagulability shifts the balance of pro- and anti-thrombotic factors toward clot formation. Which limb dominates differs by disorder, but the prothrombotic state they create is the shared upstream condition for thrombus formation.</div>
+                <div class="item-desc">An optional upstream context in which one or more of vessel-wall perturbation, altered or stagnant blood flow, and hypercoagulability predisposes to thrombosis. The dominant limb and its concrete cells and processes are disease-specific. This generic context node intentionally has no endothelial-cell or coagulation-process binding; those belong on a specialized disease trigger or the downstream coagulation node when directly evidenced.</div>
                 
 
                 
-                <div class="item-meta">
-                    
-                    <span class="tag tag-cell">
-                        vascular endothelial cell
+
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Pulmonary_Embolism.html">Pulmonary Embolism</a>
+                            
+                            <span class="crosslink-desc">as Prothrombotic venous context</span>
+                            
+                        </div>
                         
-    
-    
-    <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000115">CL:0000115</a>
-    
-    
-                        
-                    </span>
-                    
-    
-    
-    
-    
-    
-    
-    
-    
-                    
+                    </div>
                 </div>
-                
-
-                
-                <div class="item-meta">
-                    
-                    <span class="tag tag-bio">
-                        blood coagulation
-                        
-                        
-    
-    
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
-    
-    
-                        
-                    </span>
-                    
-    
-    <span class="tag tag-modifier">INCREASED</span>
-    
-    
-    
-    
-    
-    
-    
-    
-                    
-                </div>
-                
-
-                
-
                 
 
                 
@@ -1467,22 +2030,27 @@
                     
                 </div>
                 
-                <div class="item-desc">At the site of endothelial injury or prothrombotic activation, circulating platelets adhere to exposed subendothelial matrix, become activated, secrete their granule contents, and aggregate with one another. Platelet activation both builds the cellular mass of the thrombus and provides the negatively charged phospholipid surface on which coagulation reactions are amplified, coupling the platelet arm to the coagulation arm of thrombus formation.</div>
+                <div class="item-desc">Platelet adhesion, activation, secretion, and aggregation participate in thrombus formation alongside tissue-factor-initiated thrombin generation and fibrin formation. This amplifier node represents platelet participation and its interaction with coagulation without asserting a fixed sequence, abundance, composition, or dominance in arterial versus venous thrombi.</div>
                 
 
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         platelet
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000233</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1500,16 +2068,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         platelet activation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0030168">GO:0030168</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030168</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet activation (GO:0030168). GO:0030168 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1523,16 +2096,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         platelet aggregation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0070527">GO:0070527</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0070527</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased platelet aggregation (GO:0070527). GO:0070527 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1551,6 +2129,41 @@
 
                 
 
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Antiphospholipid_Syndrome.html">Antiphospholipid Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Platelet activation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/HELLP_Syndrome.html">HELLP Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Platelet Activation and Consumptive Thrombocytopenia</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                            
+                            <span class="crosslink-desc">as FcgammaRIIA-Mediated Platelet Activation by Immune Complexes</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Infective_Endocarditis.html">Infective Endocarditis</a>
+                            
+                            <span class="crosslink-desc">as Endothelial injury and sterile thrombus formation</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
                 
 
                 
@@ -1576,22 +2189,27 @@
                     
                 </div>
                 
-                <div class="item-desc">The rate-limiting central effector of thrombogenesis. Tissue factor exposed by injury forms the extrinsic tenase complex, driving assembly of the prothrombinase complex (FXa-FVa) that converts prothrombin to thrombin; intrinsic tenase amplifies thrombin generation on the activated platelet surface. Thrombin then cleaves fibrinogen into fibrin monomers that polymerize and crosslink into an insoluble fibrin network. This thrombin-driven fibrin formation is the disorder-agnostic convergence step that solidifies the thrombus and is the key conformance target of the module.</div>
+                <div class="item-desc">The central coagulation convergence step of thrombogenesis. Tissue factor exposed by injury forms the extrinsic tenase complex, driving assembly of the prothrombinase complex (FXa-FVa) that converts prothrombin to thrombin; intrinsic tenase amplifies thrombin generation on the activated platelet surface. Thrombin then cleaves fibrinogen into fibrin monomers that polymerize and crosslink into an insoluble fibrin network. This thrombin-driven fibrin formation solidifies the thrombus and is the module&#39;s principal anticoagulant target, without claiming that one universal rate-limiting step applies across every arterial and venous context.</div>
                 
 
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         platelet
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000233</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1609,16 +2227,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         blood coagulation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0007596">GO:0007596</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007596</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation (GO:0007596). GO:0007596 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1632,16 +2255,21 @@
     
     
                     
+                    
+                     
                     <span class="tag tag-bio">
                         fibrin clot formation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072378">GO:0072378</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0072378</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased fibrin clot formation, annotated with blood coagulation, fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1661,6 +2289,34 @@
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Amniotic_Fluid_Embolism.html">Amniotic Fluid Embolism</a>
+                            
+                            <span class="crosslink-desc">as Coagulation Activation and Fibrinogen Consumption</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Antiphospholipid_Syndrome.html">Antiphospholipid Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Coagulation cascade activation and thrombin-driven fibrin formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                            
+                            <span class="crosslink-desc">as Explosive Thrombin Generation</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -1668,7 +2324,7 @@
                     <ul class="flow-list">
                         
                         <li class="crosslink-item">
-                            <span class="flow-target">Fibrin-Platelet Thrombus Propagation and Vascular Occlusion</span>
+                            <span class="flow-target">Pathological Fibrin-Platelet Thrombus Formation</span>
                             
                         </li>
                         
@@ -1677,30 +2333,35 @@
                 
             </div>
             
-            <div class="item-box anchor-target" id="module-pathophysiology-fibrin-platelet-thrombus-propagation-and-vascular-occlusion" data-dismech-node="Fibrin-Platelet Thrombus Propagation and Vascular Occlusion" data-dismech-type="pathophysiology">
-                <div class="item-name">Fibrin-Platelet Thrombus Propagation and Vascular Occlusion</div>
+            <div class="item-box anchor-target" id="module-pathophysiology-pathological-fibrin-platelet-thrombus-formation" data-dismech-node="Pathological Fibrin-Platelet Thrombus Formation" data-dismech-type="pathophysiology">
+                <div class="item-name">Pathological Fibrin-Platelet Thrombus Formation</div>
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
                 
-                <div class="item-desc">The crosslinked fibrin network and aggregated platelets assemble into a thrombus that grows and propagates along the vessel, progressively narrowing and then occluding the lumen. The thrombus is the pathological intravascular structure produced by the module; its growth converts a localized clot into a flow-limiting obstruction.</div>
+                <div class="item-desc">The crosslinked fibrin network and aggregated platelets assemble into a pathological intravascular thrombus, the atomic structure-formation output of this Xogenesis module. Subsequent growth, propagation, narrowing, or complete vascular occlusion are conditional later states and are not part of the defining formation claim.</div>
                 
 
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-cell">
                         platelet
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" title="Open CL:0000233">CL:0000233</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000233</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a cell type from the Cell Ontology.</span>
                     </span>
                     
     
@@ -1718,16 +2379,21 @@
                 
                 <div class="item-meta">
                     
+                    
+                     
                     <span class="tag tag-bio">
                         blood coagulation, fibrin clot formation
                         
                         
     
     
-    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" title="Open GO:0072378">GO:0072378</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072378" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0072378</a>
     
     
                         
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves increased blood coagulation, fibrin clot formation (GO:0072378). GO:0072378 is a biological process from the Gene Ontology.</span>
                     </span>
                     
     
@@ -1747,6 +2413,62 @@
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Antiphospholipid_Syndrome.html">Antiphospholipid Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Arterial and venous thrombosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Dilated_Cardiomyopathy_1A.html">Dilated Cardiomyopathy 1A</a>
+                            
+                            <span class="crosslink-desc">as Intracardiac Thrombus Formation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/HELLP_Syndrome.html">HELLP Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Hepatic Sinusoidal Microthrombosis and Fibrin Deposition</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                            
+                            <span class="crosslink-desc">as Venous and Arterial Thrombosis</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Infective_Endocarditis.html">Infective Endocarditis</a>
+                            
+                            <span class="crosslink-desc">as Vegetation maturation with biofilm-like protection</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Posterior_Myocardial_Infarction.html">Posterior Myocardial Infarction</a>
+                            
+                            <span class="crosslink-desc">as Coronary thrombosis and occlusion</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Pulmonary_Embolism.html">Pulmonary Embolism</a>
+                            
+                            <span class="crosslink-desc">as Deep venous thrombus formation</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -1754,7 +2476,12 @@
                     <ul class="flow-list">
                         
                         <li class="crosslink-item">
-                            <span class="flow-target">Thromboembolism and Ischemic Tissue Injury</span>
+                            <span class="flow-target">Thrombotic Vascular Occlusion and Ischemic Tissue Injury</span>
+                            
+                        </li>
+                        
+                        <li class="crosslink-item">
+                            <span class="flow-target">Venous Thrombus Embolization to Pulmonary Arteries</span>
                             
                         </li>
                         
@@ -1763,15 +2490,15 @@
                 
             </div>
             
-            <div class="item-box anchor-target" id="module-pathophysiology-thromboembolism-and-ischemic-tissue-injury" data-dismech-node="Thromboembolism and Ischemic Tissue Injury" data-dismech-type="pathophysiology">
-                <div class="item-name">Thromboembolism and Ischemic Tissue Injury</div>
+            <div class="item-box anchor-target" id="module-pathophysiology-thrombotic-vascular-occlusion-and-ischemic-tissue-injury" data-dismech-node="Thrombotic Vascular Occlusion and Ischemic Tissue Injury" data-dismech-type="pathophysiology">
+                <div class="item-name">Thrombotic Vascular Occlusion and Ischemic Tissue Injury</div>
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
                 
-                <div class="item-desc">The clinical end state of the module. An occlusive thrombus obstructs blood flow and causes downstream ischemic tissue injury (myocardial infarction, stroke, limb ischemia); alternatively, the thrombus or a fragment detaches and embolizes, lodging in a distant vessel (pulmonary embolism from a deep-vein thrombus). Venous thromboembolism is a common, prognostically important complication and the consequence of the conserved thrombogenesis chain.</div>
+                <div class="item-desc">A conditional local consequence, distinct from the thrombus formed by the Xogenesis module. A formed thrombus may grow and obstruct local blood flow; when the affected vessel supplies perfusion-dependent tissue, the obstruction can cause ischemia or infarction. Nonocclusive thrombi may cause neither, so this consequence is not required for every conforming branch.</div>
                 
 
                 
@@ -1780,6 +2507,77 @@
 
                 
 
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Antiphospholipid_Syndrome.html">Antiphospholipid Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Acute thrombotic vascular occlusion and ischemic tissue injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Heparin-Induced_Thrombocytopenia.html">Heparin-Induced Thrombocytopenia</a>
+                            
+                            <span class="crosslink-desc">as Thrombotic Occlusion and Ischemic Tissue Injury</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Infective_Endocarditis.html">Infective Endocarditis</a>
+                            
+                            <span class="crosslink-desc">as Systemic embolization of vegetation fragments</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Posterior_Myocardial_Infarction.html">Posterior Myocardial Infarction</a>
+                            
+                            <span class="crosslink-desc">as Posterior myocardial ischemic cell death</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
+
+                
+            </div>
+            
+            <div class="item-box anchor-target" id="module-pathophysiology-venous-thrombus-embolization-to-pulmonary-arteries" data-dismech-node="Venous Thrombus Embolization to Pulmonary Arteries" data-dismech-type="pathophysiology">
+                <div class="item-name">Venous Thrombus Embolization to Pulmonary Arteries</div>
+                <div class="item-meta">
+                    
+                    <span class="tag tag-role">consequence</span>
+                    
+                </div>
+                
+                <div class="item-desc">A separate, conditional venous consequence in which a formed thrombus dislodges and travels to the pulmonary arteries, producing pulmonary embolism. This narrow node does not generalize the evidence to arterial embolization, every distant vascular bed, or every formed thrombus.</div>
+                
+
+                
+
+                
+
+                
+
+                
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Pulmonary_Embolism.html">Pulmonary Embolism</a>
+                            
+                            <span class="crosslink-desc">as Embolization to the pulmonary arterial tree</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
                 
 
                 
@@ -1796,6 +2594,11 @@
             <p style="margin-top: 8px;">
                 <a href="https://github.com/monarch-initiative/dismech/blob/main/kb/modules/thrombogenesis.yaml" target="_blank">View source on GitHub</a>
             </p>
+            
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
         </footer>
     </div>
     <!-- hypothes.is curator feedback — group ID can be changed to a private group once created at hypothes.is/groups -->
@@ -1813,5 +2616,73 @@
     }
     </script>
     <script src="https://hypothes.is/embed.js" async></script>
+<script>
+    /* Ontology pill tooltips (issue #8355). Showing and hiding is pure CSS
+       (:hover / :focus-within); this only adds the dismissal WCAG 2.1 SC 1.4.13
+       requires of hover-or-focus content -- Escape must hide it without moving
+       the pointer or the focus. The tooltip returns the next time that pill is
+       hovered or focused, so nothing is permanently lost. */
+    (function () {
+        var PILL = '.tag';
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var showing = document.querySelectorAll(
+                '*:hover > .pill-tip:not([hidden]), *:focus-within > .pill-tip:not([hidden])'
+            );
+            if (!showing.length) { return; }
+            Array.prototype.forEach.call(showing, function (tip) { tip.hidden = true; });
+        });
+
+        /* Keep the tooltip inside the viewport. A pill near either edge would
+           otherwise push its tooltip off-screen, and CSS cannot measure. The
+           element is measured while forced visible-but-transparent, so this does
+           not depend on :hover having been applied before the event fires. */
+        function place(pill) {
+            var tip = pill.querySelector(':scope > .pill-tip');
+            if (!tip) { return; }
+            tip.style.transform = '';
+            var wasHidden = getComputedStyle(tip).display === 'none';
+            if (wasHidden) {
+                tip.style.visibility = 'hidden';
+                tip.style.display = 'block';
+            }
+            var box = tip.getBoundingClientRect();
+            var width = document.documentElement.clientWidth;
+            var shift = 0;
+            if (box.right > width - 8) { shift = (width - 8) - box.right; }
+            if (box.left + shift < 8) { shift = 8 - box.left; }
+            if (wasHidden) {
+                tip.style.display = '';
+                tip.style.visibility = '';
+            }
+            if (shift) { tip.style.transform = 'translateX(' + Math.round(shift) + 'px)'; }
+        }
+        ['mouseover', 'focusin'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                if (!event.target || !event.target.closest) { return; }
+                var pill = event.target.closest(PILL);
+                if (pill) { place(pill); }
+            }, true);
+        });
+
+        /* Re-arm once the pointer or focus actually leaves the pill -- not on
+           every move between its children, which would undo the dismissal while
+           the user is still on it. */
+        ['mouseout', 'focusout'].forEach(function (type) {
+            document.addEventListener(type, function (event) {
+                var target = event.target;
+                if (!target || !target.closest) { return; }
+                var pill = target.closest(PILL);
+                if (!pill) { return; }
+                if (event.relatedTarget && pill.contains(event.relatedTarget)) { return; }
+                Array.prototype.forEach.call(
+                    pill.querySelectorAll('.pill-tip[hidden]'),
+                    function (tip) { tip.hidden = false; }
+                );
+            }, true);
+        });
+    })();
+</script>
 </body>
 </html>

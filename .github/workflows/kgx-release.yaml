@@ -38,10 +38,27 @@ jobs:
       - name: Generate KGX export
         run: just export-kgx
 
+      # Checked before any rename so a missing or empty artifact fails with all
+      # three files still under their generated names, rather than leaving the
+      # output directory half-renamed. The SEPIO sidecar is the one at risk: it
+      # is written by the transform itself, not by koza's node/edge writer, and
+      # is skipped entirely when the configured writer has no output directory.
+      - name: Verify export outputs
+        run: |
+          for f in kgx_export_nodes kgx_export_edges kgx_export_sepio; do
+            path="output/kgx/${f}.jsonl"
+            if [ ! -s "$path" ]; then
+              echo "::error::$path missing or empty; not publishing"
+              exit 1
+            fi
+            echo "$path: $(wc -l < "$path") lines"
+          done
+
       - name: Rename output files
         run: |
           mv output/kgx/kgx_export_nodes.jsonl output/kgx/dismech_nodes.jsonl
           mv output/kgx/kgx_export_edges.jsonl output/kgx/dismech_edges.jsonl
+          mv output/kgx/kgx_export_sepio.jsonl output/kgx/dismech_sepio.jsonl
 
       - name: Upload KGX export to release
         uses: softprops/action-gh-release@v2
@@ -49,3 +66,4 @@ jobs:
           files: |
             output/kgx/dismech_nodes.jsonl
             output/kgx/dismech_edges.jsonl
+            output/kgx/dismech_sepio.jsonl

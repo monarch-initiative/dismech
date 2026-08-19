@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>White-Sutton Syndrome · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>White-Sutton Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>White-Sutton Syndrome</h1>
+                
+                <p class="report-subtitle">White-Sutton Syndrome: Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-07-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014606" target="_blank" rel="noopener noreferrer">MONDO:0014606</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>White-Sutton Syndrome: Disease Characteristics Research Report</h1>
+<h2>Executive summary</h2>
+<p>White-Sutton syndrome (WHSUS) is a rare, congenital neurodevelopmental chromatin disorder caused by a heterozygous pathogenic variant in <strong>POGZ</strong>. It is usually sporadic because the causal variant arises de novo, although mildly affected parents and familial transmission have been documented. Developmental and speech delay, variable intellectual disability, hypotonia, behavioral or autism-spectrum manifestations, characteristic but subtle craniofacial findings, visual abnormalities, feeding and gastrointestinal problems, sleep disturbance, hearing loss, seizures, and a tendency toward overweight are the principal manifestations. Severity is highly variable, including within families. There is no disease-modifying treatment; diagnosis is molecular and management is individualized, multidisciplinary, and symptom directed. The most informative large analyses through 2024 remain the 2020 cohort of 22 people, the 2022 clinical synthesis of 101 people, and the 2022 genotype–phenotype analysis of 117 people. Disease-specific publications in 2023–2024 were predominantly case reports and mechanistic/model work rather than new large natural-history cohorts.</p>
+<p>The following table provides a compact knowledge-base extraction; the narrative below supplies interpretation and additional ontology recommendations.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Established findings</th>
+<th>Evidence gaps / caveats</th>
+<th>Suggested ontology terms</th>
+<th>Key citations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identifiers / synonyms</td>
+<td>White-Sutton syndrome (WHSUS) is a rare neurodevelopmental disorder caused by heterozygous pathogenic variants in <strong>POGZ</strong>; OMIM <strong>616364</strong>. Related MONDO label reported as <strong>intellectual disability-microcephaly-strabismus-behavioral abnormalities syndrome</strong>; Open Targets also maps disease as <strong>white-sutton syndrome</strong>. Synonyms in the literature include <strong>POGZ-related intellectual disability syndrome</strong> and <strong>POGZ-related neurodevelopmental disorder</strong>. Disease-level information here is derived from aggregated published cohorts and curated disease resources, not EHR-only data.</td>
+<td>MONDO/EFO mapping is resource-dependent in the gathered evidence; no single ICD-10/ICD-11 code was identified in the retrieved sources.</td>
+<td>MONDO: <strong>MONDO_0014606</strong>; MeSH/ICD not established from gathered evidence</td>
+<td>(<a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, OpenTargets Search: White-Sutton syndrome-POGZ, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Causal gene / inheritance</td>
+<td>Causal gene: <strong>POGZ</strong> (pogo transposable element derived with ZNF domain; Ensembl <strong>ENSG00000143442</strong>). Inheritance is <strong>autosomal dominant / monoallelic</strong>, most often <strong>de novo</strong>. In the 22-person cohort, 18/21 informative variants were de novo, 1 maternally inherited, 2 unknown; in the 117-patient aggregate, ~90% were de novo and ~10% inherited.</td>
+<td>Penetrance is not well quantified; inherited cases show variable expressivity. Modifier genes are not established from the gathered evidence.</td>
+<td>Gene: <strong>POGZ</strong>; inheritance: <strong>autosomal dominant inheritance (<a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a>)</strong></td>
+<td>(<a href="#ref-batzir2020phenotypicexpansionof-pages-3-5">batzir2020phenotypicexpansionof pages 3-5</a>, OpenTargets Search: White-Sutton syndrome-POGZ, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Variant spectrum</td>
+<td>Predominantly <strong>loss-of-function</strong> variants: nonsense, frameshift, splice-site, larger deletions; missense variants are less common. In the 117-patient analysis: nonsense 41%, frameshift 40%, missense 8.5%, splice-site 7%, larger deletions 2.5%, in-frame deletions 1%. Variants often cluster in exon 19 / domains including proline-rich region, CENP-B DNA-binding and DDE transposase-related regions. Truncating variants predicted to <strong>escape nonsense-mediated decay (NMD)</strong> were associated with more severe phenotypes; missense and NMD-subjected variants tended to be milder.</td>
+<td>Population allele frequencies (e.g., gnomAD counts) were not retrieved here. Functional classification of each specific variant remains case-dependent. Somatic disease role not supported; this is a germline disorder.</td>
+<td>Sequence ontology suggestions: <strong>stop_gained</strong>, <strong>frameshift_variant</strong>, <strong>splice_donor_variant</strong>, <strong>splice_acceptor_variant</strong>, <strong>copy_number_loss</strong></td>
+<td>(<a href="#ref-batzir2020phenotypicexpansionof-pages-12-13">batzir2020phenotypicexpansionof pages 12-13</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-3-5">batzir2020phenotypicexpansionof pages 3-5</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-1-2">nagy2022genotypephenotypecomparisonin pages 1-2</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype frequencies</td>
+<td>Across the 22-person cohort: <strong>speech delay 100%</strong>, learning difficulties 100%, <strong>motor delay 86%</strong>, <strong>intellectual disability 87%</strong>, <strong>autism 37.5%</strong>; ocular abnormalities, hearing loss, gait abnormalities, GI and GU anomalies were common. Sleep-disordered breathing symptoms suggestive of OSA occurred in <strong>4/12 (33%)</strong> tested. In the 117-patient aggregate, commonly reported features included facial dysmorphism 96%, speech delay 88%, global developmental delay 88%, ID 79%, behavioral abnormalities 75%, sleep disturbances 75%, ocular anomalies 63%, hypotonia 54%, sensorineural hearing impairment 54%, microcephaly 46%, seizures 60% (noting ascertainment/reporting variability). In the 12-person series, microcephaly was <strong>8/12</strong>, early feeding problems <strong>7/11</strong>, obesity <strong>4/5</strong> among those &gt;10 years.</td>
+<td>Frequencies vary substantially across cohorts because of incomplete reporting, ascertainment bias, and different denominators. Some features such as subtle genital anomalies and brachydactyly are likely underreported.</td>
+<td>HPO suggestions: <strong>Global developmental delay (<a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>)</strong>, <strong>Speech delay (<a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a>)</strong>, <strong>Intellectual disability (<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>)</strong>, <strong>Autism (<a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" rel="noopener noreferrer">HP:0000717</a>)</strong>, <strong>Hypotonia (<a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a>)</strong>, <strong>Microcephaly (<a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a>)</strong>, <strong>Sensorineural hearing impairment (<a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a>)</strong>, <strong>Abnormality of gait (<a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" rel="noopener noreferrer">HP:0001288</a>)</strong>, <strong>Obesity/Overweight (<a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a>/<a href="http://purl.obolibrary.org/obo/HP_0025385" target="_blank" rel="noopener noreferrer">HP:0025385</a>)</strong>, <strong>Obstructive sleep apnea (<a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" rel="noopener noreferrer">HP:0002870</a>)</strong></td>
+<td>(<a href="#ref-batzir2020phenotypicexpansionof-pages-11-12">batzir2020phenotypicexpansionof pages 11-12</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-7-8">batzir2020phenotypicexpansionof pages 7-8</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-8-9">batzir2020phenotypicexpansionof pages 8-9</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>, <a href="#ref-murch2022furtherdelineationof-pages-5-6">murch2022furtherdelineationof pages 5-6</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Mechanism / pathophysiology</td>
+<td><strong>Human genetics + model evidence</strong> support POGZ as a <strong>chromatin regulator</strong> interacting with <strong>HP1α</strong>, involved in <strong>chromosome segregation</strong>, <strong>mitotic progression</strong>, and transcriptional repression/organization. Mouse nervous-system knockout data show <strong>transcriptional upregulation</strong>, especially in cerebellum, enrichment of dysregulated genes in <strong>neurogenesis</strong> and <strong>synaptic processes</strong>, reduced mitotic cells in embryonic cortex, smaller brain, and <strong>Purkinje-cell electrophysiologic abnormalities</strong> (reduced simple/complex spike firing, increased inhibitory input amplitude). A plausible causal chain is: POGZ haploinsufficiency or abnormal truncated protein effect -&gt; heterochromatin/transcription dysregulation and altered neuronal developmental programs -&gt; abnormal circuit development/function, especially cerebellar pathways -&gt; developmental delay, ID, motor and behavioral phenotypes.</td>
+<td>Direct human tissue mechanistic studies remain limited. No disease-specific transcriptomic/proteomic biomarker is established from the retrieved human studies. Epigenetic episignature evidence for WHSUS was not retrieved.</td>
+<td>GO suggestions: <strong>chromatin organization</strong>, <strong>negative regulation of transcription</strong>, <strong>mitotic chromosome segregation</strong>, <strong>neurogenesis</strong>, <strong>synaptic signaling</strong>; CL suggestions: <strong>Purkinje cell</strong>, <strong>cortical intermediate progenitor cell</strong></td>
+<td>(<a href="#ref-batzir2020phenotypicexpansionof-pages-2-3">batzir2020phenotypicexpansionof pages 2-3</a>, <a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-1-2">sulimanlavie2020pogzdeficiencyleads pages 1-2</a>, <a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-2-3">sulimanlavie2020pogzdeficiencyleads pages 2-3</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-1-2">nagy2022genotypephenotypecomparisonin pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Diagnostic approach</td>
+<td>Diagnosis in published cohorts was usually made by <strong>trio whole-exome sequencing</strong>, <strong>whole-genome sequencing</strong>, or <strong>intellectual-disability / neurodevelopmental gene panels</strong>; some patients also had chromosomal microarray without an alternative diagnosis. Because the clinical phenotype is relatively nonspecific and variable, <strong>genomic testing is the main diagnostic route</strong>. In Baylor clinical exome data, POGZ variants were implicated in about <strong>0.14%</strong> of cases referred for neurodevelopmental indications.</td>
+<td>No universally accepted clinical diagnostic criteria independent of molecular confirmation were identified. No validated biochemical biomarker, imaging signature, or episignature was retrieved from the gathered evidence.</td>
+<td>NCIT/testing suggestions: <strong>Whole Exome Sequencing</strong>, <strong>Whole Genome Sequencing</strong>, <strong>Next-Generation Sequencing Gene Panel</strong>, <strong>Chromosomal Microarray Analysis</strong></td>
+<td>(<a href="#ref-batzir2020phenotypicexpansionof-pages-12-13">batzir2020phenotypicexpansionof pages 12-13</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-8-9">batzir2020phenotypicexpansionof pages 8-9</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Management</td>
+<td>Current care is <strong>supportive and multidisciplinary</strong>: developmental/behavioral assessment, speech-language therapy, occupational/physical therapy, hearing and vision evaluation, feeding/GI support, obesity monitoring, sleep assessment (including for OSA), and seizure-directed neurology care when indicated. Published case series emphasize individualized therapies tailored to neurological, behavioral, and communication needs.</td>
+<td>No disease-modifying drug, gene therapy, RNA therapy, or targeted therapy was identified in the gathered evidence. Treatment response rates are not established at syndrome level.</td>
+<td>NCIT suggestions: <strong>Speech Therapy</strong>, <strong>Occupational Therapy</strong>, <strong>Physical Therapy</strong>, <strong>Behavioral Intervention</strong>, <strong>Audiologic Assessment</strong>, <strong>Ophthalmologic Examination</strong>, <strong>Nutritional Support</strong></td>
+<td>(<a href="#ref-batzir2020phenotypicexpansionof-pages-11-12">batzir2020phenotypicexpansionof pages 11-12</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, <a href="#ref-murch2022furtherdelineationof-pages-5-6">murch2022furtherdelineationof pages 5-6</a>, NCT07380594 chunk 1)</td>
+</tr>
+<tr>
+<td>Epidemiology / prognosis</td>
+<td>WHSUS is rare; exact population prevalence/incidence were not established in the retrieved sources. Literature available to the cohorts indicated &gt;50 reported individuals by 2020, ~90 by 2022, and 117 patients in an aggregate genotype-phenotype analysis. Course is typically <strong>pediatric-onset and chronic/lifelong</strong>, with variable severity from mild learning/behavioral issues to severe ID and multisystem involvement. Survival/life-expectancy data were not identified; no specific excess mortality estimate was retrieved.</td>
+<td>Prevalence, incidence, penetrance, carrier frequency, and mortality remain insufficiently defined from the gathered evidence. Long-term adult natural history remains sparse.</td>
+<td>HPO course suggestions: <strong>Childhood onset</strong>, <strong>Chronic course</strong>, <strong>Variable expressivity</strong></td>
+<td>(<a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>, <a href="#ref-murch2022furtherdelineationof-pages-5-6">murch2022furtherdelineationof pages 5-6</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Trials / current research</td>
+<td>Identified study: <strong>NCT07380594</strong>, <em>Descriptive Study of Psychiatric Symptoms in White-Sutton Syndrome</em> (CHU Dijon; observational; recruiting; estimated n=30; first posted 2026-02-02). It aims to define psychiatric manifestations using interviews and standardized scales in genetically confirmed individuals aged &gt;6 years.</td>
+<td>No interventional White-Sutton syndrome trials were identified in the gathered evidence. The located study is observational and future-dated relative to the requested 2023-2024 emphasis.</td>
+<td>NCIT suggestions: <strong>Observational Study</strong>, <strong>Psychiatric Assessment</strong>, <strong>Questionnaire</strong></td>
+<td>(NCT07380594 chunk 1)</td>
+</tr>
+<tr>
+<td>Models / comparative evidence</td>
+<td>Best-supported model in gathered evidence: <strong>nervous-system-specific conditional Pogz knockout mouse</strong>. Reported phenotypes include microcephaly/smaller brain, growth impairment, altered embryonic neurogenesis, transcriptional dysregulation, cerebellar Purkinje-cell dysfunction, and behavioral abnormalities including learning and motor deficits, paralleling several human features. Earlier summaries also note <strong>Drosophila</strong> and possible <strong>zebrafish</strong> relevance, but detailed retrieved evidence here is strongest for mouse.</td>
+<td>No naturally occurring veterinary disease equivalent was identified. Non-mouse models were mentioned in secondary discussion but not substantiated with detailed primary evidence in the gathered set.</td>
+<td>Model ontology suggestions: <strong>Mus musculus</strong>; CL: <strong>Purkinje cell</strong>; UBERON: <strong>cerebellum</strong>, <strong>cerebral cortex</strong></td>
+<td>(<a href="#ref-batzir2020phenotypicexpansionof-pages-11-12">batzir2020phenotypicexpansionof pages 11-12</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-2-4">nagy2022genotypephenotypecomparisonin pages 2-4</a>, <a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-2-3">sulimanlavie2020pogzdeficiencyleads pages 2-3</a>, <a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-1-2">sulimanlavie2020pogzdeficiencyleads pages 1-2</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table provides a compact knowledge-base summary of White-Sutton syndrome using only evidence gathered in this conversation. It highlights established findings, major evidence gaps, suggested ontology mappings, and supporting citations for rapid curation.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and identifiers</h3>
+<p>WHSUS is a <strong>Mendelian, autosomal-dominant neurodevelopmental disorder</strong> attributable to monoallelic pathogenic variants in <strong>POGZ</strong>, a chromatin-associated regulator at chromosome 1q21.3. Its clinical presentation ranges from mild learning or behavioral impairment to severe developmental disability with multisystem congenital anomalies. ClinGen/gene2phenotype evidence summarized by Open Targets classifies the POGZ–disease relationship as definitive. (<a href="#ref-batzir2020phenotypicexpansionof-pages-2-3">batzir2020phenotypicexpansionof pages 2-3</a>, OpenTargets Search: White-Sutton syndrome-POGZ)</p>
+<ul>
+<li><strong>OMIM:</strong> 616364.</li>
+<li><strong>MONDO:</strong> <strong><a href="http://purl.obolibrary.org/obo/MONDO_0014606" target="_blank" rel="noopener noreferrer">MONDO:0014606</a></strong>, labeled <em>intellectual disability–microcephaly–strabismus–behavioral abnormalities syndrome</em> in the retrieved mapping.</li>
+<li><strong>EFO/Open Targets:</strong> <a href="https://bioregistry.io/EFO:0009079" target="_blank" rel="noopener noreferrer">EFO:0009079</a>, <em>white-sutton syndrome</em>.</li>
+<li><strong>Gene:</strong> POGZ; Ensembl ENSG00000143442; approved name <em>pogo transposable element derived with ZNF domain</em>.</li>
+<li><strong>Synonyms:</strong> POGZ-related intellectual disability syndrome; POGZ-related neurodevelopmental disorder; intellectual disability–microcephaly–strabismus–behavioral abnormalities syndrome.</li>
+<li><strong>Orphanet, MeSH, ICD-10/ICD-11:</strong> no verified disease-specific identifiers were recovered in the searched primary literature. In practice, nonspecific developmental-disorder, intellectual-disability, autism, epilepsy, or congenital-anomaly codes may be used, but these should not be represented as WHSUS-specific identifiers without verification.</li>
+</ul>
+<p>The evidence synthesized here is principally <strong>aggregated disease-level information</strong> from published cohorts, DECIPHER/clinical laboratory series, ClinGen/Open Targets, and ClinicalTrials.gov—not an individual EHR-derived phenotype profile. The 2020 study used a genotype-first cohort and clinical laboratory database; the 2022 reports combined new individuals with literature cases. (<a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, <a href="#ref-murch2022furtherdelineationof-pages-5-6">murch2022furtherdelineationof pages 5-6</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</p>
+<h2>2. Etiology</h2>
+<h3>Causal and risk factors</h3>
+<p>The primary cause is a <strong>germline heterozygous pathogenic or likely pathogenic POGZ variant</strong>. In the 22-person Batzir cohort, 18 variants were de novo, one maternally inherited, and two had unknown inheritance. In the 117-person aggregate, approximately 90% were de novo and 10% inherited. Thus, a pathogenic POGZ allele is causal rather than merely a susceptibility factor. (<a href="#ref-batzir2020phenotypicexpansionof-pages-3-5">batzir2020phenotypicexpansionof pages 3-5</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>)</p>
+<p>The predominant disease alleles are protein-truncating variants, although splice variants, whole/partial-gene deletions, in-frame deletions, and a smaller number of deleterious missense variants occur. The 117-person analysis reported nonsense 41%, frameshift 40%, missense 8.5%, splice-site 7%, large deletions 2.5%, and in-frame deletions 1%. (<a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>)</p>
+<h3>Environmental, infectious, and lifestyle factors</h3>
+<p>No toxin, infection, maternal exposure, diet, occupation, smoking, alcohol use, or other environmental factor is established as a cause of WHSUS. Lifestyle can influence secondary obesity, sleep-disordered breathing, constipation, and general health but does not cause the Mendelian disorder. No reproducible gene–environment interaction has been demonstrated.</p>
+<h3>Protective factors and modifiers</h3>
+<p>No protective POGZ allele, modifier gene, or environmental exposure that prevents WHSUS has been established. Variant position and predicted nonsense-mediated decay (NMD) behavior modify severity: truncating alleles predicted to escape NMD, particularly in the proline-rich region, were associated with more severe disease, whereas missense and NMD-subjected alleles tended to be milder. These are probabilistic cohort associations, not deterministic prognostic rules. (<a href="#ref-batzir2020phenotypicexpansionof-pages-12-13">batzir2020phenotypicexpansionof pages 12-13</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-1-2">nagy2022genotypephenotypecomparisonin pages 1-2</a>)</p>
+<h2>3. Phenotypes</h2>
+<p>The strongest frequency estimates come from differently ascertained cohorts and are not directly interchangeable. Missing data and preferential publication of severely affected patients can inflate estimates—especially the 60% seizure frequency in one selected aggregate. Murch and colleagues specifically warned of variable reporting and likely underrecognition of subtle findings. (<a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>, <a href="#ref-murch2022furtherdelineationof-pages-5-6">murch2022furtherdelineationof pages 5-6</a>)</p>
+<h3>Neurodevelopmental and behavioral manifestations</h3>
+<ul>
+<li><strong>Global developmental delay</strong>—usually recognized in infancy or early childhood; variable severity, chronic/lifelong. Reported in 88% of the 117-person analysis. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></strong>.</li>
+<li><strong>Speech/language delay</strong>—often especially prominent; 100% in the 22-person cohort and 88% in the 117-person analysis. Some individuals remain minimally verbal. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a></strong>, with <strong><a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" rel="noopener noreferrer">HP:0002463</a></strong> for language impairment where appropriate. (<a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-8-9">batzir2020phenotypicexpansionof pages 8-9</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>)</li>
+<li><strong>Motor delay</strong>—86% in the 22-person cohort; may coexist with hypotonia and gait abnormality. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a></strong> or <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>. (<a href="#ref-batzir2020phenotypicexpansionof-pages-8-9">batzir2020phenotypicexpansionof pages 8-9</a>)</li>
+<li><strong>Intellectual disability/learning difficulty</strong>—ID 87% in the 22-person series and 79% in the 117-person aggregate, but some patients have low-normal cognition or isolated learning/behavioral difficulties. Severity spans mild to severe. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" rel="noopener noreferrer">HP:0001328</a></strong>. (<a href="#ref-batzir2020phenotypicexpansionof-pages-11-12">batzir2020phenotypicexpansionof pages 11-12</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>)</li>
+<li><strong>Autism spectrum and behavior</strong>—autism was 37.5% in the 22-person series; broader behavioral abnormalities were 75% in the aggregate. Anxiety, hyperactivity/attention problems, stereotypies, social withdrawal, compulsive features, and unusually friendly behavior have been described. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" rel="noopener noreferrer">HP:0000717</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" rel="noopener noreferrer">HP:0000739</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" rel="noopener noreferrer">HP:0000752</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a></strong> as individually documented. (<a href="#ref-batzir2020phenotypicexpansionof-pages-8-9">batzir2020phenotypicexpansionof pages 8-9</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>, NCT07380594 chunk 1)</li>
+<li><strong>Hypotonia</strong>—54% in the 117-person aggregate; generally childhood onset and variable. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></strong>. (<a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>)</li>
+<li><strong>Seizures/EEG abnormalities</strong>—seizures were reported in 60% in one selected aggregate, but other cohorts suggest lower or incompletely ascertained frequencies. Both epileptic and nonepileptic paroxysmal events and abnormal EEG without clinical seizures have been reported. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" rel="noopener noreferrer">HP:0002353</a></strong>.</li>
+<li><strong>Sleep disturbance</strong>—75% in the 117-person aggregate; symptoms consistent with obstructive sleep apnea occurred in 4/12 (33%) formally screened in the 22-person cohort. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" rel="noopener noreferrer">HP:0002360</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" rel="noopener noreferrer">HP:0002870</a></strong>. (<a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>)</li>
+</ul>
+<h3>Growth, craniofacial, sensory, and systemic manifestations</h3>
+<ul>
+<li><strong>Microcephaly:</strong> 46% in the aggregate and 8/12 in the Murch series; HPO <strong><a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></strong>. Growth may otherwise be normal, short, or overweight. (<a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</li>
+<li><strong>Overweight/obesity:</strong> the 2020 cohort had mean BMI z-score 0.59 and median 0.9, significantly above the reference population (p=0.0253); 4/5 patients older than ten years in the Murch series were obese. HPO <strong><a href="http://purl.obolibrary.org/obo/HP_0025385" target="_blank" rel="noopener noreferrer">HP:0025385</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a></strong>. (<a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-3-5">batzir2020phenotypicexpansionof pages 3-5</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</li>
+<li><strong>Facial gestalt:</strong> broad/high forehead, midface hypoplasia, broad nasal root or flat bridge, tented/triangular mouth, and sometimes low-set ears; facial dysmorphism was reported in 96% of one aggregate. These findings are usually mild and not sufficiently specific for clinical diagnosis. HPO terms should be assigned feature-by-feature rather than using a single gestalt term. (<a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-3-5">batzir2020phenotypicexpansionof pages 3-5</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>)</li>
+<li><strong>Ocular abnormalities:</strong> 63% in the aggregate; refractive errors, strabismus and, rarely, rod-cone dystrophy. HPO <strong><a href="http://purl.obolibrary.org/obo/HP_0000478" target="_blank" rel="noopener noreferrer">HP:0000478</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a></strong> as applicable. (<a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>, <a href="#ref-murch2022furtherdelineationof-pages-5-6">murch2022furtherdelineationof pages 5-6</a>)</li>
+<li><strong>Sensorineural hearing impairment:</strong> 54% in the aggregate, although cohort ascertainment varies. HPO <strong><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></strong>. (<a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>)</li>
+<li><strong>Feeding/GI:</strong> early feeding difficulty occurred in 7/11 in one series. In the 22-person cohort, swallowing difficulty occurred in 53%, gastrostomy feeding in 23.5% (4/17), cyclic vomiting in 37.5% (6/16), and severe anatomical/clinical GI complications in 16% (3/19). Constipation, reflux, dysmotility, malrotation, intussusception, pancreatitis, rectal prolapse, and congenital diaphragmatic hernia have been reported. HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002573" target="_blank" rel="noopener noreferrer">HP:0002573</a></strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a></strong>, and condition-specific terms. (<a href="#ref-batzir2020phenotypicexpansionof-pages-11-12">batzir2020phenotypicexpansionof pages 11-12</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-7-8">batzir2020phenotypicexpansionof pages 7-8</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</li>
+<li><strong>Gait abnormality:</strong> common but inconsistently quantified; HPO <strong><a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" rel="noopener noreferrer">HP:0001288</a></strong>.</li>
+<li><strong>Genitourinary anomalies:</strong> male genital anomalies occurred in 4/14 (28.6%) in one cohort; duplicated renal drainage system and other urinary anomalies are rare. HPO terms should reflect the specific defect. (<a href="#ref-batzir2020phenotypicexpansionof-pages-7-8">batzir2020phenotypicexpansionof pages 7-8</a>, <a href="#ref-murch2022furtherdelineationof-pages-5-6">murch2022furtherdelineationof pages 5-6</a>)</li>
+<li><strong>Structural brain, cardiac, craniofacial and diaphragmatic anomalies:</strong> variably reported and usually uncommon. Major cardiovascular abnormalities were uncommon in the 2020 series; cleft lip/palate and congenital diaphragmatic hernia appear to be rare complications. (<a href="#ref-batzir2020phenotypicexpansionof-pages-7-8">batzir2020phenotypicexpansionof pages 7-8</a>, <a href="#ref-murch2022furtherdelineationof-pages-5-6">murch2022furtherdelineationof pages 5-6</a>)</li>
+</ul>
+<h3>Quality of life</h3>
+<p>No WHSUS-specific EQ-5D, SF-36, PROMIS, or validated disease-specific quality-of-life study was identified. Developmental, communication, behavioral, sleep, feeding, sensory, mobility, and seizure manifestations can impair education, autonomy, social participation, caregiver sleep, and family well-being. This impact is clinically plausible but has not been quantified adequately in syndrome-specific prospective studies.</p>
+<h2>4. Genetic and molecular information</h2>
+<p><strong>POGZ</strong> is the only firmly established causal gene. The retrieved evidence did not support <strong>NPC1</strong> as a second WHSUS gene; its low Open Targets association likely reflects ontology/co-occurrence noise and should not be entered as causal. (OpenTargets Search: White-Sutton syndrome-POGZ)</p>
+<p>Pathogenic alleles are germline and generally absent or extremely rare in population databases; POGZ is highly constrained against both protein-truncating and missense variation. Exact gnomAD frequencies must be checked variant-by-variant and were not available in the retrieved texts. Variant interpretation should follow ACMG/AMP criteria, incorporating de novo status, predicted loss of function in a constrained gene, population absence, phenotype consistency, segregation, and functional evidence. (<a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</p>
+<p>The protein contains zinc-finger clusters, an HP1-binding motif, a proline-rich region, CENP-B DNA-binding domain, transposase-derived DDE domain, coiled-coil region, and integrase-binding motif. Many pathogenic variants occur in the large terminal exon/domain-rich region. In 117 patients, truncating alleles escaping NMD were associated with severe manifestations (p&lt;0.0001), and variants in the proline-rich region showed the strongest severity association (p=0.0004). Missense variants were more often associated with milder disease (p=0.0421). The proposed dominant-negative or gain-of-function effect of stable truncated products remains an inference; classical haploinsufficiency remains important for alleles undergoing NMD or deletions. (<a href="#ref-batzir2020phenotypicexpansionof-pages-12-13">batzir2020phenotypicexpansionof pages 12-13</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-1-2">nagy2022genotypephenotypecomparisonin pages 1-2</a>)</p>
+<p>No validated modifier gene or WHSUS-specific blood DNA-methylation episignature was identified. Large deletions involving POGZ can cause the phenotype, but broader deletions require assessment for neighboring-gene effects. No repeat expansion, mitochondrial, or recurrent balanced rearrangement mechanism is established.</p>
+<h2>5. Environmental information</h2>
+<p>Environmental toxins, radiation, pollution, occupational exposure, infectious agents, smoking, alcohol, diet, and exercise are <strong>not primary etiologic factors</strong>. Diet, activity, sleep hygiene, and medications can modify obesity, constipation, sleep, and behavior after disease onset. WHSUS is neither infectious nor transmissible, and no zoonotic dimension exists.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Upstream molecular defect</h3>
+<p>POGZ binds heterochromatin protein 1α and participates in chromatin organization, transcriptional regulation, chromosome segregation, kinetochore/mitotic processes, and Aurora-B-related chromosome dynamics. It also interacts with transcriptional/chromatin proteins including SP1 and CHD4 and co-occupies genomic loci with the autism-associated regulator ADNP. Expression is high during embryonic development, including fetal brain, supporting a developmental mechanism. (<a href="#ref-batzir2020phenotypicexpansionof-pages-2-3">batzir2020phenotypicexpansionof pages 2-3</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-1-2">nagy2022genotypephenotypecomparisonin pages 1-2</a>, <a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</p>
+<h3>Causal chain</h3>
+<p><strong>Pathogenic POGZ allele → reduced normal POGZ dosage and/or abnormal stable truncated protein → impaired HP1-associated heterochromatin and transcriptional control, altered mitotic/neural-progenitor programs and synaptic-gene accessibility → abnormal neurogenesis and neuronal circuit maturation → cerebellar/cortical dysfunction → developmental, cognitive, motor, behavioral, seizure, and sleep phenotypes.</strong> Pleiotropic transcriptional effects during embryogenesis plausibly contribute to craniofacial, GI, genitourinary, diaphragmatic, and other congenital anomalies, but these extra-neural links are less directly established.</p>
+<h3>Model and cellular evidence</h3>
+<p>In a nervous-system-specific conditional mouse knockout, Pogz deficiency produced smaller absolute brain size, growth impairment, learning and motor deficits, and altered sociability. Embryonic cortex showed a 19% reduction in mitotic pHH3-positive cells in heterozygotes and 43.8% in homozygotes, with expansion of the Tbr2-positive intermediate-progenitor layer but no significant change in Pax6-positive apical progenitors. Complete germline knockout is embryonic lethal, limiting direct correspondence to viable heterozygous humans. (<a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-2-3">sulimanlavie2020pogzdeficiencyleads pages 2-3</a>, <a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-1-2">sulimanlavie2020pogzdeficiencyleads pages 1-2</a>)</p>
+<p>Transcriptomic changes were predominantly gene upregulation—most marked in cerebellum—and enriched for neurogenesis, synaptic, and autism-related pathways. Cerebellar Purkinje cells showed reduced simple- and complex-spike firing and increased inhibitory synaptic-input amplitude. The authors’ abstract states: <strong>“Our findings support a mechanism linking heterochromatin dysregulation to cerebellar circuit dysfunction and behavioral abnormalities in ASD.”</strong> This is primary mouse/in-vitro evidence, not direct proof that every human manifestation is cerebellar in origin. Published 2020-11-17, DOI: <a href="https://doi.org/10.1038/s41467-020-19577-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-020-19577-0</a>. (<a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-1-2">sulimanlavie2020pogzdeficiencyleads pages 1-2</a>)</p>
+<p>Suggested annotations include GO <strong>chromatin organization</strong>, <strong>negative regulation of transcription by RNA polymerase II</strong>, <strong>mitotic chromosome segregation</strong>, <strong>neurogenesis</strong>, <strong>regulation of synaptic signaling</strong>, and <strong>heterochromatin organization</strong>; cellular components include <strong>nucleus</strong>, <strong>chromatin</strong>, <strong>heterochromatin</strong>, and <strong>kinetochore</strong>. Relevant Cell Ontology classes include <strong>Purkinje cell</strong>, <strong>neuron</strong>, <strong>cortical neural progenitor cell</strong>, and <strong>intermediate progenitor cell</strong>. No validated human metabolomic, lipidomic, proteomic, single-cell, spatial-transcriptomic, or multi-omic WHSUS signature was found through 2024.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The primary system is the <strong>nervous system</strong>, particularly the developing brain. Relevant locations include cerebral cortex (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a></strong>), cerebellum (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a></strong>), hippocampal formation, and their neuronal progenitors and mature neurons. Mouse evidence most directly implicates cortical progenitors and cerebellar Purkinje cells. (<a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-2-3">sulimanlavie2020pogzdeficiencyleads pages 2-3</a>, <a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-1-2">sulimanlavie2020pogzdeficiencyleads pages 1-2</a>)</p>
+<p>Secondary involvement can include eyes/visual system, inner ear/auditory system, skeletal muscle or motor system through hypotonia, gastrointestinal tract, upper airway during sleep, kidney/urinary and reproductive systems, craniofacial structures, and—rarely—diaphragm, heart, or brain structure. Ocular and hearing abnormalities are frequently bilateral, but no consistent lateralization pattern is established. At the subcellular level, the nucleus, chromatin/heterochromatin, chromosomes, and kinetochore are principal compartments.</p>
+<h2>8. Temporal development</h2>
+<p>WHSUS is congenital in molecular origin and typically becomes clinically apparent during infancy or early childhood through hypotonia, feeding difficulty, delayed milestones, poor speech acquisition, microcephaly, or congenital anomalies. Some mildly affected people are diagnosed later through learning, psychiatric, or behavioral assessment. The 2020 cohort’s median diagnostic age was eight years, with a range from one week to 28 years, demonstrating diagnostic delay and broad ascertainment. (<a href="#ref-batzir2020phenotypicexpansionof-pages-3-5">batzir2020phenotypicexpansionof pages 3-5</a>)</p>
+<p>The course is chronic and lifelong, not acute, relapsing-remitting, or self-limited. Developmental skills may improve with maturation and therapy, but core neurodevelopmental disability does not “remit.” Obesity may become more apparent later in childhood; seizures, sleep apnea, behavior, and GI problems may be episodic or evolve over time. No validated staging system or progression rate exists. Early childhood is the principal intervention window for speech, motor, communication, feeding, sensory, and behavioral support.</p>
+<h2>9. Inheritance and population</h2>
+<p>Inheritance is autosomal dominant, predominantly de novo. Vertical transmission demonstrates that affected individuals can reproduce; a carrier parent may be only mildly affected. Penetrance cannot be quantified reliably, although pathogenic truncating alleles generally appear clinically consequential. Expressivity is markedly variable. There is no evidence for anticipation, founder mutations, consanguinity dependence, or a population-specific carrier frequency. Parental germline mosaicism has not been quantified; as with other apparently de novo dominant disorders, a low residual recurrence risk should be discussed after negative parental blood testing.</p>
+<p>No population prevalence or annual incidence estimate is established. The literature had reported more than 50 affected people by 2020, nearly 90 by 2021/2022, and 117 individuals were available for the large 2022 aggregate. POGZ diagnoses accounted for approximately 0.14% of clinical exomes referred for neurodevelopmental indications in one laboratory dataset, including 0.12% of autism, 0.19% of developmental-delay, and 0.18% of intellectual-disability referrals. These are <strong>diagnostic-laboratory yields, not population prevalence</strong>. (<a href="#ref-batzir2020phenotypicexpansionof-pages-1-2">batzir2020phenotypicexpansionof pages 1-2</a>, <a href="#ref-batzir2020phenotypicexpansionof-pages-12-13">batzir2020phenotypicexpansionof pages 12-13</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-9-10">nagy2022genotypephenotypecomparisonin pages 9-10</a>)</p>
+<p>No robust ethnic, geographic, or sex disparity is established. The 117-person analysis included 62 males and 53 females with two sex entries apparently unavailable, broadly consistent with no major sex bias. (<a href="#ref-nagy2022genotypephenotypecomparisonin-pages-2-4">nagy2022genotypephenotypecomparisonin pages 2-4</a>)</p>
+<h2>10. Diagnostics</h2>
+<h3>Recommended testing strategy</h3>
+<ol>
+<li><strong>Clinical recognition:</strong> unexplained developmental/speech delay or ID, especially with hypotonia, autism/behavioral features, visual problems, microcephaly, hearing loss, feeding/GI difficulty, sleep disorder, or suggestive facial appearance.</li>
+<li><strong>First-line genomic test:</strong> trio WES or WGS is preferred for a nonspecific syndromic neurodevelopmental presentation. A comprehensive neurodevelopmental/ID/autism panel containing POGZ is appropriate where exome/genome sequencing is unavailable.</li>
+<li><strong>Variant confirmation and segregation:</strong> confirm the candidate variant and test both biological parents. Sanger sequencing remains useful for segregation; read-depth/CNV analysis is needed for exon or whole-gene deletions.</li>
+<li><strong>CMA:</strong> useful when congenital anomalies or ID suggest a copy-number disorder and can identify a deletion encompassing POGZ, but will miss most single-nucleotide and small indel alleles.</li>
+<li><strong>WGS:</strong> potentially detects coding variants, CNVs, structural variants, and noncoding/splice-altering variants missed by WES; evidence for a WHSUS-specific incremental yield has not yet been quantified.</li>
+</ol>
+<p>Most reported individuals were diagnosed by trio WES, WGS, or an ID gene panel because the phenotype is insufficiently specific for reliable clinical diagnosis. (<a href="#ref-murch2022furtherdelineationof-pages-1-2">murch2022furtherdelineationof pages 1-2</a>)</p>
+<p>Karyotyping/FISH are not routine unless a larger rearrangement is suspected. Mitochondrial sequencing, repeat-expansion testing, biopsy, metabolomics, proteomics, and liquid biopsy have no disease-specific role. RNA sequencing may help resolve an uncertain splice variant but is not validated as routine WHSUS testing. No standardized clinical diagnostic criteria or biochemical biomarker exists.</p>
+<h3>Baseline and surveillance evaluations</h3>
+<p>After molecular diagnosis: developmental/neuropsychological evaluation; speech-language and feeding/swallow assessment; growth and BMI; ophthalmology; audiology; neurologic examination; EEG if seizures or suspicious events occur; sleep evaluation/polysomnography when snoring, apnea, or daytime symptoms occur; and GI, renal, cardiac, or brain imaging guided by findings. Routine MRI in an asymptomatic patient is not supported by a syndrome-specific guideline.</p>
+<p>Differential diagnoses include other chromatin-related syndromic neurodevelopmental disorders—particularly ADNP-related Helsmoortel–Van der Aa syndrome, CHAMP1-related disorder, KBG syndrome, Coffin-Siris spectrum, Wiedemann-Steiner syndrome, and CHD8-related disorder—as well as Angelman, Smith-Magenis, and nonsyndromic autism/ID. Molecular testing is usually required to distinguish them.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>No 5- or 10-year survival, disease-specific mortality, or life-expectancy estimate is available. Available adult and inherited cases indicate survival into adulthood, but cohorts are too young and small for reassurance about normal life expectancy. Morbidity is primarily neurodevelopmental and functional rather than degenerative: communication disability, learning/ID, behavioral or psychiatric comorbidity, hypotonia/gait difficulty, sensory impairment, sleep apnea, obesity, feeding/GI problems, and seizures.</p>
+<p>Recovery to a completely unaffected state is not expected, although functional gains can occur with education, therapy, communication support, seizure control, sensory correction, nutritional intervention, and treatment of sleep apnea or GI disease. Variant class/NMD behavior may inform broad severity expectations, but no prognostic biomarker or validated individual prediction model exists. (<a href="#ref-batzir2020phenotypicexpansionof-pages-12-13">batzir2020phenotypicexpansionof pages 12-13</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-1-2">nagy2022genotypephenotypecomparisonin pages 1-2</a>)</p>
+<h2>12. Treatment</h2>
+<p>There is <strong>no approved disease-modifying pharmacotherapy, gene therapy, cell therapy, RNA therapy, or POGZ-targeted therapy</strong>. Management is phenotype based:</p>
+<ul>
+<li>early-intervention services and individualized education;</li>
+<li>speech-language therapy, including augmentative and alternative communication;</li>
+<li>physical and occupational therapy for hypotonia, motor delay, gait, and daily-living skills;</li>
+<li>behavioral therapy and child/adult psychiatry for autism, anxiety, ADHD-like symptoms, compulsive behavior, aggression, or sleep-related behavior;</li>
+<li>conventional antiseizure medication selected by seizure type;</li>
+<li>hearing aids/cochlear or other audiologic intervention where indicated;</li>
+<li>glasses, strabismus treatment, and retinal follow-up where indicated;</li>
+<li>feeding therapy, swallow-safety measures, reflux/constipation treatment, nutrition support, and gastrostomy for severe feeding impairment;</li>
+<li>sleep hygiene, polysomnography, ENT evaluation, adenotonsillar treatment or positive-airway pressure for confirmed obstructive sleep apnea;</li>
+<li>healthy diet, activity support, and longitudinal BMI/metabolic monitoring;</li>
+<li>anomaly-specific surgical care, such as for malrotation, diaphragmatic hernia, clefting, or urinary defects.</li>
+</ul>
+<p>Suggested NCIt intervention concepts include <strong>Speech Therapy</strong>, <strong>Occupational Therapy</strong>, <strong>Physical Therapy</strong>, <strong>Behavior Therapy</strong>, <strong>Anticonvulsant Therapy</strong>, <strong>Hearing Aid</strong>, <strong>Nutritional Support</strong>, <strong>Gastrostomy</strong>, and <strong>Continuous Positive Airway Pressure</strong>. There are no syndrome-specific response-rate or adverse-event datasets and no evidence-based combination algorithm.</p>
+<p>The only disease-specific registered study recovered was <strong>NCT07380594 (PSY-POGZ)</strong>, a prospective observational—not therapeutic—study at CHU Dijon. It plans 30 genetically confirmed participants aged over six years and uses psychiatric interviews and standardized K-SADS/MINI instruments; it was first posted February 2, 2026 and is therefore outside the requested 2023–2024 priority window. (NCT07380594 chunk 1)</p>
+<h2>13. Prevention</h2>
+<p>A sporadic de novo pathogenic variant cannot ordinarily be prevented through behavioral or environmental modification. There is no vaccine, medication prophylaxis, newborn biochemical screening, or population screening program.</p>
+<p>Primary reproductive prevention options are nondirective genetic counseling, prenatal diagnosis for a known familial variant, and preimplantation genetic testing for monogenic disease. For an apparently de novo case, parental testing refines recurrence counseling but does not eliminate the possibility of germline mosaicism. An affected heterozygous parent has a theoretical 50% transmission probability per pregnancy, with unpredictable severity because of variable expressivity.</p>
+<p>Secondary/tertiary prevention consists of early genomic diagnosis, developmental intervention, seizure safety, hearing and vision screening, aspiration prevention, sleep-apnea recognition, weight management, and surveillance/treatment of GI or congenital complications. Cascade testing is appropriate in families with an inherited variant; general-population carrier screening is not justified.</p>
+<h2>14. Other species and natural disease</h2>
+<p>No naturally occurring WHSUS-equivalent disease in companion animals, livestock, or wildlife was identified, and no breed association or VBO term can currently be recommended. POGZ is evolutionarily conserved and orthologs exist in common research organisms, but comparative conservation alone is not evidence of naturally occurring veterinary disease. There is no transmission or zoonotic potential.</p>
+<h2>15. Model organisms</h2>
+<p>The best-characterized model is <strong>Mus musculus</strong> (NCBI Taxonomy 10090) with nervous-system-specific conditional Pogz deletion driven by Nestin-Cre. It recapitulates smaller brain, growth impairment, altered neurogenesis, learning and motor deficits, altered sociability, cerebellar transcriptional dysregulation, and Purkinje-cell physiology. Relevant applications include testing the consequences of dosage reduction on neural progenitors, chromatin/transcription, synaptic pathways, cerebellar circuitry, and behavior. (<a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-2-3">sulimanlavie2020pogzdeficiencyleads pages 2-3</a>, <a href="#ref-sulimanlavie2020pogzdeficiencyleads-pages-1-2">sulimanlavie2020pogzdeficiencyleads pages 1-2</a>)</p>
+<p>Important limitations are that homozygous nervous-system knockout is more severe than the typical human heterozygous state, complete germline knockout is embryonic lethal, mouse sociability is not equivalent to human autism, and the model does not reliably reproduce the full human multisystem phenotype. Earlier literature mentions Drosophila and zebrafish approaches, but detailed primary evidence retrieved for this report was insufficient to specify validated WHSUS phenotypic recapitulation. (<a href="#ref-batzir2020phenotypicexpansionof-pages-11-12">batzir2020phenotypicexpansionof pages 11-12</a>, <a href="#ref-nagy2022genotypephenotypecomparisonin-pages-2-4">nagy2022genotypephenotypecomparisonin pages 2-4</a>)</p>
+<h2>Recent-development assessment and evidence gaps</h2>
+<p>Through 2024, the principal advances were refinement of genotype–phenotype relationships, recognition of inherited/mild disease and rare multisystem complications, and increasingly cell-type-specific mouse studies. The core 2022 result is captured directly in the authors’ abstract: <strong>“Missense variants were more often associated with mild phenotypes (p = 0.0421) and truncating variants predicted to escape NMD presented with more severe phenotypes (p &lt; 0.0001).”</strong> Nagy et al., published January 15, 2022, DOI: <a href="https://doi.org/10.3390/genes13010154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes13010154</a>. (<a href="#ref-nagy2022genotypephenotypecomparisonin-pages-1-2">nagy2022genotypephenotypecomparisonin pages 1-2</a>)</p>
+<p>The key unresolved needs are a prospective multinational natural-history registry; standardized developmental, psychiatric, sleep, seizure, GI, and quality-of-life measures; adult outcome and mortality data; variant-level functional assays; human iPSC/organoid studies; human single-cell and multi-omic profiling; validated biomarkers; and preclinical evaluation of dosage-restoring or transcript-specific therapies. The currently available frequency estimates should therefore be treated as provisional rather than population-level penetrance figures.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-batzir2020phenotypicexpansionof-pages-1-2"></a>(batzir2020phenotypicexpansionof pages 1-2): Nurit Assia Batzir, Jennifer E. Posey, Xiaofei Song, Zeynep Coban Akdemir, Jill A. Rosenfeld, Chester W. Brown, Emily Chen, Shannon G. Holtrop, Elizabeth Mizerik, Margarita Nieto Moreno, Katelyn Payne, Annick Raas‐Rothschild, Richard Scott, Hilary J. Vernon, Neda Zadeh, James R. Lupski, and V. Reid Sutton. Phenotypic expansion of pogz‐related intellectual disability syndrome (white‐sutton syndrome). American Journal of Medical Genetics Part A, 182:38-52, Nov 2020. URL: <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajmg.a.61380</a>, <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">doi:10.1002/ajmg.a.61380</a>. This article has 70 citations.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-white-sutton-syndrome-pogz"></a>(OpenTargets Search: White-Sutton syndrome-POGZ): Open Targets Query (White-Sutton syndrome-POGZ, 4 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-murch2022furtherdelineationof-pages-1-2"></a>(murch2022furtherdelineationof pages 1-2): Oliver Murch, Vani Jain, Andreas Benneche, Kay Metcalfe, Emma Hobson, Katrina Prescott, Kate Chandler, Neeti Ghali, Jenny Carmichael, Nicola C. Foulds, Julie Paulsen, Marie F. Smeland, Siren Berland, and Andrew E. Fry. Further delineation of the clinical spectrum of white–sutton syndrome: 12 new individuals and a review of the literature. European Journal of Human Genetics, 30:95-100, Oct 2022. URL: <a href="https://doi.org/10.1038/s41431-021-00961-3" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41431-021-00961-3</a>, <a href="https://doi.org/10.1038/s41431-021-00961-3" target="_blank" rel="noopener noreferrer">doi:10.1038/s41431-021-00961-3</a>. This article has 22 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-batzir2020phenotypicexpansionof-pages-3-5"></a>(batzir2020phenotypicexpansionof pages 3-5): Nurit Assia Batzir, Jennifer E. Posey, Xiaofei Song, Zeynep Coban Akdemir, Jill A. Rosenfeld, Chester W. Brown, Emily Chen, Shannon G. Holtrop, Elizabeth Mizerik, Margarita Nieto Moreno, Katelyn Payne, Annick Raas‐Rothschild, Richard Scott, Hilary J. Vernon, Neda Zadeh, James R. Lupski, and V. Reid Sutton. Phenotypic expansion of pogz‐related intellectual disability syndrome (white‐sutton syndrome). American Journal of Medical Genetics Part A, 182:38-52, Nov 2020. URL: <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajmg.a.61380</a>, <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">doi:10.1002/ajmg.a.61380</a>. This article has 70 citations.</p>
+</li>
+<li>
+<p><a id="ref-nagy2022genotypephenotypecomparisonin-pages-9-10"></a>(nagy2022genotypephenotypecomparisonin pages 9-10): Dóra Nagy, Sarah Verheyen, Kristen M. Wigby, Artem Borovikov, Artem Sharkov, Valerie Slegesky, Austin Larson, Christina Fagerberg, Charlotte Brasch-Andersen, Maria Kibæk, Ingrid Bader, Rebecca Hernan, Frances A. High, Wendy K. Chung, Jolanda H. Schieving, Jana Behunova, Mateja Smogavec, Franco Laccone, Martina Witsch-Baumgartner, Joachim Zobel, Hans-Christoph Duba, and Denisa Weis. Genotype-phenotype comparison in pogz-related neurodevelopmental disorders by using clinical scoring. Genes, 13:154, Jan 2022. URL: <a href="https://doi.org/10.3390/genes13010154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes13010154</a>, <a href="https://doi.org/10.3390/genes13010154" target="_blank" rel="noopener noreferrer">doi:10.3390/genes13010154</a>. This article has 33 citations.</p>
+</li>
+<li>
+<p><a id="ref-batzir2020phenotypicexpansionof-pages-12-13"></a>(batzir2020phenotypicexpansionof pages 12-13): Nurit Assia Batzir, Jennifer E. Posey, Xiaofei Song, Zeynep Coban Akdemir, Jill A. Rosenfeld, Chester W. Brown, Emily Chen, Shannon G. Holtrop, Elizabeth Mizerik, Margarita Nieto Moreno, Katelyn Payne, Annick Raas‐Rothschild, Richard Scott, Hilary J. Vernon, Neda Zadeh, James R. Lupski, and V. Reid Sutton. Phenotypic expansion of pogz‐related intellectual disability syndrome (white‐sutton syndrome). American Journal of Medical Genetics Part A, 182:38-52, Nov 2020. URL: <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajmg.a.61380</a>, <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">doi:10.1002/ajmg.a.61380</a>. This article has 70 citations.</p>
+</li>
+<li>
+<p><a id="ref-nagy2022genotypephenotypecomparisonin-pages-1-2"></a>(nagy2022genotypephenotypecomparisonin pages 1-2): Dóra Nagy, Sarah Verheyen, Kristen M. Wigby, Artem Borovikov, Artem Sharkov, Valerie Slegesky, Austin Larson, Christina Fagerberg, Charlotte Brasch-Andersen, Maria Kibæk, Ingrid Bader, Rebecca Hernan, Frances A. High, Wendy K. Chung, Jolanda H. Schieving, Jana Behunova, Mateja Smogavec, Franco Laccone, Martina Witsch-Baumgartner, Joachim Zobel, Hans-Christoph Duba, and Denisa Weis. Genotype-phenotype comparison in pogz-related neurodevelopmental disorders by using clinical scoring. Genes, 13:154, Jan 2022. URL: <a href="https://doi.org/10.3390/genes13010154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes13010154</a>, <a href="https://doi.org/10.3390/genes13010154" target="_blank" rel="noopener noreferrer">doi:10.3390/genes13010154</a>. This article has 33 citations.</p>
+</li>
+<li>
+<p><a id="ref-batzir2020phenotypicexpansionof-pages-11-12"></a>(batzir2020phenotypicexpansionof pages 11-12): Nurit Assia Batzir, Jennifer E. Posey, Xiaofei Song, Zeynep Coban Akdemir, Jill A. Rosenfeld, Chester W. Brown, Emily Chen, Shannon G. Holtrop, Elizabeth Mizerik, Margarita Nieto Moreno, Katelyn Payne, Annick Raas‐Rothschild, Richard Scott, Hilary J. Vernon, Neda Zadeh, James R. Lupski, and V. Reid Sutton. Phenotypic expansion of pogz‐related intellectual disability syndrome (white‐sutton syndrome). American Journal of Medical Genetics Part A, 182:38-52, Nov 2020. URL: <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajmg.a.61380</a>, <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">doi:10.1002/ajmg.a.61380</a>. This article has 70 citations.</p>
+</li>
+<li>
+<p><a id="ref-batzir2020phenotypicexpansionof-pages-7-8"></a>(batzir2020phenotypicexpansionof pages 7-8): Nurit Assia Batzir, Jennifer E. Posey, Xiaofei Song, Zeynep Coban Akdemir, Jill A. Rosenfeld, Chester W. Brown, Emily Chen, Shannon G. Holtrop, Elizabeth Mizerik, Margarita Nieto Moreno, Katelyn Payne, Annick Raas‐Rothschild, Richard Scott, Hilary J. Vernon, Neda Zadeh, James R. Lupski, and V. Reid Sutton. Phenotypic expansion of pogz‐related intellectual disability syndrome (white‐sutton syndrome). American Journal of Medical Genetics Part A, 182:38-52, Nov 2020. URL: <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajmg.a.61380</a>, <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">doi:10.1002/ajmg.a.61380</a>. This article has 70 citations.</p>
+</li>
+<li>
+<p><a id="ref-batzir2020phenotypicexpansionof-pages-8-9"></a>(batzir2020phenotypicexpansionof pages 8-9): Nurit Assia Batzir, Jennifer E. Posey, Xiaofei Song, Zeynep Coban Akdemir, Jill A. Rosenfeld, Chester W. Brown, Emily Chen, Shannon G. Holtrop, Elizabeth Mizerik, Margarita Nieto Moreno, Katelyn Payne, Annick Raas‐Rothschild, Richard Scott, Hilary J. Vernon, Neda Zadeh, James R. Lupski, and V. Reid Sutton. Phenotypic expansion of pogz‐related intellectual disability syndrome (white‐sutton syndrome). American Journal of Medical Genetics Part A, 182:38-52, Nov 2020. URL: <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajmg.a.61380</a>, <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">doi:10.1002/ajmg.a.61380</a>. This article has 70 citations.</p>
+</li>
+<li>
+<p><a id="ref-murch2022furtherdelineationof-pages-5-6"></a>(murch2022furtherdelineationof pages 5-6): Oliver Murch, Vani Jain, Andreas Benneche, Kay Metcalfe, Emma Hobson, Katrina Prescott, Kate Chandler, Neeti Ghali, Jenny Carmichael, Nicola C. Foulds, Julie Paulsen, Marie F. Smeland, Siren Berland, and Andrew E. Fry. Further delineation of the clinical spectrum of white–sutton syndrome: 12 new individuals and a review of the literature. European Journal of Human Genetics, 30:95-100, Oct 2022. URL: <a href="https://doi.org/10.1038/s41431-021-00961-3" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41431-021-00961-3</a>, <a href="https://doi.org/10.1038/s41431-021-00961-3" target="_blank" rel="noopener noreferrer">doi:10.1038/s41431-021-00961-3</a>. This article has 22 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-batzir2020phenotypicexpansionof-pages-2-3"></a>(batzir2020phenotypicexpansionof pages 2-3): Nurit Assia Batzir, Jennifer E. Posey, Xiaofei Song, Zeynep Coban Akdemir, Jill A. Rosenfeld, Chester W. Brown, Emily Chen, Shannon G. Holtrop, Elizabeth Mizerik, Margarita Nieto Moreno, Katelyn Payne, Annick Raas‐Rothschild, Richard Scott, Hilary J. Vernon, Neda Zadeh, James R. Lupski, and V. Reid Sutton. Phenotypic expansion of pogz‐related intellectual disability syndrome (white‐sutton syndrome). American Journal of Medical Genetics Part A, 182:38-52, Nov 2020. URL: <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">https://doi.org/10.1002/ajmg.a.61380</a>, <a href="https://doi.org/10.1002/ajmg.a.61380" target="_blank" rel="noopener noreferrer">doi:10.1002/ajmg.a.61380</a>. This article has 70 citations.</p>
+</li>
+<li>
+<p><a id="ref-sulimanlavie2020pogzdeficiencyleads-pages-1-2"></a>(sulimanlavie2020pogzdeficiencyleads pages 1-2): Reut Suliman-Lavie, Ben Title, Yahel Cohen, Nanako Hamada, Maayan Tal, Nitzan Tal, Galya Monderer-Rothkoff, Bjorg Gudmundsdottir, Kristbjorn O. Gudmundsson, Jonathan R. Keller, Guo-Jen Huang, Koh-ichi Nagata, Yosef Yarom, and Sagiv Shifman. Pogz deficiency leads to transcription dysregulation and impaired cerebellar activity underlying autism-like behavior in mice. Nature Communications, Nov 2020. URL: <a href="https://doi.org/10.1038/s41467-020-19577-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-020-19577-0</a>, <a href="https://doi.org/10.1038/s41467-020-19577-0" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-020-19577-0</a>. This article has 67 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-sulimanlavie2020pogzdeficiencyleads-pages-2-3"></a>(sulimanlavie2020pogzdeficiencyleads pages 2-3): Reut Suliman-Lavie, Ben Title, Yahel Cohen, Nanako Hamada, Maayan Tal, Nitzan Tal, Galya Monderer-Rothkoff, Bjorg Gudmundsdottir, Kristbjorn O. Gudmundsson, Jonathan R. Keller, Guo-Jen Huang, Koh-ichi Nagata, Yosef Yarom, and Sagiv Shifman. Pogz deficiency leads to transcription dysregulation and impaired cerebellar activity underlying autism-like behavior in mice. Nature Communications, Nov 2020. URL: <a href="https://doi.org/10.1038/s41467-020-19577-0" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-020-19577-0</a>, <a href="https://doi.org/10.1038/s41467-020-19577-0" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-020-19577-0</a>. This article has 67 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct07380594-chunk-1"></a>(NCT07380594 chunk 1):  Descriptive Study of Psychiatric Symptoms in White-Sutton Syndrome. Centre Hospitalier Universitaire Dijon. 2026. ClinicalTrials.gov Identifier: NCT07380594</p>
+</li>
+<li>
+<p><a id="ref-nagy2022genotypephenotypecomparisonin-pages-2-4"></a>(nagy2022genotypephenotypecomparisonin pages 2-4): Dóra Nagy, Sarah Verheyen, Kristen M. Wigby, Artem Borovikov, Artem Sharkov, Valerie Slegesky, Austin Larson, Christina Fagerberg, Charlotte Brasch-Andersen, Maria Kibæk, Ingrid Bader, Rebecca Hernan, Frances A. High, Wendy K. Chung, Jolanda H. Schieving, Jana Behunova, Mateja Smogavec, Franco Laccone, Martina Witsch-Baumgartner, Joachim Zobel, Hans-Christoph Duba, and Denisa Weis. Genotype-phenotype comparison in pogz-related neurodevelopmental disorders by using clinical scoring. Genes, 13:154, Jan 2022. URL: <a href="https://doi.org/10.3390/genes13010154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes13010154</a>, <a href="https://doi.org/10.3390/genes13010154" target="_blank" rel="noopener noreferrer">doi:10.3390/genes13010154</a>. This article has 33 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/White-Sutton_Syndrome-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Whipple_Disease-falcon.html">← Whipple Disease (Falcon)</a>
+                
+                
+                <a href="Wieacker_Wolff_Syndrome-fallback.html">Wieacker-Wolff Syndrome Spectrum (Fallback) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/White-Sutton_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/White-Sutton_Syndrome-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

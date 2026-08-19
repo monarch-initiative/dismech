@@ -1,8 +1,8 @@
-name: PR Shepherd
+name: 00 · PR Shepherd
 
 on:
   schedule:
-    - cron: "37 */4 * * *"  # every 4h, offset from the curation scanner
+    - cron: "37 */1 * * *"  # every 1h, offset from the curation scanner
   workflow_dispatch:
     inputs:
       max_prs:
@@ -14,6 +14,8 @@ on:
           - "2"
           - "3"
           - "4"
+          - "5"
+          - "6"
       pr_number:
         description: "Specific PR number to tend instead of scanning"
         required: false
@@ -23,6 +25,13 @@ on:
         required: false
         default: false
         type: boolean
+      min_age_days:
+        description: >-
+          Minimum age in days a PR must reach before the deterministic sweep
+          will merge it (blank = 3). 0 merges as soon as it is otherwise ready.
+        required: false
+        default: "3"
+        type: string
       model:
         description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
         required: false
@@ -101,6 +110,13 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
           GITHUB_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          # Langfuse tracing. The plugin resolves config from plain env vars first,
+          # falling back to the interactive wizard's stored values — so setting them
+          # here is what makes it work unattended. When the secrets are absent the
+          # hook finds no keys and exits quietly, leaving the run unchanged.
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
         with:
           # Auth: prefer ANTHROPIC_API_KEY (pay-per-use, no weekly subscription
           # cap); fall back to the OAuth token only when no API key is set. The
@@ -111,6 +127,17 @@ jobs:
           github_token: ${{ steps.ai4c-token.outputs.token }}
           show_full_output: false
           allowed_bots: "dragon-ai-agent,ai4c-agent,claude,github-actions"
+          # Sends this run to Langfuse: one trace per conversational turn (so
+          # normally one per headless run), holding a generation per model call
+          # with token usage and a child span per tool call. The plugin is a
+          # Stop/SessionEnd hook that reads the session transcript, so it
+          # observes the run without altering it, and stays silent if it fails.
+          # The .git suffix is required: the action validates marketplace URLs
+          # against /^https:\/\/.+\.git$/ and rejects the bare repo URL.
+          plugin_marketplaces: |
+            https://github.com/langfuse/Claude-Observability-Plugin.git
+          plugins: |
+            langfuse-observability@langfuse-observability
           claude_args: |
             --dangerously-skip-permissions
             --mcp-config '{"mcpServers": {"ols": {"command": "uvx", "args": ["ols-mcp"]}}}'
@@ -146,6 +173,16 @@ jobs:
                   branches that may be authored by any user who triggered the session).
             - A PR matching either (a) or (b) is a candidate. Do not act on PRs that match
               neither criterion.
+            - EXCLUDE automated page-build regen PRs: any PR whose head branch starts with
+              `auto/generate-` and whose author is `app/github-actions` / `github-actions[bot]`.
+              These are NOT candidates. Their lifecycle is fully managed by their own regen
+              workflows (deterministic ai4c-reviewer approval of each pushed commit, armed
+              auto-merge, stale-PR cleanup), and they deliberately receive no agentic review —
+              claude-code-review.yml declines to review them, so dispatching it for one of
+              these PRs only wastes a run. Do not dispatch reviews for them, merge them,
+              update their branches, or comment on them. If one looks stuck in
+              REVIEW_REQUIRED, leave it: the next run of its regen workflow refreshes and
+              re-approves it.
 
             Gather enough context for each candidate before choosing:
             - PR metadata: author, draft state, base/head refs, head SHA, updated/created time,
@@ -227,10 +264,12 @@ jobs:
             End by posting or logging a concise summary of candidates scanned, selected PRs, actions
             taken, validation run, and any blockers that remain.
 
-      # The agent may check out a PR branch; restore the workflow ref so this
-      # local composite action is available from the workspace.
-      - name: Restore workflow checkout for step summary
-        if: ${{ !cancelled() && steps.pr-shepherd.outputs.execution_file != '' }}
+      # The agent may check out a PR branch; restore the workflow ref so the
+      # local composite action and scripts/ are available from the workspace.
+      # Unconditional (beyond cancellation) because the auto-merge step below
+      # runs even when the agent step failed.
+      - name: Restore workflow checkout
+        if: ${{ !cancelled() }}
         uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
@@ -241,3 +280,54 @@ jobs:
         with:
           execution-file: ${{ steps.pr-shepherd.outputs.execution_file }}
           title: "🐑 PR Shepherd Run"
+
+      # Deterministic closing sweep. The agent step above *judges* stuck PRs;
+      # this one judges nothing — it applies a fixed predicate to GitHub-reported
+      # state, so a run's outcome is reproducible from the API response alone.
+      # Merges a PR only when it is approved, unassigned, conflict-free, green
+      # (mergeStateStatus CLEAN plus a clean status-check rollup), and more than
+      # three days old.
+      #
+      # Scope note: unlike the agent step — whose guardrails deliberately forbid
+      # touching human-authored PRs, because its edits are judgement calls — this
+      # step applies to ALL authors, humans included. It never edits anything; it
+      # only merges work that a reviewer already approved and that nobody has
+      # claimed. Assigning a PR to yourself is the per-PR veto.
+      #
+      # Runs even if the agent step failed: the two are independent, and a
+      # failed agent run should not strand mergeable PRs.
+      #
+      # Fresh token: GitHub App installation tokens expire after 1 hour, but
+      # this job may run for up to `timeout-minutes: 90` and the sweep is its
+      # last step — the token minted at the top of the job is routinely dead by
+      # the time we get here.
+      - name: Regenerate ai4c-agent token for the merge sweep
+        id: ai4c-token-merge
+        if: ${{ !cancelled() }}
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+
+      - name: Auto-merge ready PRs (deterministic)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token-merge.outputs.token }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+          # Scheduled runs supply no inputs, so `inputs.min_age_days` is empty
+          # and the fallback applies. The script rejects a negative or
+          # non-integer value, so a typo fails loudly instead of quietly
+          # widening what gets merged.
+          MIN_AGE_DAYS: ${{ inputs.min_age_days || '3' }}
+        run: |
+          set -euo pipefail
+          args=(--repo "$GITHUB_REPOSITORY" --min-age-days "$MIN_AGE_DAYS")
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          # Stdlib-only by design, so it still runs if `uv sync` above failed.
+          # `--no-project` skips the project environment for that reason, while
+          # still guaranteeing a uv-managed interpreter new enough for the
+          # script (the repo floor is 3.12) rather than trusting the runner's
+          # system `python3`.
+          uv run --no-project python scripts/auto_merge_ready_prs.py "${args[@]}"
