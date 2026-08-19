@@ -184,8 +184,8 @@ fact is how they drift, and the YAML one is the slow, invisible one.
 
 ## Finishing a curation
 
-The curation PR **deletes the stub and adds the KB entry**, and closes the claim
-issue:
+The curation PR **should delete the stub** alongside adding the KB entry, and
+close the claim issue:
 
 ```
 - stubs/Yao_Syndrome.yaml
@@ -193,10 +193,12 @@ issue:
 + history/disorders/Yao_Syndrome/...
 ```
 
-Put `Closes #<issue>` in the PR body so merging releases the claim. `just
-check-stubs` (in `just qc`, and enforced by
-`tests/test_stubs.py::test_no_stub_survives_curation`) fails if you leave the
-stub behind.
+Put `Closes #<issue>` in the PR body so merging releases the claim.
+
+If you forget the stub, **nothing breaks** — stubs are informative, not curated
+content, and a stale one is reported as an advisory that never gates. A periodic
+`just tidy-stubs --apply` sweeps them. Do not go out of your way to service that
+message mid-curation.
 
 If the answer turns out to be `GROUPING` / `SUBTYPE` / `OUT_OF_SCOPE`, the PR
 still deletes the stub — record the decision and reasoning in the PR body, and
