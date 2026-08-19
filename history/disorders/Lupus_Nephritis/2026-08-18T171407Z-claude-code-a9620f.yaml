@@ -1,0 +1,44 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Lupus_Nephritis
+  path: kb/disorders/Lupus_Nephritis.yaml
+session:
+  id: 2026-08-18T171407Z-claude-code-a9620f
+  timestamp: '2026-08-18T17:14:07Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/8837
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - pathophysiology
+  - mechanistic_hypotheses
+  summary: 'Address PR #8837 review: split bundled node, fix niche causal direction,
+    complete canonical hypothesis coverage'
+  details: |
+    Addressed the CHANGES_REQUESTED review on PR #8837 (ai4c-reviewer). All three blocking findings were accepted as correct; finding 2 identified a genuine biological error in the original curation.
+
+    Finding 1 (node bundling). "Kidney Microenvironment Conditioning of Intrarenal Immune Cells" bundled three claims into one node - the biochemical niche, intrinsic renal cell engagement, and the resulting immune-cell conditioning - signalled by five biological_processes mixing inputs with an output and by two distinct node-level evidence items. Split into four atomic nodes: "Renal Biochemical Niche (Low Oxygen Tension and Hypertonicity)" (TISSUE; GO:0071456, GO:0006972), "Intrinsic Renal Cell Antigen Presentation and Cytokine Production" (CELLULAR; GO:0019882, GO:0001816), "Intrarenal Immune Cell Conditioning and Activation" (CELLULAR; GO:0045321), and "Altered Intrinsic Renal Cell Function" (CELLULAR). No new ontology terms were needed; every GO and CL term was already curated on the bundled node.
+
+    Finding 2 (wrong causal claim). The edge "Intrarenal Immune Infiltration -> Kidney Microenvironment Conditioning" was causal_link_type DIRECT onto a node containing renal hypoxia and medullary hypertonicity. Those are constitutive features of normal renal physiology - the corticomedullary oxygen gradient and the medullary osmotic gradient exist in a healthy kidney - and Chernova frames them as the pre-existing environment the infiltrate arrives into, not as an induced state. The original edge asserted a causal claim the review does not make. Fixed: the niche node is now an initiating/contextual node with no incoming edge, and the infiltrate edge was retargeted to the renal-cell engagement node, which is legitimately induced. Neither niche process carries a modifier, since the review treats them as the kidney's normal conditions rather than as increased or decreased.
+
+    Also from finding 2: the review's reciprocal sentence has two halves ("the kidney microenvironment influences ... immune cells, which, in turn, modify kidney cell function") and only the first was modelled, leaving the second implicit on an edge whose source was immune cells and whose target was a kidney-subject process. Added "Altered Intrinsic Renal Cell Function" so each half is its own edge, with a downstream edge to Glomerular and Tubulointerstitial Injury carrying the review's own "responsible for the tissue damage observed in LN" clause.
+
+    Finding 3 (incomplete hypothesis coverage). The CANONICAL unidirectional_immune_injury_model described the autoantibody -> deposition -> complement backbone but only two edges opted in. Verified the reviewer's mechanism directly: render.py builds a hypothesis's _pathograph_links solely from edges carrying hypothesis_groups ("if not target or not hypothesis_ids: continue"), so the model would have rendered as a fragment missing its own spine. Tagged the two backbone edges (Autoantibody Production -> Glomerular Immune Complex Deposition, and Glomerular Immune Complex Deposition -> Complement Activation).
+
+    Suggestion 4 accepted: trimmed the "...are discussed in detail." meta-clause from the antigen-presentation snippet, which remains an exact substring. Suggestion 5 accepted: GO:0045321 leukocyte activation now sits on the immune-side conditioning node rather than a kidney node.
+
+    Suggestion 6 (encode the model-system caveat as a structural HUMAN_MODEL_MISMATCH discussion) was declined, with reasoning recorded on the PR. The cached reference is abstract_only, and the abstract does not identify which arms rest on model systems; the prose note is an inference from the source being a narrative review, not a verified claim about specific model-system evidence. A HUMAN_MODEL_MISMATCH discussion requires a prompt, rationale and proposed experiments naming an actual translational gap, which cannot be substantiated from an abstract. The caveat remains as node notes. Suggestion 7 (consume research/Lupus_Nephritis-deep-research-claude_code.md for type I IFN, podocyte effacement, and interstitial fibrosis arms) is out of scope for this single-paper augmentation and the reviewer marked it non-blocking and pre-existing; left for a follow-up pass.
+
+    Pathograph after the change: Complement Activation -> Intrarenal Immune Infiltration -> Intrinsic Renal Cell Antigen Presentation -> Intrarenal Immune Cell Conditioning -> back to Intrarenal Immune Infiltration (a 3-cycle rather than the previous 2-cycle), with Renal Biochemical Niche as a second, edge-free-upstream input to the conditioning node, and Intrarenal Immune Cell Conditioning -> Altered Intrinsic Renal Cell Function -> Glomerular and Tubulointerstitial Injury.
+
+    Validation: just validate, just validate-terms and just validate-references all pass; 48/48 snippets verified against the cached reference (up from 42 as the split added edge-level evidence). Targeted tests pass, including test_no_new_short_snippets. The two remaining validate-references WARNs are ega: accessions in the datasets block that arrived from main and have no registered fetcher; they are untouched by this work.
