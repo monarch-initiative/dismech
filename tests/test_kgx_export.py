@@ -727,11 +727,18 @@ class TestGeneToEdgeWithGeneTerm:
         assert edge.subject_category == "biolink:Gene"
         assert edge.object_category == "biolink:Disease"
 
-    def test_skips_without_gene_term(self):
-        """Without gene_term.term.id we skip — no HGNC.SYMBOL:{name}
-        fallback that produced malformed CURIEs (see #2099)."""
-        gene = {"name": "IL4", "association": "Associated"}
-        assert gene_to_edge("MONDO:0004979", gene) is None
+    def test_skips_every_falsy_gene_term_id_shape(self):
+        """Every shape that leaves gene_term.term.id falsy is skipped — no
+        HGNC.SYMBOL:{name} fallback that produced malformed CURIEs (#2099),
+        and no empty-CURIE subject either."""
+        for gene in [
+            {"name": "IL4", "association": "Associated"},          # no gene_term at all
+            {"name": "", "association": "Associated"},             # no gene_term, empty name
+            {"name": "IL4", "gene_term": {}},                      # gene_term but no term
+            {"name": "IL4", "gene_term": {"term": {}}},            # term but no id
+            {"name": "IL4", "gene_term": {"term": {"id": ""}}},    # id present but empty
+        ]:
+            assert gene_to_edge("MONDO:0004979", gene) is None, gene
 
     def test_skips_aneuploidy_or_disease_class(self):
         """Multi-word names that aren't real gene symbols are skipped (#2099)."""
@@ -1142,7 +1149,13 @@ class TestExtractNodes:
         assert len(nodes) == 0
 
     def test_skips_entries_without_term_ids(self):
-        """Test that entries without term IDs are skipped."""
+        """Test that entries without term IDs are skipped.
+
+        Covers the gene branch too: a genetic[] entry with only a free-text
+        name must yield no node at all, rather than the old synthetic
+        HGNC.SYMBOL:{name} (see #2099). This is the extract_nodes half of the
+        fix — the half responsible for the dropped gene node ids.
+        """
         disorder = {
             "name": "Test Disorder",
             "disease_term": {"term": {"id": "MONDO:0000001"}},
@@ -1150,12 +1163,17 @@ class TestExtractNodes:
                 {"name": "Complete", "phenotype_term": {"term": {"id": "HP:0000001"}}},
                 {"name": "Incomplete"},  # No phenotype_term
             ],
+            "genetic": [
+                {"name": "Trisomy 21"},  # No gene_term — not a gene, must be skipped
+            ],
         }
         nodes = list(extract_nodes(disorder))
         ids = [n.id for n in nodes]
         assert "MONDO:0000001" in ids
         assert "HP:0000001" in ids
-        assert len(nodes) == 2  # disease + 1 valid phenotype
+        assert not any(i.startswith("HGNC.SYMBOL") for i in ids)
+        assert not any(isinstance(n, Gene) for n in nodes)
+        assert len(nodes) == 2  # disease + 1 valid phenotype; the gene entry is dropped
 
     def test_treatment_node_uses_canonical_ncit_label(self):
         """Treatment node `name` must come from treatment_term.term.label,
