@@ -43,6 +43,8 @@ groupings:
 
 # Neuromuscular Disease Curation Project
 
+Tracking epic: [monarch-initiative/dismech#9005](https://github.com/monarch-initiative/dismech/issues/9005)
+
 ## Overview
 
 Neuromuscular disease is organized around the **motor unit**: lower motor neuron
