@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -41,6 +42,10 @@ from dismech.yaml_io import safe_load
 
 DEFAULT_MONDO_DB = Path.home() / ".data" / "oaklib" / "mondo.db"
 HGNC_CACHE = ROOT / "cache" / "hgnc" / "terms.csv"
+#: Records which MONDO release the committed enrichment came from, so diff churn
+#: in `mondo_descendant_count` across machines is attributable. Mirrors
+#: `data/orphadata/MANIFEST.yaml` and `data/icees-kg/MANIFEST.yaml`.
+MANIFEST = ROOT / "data" / "mondo" / "MANIFEST.yaml"
 
 SUBCLASS_OF = "rdfs:subClassOf"
 #: MONDO's "disease has basis in dysfunction of" / causal-gene relation.
@@ -51,6 +56,33 @@ CAUSAL_GENE = "RO:0004003"
 #: `mondo_descendant_count`, so truncation is never silent. 25 of the 1,867
 #: stubs are actually truncated at this cap.
 DESCENDANT_CAP = 25
+
+
+def mondo_version(conn: sqlite3.Connection) -> str | None:
+    """MONDO release date from the ontology's own versionIRI.
+
+    `obo:mondo/releases/2026-05-05/mondo.owl` -> `2026-05-05`.
+    """
+    row = conn.execute(
+        "select object from statements where subject=? and predicate=?",
+        ("obo:mondo.owl", "owl:versionIRI"),
+    ).fetchone()
+    if not row or not row[0]:
+        return None
+    match = re.search(r"/releases/([0-9]{4}-[0-9]{2}-[0-9]{2})/", str(row[0]))
+    return match.group(1) if match else str(row[0])
+
+
+def write_manifest(version: str | None, stub_count: int) -> None:
+    MANIFEST.parent.mkdir(parents=True, exist_ok=True)
+    MANIFEST.write_text(
+        "# Which MONDO release the committed stub enrichment was generated from.\n"
+        "# Written by scripts/enrich_curation_stubs.py; do not hand-edit.\n"
+        "source: mondo\n"
+        f"version: {version or 'unknown'}\n"
+        f"enriched_stubs: {stub_count}\n",
+        encoding="utf-8",
+    )
 
 
 def load_labels(conn: sqlite3.Connection) -> dict[str, str]:
@@ -194,7 +226,12 @@ def main() -> int:
             if not args.dry_run:
                 path.write_text(updated, encoding="utf-8")
 
+    version = mondo_version(conn)
+    if not args.dry_run:
+        write_manifest(version, len(stub_ids))
+
     print(
+        f"mondo: {version or 'unknown'}  "
         f"stubs: {len(stub_ids)}  with parents: {len(parents)}  "
         f"with descendants: {len(descendants)}  with genes: {len(genes)}  "
         f"{'would change' if args.dry_run else 'changed'}: {changed}"

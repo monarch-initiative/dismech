@@ -289,12 +289,18 @@ def tidy_command(
     for issue in stale:
         typer.echo(issue.format())
     if not apply:
-        typer.echo(f"\n{len(stale)} stale stub(s). Re-run with --apply to delete them.")
+        unique = len({i.path for i in stale if i.path})
+        typer.echo(f"\n{unique} stale stub(s). Re-run with --apply to delete them.")
         return
-    for issue in stale:
-        if issue.path:
-            issue.path.unlink()
-    typer.echo(f"\nDeleted {len(stale)} stale stub(s).")
+    # Iterate paths, not findings: one stub can be stale twice over. A MONDO
+    # term retired *after* somebody curated the disease under it yields both
+    # `obsolete_term` and `already_curated` for the same file, and unlinking it
+    # a second time aborted the sweep mid-batch with FileNotFoundError — having
+    # already deleted an arbitrary prefix of it.
+    paths = list(dict.fromkeys(i.path for i in stale if i.path))
+    for path in paths:
+        path.unlink()
+    typer.echo(f"\nDeleted {len(paths)} stale stub(s).")
 
 
 @app.command("stats")

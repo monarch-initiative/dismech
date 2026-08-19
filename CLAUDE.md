@@ -185,7 +185,8 @@ Each stub carries MONDO context so the lump/split call can be made from the file
 `mondo_descendants` + `mondo_descendant_count` (a long list means grouping —
 `autoimmune disease` has 258), and `genes` (MONDO's causal `RO:0004003` genes, in
 lowercase `hgnc:` form). Added by `just enrich-stubs`, which needs the MONDO
-database and is idempotent. These are **reported, never scored** — scoring child
+database, is idempotent, and pins the release it read in
+`data/mondo/MANIFEST.yaml`. These are **reported, never scored** — scoring child
 count is what the old dashboard did, with the sign backwards.
 
 ```bash

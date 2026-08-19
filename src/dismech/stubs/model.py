@@ -341,11 +341,20 @@ def check_stubs(
     kb_dirs: list[Path] | None = None,
     coverage: CoverageIndex | None = None,
 ) -> list[StubIssue]:
-    """Check the stub queue's structural invariants.
+    """Check every stub, returning findings of both severities.
 
-    The load-bearing one is `already_curated`: a stub whose MONDO ID is covered
-    by a committed KB entry must be deleted. That is what makes "delete the stub,
-    add the entry" a checkable contract rather than a convention.
+    Only `error` findings mean something is wrong: the *file* is broken —
+    unparseable, a malformed MONDO ID, a duplicate of another stub, a bad enum
+    value. Only the author of that stub sees those, and they are cheap to fix.
+
+    `advisory` findings mean the *queue* drifted — the disease got curated by
+    somebody else, MONDO retired the term, a similarly named entry exists under
+    a different ID. **These never gate.** Stubs are informative, not curated
+    content; gating on drift would make every open stub PR hostage to unrelated
+    curation merges. `dismech-stubs tidy` sweeps them instead.
+
+    A single stub can produce more than one advisory, so callers acting on these
+    (deleting files, counting stubs) must deduplicate by path.
     """
     stubs, issues = load_stubs_reporting_errors(stub_dir)
     index = coverage if coverage is not None else build_coverage_index(kb_dirs)

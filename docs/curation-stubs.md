@@ -102,6 +102,11 @@ Enrichment is a separate pass from seeding because it needs the MONDO database
 (`just fetch-ontology-dbs mondo`) while seeding stays offline. It is idempotent,
 replaces only its own three blocks, and never touches anything a person wrote.
 
+It records which MONDO release it read in `data/mondo/MANIFEST.yaml`, the same
+way `data/orphadata/` and `data/icees-kg/` pin their bulk sources. Without that,
+a re-run on a machine holding a different `mondo.db` produces
+`mondo_descendant_count` churn across 1,846 files that nobody can attribute.
+
 ## `entry_type` is the lump/split decision, and it is not pre-filled
 
 Every seeded stub is `entry_type: UNDECIDED`. Deciding whether a MONDO concept

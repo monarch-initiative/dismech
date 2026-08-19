@@ -391,3 +391,32 @@ def test_a_term_ref_without_a_label_still_validates(stub_validator):
         target_class="CurationStub",
     )
     assert not [r.message for r in report.results]
+
+
+def test_tidy_survives_a_stub_that_is_stale_twice_over(tmp_path, monkeypatch):
+    """One stub can be both obsolete and already curated — deleting it twice crashed.
+
+    MONDO retiring a term some time after somebody curated the disease under it
+    is exactly what this queue expects to accumulate, and `tidy` is the only
+    remedy for staleness, so a crash there left the queue with no sweep at all —
+    after deleting an arbitrary prefix of the batch.
+    """
+    from typer.testing import CliRunner
+
+    from dismech.stubs.cli import app
+
+    stub = tmp_path / "Obsolete_Double_Stale.yaml"
+    stub.write_text(
+        "mondo_id: MONDO:0004979\nlabel: obsolete double stale\n", encoding="utf-8"
+    )
+
+    findings = check_stubs(tmp_path)
+    kinds = [i.kind for i in findings if i.path == stub]
+    assert "obsolete_term" in kinds and "already_curated" in kinds, (
+        f"expected this stub to be stale twice over, got {kinds}"
+    )
+
+    result = CliRunner().invoke(app, ["tidy", "--stub-dir", str(tmp_path), "--apply"])
+    assert result.exit_code == 0, result.output
+    assert not stub.exists()
+    assert "Deleted 1 stale stub" in result.output
