@@ -67,6 +67,41 @@ Only `mondo_id` and `label` are required. The schema is
 `src/dismech/schema/curation_stub.yaml`; the filename is the label slugged into
 the `Title_Case_With_Underscores` style `kb/disorders/` uses.
 
+### MONDO context in the file
+
+`just enrich-stubs` adds three blocks from MONDO, so the lump/split call can be
+made by reading the stub rather than by querying an ontology mid-task:
+
+```yaml
+mondo_parents:
+- id: MONDO:0003321
+  label: hereditary Wilms tumor
+genes:
+- id: hgnc:12796
+  label: WT1
+```
+
+- **`mondo_parents`** answers the question that comes up most: *is this a subtype
+  of something we have already curated?* `Wilms tumor 1` sitting under a curated
+  `Wilms_Tumor` is a `has_subtypes` question, not a new-entry question, and the
+  parent term says so directly.
+- **`mondo_descendants`** (with `mondo_descendant_count`) is the strongest cheap
+  signal that a term is a grouping — `autoimmune disease` carries 258. The list
+  is capped at 25 and the count is always the true total, so truncation is never
+  silent. It is **reported, never scored**: the old dashboard scored child count
+  and got the sign backwards, which is what #8969 is about.
+- **`genes`** is what MONDO records as causal (`RO:0004003`), in lowercase
+  `hgnc:` form. It tells sibling numbered subtypes apart — `arterial
+  calcification of infancy 1` is the ENPP1 one.
+
+Across the current queue: 1,866 stubs have a parent, 1,331 have a causal gene,
+and only 181 have any descendants at all — so the queue is mostly leaf diseases,
+and the 181 are where the grouping question actually lives.
+
+Enrichment is a separate pass from seeding because it needs the MONDO database
+(`just fetch-ontology-dbs mondo`) while seeding stays offline. It is idempotent,
+replaces only its own three blocks, and never touches anything a person wrote.
+
 ## `entry_type` is the lump/split decision, and it is not pre-filled
 
 Every seeded stub is `entry_type: UNDECIDED`. Deciding whether a MONDO concept

@@ -703,6 +703,14 @@ next-unclaimed count="5" claims="tmp/claims.json" *args="":
 seed-stubs source *args="":
     uv run dismech-stubs seed {{source}} {{args}}
 
+# Adds MONDO parents, subclass descendants (+ total), and causal genes to each
+# stub, so the lump/split call can be made from the file. Needs the MONDO
+# database (`just fetch-ontology-dbs mondo`). Idempotent; preserves hand edits.
+# Add MONDO context to the stub files
+[group('Curation')]
+enrich-stubs *args="":
+    uv run python scripts/enrich_curation_stubs.py {{args}}
+
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
 qc: check-stubs check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research

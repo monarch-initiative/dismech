@@ -54,6 +54,9 @@ Defined by [`src/dismech/schema/curation_stub.yaml`](../src/dismech/schema/curat
 | `priority` | `HIGH`, `NORMAL` (default), `LOW`. Hand-set. |
 | `rationale` | Why this is worth curating. |
 | `synonyms` | MONDO synonyms, to help duplicate checks. |
+| `mondo_parents` | Direct MONDO superclasses — is this a subtype of something already curated? |
+| `mondo_descendants` | MONDO subclass descendants (capped at 25) plus `mondo_descendant_count`. A long list means grouping. |
+| `genes` | MONDO's causal genes (`RO:0004003`), lowercase `hgnc:`. Tells sibling subtypes apart. |
 | `sources` | Who nominated it. |
 | `notes` | Everything else — lump/split reasoning, scope objections. |
 

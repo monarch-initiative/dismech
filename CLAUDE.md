@@ -173,8 +173,17 @@ request, not a generated ranking. Its size is the remaining work.
 names a MONDO ID that a committed `kb/disorders/` or `kb/groupings/` entry
 already covers — so the stub cannot be forgotten.
 
+Each stub carries MONDO context so the lump/split call can be made from the file:
+`mondo_parents` (is this a subtype of something already curated?),
+`mondo_descendants` + `mondo_descendant_count` (a long list means grouping —
+`autoimmune disease` has 258), and `genes` (MONDO's causal `RO:0004003` genes, in
+lowercase `hgnc:` form). Added by `just enrich-stubs`, which needs the MONDO
+database and is idempotent. These are **reported, never scored** — scoring child
+count is what the old dashboard did, with the sign backwards.
+
 ```bash
 just next-stubs 5          # what to curate next (see the caveat below)
+just enrich-stubs          # refresh MONDO parents/descendants/genes
 just next-stubs 5 --json   # machine-readable
 just stub-stats            # queue summary
 just check-stubs           # invariants; runs in `just qc`
