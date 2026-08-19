@@ -31,6 +31,12 @@ from typing import Any
 #: MONDO ID as it appears in a claim issue title: `Curate rickets (MONDO:0005520)`.
 _TITLE_MONDO_PATTERN = re.compile(r"MONDO:[0-9]{7}")
 
+#: A disease claim announces itself with a leading "Curate". The label is
+#: deliberately broader than diseases -- "claim a disease (or other entry) for
+#: curation" -- so a module or grouping claim legitimately has no MONDO ID and
+#: must not be nagged for missing one.
+_DISEASE_CLAIM_PATTERN = re.compile(r"^\s*curate\b", re.IGNORECASE)
+
 #: A claim with no linked PR older than this is reported as stale. A claim with
 #: an open PR is never stale however old it is -- long-running curation PRs are
 #: normal here, and the point of the lock is to survive them.
@@ -138,13 +144,32 @@ def index_claims(claims: list[Claim]) -> dict[str, Claim]:
 
 
 def unkeyed_claims(claims: list[Claim]) -> list[Claim]:
-    """Claims whose title carries no MONDO ID.
+    """Disease claims whose title carries no MONDO ID.
 
     These lock nothing -- no candidate check can match them -- so they are
     reported rather than ignored. The fix is to retitle the issue to
     `Curate <label> (MONDO:NNNNNNN)`.
+
+    Scoped to titles beginning "Curate". The `claim` label covers entries other
+    than diseases (modules, groupings), which have no MONDO ID to carry; those
+    are not broken and are not reported here.
     """
-    return [c for c in claims if not c.mondo_id]
+    return [
+        c for c in claims if not c.mondo_id and _DISEASE_CLAIM_PATTERN.match(c.title)
+    ]
+
+
+def non_disease_claims(claims: list[Claim]) -> list[Claim]:
+    """Claims that are neither MONDO-keyed nor disease-shaped.
+
+    Module and grouping claims. Counted so the totals add up, but nothing is
+    asked of them.
+    """
+    return [
+        c
+        for c in claims
+        if not c.mondo_id and not _DISEASE_CLAIM_PATTERN.match(c.title)
+    ]
 
 
 def double_claims(claims: list[Claim]) -> dict[str, list[Claim]]:

@@ -12,6 +12,7 @@ from .claims import (
     DEFAULT_STALE_DAYS,
     double_claims,
     index_claims,
+    non_disease_claims,
     parse_claims,
     unkeyed_claims,
 )
@@ -193,9 +194,12 @@ def claims_command(
 
     Reports four things a person should look at: claims whose disease has no
     stub (already curated, or never queued), stubs that are claimed twice,
-    claims with no MONDO ID in the title (they lock nothing), and stale claims —
-    old, with no PR to show for them. A claim with an open PR is never stale;
-    long-running curation PRs are normal and the lock should outlast them.
+    disease claims with no MONDO ID in the title (they lock nothing), and stale
+    claims — old, with no PR to show for them. A claim with an open PR is never
+    stale; long-running curation PRs are normal and the lock should outlast them.
+
+    The `claim` label covers entries other than diseases; module and grouping
+    claims are listed separately and nothing is asked of them.
     """
     claims = parse_claims(_read_json_arg(claims_path))
     stub_ids = {s.mondo_id: s for s in load_stubs(stub_dir)}
@@ -220,6 +224,12 @@ def claims_command(
     if unkeyed:
         typer.echo(f"\nno MONDO ID in the title, so locking nothing ({len(unkeyed)}):")
         for claim in unkeyed:
+            typer.echo(f"  #{claim.number} {claim.title}")
+
+    other = non_disease_claims(claims)
+    if other:
+        typer.echo(f"\nnot disease claims, nothing needed ({len(other)}):")
+        for claim in other:
             typer.echo(f"  #{claim.number} {claim.title}")
 
     stale = [c for c in claims if c.is_stale(stale_days)]

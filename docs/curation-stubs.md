@@ -138,6 +138,15 @@ assigned to the person driving the work. Two parts are load-bearing:
   titled `curate peripartum cardiomyopathy` locks nothing; `just check-claims`
   reports those separately so they can be retitled.
 
+The label is deliberately broader than diseases — *"claim a disease (or other
+entry) for curation"* — so a module or grouping claim has no MONDO ID to carry.
+`check-claims` lists those separately and asks nothing of them; only a title
+beginning `Curate` is expected to be MONDO-keyed.
+
+The label already exists in the repository. Do not run `gh label create --force`
+on it: `--force` updates an existing label, so it would overwrite the colour and
+description.
+
 ```bash
 just fetch-claims          # one API call -> tmp/claims.json
 just next-unclaimed 5      # phase 1 claims, phase 2 stubs

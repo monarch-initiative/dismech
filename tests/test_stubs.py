@@ -17,6 +17,7 @@ from dismech.stubs.claims import (
     Claim,
     double_claims,
     index_claims,
+    non_disease_claims,
     parse_claims,
     unkeyed_claims,
 )
@@ -208,6 +209,20 @@ def test_unkeyed_claims_are_reported_not_silently_dropped():
     """An issue with no MONDO ID locks nothing; it must surface for retitling."""
     (unkeyed,) = unkeyed_claims(parse_claims(_GH_ROWS))
     assert unkeyed.number == 2029
+
+
+def test_module_claims_are_not_nagged_for_a_missing_mondo_id():
+    """The label covers "a disease (or other entry)"; modules have no MONDO ID."""
+    rows = _GH_ROWS + [
+        {
+            "number": 9100,
+            "title": "Claim: refresh the fibrotic_response module",
+            "assignees": [],
+        }
+    ]
+    claims = parse_claims(rows)
+    assert [c.number for c in unkeyed_claims(claims)] == [2029]
+    assert [c.number for c in non_disease_claims(claims)] == [9100]
 
 
 def test_index_claims_maps_mondo_id_to_claim():

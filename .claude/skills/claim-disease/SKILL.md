@@ -148,10 +148,13 @@ Title, exactly:
 Curate <label> (<MONDO_ID>)
 ```
 
-```bash
-# The label may not exist yet in a fresh fork; this is idempotent.
-gh label create claim --description "Reserves a disease for curation" --color 0E8A16 --force
+The `claim` label already exists in `monarch-initiative/dismech`. **Do not run
+`gh label create --force` on it** — `--force` updates an existing label, so that
+would silently overwrite its colour and description. If `gh issue create` fails
+because the label is missing (a fork, a new repo), say so and ask; do not
+recreate it yourself.
 
+```bash
 gh issue create \
   --title "Curate <label> (<MONDO_ID>)" \
   --assignee "$(gh api user -q .login)" \
