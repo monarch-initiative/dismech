@@ -161,7 +161,8 @@ The outstanding curation queue is `stubs/` — **one YAML file per disease we
 intend to curate but have not**. It is repository content, edited by pull
 request, not a generated ranking. Its size is the remaining work.
 
-**The contract: a curation PR deletes the stub and adds the KB entry.**
+**Stubs are informative, not curated content.** A curation PR *should* delete
+the stub it curates:
 
 ```
 - stubs/Yao_Syndrome.yaml
@@ -169,9 +170,15 @@ request, not a generated ranking. Its size is the remaining work.
 + history/disorders/Yao_Syndrome/...
 ```
 
-`just check-stubs` (part of `just qc`, and `tests/test_stubs.py`) fails if a stub
-names a MONDO ID that a committed `kb/disorders/` or `kb/groupings/` entry
-already covers — so the stub cannot be forgotten.
+but forgetting is not an error, and **nothing blocks on it**. A stub going stale
+because somebody curated its disease is expected drift: gating on it would turn
+every open stub PR red the moment an unrelated curation PR merged, and curators
+would spend their time servicing a bookkeeping message. Overlap and lag are
+fine. `just tidy-stubs --apply` clears the stale ones on a periodic sweep.
+
+`just check-stubs` gates only on a **malformed file** — unparseable YAML, a bad
+MONDO ID, a duplicate, a bad enum value. Only the author of that stub sees those,
+and they are cheap to fix.
 
 Each stub carries MONDO context so the lump/split call can be made from the file:
 `mondo_parents` (is this a subtype of something already curated?),
@@ -186,7 +193,9 @@ just next-stubs 5          # what to curate next (see the caveat below)
 just enrich-stubs          # refresh MONDO parents/descendants/genes
 just next-stubs 5 --json   # machine-readable
 just stub-stats            # queue summary
-just check-stubs           # invariants; runs in `just qc`
+just check-stubs           # file well-formedness; runs in `just qc`
+just tidy-stubs            # list stale stubs (curated elsewhere, or obsolete)
+just tidy-stubs --apply    # and delete them
 just validate-stubs        # schema validation (src/dismech/schema/curation_stub.yaml)
 just seed-stubs <file>     # import nominations; never overwrites an existing stub
 ```

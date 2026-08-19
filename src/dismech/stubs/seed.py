@@ -176,14 +176,17 @@ def yaml_scalar(value: Any) -> str:
     files and had its own copy of this with the same newline hole.
 
     Two failure modes this has to cover, both latent rather than theoretical:
-    a control character (a newline in a label) emitted bare produces a file
-    that will not parse at all, and a numeric-looking string (`22`, `3.5`)
-    emitted bare reads back as a number, not the string that went in. The
-    round-trip check at the end is the actual guarantee -- the explicit
-    conditions above it are just the fast path.
+    a control character (a newline in a label) emitted bare produces a file that
+    will not parse at all, and a numeric-looking string (`22`, `3.5`) emitted
+    bare reads back as a number, not the string that went in. The round-trip
+    check at the end is the actual guarantee -- the conditions above it are a
+    fast path, and the control-character guard covers what the round trip cannot
+    (PyYAML refuses to load some of those at all, so it never gets to compare).
     """
     text = str(value)
-    if any(ch in text for ch in "\n\r\t\x00"):
+    # Control characters and NEL: PyYAML either refuses these outright or treats
+    # them as line breaks, so they can never go out bare.
+    if any(ch < " " or ch in "\x7f\x85" for ch in text):
         return _quote(text)
     if (
         text == ""
@@ -193,24 +196,39 @@ def yaml_scalar(value: Any) -> str:
         or " #" in text
     ):
         return _quote(text)
-    # Anything YAML resolves to a non-string -- bools, numbers, null, dates.
+    # The actual guarantee: anything that does not read back as this exact
+    # string gets quoted. Covers bools, numbers, null and dates, and also a
+    # string YAML resolves to a *different* string (` leading space`), which an
+    # isinstance check would wave through.
     try:
-        if not isinstance(safe_load(text), str):
+        if safe_load(text) != text:
             return _quote(text)
     except Exception:
         return _quote(text)
     return text
 
 
+_NAMED_ESCAPES = {"\\": "\\\\", '"': '\\"', "\n": "\\n", "\r": "\\r", "\t": "\\t"}
+
+
 def _quote(text: str) -> str:
-    escaped = (
-        text.replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("\n", "\\n")
-        .replace("\r", "\\r")
-        .replace("\t", "\\t")
-    )
-    return f'"{escaped}"'
+    """Double-quote a scalar, escaping everything YAML will not take raw.
+
+    The five named escapes are not enough on their own: PyYAML *refuses* to read
+    back a quoted scalar containing a raw control character (NUL, BEL, ESC), and
+    NEL (\\x85) is a line break it would act on. Unreachable with real MONDO
+    labels, but this is the emitter's last line of defence, so it covers the
+    whole range rather than the characters that have happened to show up.
+    """
+    out = []
+    for ch in text:
+        if ch in _NAMED_ESCAPES:
+            out.append(_NAMED_ESCAPES[ch])
+        elif ch < " " or ch in "\x7f\x85":
+            out.append(f"\\x{ord(ch):02x}")
+        else:
+            out.append(ch)
+    return '"' + "".join(out) + '"'
 
 
 def _dump(payload: dict[str, Any]) -> str:

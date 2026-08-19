@@ -5,9 +5,10 @@ One YAML file per disease we intend to curate but have not curated yet.
 **This directory is the curation queue.** Its size is the remaining work, and it
 shrinks by one file per curated disease.
 
-## The contract
+## These files are informative, not curated content
 
-A curation pull request **deletes the stub and adds the KB entry**, in the same PR:
+Nothing here is evidence, and nothing here blocks anything. A curation pull
+request *should* delete the stub it curates:
 
 ```
 - stubs/Yao_Syndrome.yaml
@@ -15,9 +16,17 @@ A curation pull request **deletes the stub and adds the KB entry**, in the same 
 + history/disorders/Yao_Syndrome/...
 ```
 
-`just check-stubs` (part of `just qc`, and run in CI) fails if a stub names a
-MONDO ID that a committed `kb/disorders/` or `kb/groupings/` entry already
-covers. So you cannot curate a disease and forget its stub.
+but if it does not, that is fine. A stub whose disease got curated elsewhere is
+**stale, not wrong** — `just check-stubs` reports it as an advisory and never
+fails on it. Gating would mean an unrelated curation PR merging on `main` turns
+every open stub PR red, and no curator should ever have to service that.
+
+`just tidy-stubs --apply` sweeps the stale ones out periodically. A bit of
+overlap and a bit of lag in between are expected.
+
+`just check-stubs` fails only on a **malformed file**: unparseable YAML, a bad
+MONDO ID, a duplicate of another stub, a bad enum value. Only the person who
+wrote that stub sees those.
 
 ## Anyone can change the queue by pull request
 
@@ -91,7 +100,8 @@ for a person rather than releasing them automatically.
 ```bash
 just next-stubs 5          # what to curate next (no claim filter)
 just stub-stats            # queue summary
-just check-stubs           # invariants (also runs in `just qc`)
+just check-stubs           # file well-formedness (also runs in `just qc`)
+just tidy-stubs --apply    # sweep out stale stubs
 just validate-stubs        # schema validation
 just seed-stubs <file>     # import more nominations; never overwrites
 ```

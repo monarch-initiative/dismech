@@ -212,12 +212,50 @@ releases the claim in one step. If the answer turned out to be `GROUPING`,
 decision in `notes` and close the issue explaining it. That is a completed
 curation.
 
-## The delete-the-stub contract
+## Staleness is drift, not failure
 
-`just check-stubs` fails when a stub names a MONDO ID that a committed
-`kb/disorders/` or `kb/groupings/` entry already covers. Coverage means the
-entry's `disease_term`, any `has_subtypes[].subtype_term`, and any exact/narrow
-`mondo_mappings`.
+Stubs are **informative, not curated content**. Nothing here is evidence, and
+nothing here blocks anything.
+
+A curation PR *should* delete the stub it curates:
+
+```
+- stubs/Yao_Syndrome.yaml
++ kb/disorders/Yao_Syndrome.yaml
++ history/disorders/Yao_Syndrome/2026-08-19-...yaml
+```
+
+but forgetting is not an error. `main` moves fast — 27 commits and 37 changed KB
+files landed during the few hours this PR was open — so a stub whose disease
+somebody else curated is a routine, expected event. **Gating on it would turn
+every open stub PR red the moment an unrelated curation PR merged**, and curators
+would spend their time servicing a bookkeeping message about work that was
+already done correctly. A bit of overlap and a bit of lag are fine.
+
+So `check-stubs` splits its findings, and only one kind gates:
+
+| Severity | Means | Gates? |
+|---|---|---|
+| **error** | the *file* is broken — unparseable YAML, a malformed MONDO ID, a duplicate of another stub, a bad enum value | **yes** — only the stub's own author sees it, and it is cheap to fix |
+| **advisory** | the *queue* has drifted — `already_curated`, `obsolete_term`, `possible_kb_duplicate` | never |
+
+### Tidying up
+
+The stale ones are cleared on a sweep, not by whoever happens to trip over them:
+
+```bash
+just tidy-stubs            # list what has gone stale
+just tidy-stubs --apply    # delete it
+```
+
+`tidy` removes stubs whose MONDO ID a committed `kb/disorders/` or
+`kb/groupings/` entry now covers, and stubs naming a MONDO term that has since
+been retired. It does **not** touch `possible_kb_duplicate` advisories — those
+are a judgement call about two different MONDO IDs, and a script should not be
+making it.
+
+Coverage means the entry's `disease_term`, any `has_subtypes[].subtype_term`, and
+any exact/narrow `mondo_mappings`.
 
 It also means **any** mapping on a `kb/groupings/` entry, whatever the predicate
 — a directory the old prioritizer never read at all
@@ -227,36 +265,17 @@ mapping is a cross-reference to some *other* concept and must not retire it. On
 a grouping it records how the grouping sits against the MONDO term it was built
 around, and every such mapping in the KB today names a grouping-level concept —
 `ciliopathy`, `RASopathy`, `inborn errors of metabolism`, `microcephaly` — which
-is exactly what should not be sitting in a disorder queue. This retires the
-concept from the queue; it does not claim it has been curated as a disease. The
-check message names the grouping file that made the call.
-
-So the workflow is enforced rather than remembered:
-
-```
-- stubs/Yao_Syndrome.yaml
-+ kb/disorders/Yao_Syndrome.yaml
-+ history/disorders/Yao_Syndrome/2026-08-19-...yaml
-```
-
-The check runs in `just qc` and in `tests/test_stubs.py`
-(`test_no_stub_survives_curation`).
+is exactly what should not be sitting in a disorder queue.
 
 ### Did anything already curated get a stub?
 
-No — the seeder skips any nomination whose MONDO ID a KB entry already covers
-(1,200 of the 3,079 nominations), and `check-stubs` errors if one slips through.
-Two things the MONDO-ID check *cannot* see are handled separately.
+Not at seed time — the seeder skips any nomination whose MONDO ID a KB entry
+already covers (1,200 of the 3,079 nominations), and it skips obsolete terms.
+Both go stale later as `main` moves, which is what `tidy` is for.
 
-**Obsolete terms are an error.** MONDO prefixes a retired concept's label with
-`obsolete`, and such a term is not a curation target under any reading. The
-seeder skips them and `check-stubs` errors on one. Twelve were seeded before this
-was added, and were deleted.
-
-**Curated under a different MONDO ID is an advisory.** `possible_kb_duplicate`
-fires when a stub's label — or any of its synonyms — matches a name an existing
-KB entry answers to, while the MONDO IDs differ. There are 40, and they need a
-person because the answer genuinely varies:
+The MONDO-ID check cannot see one thing: a disease curated under a **different**
+MONDO ID. That is the `possible_kb_duplicate` advisory, and there are 40. They
+need a person, because the answer genuinely varies:
 
 - `stubs/Friedreich_Ataxia_1.yaml` (`MONDO:0100340`) against a curated
   `Friedreich_Ataxia`. Probably redundant, or the entry should gain the mapping.
@@ -269,7 +288,7 @@ person because the answer genuinely varies:
 Matching normalizes case, accents, and punctuation (`Wilms' tumor` ≡
 `Wilms tumor`; `DeSanto-Shinawi` ≡ `Desanto shinawi`) and ignores anything under
 eight characters or one word, so acronyms — `AIP`, `Bss`, `CRD` — do not collide
-by coincidence. The tool reports and stops; it never deletes.
+by coincidence.
 
 ## Where the initial queue came from
 
@@ -299,7 +318,8 @@ just check-claims          # double-claims, unkeyed titles, stale claims
 just next-stubs 5          # stubs only, no claim filter
 just next-stubs 5 --json   # same, machine-readable
 just stub-stats            # queue summary by status / entry type / priority
-just check-stubs           # invariants; runs as part of `just qc`
+just check-stubs           # file well-formedness; runs as part of `just qc`
+just tidy-stubs --apply    # sweep out stale stubs
 just validate-stubs        # schema validation
 just seed-stubs <file>     # import nominations; never overwrites
 uv run dismech-stubs coverage   # how many MONDO IDs the KB already covers

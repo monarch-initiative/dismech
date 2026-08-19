@@ -73,13 +73,19 @@ def test_stub_validates_against_schema(path, stub_validator):
     assert not messages, f"{path.name}: {messages}"
 
 
-def test_no_stub_survives_curation(issues):
-    """A curated disease must not still have a stub file."""
-    stale = [i for i in issues if i.kind == "already_curated"]
-    assert not stale, (
-        "These stubs name a MONDO ID the KB already covers. A curation PR must "
-        "delete the stub it curates:\n" + "\n".join(i.format() for i in stale)
-    )
+def test_staleness_never_gates(issues):
+    """A stale stub is drift, not a fault — it must not fail anyone's build.
+
+    Stubs are informative, not curated content. If `already_curated` gated, an
+    unrelated curation PR merging on `main` would turn every open stub PR red
+    through no fault of its author, and curators would spend their time
+    servicing a bookkeeping message. `dismech-stubs tidy` clears these instead.
+    """
+    for issue in issues:
+        if issue.kind in {"already_curated", "obsolete_term"}:
+            assert issue.severity == "advisory", (
+                f"{issue.kind} must be advisory, not a gating error: {issue.format()}"
+            )
 
 
 def test_stub_mondo_ids_are_unique(issues):
@@ -154,10 +160,11 @@ def test_seeded_stubs_do_not_prejudge_entry_type():
     assert payload["status"] == "OPEN"
 
 
-def test_no_stub_names_an_obsolete_mondo_term(issues):
-    """MONDO prefixes a retired concept's label; it is never a curation target."""
-    obsolete = [i for i in issues if i.kind == "obsolete_term"]
-    assert not obsolete, "\n".join(i.format() for i in obsolete)
+def test_obsolete_terms_are_reported_for_tidying(issues):
+    """MONDO prefixes a retired concept's label. Reported, not gated."""
+    for issue in issues:
+        if issue.kind == "obsolete_term":
+            assert issue.severity == "advisory"
 
 
 def test_duplicate_detection_matches_synonyms_not_acronyms():
@@ -311,6 +318,23 @@ def test_stub_schema_has_no_claim_fields():
         " leading and trailing ",
         "#hash",
         "a: b",
+        " leading space",  # resolves to a *different* string, not a non-string
+        "trailing ",
+        "a\x00b",  # PyYAML refuses a raw NUL even inside quotes
+        "bel\x07",
+        "esc\x1bx",
+        "vt\x0bx",
+        "del\x7fx",
+        "nel\x85x",  # a line break PyYAML acts on, and not a control char
+        ".inf",
+        "NaN",
+        "0x1f",
+        "1_000",
+        "~",
+        "1:30",
+        "a, b",
+        '"quoted"',
+        "back\\slash",
     ],
 )
 def test_emitted_scalars_round_trip_as_the_same_string(value):

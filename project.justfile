@@ -649,13 +649,22 @@ fetch-ontology-dbs *names="":
 # have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
 # curation PR deletes the stub and adds the kb/ entry. See docs/curation-stubs.md.
 
-# MONDO IDs well-formed and unique, filenames matching labels, and — the one
-# that matters — no stub left behind for a disease the KB already covers.
-# Advisories (name collisions with KB entries) are reported but never gate.
-# Check the curation stub queue under stubs/
+# Gates only on a malformed file: unparseable YAML, a bad MONDO ID, a duplicate,
+# a bad enum value. Staleness (the disease got curated elsewhere, the term was
+# retired) is an advisory and never gates — stubs are informative, not curated
+# content, and an unrelated curation PR must not turn stub PRs red.
+# Check that each stub file is well formed
 [group('Curation')]
 check-stubs *args="":
     uv run dismech-stubs check {{args}}
+
+# Deletes stubs whose disease has since been curated, and stubs naming a MONDO
+# term that has since been retired. Leaves possible_kb_duplicate advisories
+# alone — those are a judgement call between two MONDO IDs. Run periodically.
+# Sweep stale stubs out of the queue (--apply to delete)
+[group('Curation')]
+tidy-stubs *args="":
+    uv run dismech-stubs tidy {{args}}
 
 # Schema-validate every stub file against the CurationStub class.
 [group('Curation')]

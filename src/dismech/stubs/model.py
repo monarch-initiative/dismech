@@ -184,11 +184,20 @@ class Stub:
 class StubIssue:
     """A problem found by :func:`check_stubs`.
 
-    `severity` separates the two kinds of finding. An `error` is a broken
-    invariant — the queue is wrong and CI should say so. An `advisory` is a
-    judgement call the tool cannot make, most importantly a stub whose name
-    matches an existing KB entry curated under a *different* MONDO ID; that may
-    be a duplicate to delete or a genuinely distinct concept to keep.
+    `severity` separates a malformed file from a stale one, and only the first
+    gates.
+
+    An `error` means the file itself is broken — unparseable, a malformed MONDO
+    ID, a duplicate of another stub, a bad enum value. Only the person who wrote
+    that stub sees it, and it is cheap for them to fix.
+
+    An `advisory` means the queue has drifted: the disease got curated by
+    somebody else, the MONDO term was retired, a similarly named entry already
+    exists. **These must never gate.** Stubs are informative, not curated
+    content — a curation PR merging on `main` would otherwise turn every open
+    stub PR red through no fault of its author, and curators would spend their
+    time servicing a bookkeeping message. Overlap and lag are expected; a
+    periodic tidy-up pass (`dismech-stubs tidy`) clears them.
     """
 
     path: Path | None
@@ -360,7 +369,8 @@ def check_stubs(
                 StubIssue(
                     path,
                     "obsolete_term",
-                    f"{mondo_id} is an obsolete MONDO term — delete this stub",
+                    f"{mondo_id} is an obsolete MONDO term — stale, tidy up",
+                    severity="advisory",
                 )
             )
 
@@ -408,7 +418,8 @@ def check_stubs(
                 StubIssue(
                     path,
                     "already_curated",
-                    f"{mondo_id} is covered by {covered_by} — delete this stub",
+                    f"{mondo_id} is covered by {covered_by} — stale, tidy up",
+                    severity="advisory",
                 )
             )
             continue

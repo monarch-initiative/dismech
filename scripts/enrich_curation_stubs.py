@@ -82,7 +82,7 @@ def term_block(curie: str, label: str | None, indent: str = "") -> list[str]:
     return lines
 
 
-def render(mondo_id: str, parents, descendants, total, genes) -> list[str]:
+def render(parents, descendants, total, genes) -> list[str]:
     lines: list[str] = []
     if parents:
         lines.append("mondo_parents:")
@@ -174,7 +174,6 @@ def main() -> int:
     for path, mondo_id in stub_ids.items():
         kids = sorted(descendants.get(mondo_id, []))
         block = render(
-            mondo_id,
             [(p, labels.get(p)) for p in sorted(parents.get(mondo_id, []))],
             [(k, labels.get(k)) for k in kids[:DESCENDANT_CAP]],
             len(kids),

@@ -62,11 +62,16 @@ def check_command(
         help="Also print advisory findings (name collisions with KB entries).",
     ),
 ) -> None:
-    """Check the stub queue's invariants.
+    """Check that each stub file is well formed.
 
-    The one that matters: a stub whose MONDO ID is already covered by a
-    committed KB entry must be deleted. Curating a disease and leaving its stub
-    behind fails here.
+    Errors are malformed files — unparseable YAML, a bad MONDO ID, a duplicate,
+    a bad enum value. Only the author of that stub sees them, and they are cheap
+    to fix, so they gate.
+
+    Everything else is an advisory and never gates. A stub going stale because
+    somebody curated its disease is expected drift, not a fault: gating on it
+    would turn every open stub PR red the moment an unrelated curation PR merged.
+    `dismech-stubs tidy` clears those on a sweep.
     """
     issues = check_stubs(stub_dir)
     errors = [i for i in issues if i.severity == "error"]
@@ -256,6 +261,40 @@ def claims_command(
             age = claim.age_days()
             who = ", ".join(claim.assignees) or "unassigned"
             typer.echo(f"  #{claim.number} {int(age or 0):4d}d {who:20s} {claim.title}")
+
+
+#: Findings that mean "the queue drifted", not "this file is broken". These are
+#: what `tidy` clears and what `check` refuses to gate on.
+STALE_KINDS = ("already_curated", "obsolete_term")
+
+
+@app.command("tidy")
+def tidy_command(
+    stub_dir: Path = _STUB_DIR_OPTION,
+    apply: bool = typer.Option(
+        False, "--apply", help="Delete the stale stubs. Without this, only lists them."
+    ),
+) -> None:
+    """Remove stubs the queue has outgrown.
+
+    A stub goes stale when somebody curates its disease, or when MONDO retires
+    the term. Neither is anybody's mistake and neither blocks anything — stubs
+    are informative, not curated content — so this is a periodic sweep rather
+    than something a curator is ever asked to service mid-task.
+    """
+    stale = [i for i in check_stubs(stub_dir) if i.kind in STALE_KINDS]
+    if not stale:
+        typer.echo("Nothing stale.")
+        return
+    for issue in stale:
+        typer.echo(issue.format())
+    if not apply:
+        typer.echo(f"\n{len(stale)} stale stub(s). Re-run with --apply to delete them.")
+        return
+    for issue in stale:
+        if issue.path:
+            issue.path.unlink()
+    typer.echo(f"\nDeleted {len(stale)} stale stub(s).")
 
 
 @app.command("stats")
