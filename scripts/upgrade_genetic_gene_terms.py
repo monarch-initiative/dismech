@@ -32,9 +32,11 @@ Run with:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
+import yaml as pyyaml
 from oaklib import get_adapter
 from ruamel.yaml import YAML
 
@@ -65,15 +67,32 @@ def resolve_symbol(adapter, symbol: str) -> tuple[str, str] | None:
     return curie, label
 
 
+def yaml_scalar(value: str) -> str:
+    """Render a string as a YAML scalar, quoting only when plain style is unsafe.
+
+    Gene symbols are well-behaved in practice, but the block is emitted as raw
+    text rather than through an emitter, so a symbol that YAML would reinterpret
+    (a 1.1 boolean such as `ON`, a leading indicator, an embedded `: `) would
+    otherwise change meaning on the round trip. A JSON string literal is always
+    a valid YAML double-quoted scalar.
+    """
+    try:
+        if pyyaml.safe_load(f"v: {value}") == {"v": value}:
+            return value
+    except pyyaml.YAMLError:
+        pass
+    return json.dumps(value)
+
+
 def render_gene_term(symbol: str, curie: str, label: str, indent: int) -> list[str]:
     """Render the gene_term block as YAML text lines at the given indent."""
     pad = " " * indent
     return [
         f"{pad}gene_term:",
-        f"{pad}  preferred_term: {symbol}",
+        f"{pad}  preferred_term: {yaml_scalar(symbol)}",
         f"{pad}  term:",
-        f"{pad}    id: {curie}",
-        f"{pad}    label: {label}",
+        f"{pad}    id: {yaml_scalar(curie)}",
+        f"{pad}    label: {yaml_scalar(label)}",
     ]
 
 
@@ -124,8 +143,13 @@ def upgrade_file(path: Path, adapter, apply: bool) -> tuple[int, int, list[str]]
         for entry in genetic:
             if not isinstance(entry, dict):
                 continue
-            existing = ((entry.get("gene_term") or {}).get("term") or {}).get("id")
-            if existing:
+            # Guard on the *key*, not on `gene_term.term.id`. An entry holding a
+            # partial gene_term (a preferred_term with no grounded term) would
+            # otherwise pass an id-based check and receive a second `gene_term:`
+            # key in the same mapping -- the silent-corruption failure mode of
+            # #8623, where safe loaders keep only the last value while
+            # linkml-reference-validator aborts outright.
+            if "gene_term" in entry:
                 continue
             name = entry.get("name")
             if not isinstance(name, str):
