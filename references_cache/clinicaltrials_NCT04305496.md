@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04305496"
+reference_id: clinicaltrials:NCT04305496
 title: "A Phase III Double-blind Randomised Study Assessing the Efficacy and Safety of Capivasertib + Fulvestrant Versus Placebo + Fulvestrant as Treatment for Locally Advanced (Inoperable) or Metastatic Hormone Receptor Positive, Human Epidermal Growth Factor Receptor 2 Negative (HR+/HER2-) Breast Cancer Following Recurrence or Progression On or After Treatment With an Aromatase Inhibitor"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase III Double-blind Randomised Study Assessing the Efficacy and Safety of Capivasertib + Fulvestrant Versus Placebo + Fulvestrant as Treatment for Locally Advanced (Inoperable) or Metastatic Hormone Receptor Positive, Human Epidermal Growth Factor Receptor 2 Negative (HR+/HER2-) Breast Cancer Following Recurrence or Progression On or After Treatment With an Aromatase Inhibitor

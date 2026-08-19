@@ -35,19 +35,23 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from dismech.yaml_io import find_duplicate_keys
 
-# Curated KB content. ``history`` is excluded for the same reason the folded-hyphen
-# guard excludes it: those records are append-only, so a finding there cannot be
-# fixed in place.
-DEFAULT_ROOTS = ("kb",)
+# Curated KB content, plus the two hand-edited YAML trees whose duplicates would be
+# exactly as silent: a repeated key in the schema or in an OAK/validator config is
+# swallowed by PyYAML the same way a repeated `classifications:` is. ``history`` is
+# excluded for the same reason the folded-hyphen guard excludes it: those records are
+# append-only, so a finding there cannot be fixed in place.
+DEFAULT_ROOTS = ("kb", "src/dismech/schema", "conf")
 
 
 def iter_yaml_files(paths: list[str]) -> list[Path]:
-    """Expand explicit paths, or the default KB roots when none are given."""
+    """Expand explicit paths, or the default roots when none are given."""
     if paths:
         return [Path(p) for p in paths]
     files: list[Path] = []
@@ -69,7 +73,7 @@ def main() -> int:
     parser.add_argument(
         "paths",
         nargs="*",
-        help="YAML files to check (default: every file under kb/)",
+        help="YAML files to check (default: kb/, src/dismech/schema/, conf/)",
     )
     args = parser.parse_args()
 
@@ -79,10 +83,17 @@ def main() -> int:
         try:
             text = path.read_text(encoding="utf-8")
         except OSError as exc:  # pragma: no cover - unreadable file
-            print(f"{path}: could not read ({exc})", file=sys.stderr)
+            print(f"{_display(path)}: could not read ({exc})", file=sys.stderr)
             return 1
-        for location, key, line in find_duplicate_keys(text):
-            findings.append((path, location, key, line))
+        try:
+            for location, key, line in find_duplicate_keys(text):
+                findings.append((path, location, key, line))
+        except yaml.YAMLError as exc:
+            # The parser's own mark says "<unicode string>", so an uncaught error
+            # here would leave whoever is reading a failed build with no way to
+            # tell which of thousands of files broke.
+            print(f"{_display(path)}: could not parse ({exc})", file=sys.stderr)
+            return 1
 
     if findings:
         print("Duplicate mapping key(s) detected in KB YAML.\n")
