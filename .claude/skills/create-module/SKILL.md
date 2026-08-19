@@ -127,12 +127,11 @@ bash scripts/run_reference_validator.sh validate data kb/modules/<name>.yaml \
 Confirm every snippet is an exact substring of its cached abstract before
 committing.
 
-## Register and record
+## Record and connect
 
-1. Add a one-line entry to the **Available modules** registry in `CLAUDE.md`
-   (name, one-sentence chain, drug-target pattern, key conformance target; for an
-   Xogenesis module include the anchor). Keep it to one line — do not paste the
-   full pattern into `CLAUDE.md`; that lives here.
+1. Do not add the module to a static catalog. `kb/modules/` is the source of
+   truth; choose a descriptive filename and keep the top-level `name` and
+   `description` useful for repository search.
 2. Scaffold a history record:
    `just new-history --kind module --slug <name> --event CREATE --outcome changed …`
 3. Wire real conformers: add `conforms_to: "<name>#<Node>"` to the matching
