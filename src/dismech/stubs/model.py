@@ -48,6 +48,15 @@ def slugify_label(label: str) -> str:
 
     `alcohol sensitivity, acute` -> `Alcohol_Sensitivity_Acute`. Accents are
     folded rather than dropped so `Behçet` becomes `Behcet`, not `Behet`.
+
+    Deliberately **not** `dismech.export.utils.slugify`, in the same way
+    `hpoa_export.slugify` is not. That one turns an entry `name` -- already
+    written in the repository's Title_Case style -- into a page filename, and
+    must stay byte-identical across the renderer and every exporter or the
+    browser index dead-links. This one turns an *ontology label*, which is
+    lowercase and carries commas and accents, into a proposed entry name. They
+    take different inputs and answer different questions; sharing them would
+    couple the page build to MONDO's labelling conventions.
     """
     folded = unicodedata.normalize("NFKD", label)
     folded = "".join(ch for ch in folded if not unicodedata.combining(ch))
