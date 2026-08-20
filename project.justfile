@@ -644,9 +644,99 @@ check-cache-order:
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
 
+# --- Curation stub queue (stubs/) ------------------------------------------
+# The outstanding curation queue: one YAML per disease we intend to curate but
+# have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
+# curation PR deletes the stub and adds the kb/ entry. See docs/curation-stubs.md.
+
+# Gates only on a malformed file: unparseable YAML, a bad MONDO ID, a duplicate,
+# a bad enum value. Staleness (the disease got curated elsewhere, the term was
+# retired) is an advisory and never gates — stubs are informative, not curated
+# content, and an unrelated curation PR must not turn stub PRs red.
+# Check that each stub file is well formed
+[group('Curation')]
+check-stubs *args="":
+    uv run dismech-stubs check {{args}}
+
+# Deletes stubs whose disease has since been curated, and stubs naming a MONDO
+# term that has since been retired. Leaves possible_kb_duplicate advisories
+# alone — those are a judgement call between two MONDO IDs. Run periodically.
+# Sweep stale stubs out of the queue (--apply to delete)
+[group('Curation')]
+tidy-stubs *args="":
+    uv run dismech-stubs tidy {{args}}
+
+# Schema-validate every stub file against the CurationStub class.
+[group('Curation')]
+validate-stubs:
+    uv run linkml-validate -s src/dismech/schema/curation_stub.yaml -C CurationStub stubs/*.yaml
+
+# Ordering is the hand-set priority band, then an arbitrary but stable spread —
+# not a computed score. Pick one you know something about, not the first row.
+# Show the next stub(s) to curate
+[group('Curation')]
+next-stubs count="5" *args="":
+    uv run dismech-stubs next {{count}} {{args}}
+
+# Summarize the queue by status, entry type, and priority.
+[group('Curation')]
+stub-stats:
+    uv run dismech-stubs stats
+
+# Fetch every open claim issue in one list-API call (immediately consistent,
+# unlike a search) and write it where the other recipes can read it.
+# Fetch the open curation claims
+[group('Curation')]
+fetch-claims out="tmp/claims.json":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! command -v gh >/dev/null 2>&1; then
+      echo "fetch-claims needs the gh CLI, which is not installed in this environment." >&2
+      echo >&2
+      echo "Claude Code web/remote sessions have no gh, and cannot reach api.github.com" >&2
+      echo "directly either -- the agent proxy denies it even though GH_TOKEN is set." >&2
+      echo "Use the GitHub MCP server instead: see 'No gh CLI (web and remote sessions)'" >&2
+      echo "in .claude/skills/claim-disease/SKILL.md for the exact fallback, including" >&2
+      echo "the minimal titles-only claims file that is enough to pick from." >&2
+      exit 127
+    fi
+    mkdir -p "$(dirname {{out}})"
+    gh issue list --repo monarch-initiative/dismech --label claim --state open \
+      --json number,title,assignees,url,createdAt,closedByPullRequestsReferences \
+      --limit 1000 > {{out}}
+    echo "wrote {{out}}"
+
+# Reports double-claims, claims with no MONDO ID in the title (they lock
+# nothing), and stale claims — old with no PR. An open PR is never stale.
+# Cross-check open claim issues against the stub queue
+[group('Curation')]
+check-claims claims="tmp/claims.json" *args="":
+    uv run dismech-stubs claims {{claims}} {{args}}
+
+# The two-phase pick: open claim issues, then the stub queue.
+# Show the next unclaimed stub(s) to curate
+[group('Curation')]
+next-unclaimed count="5" claims="tmp/claims.json" *args="":
+    uv run dismech-stubs next {{count}} --claims {{claims}} {{args}}
+
+# Never overwrites an existing stub. Default source format is the Monarch
+# rare-disease-identification prioritised list.
+# Add stubs for nominated diseases that are neither curated nor already stubbed
+[group('Curation')]
+seed-stubs source *args="":
+    uv run dismech-stubs seed {{source}} {{args}}
+
+# Adds MONDO parents, subclass descendants (+ total), and causal genes to each
+# stub, so the lump/split call can be made from the file. Needs the MONDO
+# database (`just fetch-ontology-dbs mondo`). Idempotent; preserves hand edits.
+# Add MONDO context to the stub files
+[group('Curation')]
+enrich-stubs *args="":
+    uv run python scripts/enrich_curation_stubs.py {{args}}
+
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -827,6 +917,16 @@ check-reference-cache-frontmatter:
 [group('QC')]
 check-term-cache-integrity:
     uv run python -m dismech.term_cache_integrity cache
+
+# Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
+# the last value silently, so a duplicate is invisible to every test and
+# renderer here, while the ruamel-based reference validator rejects the file
+# outright. Duplicates arrive by MERGE -- two concurrent curation PRs adding the
+# same block at different points in one file merge without a git conflict -- so
+# this sweeps the whole KB rather than only the files a PR changed.
+[group('QC')]
+check-duplicate-keys *files:
+    uv run python scripts/check_duplicate_yaml_keys.py "$@"
 
 # Guard against NEW YAML folded-scalar compound-word splits in kb/ (e.g. a
 # '>-' scalar line ending in 'relapsing-' folds to 'relapsing- remitting').
@@ -1333,10 +1433,16 @@ research_dir := "research"
 templates_dir := "templates"
 
 # Reference validation applied to a deep-research report as it is generated
-# (needs deep-research-client >= 0.2.9, which pulls in linkml-reference-validator
+# (needs deep-research-client >= 0.2.10, which pulls in linkml-reference-validator
 # through its `validation` extra -- the same library the KB validators use).
 # Every PMID/DOI the report cites is resolved against PubMed/Crossref/DataCite,
-# and every quote attributed to one of them is checked against that source. The
+# and every quote attributed to one of them is checked against that source. Since
+# 0.2.10 each resolved reference is also weighed against the report's own
+# characteristic vocabulary, flagging citations that exist but look off topic --
+# free, since it re-reads records the existence check already fetched, and on by
+# default (turn it off with `--validation-no-relevance`). An off-topic flag is a
+# clue and not a verdict: it sets `needs_review` in the frontmatter but is
+# deliberately NOT a confabulation and does NOT affect the exit code. The
 # results are written into the report itself: a `## Reference Validation` section
 # at the end of the body, and a `reference_validation:` summary in the YAML
 # frontmatter. Lookups are cached into the same `references_cache/` the KB
@@ -1838,6 +1944,9 @@ fetch-reference +identifiers:
                 fi
                 uv run python -m dismech.structured_sources.cli rebuild civic --id "$identifier"
                 ;;
+            ICTRP:*|ictrp:*)
+                uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+                ;;
             *)
                 scripts/run_reference_validator.sh cache reference "$identifier"
                 ;;
@@ -1974,6 +2083,35 @@ icees-rebuild *args="":
 [group('Research')]
 icees-list limit="20":
     uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
+
+# Fetch WHO ICTRP trial registration record(s) into references_cache/.
+# Covers every ICTRP primary registry (ChiCTR, ISRCTN, EUCTR, JPRN, CTRI, ...)
+# so a non-ClinicalTrials.gov trial can be cited as ICTRP:<TrialID>.
+#   just ictrp-fetch ChiCTR2100045397 ISRCTN67795930
+[group('Research')]
+ictrp-fetch +identifiers:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for identifier in "$@"; do
+        uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+    done
+
+# Refresh every cached references_cache/ICTRP_*.md from the ICTRP portal.
+# Use --id to restrict to specific trial identifiers.
+[group('Research')]
+ictrp-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild ictrp {{args}}
+
+# List the trial identifiers already cached from WHO ICTRP
+[group('Research')]
+ictrp-list limit="20":
+    uv run python -m dismech.structured_sources.cli list ictrp --limit {{limit}}
+
+# Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
+# is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.
+[group('Research')]
+ictrp-audit *args="":
+    uv run python -m dismech.ictrp_audit {{args}}
 
 # List the first N ClinGen Gene-Disease Validity assertion IDs
 [group('Research')]
