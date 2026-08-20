@@ -644,9 +644,85 @@ check-cache-order:
 fetch-ontology-dbs *names="":
     OAK_CONFIG={{oak_config}} bash scripts/fetch_ontology_dbs.sh {{names}}
 
+# --- Curation stub queue (stubs/) ------------------------------------------
+# The outstanding curation queue: one YAML per disease we intend to curate but
+# have not. Anyone can add, re-prioritize, or retire a stub by pull request; a
+# curation PR deletes the stub and adds the kb/ entry. See docs/curation-stubs.md.
+
+# Gates only on a malformed file: unparseable YAML, a bad MONDO ID, a duplicate,
+# a bad enum value. Staleness (the disease got curated elsewhere, the term was
+# retired) is an advisory and never gates — stubs are informative, not curated
+# content, and an unrelated curation PR must not turn stub PRs red.
+# Check that each stub file is well formed
+[group('Curation')]
+check-stubs *args="":
+    uv run dismech-stubs check {{args}}
+
+# Deletes stubs whose disease has since been curated, and stubs naming a MONDO
+# term that has since been retired. Leaves possible_kb_duplicate advisories
+# alone — those are a judgement call between two MONDO IDs. Run periodically.
+# Sweep stale stubs out of the queue (--apply to delete)
+[group('Curation')]
+tidy-stubs *args="":
+    uv run dismech-stubs tidy {{args}}
+
+# Schema-validate every stub file against the CurationStub class.
+[group('Curation')]
+validate-stubs:
+    uv run linkml-validate -s src/dismech/schema/curation_stub.yaml -C CurationStub stubs/*.yaml
+
+# Ordering is the hand-set priority band, then an arbitrary but stable spread —
+# not a computed score. Pick one you know something about, not the first row.
+# Show the next stub(s) to curate
+[group('Curation')]
+next-stubs count="5" *args="":
+    uv run dismech-stubs next {{count}} {{args}}
+
+# Summarize the queue by status, entry type, and priority.
+[group('Curation')]
+stub-stats:
+    uv run dismech-stubs stats
+
+# Fetch every open claim issue in one list-API call (immediately consistent,
+# unlike a search) and write it where the other recipes can read it.
+# Fetch the open curation claims
+[group('Curation')]
+fetch-claims out="tmp/claims.json":
+    mkdir -p "$(dirname {{out}})"
+    gh issue list --repo monarch-initiative/dismech --label claim --state open       --json number,title,assignees,url,createdAt,closedByPullRequestsReferences       --limit 1000 > {{out}}
+    echo "wrote {{out}}"
+
+# Reports double-claims, claims with no MONDO ID in the title (they lock
+# nothing), and stale claims — old with no PR. An open PR is never stale.
+# Cross-check open claim issues against the stub queue
+[group('Curation')]
+check-claims claims="tmp/claims.json" *args="":
+    uv run dismech-stubs claims {{claims}} {{args}}
+
+# The two-phase pick: open claim issues, then the stub queue.
+# Show the next unclaimed stub(s) to curate
+[group('Curation')]
+next-unclaimed count="5" claims="tmp/claims.json" *args="":
+    uv run dismech-stubs next {{count}} --claims {{claims}} {{args}}
+
+# Never overwrites an existing stub. Default source format is the Monarch
+# rare-disease-identification prioritised list.
+# Add stubs for nominated diseases that are neither curated nor already stubbed
+[group('Curation')]
+seed-stubs source *args="":
+    uv run dismech-stubs seed {{source}} {{args}}
+
+# Adds MONDO parents, subclass descendants (+ total), and causal genes to each
+# stub, so the lump/split call can be made from the file. Needs the MONDO
+# database (`just fetch-ontology-dbs mondo`). Idempotent; preserves hand edits.
+# Add MONDO context to the stub files
+[group('Curation')]
+enrich-stubs *args="":
+    uv run python scripts/enrich_curation_stubs.py {{args}}
+
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
