@@ -53,9 +53,9 @@ all *for*).
 
 ## 2. Before your first curation
 
-You need a Claude Pro or Max subscription and a decision about where to run:
-**Claude Code on the web** (nothing to install, recommended for your first one) or
-the **local CLI** (full control, your own tooling).
+You need a Claude Pro or Max subscription (or a Team plan), and a decision about
+where to run: **Claude Code on the web** (nothing to install, recommended for your
+first one) or the **local CLI** (full control, your own tooling).
 
 Both routes need the same one-time bits, and both are written up properly in
 CONTRIBUTING.md — don't reinvent them:

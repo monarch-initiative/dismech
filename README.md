@@ -192,7 +192,7 @@ layout instead of the built-in layered layout. The default NDEx upload visibilit
 
 This knowledge base is curated with **Claude Code** — an AI agent that knows the schema, validates ontology terms, and checks evidence against PubMed abstracts. There are two ways to start curating:
 
-If you are new, read the [Onboarding guide](https://dismech.monarchinitiative.org/elements/onboarding/) first — it walks through a first curation end to end, on the web and in the CLI.
+If you are new, read the [Onboarding guide](docs/onboarding.md) first — it walks through a first curation end to end, on the web and in the CLI.
 
 ### Route 1: Clone the repo and use Claude Code CLI
 
