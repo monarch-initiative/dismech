@@ -456,18 +456,33 @@ def _inventory(prefixes: Iterable[str], cache: _AdapterCache, markers) -> list[F
 
 
 def resolve_targets(raw: Iterable[str]) -> list[Path]:
-    """Expand CLI arguments (files, directories, or globs) into YAML files."""
+    """Expand CLI arguments (files, directories, or globs) into YAML files.
+
+    Overlapping arguments yield each file once. Deduplication is on the resolved
+    path rather than the ``Path`` object, because an explicit relative argument
+    and a glob expanded against the repo root name the same file with different
+    objects -- so a plain ``set()`` would not collapse them, and the file would
+    be scanned twice and reported twice.
+    """
     targets: list[Path] = []
+    seen: set[Path] = set()
+
+    def add(candidates: Iterable[Path]) -> None:
+        for candidate in candidates:
+            if candidate.name.endswith(".history.yaml"):
+                continue
+            resolved = candidate.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            targets.append(candidate)
+
     for item in raw:
         path = Path(item)
         if path.is_dir():
-            targets.extend(
-                p
-                for p in sorted(path.rglob("*.yaml"))
-                if not p.name.endswith(".history.yaml")
-            )
+            add(sorted(path.rglob("*.yaml")))
         elif path.exists():
-            targets.append(path)
+            add([path])
         else:
             # ``Path.glob`` rejects an absolute pattern outright, so split the
             # anchor off and glob relative to it; a relative pattern is resolved
@@ -478,11 +493,7 @@ def resolve_targets(raw: Iterable[str]) -> list[Path]:
                 pattern = path.relative_to(path.anchor).as_posix()
             else:
                 base, pattern = _REPO_ROOT, item
-            targets.extend(
-                p
-                for p in sorted(base.glob(pattern))
-                if not p.name.endswith(".history.yaml")
-            )
+            add(sorted(base.glob(pattern)))
     return targets
 
 

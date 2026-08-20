@@ -349,9 +349,31 @@ def test_absolute_glob_that_matches_is_expanded(repo):
 def test_history_records_are_never_scanned(repo):
     (repo / "kb" / "Entry.history.yaml").write_text("name: x\n", encoding="utf-8")
 
-    targets = audit.resolve_targets([str(repo / "kb")])
+    assert audit.resolve_targets([str(repo / "kb")]) == []
+    # Also when named outright -- these are not entries, however you reach them.
+    assert audit.resolve_targets([str(repo / "kb" / "Entry.history.yaml")]) == []
 
-    assert targets == []
+
+def test_overlapping_arguments_yield_each_file_once(repo, monkeypatch):
+    """A relative argument and a repo-root-expanded glob are different objects."""
+    _entry(repo, "XCO:0000294")
+    monkeypatch.chdir(repo)
+
+    targets = audit.resolve_targets(["kb/Entry.yaml", "kb/*.yaml", str(repo / "kb")])
+
+    assert len(targets) == 1
+
+
+def test_duplicate_arguments_do_not_duplicate_usage_lines(repo):
+    path = _entry(repo, "XCO:0000294")
+
+    report = audit.audit(
+        audit.resolve_targets([str(path), str(repo / "kb" / "*.yaml")]),
+        oak_config=repo / "conf" / "oak_config.yaml",
+        cache_dir=None,
+    )
+
+    assert len(report.in_use[0].usages) == 1
 
 
 def test_default_targets_cover_every_kb_subtree_at_any_depth():
