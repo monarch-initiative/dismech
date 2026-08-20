@@ -124,14 +124,26 @@ drive. You are not expected to verify every claim — the reviewer will.
 2. Same conversation as above — `/claim-disease`, or `/curate Parkinson Disease`
    for a specific target. `just next-stubs` shows you what's in the queue if you
    want to browse first.
-3. The agent works in the repo and validates as it goes. The three checks you'll
-   see it run, and can run yourself:
+3. The agent works in the repo and validates as it goes. After each edit — these
+   are fast and offline:
 
     ```bash
-    just validate kb/disorders/Your_Disease.yaml            # schema
-    just validate-terms kb/disorders/Your_Disease.yaml      # ontology IDs + labels
-    just validate-references kb/disorders/Your_Disease.yaml # snippets vs abstracts
+    just validate kb/disorders/Your_Disease.yaml                  # schema
+    just validate-terms kb/disorders/Your_Disease.yaml            # ontology IDs + labels
+    just count-verified-snippets kb/disorders/Your_Disease.yaml   # snippets vs cached abstracts
     ```
+
+    Once, before you open the PR — the batched pass CI runs on your changed files:
+
+    ```bash
+    just validate-disorders kb/disorders/Your_Disease.yaml
+    ```
+
+    Two things that surprise people: the first `just validate-terms` run downloads
+    ontology databases and some are multi-GB
+    ([details](https://github.com/monarch-initiative/dismech/blob/main/CONTRIBUTING.md#ontology-databases-and-constrained-environments)),
+    and `just validate-references` on a single file takes about an hour — leave
+    that one to CI.
 
 4. Ask it to open the PR (`/create-pr`), or let it do so as part of the curation
    flow. Push to a branch on `origin`, **not a fork** — fork PRs don't get the
