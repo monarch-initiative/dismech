@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04833322"
+reference_id: clinicaltrials:NCT04833322
 title: "Galactose Supplementation for the Treatment of Patients With Mild Malformation of Cortical Development With Oligodendroglial Hyperplasia in Epilepsy (MOGHE): a Pilot Trial"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Galactose Supplementation for the Treatment of Patients With Mild Malformation of Cortical Development With Oligodendroglial Hyperplasia in Epilepsy (MOGHE): a Pilot Trial

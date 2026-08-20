@@ -16,7 +16,7 @@ entries · **Method:** MONDO closure audit (2026-08 release), `just check-groupi
 | 3 | **NGLY1-CDDG is 3 years behind its own literature** — no treatments, no clinical trials, no animal models, and none of the NFE2L1/Nrf1, ENGASE, or AAV9 gene-therapy biology that now defines the field. | High |
 | 4 | **MAN2C1-CDDG2 is a single-source entry** (one PMID). A second cohort report published 2026-01 is uncited. | High |
 | 5 | **COG1-CDG's evidence is structurally unverifiable**: 50 evidence items cite bare `DOI:` references, which `linkml-reference-validator` skips. All three DOIs resolve to PMIDs. | High |
-| 6 | **VPS51-PCH-CDG carries no `disease_term`** and **UGGT1-CDG carries no MONDO ID** — two ontology gaps, both deliberate and documented, both worth taking upstream. | Medium |
+| 6 | ~~VPS51-PCH-CDG and UGGT1-CDG have no MONDO anchor.~~ **Corrected during follow-up: both terms already existed.** VPS51 disease is `MONDO:0032831` (PCH type 13, causal gene VPS51, xref OMIM:618606 — the same OMIM the entry was seeded from) and UGGT1-CDG is `MONDO:0980705` (CDG type IIcc, causal gene UGGT1). Both are now bound. No term request was needed. | Medium |
 | 7 | **Four members** (ALG1, SLC35A2, NGLY1, MAN2C1) do **not** declare `conforms_to` against any module, despite a `congenital_disorder_of_glycosylation` module existing that 12 siblings use. | Medium |
 | 8 | **No deglycosylation module exists.** The CDDG pair has nowhere to conform to. | Low |
 
@@ -227,6 +227,43 @@ NGLY1 carrier with autoimmune disease, not biallelic NGLY1-CDDG.
 | 8 | Raise MONDO term requests for **VPS51-related PCH-CDG** and **UGGT1-CDG**. | Both entries are stuck without an ontology anchor |
 | 9 | Consider a `cytosolic_deglycosylation` module so the CDDG pair has a conformance target. | The two members share a substrate pool and currently share nothing structural |
 | 10 | Add `datasets:` to MPI-CDG and PGM1-CDG (the two with real cohort/omics data). | Zero dataset coverage across both groupings |
+
+---
+
+## 6a. Follow-up: all ten recommendations applied (2026-08-20)
+
+Sections 4 through 6 were written as recommendations. They were subsequently
+carried out in full. What follows is what was actually done, including the two
+places where doing the work changed the finding.
+
+| # | Recommendation | Outcome |
+|---|---|---|
+| 1 | Rebuild NGLY1-CDDG | **Done.** 365 → 1,614 lines. Two new pathophysiology nodes (ENGase bypass / GlcNAc-Asn accumulation; failed NFE2L1 sequence editing), 9 new phenotypes with frequency bands from the 2026 cohort, the GNA biomarker as a structured `biochemical` readout, `prevalence`, `progression`, 2 treatments (GS-100 gene therapy with `target_mechanisms`; GlcNAc for alacrima), 3 clinical trials, 3 animal models with `modeled_mechanisms` and readouts, the SEL1L modifier and the recurrent Arg401* allele, 2 GEO datasets, and 3 discussions. |
+| 2 | Add the 2026 MAN2C1 report | **Done.** `PMID:41623318` and `PMID:37486637` added; the entry is no longer single-source. A `KNOWLEDGE_GAP` on free-oligosaccharide causality and a note on the 15q24 compound genotype were added with it. |
+| 3 | Convert COG1-CDG's DOI references | **Done.** All 50 `DOI:` references converted to `PMID:33960418`, `PMID:34625039`, `PMID:16537452`. On first validation 101 of 103 snippets verified — the curator's DOI-cited quotes had been accurate all along, just unverifiable. The 2 failures were one quote spanning a bracketed HGVS span (`[Arg889Profs*12]`), which the validator strips; it was shortened to a verbatim span that does not cross the bracket. Now 103/103. |
+| 4 | `conforms_to` for ALG1 and SLC35A2 | **Done.** ALG1 at three nodes, SLC35A2 at two (the terminal node was left unconformed — SLC35A2 disease is brain-predominant, not multisystem glycoprotein dysfunction). |
+| 5 | COG7 HLH arm | **Done.** New pathophysiology node, 2 phenotypes (hemophagocytosis; recurrent unexplained fever at FREQUENT, from the ~40% literature figure), corticosteroid prophylaxis as a treatment with `target_mechanisms`, and a `KNOWLEDGE_GAP` on the unexplained glycosylation-to-immune-dysregulation link. |
+| 6 | Split SLC35A2 into subtypes | **Done.** `Germline` and `Somatic MOGHE`. Four phenotypes that depend on body-wide transporter deficiency (transferrin profile, skeletal, dysmorphic, failure to thrive) are tagged to `Germline`; shared phenotypes are deliberately left untagged. A `KNOWLEDGE_GAP` records the O-GalNAc reframing as an unreplicated preprint rather than curating it as mechanism. |
+| 7 | PGM1 cardiomyopathy arm | **Done.** New `Z-Disk Destabilization via Loss of PGM1-LDB3 Interaction` node; the existing `galactose_resistant_cardiomyopathy` hypothesis extended with arm (c) and its human-cardiomyocyte evidence; the patient iPSC-cardiomyocyte model added as an `experimental_models` entry with two mechanism links and three readouts. |
+| 8 | MONDO term requests | **Not needed — the finding was wrong.** Both terms already exist. `MONDO:0032831` (pontocerebellar hypoplasia type 13) xrefs `OMIM:618606`, the same OMIM this entry was seeded from, and records VPS51 as its causal gene; `MONDO:0980705` (CDG type IIcc) records UGGT1. Both are now **bound** rather than requested. The original finding repeated each entry's own stale note; the earlier VPS51 audit had rejected PCH1A correctly but not gone on through the numbered PCH series. One real upstream gap survives: `MONDO:0032831` sits under pontocerebellar hypoplasia, not under CDG, so VPS51-PCH-CDG is a grouping member without being a descendant of the mapped class. That is a much smaller MONDO ask than a new term. |
+| 9 | `cytosolic_deglycosylation` module | **Done.** Five nodes, registered in `CLAUDE.md`, with both CDDG entries wired as conformers. The central node is named *Cytosolic Glycan Catabolite Dysregulation* rather than for free oligosaccharides: MAN2C1 accumulates free oligosaccharides but NGLY1 accumulates a glycoasparagine, and naming it for the pool lets both arms attach without either overstating its catabolite. The NFE2L1 sequence-editing branch is fenced off as NGLY1-only. |
+| 10 | Datasets for MPI-CDG and PGM1-CDG | **Partly done, and the negative result is the finding.** Neither disease has a relevant public dataset: `just discover-datasets` returned only `GENE_ONLY` gene-symbol collisions (yeast *PGM1* deletion compendia; a Burkitt lymphoma methylation series and an unrelated liver-fibrogenesis "MPI MT" series), and direct GEO searches for `PGM1-CDG`, `PGM1 deficiency`, `MPI-CDG`, and `MPI deficiency glycosylation` all return zero series. Adding any of them would be Named Entity Confusion reached through dataset search. Both entries now record the search and its date in `notes` and keep `datasets: []`. Four genuinely relevant datasets were found and added elsewhere in the same groupings — `GSE301626` and `GSE295078` to NGLY1, `GSE318030` and `GSE284073` to SLC35A2 — all four resolved by `just verify-datasets`. |
+
+**Two findings changed on contact with the work.** Recommendation 8 dissolved: the
+ontology gap did not exist, and the review had propagated the entries' own stale
+notes instead of checking MONDO. Recommendation 10 inverted: the gap is real but
+unfixable for those two diseases, and the honest output is a recorded negative
+search rather than a filled field.
+
+**Validation of the applied work.** `just validate-disorders` over all ten changed
+disorder files — the exact command CI runs — passes: 10 files, all validations
+passed, **728/728 snippets verified**. Across the ten disorder files plus the new
+module, `just count-verified-snippets` reports **744/744**. `just validate` and
+`just validate-terms` pass individually on every changed file;
+`just validate-grouping` passes on both groupings; `just check-duplicate-keys`
+passes over all 4,249 YAML files; `just check-title-snippets` reports no new
+title-quoting snippets; `just verify-datasets` resolves all four new accessions;
+every `conforms_to` reference in the repository resolves to a real module node.
 
 ---
 
