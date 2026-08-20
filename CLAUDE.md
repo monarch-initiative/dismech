@@ -538,8 +538,18 @@ and the payload for that predicate:
 - `HAS_GENE` → `gene`
 - `CONFORMS_TO_MODULE` → `module` (a `kb/modules/` stem, optionally with `#Node Name`)
 - `HAS_BIOLOGICAL_PROCESS` → `biological_processes`
-- `HAS_CLASSIFICATION` → `classification`; `HAS_INHERITANCE` / `HAS_MAPPING` / `OTHER`
-  carry the value in `description`
+- `HAS_INHERITANCE` → `inheritance_term` (an HPO mode-of-inheritance term).
+  **The payload is optional**, unlike every other predicate's: a leaf naming a
+  term is evaluated against the member's curated `inheritance` blocks (at
+  disease level or on `has_subtypes`), with the same ontology closure as
+  `HAS_PHENOTYPE`; a leaf carrying only a `description` — for a constraint no
+  single HP term names, such as "hereditary rather than acquired" in
+  `Hereditary_Systemic_Amyloidoses` — stays free text and evaluates to UNKNOWN.
+  **Name the term whenever one exists.** An UNKNOWN leaf inside an `AND`
+  forces the whole conjunction to UNKNOWN, so one unevaluable inheritance
+  clause hides every checkable clause beside it.
+- `HAS_CLASSIFICATION` → `classification`; `HAS_MAPPING` / `OTHER` carry the
+  value in `description`
 - `negated: true` negates a leaf (alternative to a `NOT` operator)
 
 **Criteria semantics (`=>` / `<=` / `<=>`):** `criteria_semantics` records the OWL-style
@@ -912,7 +922,19 @@ entries: `Alport_Syndrome`, `Usher_Syndrome`,
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
 `Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
-(`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+(`grouping_basis: OTHER`, a `NECESSARY_AND_SUFFICIENT` `HAS_INHERITANCE`
+criterion over HP:0010984 / HP:0010983).
+
+**Binding the term is what puts an entry in the grouping.** The criteria are
+*sufficient*, so `just check-groupings` reports any entry carrying a bound
+digenic/oligogenic block but missing from `members:` as a candidate — that is
+the mechanism that keeps the union complete, and it only works if the term is
+bound. An entry describing digenic inheritance in prose alone is invisible to
+it. Note the converse too: several entries mention digenic or oligogenic
+inheritance *in order to reject it* (`Familial_Nonmedullary_Thyroid_Carcinoma`
+records explicitly that it does not bind HP:0010983;
+`RDH5-Related_Retinopathy` and `BBSome-Related_Retinitis_Pigmentosa` argue
+against a second locus). Leaving those unbound is correct, not an oversight.
 
 ### Hypothesis-Based Phenotype Algorithms
 
