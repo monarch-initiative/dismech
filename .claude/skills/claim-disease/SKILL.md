@@ -99,9 +99,25 @@ surface. Assume neither phase knows about a PR.
 ## The stub already holds the lump/split evidence
 
 `just enrich-stubs` has **already** written `mondo_parents`, `mondo_descendants`,
-`mondo_descendant_count` and `genes` into every stub. That is the evidence the
+`mondo_descendant_count` and `genes` into the stubs. That is the evidence the
 `entry_type` decision turns on. Read the stub file. Do **not** re-derive it with
 per-candidate ontology lookups.
+
+**An empty block is omitted, not written as zero** (`render()` in
+`scripts/enrich_curation_stubs.py` only emits a block when it has content), so
+most stubs carry only some of these fields:
+
+| field | stubs carrying it (of 1,842) |
+|---|---|
+| `mondo_parents` | 1,841 — 99.9% |
+| `genes` | 1,317 — 71.5% |
+| `mondo_descendants` / `mondo_descendant_count` | 178 — **9.7%** |
+
+**Absence is the answer, not a missing answer.** No `mondo_descendant_count:`
+line means MONDO records no descendants — the overwhelmingly common case, and a
+*positive* signal that the term is a leaf rather than a grouping. No `genes:`
+means no causal gene. Neither is a sign that enrichment was skipped, and neither
+is a reason to reach for `runoak`.
 
 This is the single largest avoidable cost in a claim run, and it is worse than
 it looks:
@@ -117,8 +133,10 @@ it looks:
 
 So:
 
-- **`mondo_descendant_count` is the grouping test.** 20 descendants, several
-  already in `kb/disorders/`, is a GROUPING — decided, without a single query.
+- **`mondo_descendant_count` is the grouping test, and so is its absence.**
+  20 descendants, several already in `kb/disorders/`, is a GROUPING — decided,
+  without a single query. No descendant block at all is the leaf case, and is
+  equally decisive; it is what ~90% of the queue looks like.
 - **`genes:` is the entity-identity anchor.** If it names one gene, that is the
   gene; do not "verify" it from memory-driven doubt. (One run guessed *SCN10A*,
   then spent a 28s lookup correcting itself, when the stub said `hgnc:10583
@@ -167,8 +185,9 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    ```
 
    Do not hand-transcribe full issue records — that is minutes of typing for
-   fields nothing reads. Ask MCP for `fields: ["number","title","created_at"]`
-   and pass those through if you also want `check-claims`' hygiene report
+   fields nothing reads. `list_issues` takes a `fields` projection, so ask for
+   `fields: ["number","title","created_at"]` — and keep only those — if you also
+   want `check-claims`' hygiene report
    (double-claims, unkeyed titles); the parser already accepts REST-shaped
    `created_at`/`html_url`. Note `check-claims` cannot see linked PRs over this
    path, so its **stale** list over-reports — it errs toward flagging, and a
@@ -184,15 +203,25 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    different term. Do this for **all** your candidates in one pass, not one
    candidate at a time:
 
+   Search the **label as well as the MONDO ID**, and search both against
+   `origin/main` — that is what the `git fetch` is for, and a disease curated
+   under a different term is the whole case this step exists to catch. `git
+   grep` takes many `-e` patterns at once, so the batched form is one process,
+   not N:
+
    ```bash
    git fetch origin main
-   for m in <MONDO_ID_1> <MONDO_ID_2> <MONDO_ID_3>; do
-     printf '%s: ' "$m"
-     git grep -l -i "$m" origin/main -- kb/disorders kb/groupings | tr '\n' ' '; echo
-   done
-   # and the same shape for distinctive label words / gene symbols
-   grep -rli -e "<word_1>" -e "<word_2>" kb/disorders/ kb/groupings/
+   git grep -l -i \
+     -e "<MONDO_ID_1>" -e "<label_1>" \
+     -e "<MONDO_ID_2>" -e "<label_2>" \
+     -e "<MONDO_ID_3>" -e "<label_3>" \
+     origin/main -- kb/disorders kb/groupings || true
    ```
+
+   The `|| true` is load-bearing: `git grep` exits 1 on no match, which is the
+   common (good) case, and without it the block aborts under `set -o pipefail`.
+   If you want per-candidate attribution rather than one file list, loop — but
+   keep both patterns per candidate: `git grep -l -i -e "$m" -e "$label" origin/main ...`.
 
    Also scan `tmp/claims.json` titles for the label and its synonyms — an
    agent may have claimed the same disease under a different MONDO ID. If a
