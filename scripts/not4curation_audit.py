@@ -64,7 +64,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 # Imported after the sys.path insertion above, so it resolves from src/.
-from dismech.yaml_io import safe_load_path  # noqa: E402
+from dismech.yaml_io import safe_load_path
 
 #: Files scanned when no explicit path is given: every curated KB entry plus the
 #: schema, whose static ``meaning:`` values are ontology bindings too and are
