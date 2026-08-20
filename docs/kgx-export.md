@@ -19,6 +19,7 @@ cannot express. Biolink declares the `qualifiers` slot as:
 
 ```yaml
 qualifiers:
+  deprecated: true
   description: connects an association to qualifiers that modify or qualify the meaning of that association
   range: ontology class
   multivalued: true
@@ -62,12 +63,31 @@ its seven permissible values to PATO, and those export as the bound term:
 | `GAIN_OF_FUNCTION` | `dismech:ModifierEnum#GAIN_OF_FUNCTION` | — |
 | `LOSS_OF_FUNCTION` | `dismech:ModifierEnum#LOSS_OF_FUNCTION` | — |
 
-The last three have no ontology term — PATO, GENO, GO and SO were all checked
-when the enum was written — so they fall back to the **dismech namespace**,
-declared in the schema prefix map as `https://w3id.org/monarch-initiative/dismech/`
-and set as `default_prefix`. These are resolvable CURIEs pointing at our own
-model, which is the right answer when dismech and Biolink do not align: refer to
-the dismech model by its own prefix rather than minting a fictional one.
+The last three carry no `meaning:` in the schema, so they fall back to the
+**dismech namespace**, declared in the schema prefix map as
+`https://w3id.org/monarch-initiative/dismech/` and set as `default_prefix`. These
+are resolvable CURIEs pointing at our own model, which is the right answer when
+dismech and Biolink do not align: refer to the dismech model by its own prefix
+rather than minting a fictional one.
+
+**The scope of that "no term" finding matters, so it is recorded precisely.** The
+schema's own note is *"no suitable ontology term found across PATO/GENO/GO/SO
+(verified 2026-06-26)"*. An OLS-wide recheck on 2026-08-20 did not simply confirm
+it:
+
+- `DYSREGULATED` — **confirmed unbound**. Every "dysregulation" hit across PATO,
+  GO, NCIT, OGMS and MPATH is a disease entity (IPEX, DMDD), not a quality. The
+  nearest quality is `PATO:0000460` abnormal, which `ABNORMAL` already uses and
+  which is a distinct curator choice.
+- `GAIN_OF_FUNCTION` / `LOSS_OF_FUNCTION` — **candidates exist** that the original
+  four-ontology search did not surface: `PATO:0001625` "increased functionality"
+  and `PATO:0001624` "decreased functionality", in a PATO branch separate from the
+  `increased quality`/`decreased quality` used for `INCREASED`/`DECREASED`. Not
+  adopted: it is a schema question (they belong on the enum's `meaning:`, which
+  this exporter only reads), and the fit is imperfect — `ModifierEnum`'s
+  `GAIN_OF_FUNCTION` means escaping regulatory control rather than increased
+  ability to perform a function. Pending a curator decision; the export follows
+  whatever the schema binds.
 
 `CausalLinkTypeEnum` binds none of its four values, so all four take the same
 route: `dismech:CausalLinkTypeEnum#DIRECT`, `#INDIRECT_KNOWN_INTERMEDIATES`,

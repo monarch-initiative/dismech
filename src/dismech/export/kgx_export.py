@@ -83,11 +83,24 @@ FREQUENCY_TO_HP = {
 #
 # Values come from the schema rather than being invented here. `ModifierEnum`
 # already binds four of its seven values to PATO, so those export as the bound
-# term. The remaining three have no ontology term (rechecked across all of OLS,
-# not just the PATO/GENO/GO/SO of the original note), so they fall back to the
-# dismech namespace -- `dismech:` is declared in the schema prefix map as
+# term. The remaining three carry no `meaning:`, so they fall back to the dismech
+# namespace -- `dismech:` is declared in the schema prefix map as
 # https://w3id.org/monarch-initiative/dismech/ and is `default_prefix`, so these
 # resolve into our own model rather than a fictional one.
+#
+# What the schema records for those three is "no suitable ontology term found
+# across PATO/GENO/GO/SO (verified 2026-06-26)". An OLS-wide recheck on
+# 2026-08-20 was NOT simply a confirmation of that:
+#   - DYSREGULATED: confirmed unbound. Every "dysregulation" hit across PATO, GO,
+#     NCIT, OGMS and MPATH is a disease entity, not a quality.
+#   - GAIN_OF_FUNCTION / LOSS_OF_FUNCTION: candidate terms exist in PATO's
+#     `functionality` branch, which the original four-ontology search did not
+#     surface -- PATO:0001625 "increased functionality" and PATO:0001624
+#     "decreased functionality". Not adopted here: whether they fit is a schema
+#     question (they would belong on the enum's `meaning:`, which this exporter
+#     only reads), and the fit is imperfect, since ModifierEnum's GAIN_OF_FUNCTION
+#     means escaping regulatory control rather than increased ability. Pending a
+#     curator decision; the export follows whatever the schema binds.
 #
 # The fallback is qualified by its enum, not flat. 18 permissible-value names in
 # this schema belong to more than one enum, and GAIN_OF_FUNCTION/LOSS_OF_FUNCTION
