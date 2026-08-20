@@ -520,13 +520,42 @@ class TestExposureToEdge:
         edge = exposure_to_edge("MONDO:0004979", environmental)
         assert edge.qualifiers is None
 
-    def test_unmapped_modifier_emits_no_qualifiers(self):
-        """A modifier outside the direction map is dropped, not guessed at."""
+    def test_absent_modifier_is_a_decreased_exposure(self):
+        """ABSENT carries polarity on an exposure and must not be dropped (#8468).
+
+        `PATO:0000462` "not occurring or not present" means the exposure did not
+        happen, so dropping it re-exports the un-negated triple this PR exists to
+        fix — a starker inversion than DECREASED, not a milder one. Biolink's
+        DirectionQualifierEnum offers only increased/upregulated/decreased/
+        downregulated, so `decreased` is the faithful projection.
+        """
         environmental = {
-            "exposure_term": {"modifier": "ABSENT", "term": {"id": "ECTO:6000029"}},
+            "exposure_term": {"modifier": "ABSENT", "term": {"id": "ECTO:9000123"}},
+        }
+        edge = exposure_to_edge("MONDO:0000819", environmental)
+        assert edge.qualifiers == ["subject_direction:decreased"]
+
+    @pytest.mark.parametrize("modifier", ["ABNORMAL", "DYSREGULATED"])
+    def test_directionless_modifier_emits_no_qualifiers(self, modifier):
+        """A modifier asserting no direction is dropped, not guessed at.
+
+        Unlike ABSENT these say nothing about more-or-less, so there is no
+        polarity to lose and nothing to invert.
+        """
+        environmental = {
+            "exposure_term": {"modifier": modifier, "term": {"id": "ECTO:6000029"}},
         }
         edge = exposure_to_edge("MONDO:0004979", environmental)
         assert edge.qualifiers is None
+
+    def test_absent_stays_dropped_on_the_go_edges(self):
+        """The ABSENT mapping is exposure-specific and must not leak (#8468).
+
+        On a Disease→GO edge ABSENT qualifies a process, not an exposure, and
+        widening the shared map would silently change edges nobody reviewed.
+        """
+        process = {"term": {"id": "GO:0016301"}, "modifier": "ABSENT"}
+        assert biological_process_to_edge("MONDO:0004979", process).qualifiers is None
 
 
 class TestMolecularFunctionToEdge:

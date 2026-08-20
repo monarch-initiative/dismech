@@ -477,6 +477,23 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
 # Protective-effect patterns. Matched against environmental[].effect to flip the
 # predicate from contributes_to → associated_with_decreased_likelihood_of when the
 # curated text indicates the exposure reduces disease risk (see #2098).
+# Modifier to direction for an exposure *subject*. Extends MODIFIER_TO_DIRECTION
+# with ABSENT, which on an exposure carries polarity the shared map does not:
+# PATO:0000462 "not occurring or not present" means the exposure did not happen,
+# so dropping it would export the un-negated triple — the same inversion #8468
+# fixes for DECREASED, and a starker one. Biolink's DirectionQualifierEnum has
+# only increased/upregulated/decreased/downregulated, so `decreased` is the
+# faithful projection: absence is the limiting case of reduction, and both make
+# the claim "less of X than the comparator", which is the axis a consumer reads.
+#
+# Deliberately an overlay rather than an entry in the shared map: on a Disease→GO
+# edge ABSENT qualifies a process rather than an exposure, and widening that map
+# would silently change edges no one has reviewed. The polarity-free values
+# (ABNORMAL, DYSREGULATED) are still dropped in both places — they assert no
+# direction, so there is nothing to invert.
+_EXPOSURE_MODIFIER_TO_DIRECTION = {**MODIFIER_TO_DIRECTION, "ABSENT": "decreased"}
+
+
 _PROTECTIVE_EFFECT_PATTERNS = (
     re.compile(r"\breduces?\s+risk\b", re.IGNORECASE),
     re.compile(r"\bdecreased?\s+(odds|risk|chance|incidence|likelihood)\b", re.IGNORECASE),
@@ -534,7 +551,9 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     See #2098.
 
     `exposure_term.modifier` sets the polarity of the *subject*, emitted as a
-    `subject_direction:<increased|decreased>` entry in the `qualifiers` list.
+    `subject_direction:<increased|decreased>` entry in the `qualifiers` list
+    (see `_EXPOSURE_MODIFIER_TO_DIRECTION` for why ABSENT maps to `decreased`
+    here but not on the Disease→GO edges).
     Without it a deficiency exposure exports inverted: `Anencephaly` curates
     `ECTO:9000123` (exposure to folic acid) with `modifier: DECREASED`, meaning
     *low* folate contributes to the defect, but the bare triple reads as
@@ -572,7 +591,7 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
 
     exposure_term = environmental.get("exposure_term")
     modifier = exposure_term.get("modifier") if isinstance(exposure_term, dict) else None
-    direction = MODIFIER_TO_DIRECTION.get(modifier) if modifier else None
+    direction = _EXPOSURE_MODIFIER_TO_DIRECTION.get(modifier) if modifier else None
     qualifiers = [f"subject_direction:{direction}"] if direction else None
 
     return ExposureEventToOutcomeAssociation(
