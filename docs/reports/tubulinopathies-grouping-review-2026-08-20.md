@@ -468,10 +468,14 @@ currently nowhere in the KB — and would be strong evidence in the grouping's o
 | 11 | Add the isotype-specificity evidence (`PMID:42179625`, `PMID:42275208`) to the migration module, supporting the grouping's split rationale | module | small |
 | 12 | File an upstream MONDO issue: link CDCBM1/4/6/7 and `MONDO:0012703` under `MONDO:0100153` | upstream | small |
 
-## 7. Changes applied in this review
+## 7. Changes applied
 
-Deliberately minimal — this was a review, and the substantive curation above is left as
-recommendations. Three defects that the grouping file itself already named were fixed:
+> **Update, same day.** After this review was delivered, all twelve recommendations in §6
+> were applied. See §9 for what was done and for the two places where doing the work
+> corrected the review itself.
+
+The review pass itself was deliberately minimal. Three defects that the grouping file
+already named were fixed:
 
 1. **`kb/disorders/TUBB_TUBB5-related_Microcephaly.yaml`** — added the missing
    `disease_term` (`MONDO:0014341`, complex cortical dysplasia with other brain
@@ -497,3 +501,70 @@ recommendations. Three defects that the grouping file itself already named were 
   review. `PMID:37475831` is flagged above as **retracted**. No PMID cited here has yet
   been added to a `kb/` entry — doing so requires `just fetch-reference` plus exact-quote
   snippet verification per the evidence SOP.
+
+---
+
+## 9. Follow-up: all twelve recommendations applied (2026-08-20)
+
+Every recommendation in §6 was carried out. Two of them could not be applied as written,
+and the reasons are findings in their own right.
+
+### The review was wrong about mechanism class (recommendation 6)
+
+Recommendation 6 said to add `functional_impact_category: DOMINANT_NEGATIVE` to all four
+members. Reading the primary sources to write the annotation showed that is only right for
+two of them, and actively wrong for a third:
+
+| Member | Applied value | Why |
+|---|---|---|
+| TUBA1A | `DOMINANT_NEGATIVE` | `PMID:30517687` resolves it directly — mutant α-tubulin "acts dominantly by populating microtubules with defective binding sites for dynein", and dynein impairment scales with mutant expression. A poisoning mechanism. |
+| TUBB3 | `DOMINANT_NEGATIVE` | Folded mutant heterodimers still polymerize and a subset disrupts the kinesin interaction — a subunit that incorporates and degrades a motor-binding surface. |
+| **TUBB / TUBB5** | **`GAIN_OF_FUNCTION`** | `PMID:41309602` tests haploinsufficiency directly and excludes it (TUBB-haploid cells ciliate normally), and concludes the variants "all act in a gain-of-function fashion". The review had read "not haploinsufficiency" as implying dominant-negative. It does not. |
+| **TUBB2A / TUBB2B** | **`UNKNOWN`** | Impaired heterodimer formation is evidenced for both, but that finding does not discriminate a poisoning subunit from a reduced functional-heterodimer pool. `UNKNOWN` here means *examined and unresolved*, and is paired with a new `gap_tubb2ab_functional_impact_class` discussion. |
+
+The distinction is not bookkeeping: it decides whether the isotype-compensation strategy of
+§5B should be expected to work, since adding wild-type subunits dilutes a poisoning allele
+but does not remove it.
+
+### The ciliopathy module had to be widened first (recommendation 2)
+
+`TUBB_TUBB5` could not honestly `conforms_to`
+`ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction` as the node was
+written: it admitted only lesions in basal body, transition zone, BBSome or IFT component
+genes, and TUBB is none of those. Rather than force the conformance or drop it, the module
+node was widened to admit a third entry route — a dominant tubulin-subunit variant
+impairing cilium assembly directly — with `PMID:41309602` and `PMID:42091926` as evidence,
+plus two guardrails in the module notes: conformance needs evidenced ciliary impairment in
+that disorder (not merely a microtubule lesion), and a tubulin loss-of-function lesion is
+*not* evidence for this route, since the mechanism is dose-dependent gain-of-function.
+
+### Recommendation 12 landed as a DisMech issue, not an upstream one
+
+This session has no push access to `monarch-initiative/mondo`, so the upstream request is
+filed as `monarch-initiative/dismech#9113` with the full evidence table, for someone with
+upstream access to carry over.
+
+### What changed, by file
+
+| File | Change |
+|---|---|
+| `kb/disorders/TUBG1-related_Tubulinopathy.yaml` | **New entry** (R1). CDCBM4 / `MONDO:0014171`, 4 pathophysiology nodes, 8 phenotypes, 2 animal models, 2 knowledge gaps, 50/50 snippets verified. |
+| `kb/groupings/Tubulinopathies.yaml` | TUBG1 added as fifth member (R1); TUBB3 CFEOM differentiator softened with evidence (R10); MONDO consistency note and scope/gap notes updated. |
+| `kb/disorders/TUBA1A-related_Tubulinopathy.yaml` | Raised to parity (R3): inheritance, epidemiology, 3 diagnosis entries incl. prenatal neurosonography, 3 progression phases, clinical burden, 2 animal models, scale tags, 7 clinical phenotypes, `DOMINANT_NEGATIVE` context. 78.9% → ~88% compliance. |
+| `kb/disorders/TUBB_TUBB5-related_Microcephaly.yaml` | Ciliogenesis node (R2), Notch node + zebrafish model with DAPT rescue (R4), `GAIN_OF_FUNCTION` context (R6), gap evidence filled (R7), new translatability discussion. |
+| `kb/disorders/TUBB2A_TUBB2B-related_Cortical_Malformation.yaml` | Lumping gap re-argued against 2025–26 evidence (R9), `UNKNOWN` context + new mechanism-class gap (R6), Uner Tan boundary discussion, subtype terms + mappings (R8). |
+| `kb/disorders/TUBB3-related_Tubulinopathy.yaml` | `DOMINANT_NEGATIVE` context (R6), CDCBM1 + CFEOM3A mappings (R8), inherited-allele qualifier. |
+| `kb/modules/microtubule_dependent_neuronal_migration_failure.yaml` | CRISPRa β-tubulin compensation treatment with `target_mechanisms` (R5) — the grouping's first non-supportive therapy; isotype-specificity knowledge gap (R11). |
+| `kb/modules/ciliopathy_dysfunction.yaml` | Trigger node widened to admit tubulin-subunit lesions, with guardrails (R2). |
+
+Seven history records were written under `history/`. 30 new references were fetched with
+`just fetch-reference`; every snippet in every file above is quoted from a cached abstract
+and verified.
+
+### Two things deliberately not done
+
+- **TUBA8 was not added as a member.** §3 flagged its gene–disease validity as contested,
+  and nothing in this pass resolved it. It stays a candidate.
+- **TUBG1 was not added to `Lissencephaly_and_Neuronal_Migration_Disorders`**, where it
+  would also fit. Recommendation 1 scoped it to this grouping; widening to a second
+  grouping is a separate call.
