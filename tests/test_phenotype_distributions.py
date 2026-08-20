@@ -375,9 +375,20 @@ def test_float_rendering_does_not_truncate_precision() -> None:
     assert _fmt(1070.0) == "1070"
 
 
-def _hp_db_available() -> bool:
-    """Whether the local OAK HPO database is already downloaded."""
-    return (Path.home() / ".data" / "oaklib" / "hp.db").exists()
+def _unperformed_lookups(issues) -> list[str]:
+    """Warnings meaning the lookup did not happen, rather than that it failed.
+
+    `check_terms` reports an unreachable adapter and an errored lookup as
+    WARNINGs, deliberately: not being able to check a term is not evidence the
+    term is wrong. A test asserting on the *result* of a lookup has to make the
+    same distinction, or it reports a flaky network as a code defect.
+    """
+    return [
+        i.message
+        for i in issues
+        if i.severity == "WARNING"
+        and ("could not resolve" in i.message or "could not load" in i.message)
+    ]
 
 
 def test_term_check_reports_a_wrong_label_without_a_local_ontology(
@@ -469,19 +480,27 @@ def test_term_check_reports_a_wrong_label_without_a_local_ontology(
     assert not check_terms(discover_collections(_example_paths()))
 
 
-@pytest.mark.skipif(not _hp_db_available(), reason="OAK HPO database not present")
 def test_term_check_catches_a_wrong_curie(profile_set_path: Path) -> None:
     """The same guard against the real ontology, rather than a stub.
 
     This one pins the *fact* — that HP:0410017 is "Otitis externa" and not the
-    disease label it was carrying — which no stub can establish. It needs
-    `hp.db`, so it skips where that is absent; the code path it shares with the
-    test above is covered there unconditionally.
+    disease label it was carrying — which no stub can establish. The code path
+    it shares with the test above is covered there unconditionally.
 
     Aimed at the set-level `disease_term`, which is also the regression guard
     for the walk: lifting `disease` out of the profiles moved the one term
     every set carries outside the loop that used to check terms, so a check
     that only walked profiles would pass this file having verified nothing.
+
+    Skips on an unperformed lookup rather than gating on a file. It used to be
+    `skipif(not hp.db exists)`, which was wrong twice over: `conf/oak_config.yaml`
+    maps `HP: ols:hp`, so HP resolves over the network and that database is
+    never consulted — the gate neither enabled the lookup nor predicted it. The
+    real failure mode is a flaky or rate-limited OLS, which made this test fail
+    intermittently (measured: 1 in 3 full-file runs) with `assert False` on a
+    line about otitis, for a reason that had nothing to do with the assertion.
+    A test that cannot tell "the label is wrong" from "I could not look it up"
+    reports the network as a code defect.
     """
     from dismech.phenotype_distribution import check_terms
 
@@ -489,8 +508,12 @@ def test_term_check_catches_a_wrong_curie(profile_set_path: Path) -> None:
         data["disease"]["disease_term"]["term_id"] = "HP:0410017"
 
     issues = check_terms([_mutate(profile_set_path, mutate)])
+    if unperformed := _unperformed_lookups(issues):
+        pytest.skip(f"HP lookup did not happen: {unperformed[0]}")
     assert issues, "term check failed to flag a known-wrong CURIE"
-    assert any("Otitis externa" in i.message for i in issues)
+    assert any("Otitis externa" in i.message for i in issues), (
+        f"expected the real label to be reported; got {[i.message for i in issues]}"
+    )
 
 
 def test_example_terms_are_all_valid() -> None:
