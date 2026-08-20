@@ -88,6 +88,14 @@ the candidate pool is.
 normal; the claim holds the whole time. Only a claim that is *old with no PR* is
 questionable, and `just check-claims` reports those rather than releasing them.
 
+**The two phases do not see work that never filed a claim.** Claims and stubs
+are one intake path; the `curation`-labelled literature-scan issues worked by
+the curation-scanner are another, and the two do not talk. A scanner agent that
+goes straight from a `curation` issue to a PR never files a claim issue, so its
+work is absent from phase 1 — and absent from phase 2 too, since the stub
+survives until that PR merges. That is why step 5 searches open PRs as a third
+surface. Assume neither phase knows about a PR.
+
 ## Workflow
 
 1. **Read N** from the user's argument (default 1).
@@ -125,6 +133,24 @@ questionable, and `just check-claims` reports those rather than releasing them.
    agent may have claimed the same disease under a different MONDO ID. If a
    candidate turns out to be already curated, delete its stub in your PR; that
    is the fix, not just skipping it.
+
+   **Then search open PRs — the two checks above cannot see one.** This is a
+   separate surface, not a belt-and-braces repeat, and it is the one that fails
+   silently:
+
+   ```bash
+   gh pr list --repo monarch-initiative/dismech --state open \
+     --search "\"<MONDO_ID>\" OR \"<label>\"" \
+     --json number,title,url,headRefName,reviewDecision --limit 50
+   ```
+
+   Search the **label as well as the MONDO ID** — a curation PR title often
+   names the disease and no term at all, so an ID-only search misses it.
+
+   If an open PR already curates the candidate, **do not claim it**. Say so,
+   pick something else, and leave the stub alone — the stub is correct until
+   that PR merges. If the PR is stalled on something you can supply, that is
+   worth reporting to the user; it is usually more valuable than a fresh claim.
 
 6. **File the claim issue.** This is the claim — file it *before* starting work,
    not after.
@@ -215,6 +241,13 @@ close the claim issue explaining it. That is a completed curation.
   duplicate preflight. Both checks are by MONDO ID only;
   conceptual coverage under a different term (e.g. "Zellweger spectrum
   disorders" → `Peroxisome_Biogenesis_Disorder.yaml`) passes straight through.
+- **Claiming a disease that already has an open curation PR.** This is the
+  blind spot the other checks cannot cover, and it is silent — nothing looks
+  wrong. A stub only goes stale when its PR **merges** (`tidy-stubs` reads
+  `kb/disorders/` on main), the `git grep` in the preflight searches
+  `origin/main`, and the claim check reads `claim`-labelled issues. An entry
+  sitting on an unmerged PR branch is invisible to all three, so the stub stays
+  in the pool and `next-unclaimed` will happily offer it. Search open PRs.
 - **Starting work before filing the claim issue.** The issue *is* the lock. Work
   done before it exists is unprotected.
 - **Filing a claim without the `claim` label or without the MONDO ID in the
