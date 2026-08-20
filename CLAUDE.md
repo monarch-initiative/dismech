@@ -49,6 +49,9 @@ just validate-terms kb/disorders/Asthma.yaml
 # Validate ontology term references in the schema's dynamic enums
 just validate-terms-schema
 
+# Check that no bound term is flagged Not4Curation by its own ontology
+just check-not4curation
+
 # Run pytest tests
 just pytest-all
 
@@ -2341,6 +2344,63 @@ defence, and a *repaired* truncation is still invisible to it. When reviewing a
 cache diff, be suspicious of rows sharing one synthetic timestamp (e.g. several
 rows all at `...T00:00:00.000000`): that is the fingerprint of ad-hoc seeding,
 and those labels should be checked against the ontology rather than the cache.
+
+## Terms Flagged `Not4Curation` (dismech#8472)
+
+RGD-curated ontologies (XCO, and its siblings) keep terms for hierarchy and
+structural completeness that they do **not** want used for annotation, and mark
+them with a related synonym reading `Not4Curation`. That is a synonym, not a
+`deprecated`/`obsolete` axiom, so a flagged term:
+
+- exists in the ontology,
+- has a canonical label that matches `term.label` exactly, and
+- is reachable from the dynamic enum's `source_nodes`
+
+— i.e. it passes every check `just validate-terms` performs, while being a term
+its own maintainers say not to use. Three (`XCO:0000294` estrogen/estrogen
+analog, `XCO:0000950` anticonvulsant, `XCO:0000561` antidepressant) reached the
+#8430 binding tranches on exactly that basis; all three had proper ECTO
+equivalents, and only a reviewer noticing one instance led to the others being
+found by hand.
+
+```bash
+just check-not4curation                                  # whole KB + schema; runs in `just qc`
+just check-not4curation kb/disorders/Asthma.yaml         # one file
+just check-not4curation --list-flagged --prefix XCO      # the full deny-list for one ontology
+just check-not4curation --warn-only                      # report without failing
+```
+
+It **fails** on a flagged binding: the whole-KB sweep is clean today, so there is
+no backlog to grandfather and nothing to baseline. Replace a flagged term with
+one intended for annotation (`XCO:0000294` → `ECTO:9000010` exposure to
+estrogens) rather than suppressing the check.
+
+**Scope.** The marker test is a generic synonym-substring check, so it costs
+nothing on ontologies that never use the convention — of everything dismech
+binds, only XCO carries it (24 of 1,816 terms); ECTO, GENO and OPL carry none.
+It covers the prefixes whose `conf/oak_config.yaml` adapter is **local**
+(`sqlite:`), which answer an alias query per term offline. OLS-served prefixes
+are *reported as skipped*, not silently dropped: checking them costs one network
+round trip per term and the KB binds ~18,000 of them (`--include-remote` opts in
+anyway). The coverage line also reports, per prefix, how many terms the adapter
+returned any synonym for — a marker *is* a synonym, so a prefix at `0/N` was
+looked up but not effectively checked, and the check says so rather than
+reporting a clean run.
+
+**Cache interaction — the subtle half.** All three flagged CURIEs are still in
+`cache/xco/terms.csv` and the `exposureterm` enum cache: they were added by
+validation before anyone noticed the flag, and `cache/enums/*.csv` is the
+*offline* positive-hit set for `reachable_from`. A curator reaching for one would
+therefore validate offline, with no network call that could surface the flag.
+**Do not hand-delete those rows** — that is the wrong fix per the cache
+guardrails above, which is precisely why the gate exists. The audit reports
+flagged-but-unused cached CURIEs as a non-gating note so the situation is
+visible.
+
+This is a **stopgap**. The check belongs upstream in `linkml-term-validator`,
+next to the existence and label checks it already performs — every LinkML
+knowledge base consuming RGD ontologies has the same gap. It lives here because
+the validator is a pinned external dependency.
 
 ## Duplicate YAML Keys (dismech#8623)
 
