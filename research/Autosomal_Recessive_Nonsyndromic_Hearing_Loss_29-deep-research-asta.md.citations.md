@@ -1,0 +1,22 @@
+# Citations for Research Query
+
+**Query:** Pathophysiology and clinical mechanisms of CLDN14/claudin-14 associated autosomal recessive nonsyndromic hearing loss 29 DFNB29 MONDO:0013537. Core disease mechanisms, molecular and cellular pathways, involved genes and proteins, relevant metabolites or drugs, affected cell types and anatomical structures, disease progression, major clinical phenotypes and complications, and treatment-relevant mechanism papers.
+**Provider:** asta
+**Generated:** 2026-08-19T21:55:32.160634
+
+1. A. Tlili, A. Mutery, J. Chouchen (2024). The Segregation of p.Arg68Ter-CLDN14 Mutation in a Syrian Deaf Family, Phenotypic Variations, and Comparative Analysis with the GJB2 Gene. Genes. https://www.semanticscholar.org/paper/21761aa389c3c5298ebbca0187035751ca258634
+2. Yawei Feng, Sunyi Hu, Shen Zhao, Ming Chen (2023). Recent advances in genetic etiology of non-syndromic deafness in children. Frontiers in Neuroscience. https://www.semanticscholar.org/paper/5353f3d5d0f3c6f6213c678b6d9256e812cd96c1
+3. L. Zhong, Shan Kun, Q. Jing, Cheng Jing, Yan Denise (2013). NON-SYNDROMIC HEARING LOSS AND HIGH-THROUGHPUT STRATEGIES TO DECIPHER ITS GENETIC HETEROGENEITY. Journal of otology. https://www.semanticscholar.org/paper/a28a43f0197e29dde4d05e98fe5637c753d49b42
+4. Marie Wattenhofer, A. Reymond, V. Falciola, A. Charollais, D. Caille et al. (2005). Different mechanisms preclude mutant CLDN14 proteins from forming tight junctions in vitro. Human Mutation. https://www.semanticscholar.org/paper/413a856b23ed701e4d86f8b7e79e85745b702a69
+5. Zil-e-Huma Bashir, Noreen Latief, I. A. Belyantseva, Farheena Iqbal, S. Riazuddin et al. (2012). Phenotypic variability of CLDN14 mutations causing DFNB29 hearing loss in the Pakistani population. Journal of human genetics. https://www.semanticscholar.org/paper/fa3355dd6a12bfcfa3b7a840e9ffb0d9f6090ac3
+6. Tomohiro Kitano, S. Kitajiri, Shin-ya Nishio, S. Usami (2019). Detailed Clinical Features of Deafness Caused by a Claudin-14 Variant. International Journal of Molecular Sciences. https://www.semanticscholar.org/paper/a64d58dc4fdfc44cdf69ce02e3af014427d5577e
+7. M. Charif, Redouane Boulouiz, Amina Bakhechane, H. Benrahma, Halima Nahili et al. (2013). Genetic and molecular analysis of the CLDN14 gene in Moroccan family with non-syndromic hearing loss. Indian Journal of Human Genetics. https://www.semanticscholar.org/paper/f78710f9427d4b79788c84f243e646ba215ed15e
+8. Min-A Kim, Ye-Ri Kim, Borum Sagong, Hyun-Ju Cho, J. Bae et al. (2014). Genetic Analysis of Genes Related to Tight Junction Function in the Korean Population with Non-Syndromic Hearing Loss. PLoS ONE. https://www.semanticscholar.org/paper/9f996ea02a277d84f33373bce1a2ce080693b581
+9. Ihsan Ullah, Khadija Murtaza, H. Ammara, Misbah, M. Bhinder et al. (2022). Association study of CLDN14 variations in patients with kidney stones. Open Life Sciences. https://www.semanticscholar.org/paper/9a67e0335817f719aedc6dd6dc154358e59a52a9
+10. Caroline Prot-Bertoye, P. Houillier (2020). Claudins in Renal Physiology and Pathology. Genes. https://www.semanticscholar.org/paper/2c44a4072b28f494e02c93fa026cec4b72466456
+11. Mingming Wang, Yicui Zhou, Fengguo Zhang, Z. Fan, X. Bai et al. (2020). A novel MYH14 mutation in a Chinese family with autosomal dominant nonsyndromic hearing loss. BMC Medical Genetics. https://www.semanticscholar.org/paper/b6ab75545826334c12fc8df461f78aede6059ad6
+12. T. Higashi, T. Katsuno, S. Kitajiri, M. Furuse (2015). Deficiency of Angulin-2/ILDR1, a Tricellular Tight Junction-Associated Membrane Protein, Causes Deafness with Cochlear Hair Cell Degeneration in Mice. PLoS ONE. https://www.semanticscholar.org/paper/4e689507f60a8f43818482f5d951b6c954e71e8f
+13. So Young Kim, B. Choi (2015). Etiology of Hearing Loss and Genetic Hearing Loss. Hanyang Medical Reviews. https://www.semanticscholar.org/paper/14c55fb9896448ec9285226282cdf2efcafb6d36
+14. B. Keats, Charles I. Berlin (1999). Genomics and hearing impairment.. Genome research. https://www.semanticscholar.org/paper/30c266a015db722b03010c2e3140172c2b90cfe7
+15. Yongyi Yuan, Xue Gao, Bang-qing Huang, Jingqiao Lu, Guo-jian Wang et al. (2016). Phenotypic Heterogeneity in a DFNA20/26 family segregating a novel ACTG1 mutation. BMC Genetics. https://www.semanticscholar.org/paper/2c582e5b206ddd2a3b3e60f899f9395b20f8f02a
+16. Oguz Kadir Egilmez andM, T. Kalcioğlu (2016). Genetics of Nonsyndromic Congenital Hearing Loss. Scientifica. https://www.semanticscholar.org/paper/46c643311f09aacb52a95fd2dd123c296b68f910

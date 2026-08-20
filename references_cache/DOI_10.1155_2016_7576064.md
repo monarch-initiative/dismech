@@ -1,0 +1,21 @@
+---
+reference_id: DOI:10.1155/2016/7576064
+title: Genetics of Nonsyndromic Congenital Hearing Loss
+authors:
+- Oguz Kadir Egilmez
+- M. Tayyar Kalcioglu
+journal: Scientifica
+year: '2016'
+doi: 10.1155/2016/7576064
+content_type: abstract_only
+is_preprint: false
+---
+
+# Genetics of Nonsyndromic Congenital Hearing Loss
+**Authors:** Oguz Kadir Egilmez, M. Tayyar Kalcioglu
+**Journal:** Scientifica (2016)
+**DOI:** [10.1155/2016/7576064](https://doi.org/10.1155/2016/7576064)
+
+## Content
+
+Congenital hearing impairment affects nearly 1 in every 1000 live births and is the most frequent birth defect in developed societies. Hereditary types of hearing loss account for more than 50% of all congenital sensorineural hearing loss cases and are caused by genetic mutations. HL can be either nonsyndromic, which is restricted to the inner ear, or syndromic, a part of multiple anomalies affecting the body. Nonsyndromic HL can be categorised by mode of inheritance, such as autosomal dominant (called DFNA), autosomal recessive (DFNB), mitochondrial, and X-linked (DFN). To date, 125 deafness loci have been reported in the literature: 58 DFNA loci, 63 DFNB loci, and 4 X-linked loci. Mutations in genes that control the adhesion of hair cells, intracellular transport, neurotransmitter release, ionic hemeostasis, and cytoskeleton of hair cells can lead to malfunctions of the cochlea and inner ear. In recent years, with the increase in studies about genes involved in congenital hearing loss, genetic counselling and treatment options have emerged and increased in availability. This paper presents an overview of the currently known genes associated with nonsyndromic congenital hearing loss and mutations in the inner ear.

@@ -1,0 +1,22 @@
+---
+reference_id: DOI:10.1242/bio.061808
+title: "Neurogenetic disorders associated with mutations in the FERRY complex: a novel disease class?"
+authors:
+- R. Madison Riffe
+- Gerald B. Downes
+journal: Biology Open
+year: '2025'
+doi: 10.1242/bio.061808
+content_type: abstract_only
+is_preprint: false
+---
+
+# Neurogenetic disorders associated with mutations in the FERRY complex: a novel disease class?
+**Authors:** R. Madison Riffe, Gerald B. Downes
+**Journal:** Biology Open (2025)
+**DOI:** [10.1242/bio.061808](https://doi.org/10.1242/bio.061808)
+
+## Content
+
+ABSTRACT
+The five-subunit endosomal Rab5 and RNA/ribose intermediary (FERRY) complex is a newly described protein complex consisting of TBCK, PPP1R21, FERRY3 (previously C12orf4), CRYZL1, and GATD1. The FERRY complex is proposed to function as a Rab5 effector to shuttle mRNA to the cell periphery for local translation, a process especially important in cells with far reaching processes. Interestingly, three members of the FERRY complex are associated with ultra-rare neurogenetic disorders. Mutation of TBCK causes TBCK syndrome, mutation of PPP1R21 is associated with PPP1R21-related intellectual disability, and mutation of FERRY3 results in an autosomal recessive intellectual disability. Neurologic disorders have yet to be associated with mutation of GATD1 or CRYZL1. Here, we provide a review of each FERRY complex-related neurologic disorder and draw clinical comparisons between the disease states. We also discuss data from the current cellular and animal models available to study these disorders, which is notably disparate and scattered across different cell types and systems. Taken together, we explore the possibility that these three diseases may represent one shared disease class, which could be further understood by combining and comparing known information about each individual disease. If true, this could have substantial implications on our understanding of the cellular role of the FERRY complex and on treatment strategies for affected individuals, allowing researchers, clinicians, and patient organizations to maximize the utility of research efforts and resources to support patients with these disorders.

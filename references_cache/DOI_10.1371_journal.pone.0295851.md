@@ -1,0 +1,30 @@
+---
+reference_id: DOI:10.1371/journal.pone.0295851
+title: "Multiocular defect in the Old English Sheepdog: A canine form of Stickler syndrome type II associated with a missense variant in the collagen-type gene COL11A1"
+authors:
+- Katherine Stanbury
+- Renata Stavinohova
+- Louise Pettitt
+- Chris Dixon
+- Ellen C. Schofield
+- Bryan Mclaughlin
+- Inka Pettinen
+- Hannes Lohi
+- Sally L. Ricketts
+- James A. Oliver
+- Cathryn S. Mellersh
+journal: PLOS ONE
+year: '2023'
+doi: 10.1371/journal.pone.0295851
+content_type: abstract_only
+is_preprint: false
+---
+
+# Multiocular defect in the Old English Sheepdog: A canine form of Stickler syndrome type II associated with a missense variant in the collagen-type gene COL11A1
+**Authors:** Katherine Stanbury, Renata Stavinohova, Louise Pettitt, Chris Dixon, Ellen C. Schofield, Bryan Mclaughlin, Inka Pettinen, Hannes Lohi, Sally L. Ricketts, James A. Oliver, Cathryn S. Mellersh
+**Journal:** PLOS ONE (2023)
+**DOI:** [10.1371/journal.pone.0295851](https://doi.org/10.1371/journal.pone.0295851)
+
+## Content
+
+Multiocular defect has been described in different canine breeds, including the Old English Sheepdog. Affected dogs typically present with multiple and various ocular abnormalities. We carried out whole genome sequencing on an Old English Sheepdog that had been diagnosed with hereditary cataracts at the age of five and then referred to a board-certified veterinary ophthalmologist due to owner-reported visual deterioration. An ophthalmic assessment revealed that there was bilateral vitreal degeneration, macrophthalmos, and spherophakia in addition to cataracts. Follow-up consultations revealed cataract progression, retinal detachment, uveitis and secondary glaucoma. Whole genome sequence filtered variants private to the case, shared with another Old English Sheepdog genome and predicted to be deleterious were genotyped in an initial cohort of six Old English Sheepdogs (three affected by multiocular defect and three control dogs without evidence of inherited eye disease). Only one of the twenty-two variants segregated correctly with multiocular defect. The variant is a single nucleotide substitution, located in the collagen-type gene COL11A1, c.1775T>C, that causes an amino acid change, p.Phe1592Ser. Genotyping of an additional 14 Old English Sheepdogs affected by multiocular defect revealed a dominant mode of inheritance with four cases heterozygous for the variant. Further genotyping of hereditary cataract-affected Old English Sheepdogs revealed segregation of the variant in eight out of nine dogs. In humans, variants in the COL11A1 gene are associated with Stickler syndrome type II, also dominantly inherited.
