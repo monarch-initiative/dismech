@@ -2173,7 +2173,7 @@ window.searchData = [
     "model_format": "Python/C++ source and Jupyter notebooks",
     "model_software": "Python, C++/SWIG, Jupyter, PyTorch sbi",
     "base_model": "Delayed Stuart-Landau subject-specific whole-brain network",
-    "model_id": "GitHub:ins-amu/virtual_ms@67cb165d2631f73cfae79643accf7bae3e7b4ef1",
+    "model_id": "",
     "repository_url": "https://github.com/ins-amu/virtual_ms/tree/67cb165d2631f73cfae79643accf7bae3e7b4ef1",
     "repository_host": "GitHub",
     "publication": "PMID:38974971",
