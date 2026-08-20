@@ -736,7 +736,7 @@ enrich-stubs *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
+qc: check-stubs check-duplicate-keys check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-empty-snippets check-environmental-evidence validate-all validate-modules validate-groupings validate-synthesis-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -917,6 +917,22 @@ check-reference-cache-frontmatter:
 [group('QC')]
 check-term-cache-integrity:
     uv run python -m dismech.term_cache_integrity cache
+
+# Guard against binding a term its own ontology flags `Not4Curation` (#8472).
+# RGD ontologies (XCO and siblings) mark terms they keep for hierarchy but do
+# not want annotated with a related synonym reading `Not4Curation`. That is a
+# synonym, not an obsoletion axiom, so such a term exists, matches its label and
+# is reachable from its enum roots -- it passes every check `just validate-terms`
+# performs. Three reached the #8430 tranches on exactly that basis. Checks the
+# prefixes with a LOCAL (sqlite:) adapter, which answer an alias query per term
+# offline; OLS-served prefixes are reported as skipped rather than silently
+# dropped (`--include-remote` opts in, at one network round trip per term).
+# Also reports, as a non-gating note, flagged CURIEs sitting in cache/ but
+# unused -- do NOT hand-delete those rows; the gate is the fix.
+# Reject ontology bindings flagged Not4Curation by their own ontology (#8472).
+[group('QC')]
+check-not4curation *args:
+    uv run python scripts/not4curation_audit.py "$@"
 
 # Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
 # the last value silently, so a duplicate is invisible to every test and
