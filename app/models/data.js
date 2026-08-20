@@ -8,7 +8,7 @@ window.searchData = [
     "model_format": "MATLAB .m/.mlx and Monolix .txt/.mmd files",
     "model_software": "MATLAB R2023b Update 7 (ode23s); Monolix 2023R1 for population fitting",
     "base_model": "Topp-style obesity-diabetes progression model",
-    "model_id": "Supplemental Code File S4 (file 57981556)",
+    "model_id": "57981556",
     "repository_url": "https://doi.org/10.6084/m9.figshare.30117763.v3",
     "repository_host": "Other",
     "publication": "PMID:41800787",
@@ -923,7 +923,7 @@ window.searchData = [
     "model_format": "XPPAUT .ode files",
     "model_software": "XPPAUT with CVODE",
     "base_model": "Pedersen 2010 human beta-cell electrophysiology model",
-    "model_id": "Software S1 and Software S2",
+    "model_id": "10.1371/journal.pcbi.1003536.s001; 10.1371/journal.pcbi.1003536.s002",
     "repository_url": "https://doi.org/10.1371/journal.pcbi.1003536",
     "repository_host": "Other",
     "publication": "PMID:24391482",
@@ -965,7 +965,7 @@ window.searchData = [
       "PMID:24391482"
     ],
     "num_evidence": 1,
-    "notes": "The journal correction supplies plain-text XPPAUT code under CC BY: Software S1 (DOI 10.1371/journal.pcbi.1003536.s001) for Figures 1-5 has SHA-256 876720bcfe5818be50b7cf7f0ba7f54118255417396794d5a51be3232420070b, and Software S2 (DOI 10.1371/journal.pcbi.1003536.s002) for Figure 6 has SHA-256 b12b4f78df67b693129e1d4e743b28eb16eb2f49432fe597f212330633f82caa. Static curator inspection confirmed equations, parameters, initial conditions, and solver directives, but XPPAUT was unavailable locally and the files were not executed. This is a reusable cellular complement, not a disease-specific or patient-specific congenital-hyperinsulinism model.",
+    "notes": "The repository_url points to the PLOS correction notice that supplies the software, rather than to the primary article DOI. The correction provides plain-text XPPAUT code under CC BY: Software S1 (DOI 10.1371/journal.pcbi.1003536.s001) for Figures 1-5 has SHA-256 876720bcfe5818be50b7cf7f0ba7f54118255417396794d5a51be3232420070b, and Software S2 (DOI 10.1371/journal.pcbi.1003536.s002) for Figure 6 has SHA-256 b12b4f78df67b693129e1d4e743b28eb16eb2f49432fe597f212330633f82caa. Static curator inspection confirmed equations, parameters, initial conditions, and solver directives, but XPPAUT was unavailable locally and the files were not executed. This is a reusable cellular complement, not a disease-specific or patient-specific congenital-hyperinsulinism model.",
     "creation_date": "2026-08-01T05:30:00Z",
     "page_url": "../../pages/disorders/Hyperinsulinemic_Hypoglycemia.html#computational-model-human-beta-cell-electrophysiology-and-calcium-ode",
     "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
@@ -1021,7 +1021,7 @@ window.searchData = [
       "PMID:35416981"
     ],
     "num_evidence": 1,
-    "notes": "The study enrolled 16 children; all but one had genetically confirmed KATP-HI, and eight entered the meal/protein crossover. No source repository, executable supplement, or open software license was identified, so reuse requires reimplementing equations printed in the article. Stata 16MP is reported for statistical analyses, but the software used to fit the kinetic equations is not stated. The model measures secretion and clearance; it does not represent the K-ATP lesion itself, and endogenous glucose production was explicitly not measured. The clinical study found treatment-associated reductions in fasting and protein-induced hypoglycemia, but the kinetic model was not validated as a prospective dose-selection tool.",
+    "notes": "The study enrolled 16 children; all but one had genetically confirmed KATP-HI, and eight entered the meal/protein crossover. No source repository, executable supplement, or open software license was identified, so reuse requires reimplementing equations printed in the article. Stata 16MP is reported for statistical analyses, but the software used to fit the kinetic equations is not stated. The model measures secretion and clearance; it does not represent the K-ATP lesion itself, and endogenous glucose production was explicitly not measured. The kinetic model was not validated as a prospective dose-selection tool.",
     "creation_date": "2026-08-01T05:30:00Z",
     "page_url": "../../pages/disorders/Hyperinsulinemic_Hypoglycemia.html#computational-model-katp-hi-whole-body-insulin-and-c-peptide-kinetics-model",
     "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
