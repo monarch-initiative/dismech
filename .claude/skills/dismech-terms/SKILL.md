@@ -136,6 +136,31 @@ uv run runoak -i sqlite:obo:ecto descendants ECTO:3000000 -p i
 "exists" in an ontology the validator does not read is not a term you can bind.
 `just environmental-term-audit` sizes the exposure-binding gap.
 
+### XCO terms flagged `Not4Curation`
+
+RGD keeps XCO terms for hierarchy that it does **not** want annotated with, and
+marks them with a related synonym reading `Not4Curation` — a synonym, not an
+obsoletion axiom. Such a term exists, has a matching label, and is reachable
+from `XCO:0000000` (the XCO root among the `ExposureTerm` enum's `source_nodes`;
+`ExO:0000002` is the ECTO one), so `just validate-terms` passes it. Twenty-four XCO terms
+carry the marker, and three of them (`XCO:0000294` estrogen/estrogen analog,
+`XCO:0000950` anticonvulsant, `XCO:0000561` antidepressant) got into the #8430
+tranches before a reviewer noticed (#8472).
+
+`just check-not4curation` gates this in `just qc` and CI, so you do not have to
+remember — but if you are choosing an XCO term by hand, check it first, because
+the flagged ones are exactly the broad drug-class terms an exposure binding
+reaches for:
+
+```bash
+just check-not4curation --list-flagged --prefix XCO   # the whole deny-list
+uv run runoak -i sqlite:obo:xco info XCO:0000294      # synonyms include Not4Curation
+```
+
+All three found so far had proper ECTO equivalents (`XCO:0000294` →
+`ECTO:9000010` exposure to estrogens), so a flag is a prompt to look in ECTO
+rather than a dead end.
+
 ## Specificity Guidelines
 
 **Critical**: Always use the most specific term that accurately describes the entity:

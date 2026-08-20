@@ -1,0 +1,22 @@
+---
+reference_id: DOI:10.1155/crie/2434759
+title: Heterozygous Hereditary Vitamin D‐Dependent Rickets Type 2A (VDDR2A) in a Patient Presenting With Pseudoarthrosis
+authors:
+- Risa Goldberg
+- Gunjan Umarji
+- Serge Jabbour
+journal: Case Reports in Endocrinology
+year: '2025'
+doi: 10.1155/crie/2434759
+content_type: abstract_only
+is_preprint: false
+---
+
+# Heterozygous Hereditary Vitamin D‐Dependent Rickets Type 2A (VDDR2A) in a Patient Presenting With Pseudoarthrosis
+**Authors:** Risa Goldberg, Gunjan Umarji, Serge Jabbour
+**Journal:** Case Reports in Endocrinology (2025)
+**DOI:** [10.1155/crie/2434759](https://doi.org/10.1155/crie/2434759)
+
+## Content
+
+This case report is centered on an atypical presentation of Hereditary Vitamin D‐dependent Rickets 2A (VDDR2A), a rare disorder caused by defects in the gene encoding the vitamin D receptor (VDR). While this disorder is primarily autosomal recessive in inheritance, this case demonstrates that a single heterozygous variant in the VDR gene could be linked to both phenotypic and laboratory manifestations of this condition. To understand the pathogenesis of this condition, one must know the typical roles of vitamin D, calcium, and parathyroid hormone (PTH) in maintaining homeostasis in the body. This case report focuses on the underlying pathogenesis of this disorder and demonstrates the variability in the ways this condition can present.
