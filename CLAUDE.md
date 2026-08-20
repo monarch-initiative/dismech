@@ -930,11 +930,35 @@ criterion over HP:0010984 / HP:0010983).
 digenic/oligogenic block but missing from `members:` as a candidate — that is
 the mechanism that keeps the union complete, and it only works if the term is
 bound. An entry describing digenic inheritance in prose alone is invisible to
-it. Note the converse too: several entries mention digenic or oligogenic
-inheritance *in order to reject it* (`Familial_Nonmedullary_Thyroid_Carcinoma`
-records explicitly that it does not bind HP:0010983;
-`RDH5-Related_Retinopathy` and `BBSome-Related_Retinitis_Pigmentosa` argue
-against a second locus). Leaving those unbound is correct, not an oversight.
+it.
+
+**The bar is requirement, not severity.** Bind the term when the phenotype does
+not appear without both loci. Decline when either locus suffices on its own and
+the second only shifts penetrance or severity — that is a modifier, and belongs
+in `genetic:` with `relationship_type: MODIFIER`/`COOPERATING`. Most KB entries
+using the word "digenic" are on the declining side, and several say so
+explicitly: `Hypertrophic_Cardiomyopathy_3` (TPM1 alone causes disease; MYH7
+worsens it), `Familial_Defective_Apolipoprotein_B-100`,
+`Primary_Hyperoxaluria_Type_3`, `Cystinuria` (type AB raises aminoaciduria, not
+stone disease), `Chromosome_18p_Deletion_Syndrome` (the digenic claim belongs to
+FSHD2, a different disease), `Brugada_Syndrome` (an unresolved fraction is not a
+demonstrated two-locus architecture),
+`Familial_Nonmedullary_Thyroid_Carcinoma`, `RDH5-Related_Retinopathy` and
+`BBSome-Related_Retinitis_Pigmentosa`. Leaving those unbound is correct, not an
+oversight — read the entry's stated reasoning before overturning it. Watch for
+the title trap in particular: several papers advertise "digenic inheritance" in
+the title while the abstract reports a severity modifier, or (as in
+`Joubert_syndrome`'s citation) a digenic case belonging to a different disease.
+
+**Finding what is still missing.** `scripts/olida_crosswalk.py` cross-walks the
+[OLIDA](https://olida.ibsquare.be/) oligogenic-diseases database against
+`kb/disorders`, splitting it into already-bound, curated-but-unbound (the cheap
+wins) and no-entry-at-all; `research/olida_crosswalk.md` is the committed
+report. Regenerate it rather than hand-editing. Two caveats it states itself: the
+name matching is a screen a curator must confirm, and a high OLIDA confidence
+score rates the *variant combination*, not the claim that the *disease* requires
+two loci — Cystinuria scores at OLIDA's maximum and is still correctly a
+non-member.
 
 ### Hypothesis-Based Phenotype Algorithms
 
