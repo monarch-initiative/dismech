@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHOPS Syndrome · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>CHOPS Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>CHOPS Syndrome</h1>
+                
+                <p class="report-subtitle">CHOPS Syndrome: Comprehensive Disease-Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-19</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014609" target="_blank" rel="noopener noreferrer">MONDO:0014609</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>CHOPS Syndrome: Comprehensive Disease-Characteristics Report</h1>
+<p><strong>Evidence cutoff:</strong> literature and database searches emphasized 2023–2024 research, while retaining the foundational 2015 disease-discovery study. CHOPS syndrome is exceptionally rare: most disease-specific conclusions still rest on three deeply characterized index patients. Accordingly, fractions such as 3/3 describe that discovery cohort and must not be interpreted as population prevalence.</p>
+<h2>Executive summary</h2>
+<p>CHOPS syndrome is a congenital, multisystem disorder of developmental transcription caused by heterozygous gain-of-function missense variants in the degron region of <strong>AFF4</strong>, a scaffold of the super elongation complex (SEC). The defining phenotype comprises <strong>c</strong>ognitive impairment and <strong>c</strong>oarse facies, <strong>h</strong>eart defects, <strong>o</strong>besity, <strong>p</strong>ulmonary involvement, and <strong>s</strong>hort stature with skeletal dysplasia. The three original variants—<strong>NM_014423.4:c.760A&gt;G (p.Thr254Ala), c.761C&gt;G (p.Thr254Ser), and c.772C&gt;T (p.Arg258Trp)</strong>—were de novo in three unrelated individuals. Mutant AFF4 resists SIAH1-mediated proteasomal degradation, accumulates on chromatin, and dysregulates SEC-dependent RNA-polymerase-II (Pol II) pause release and transcriptional elongation. Altered AFF4, cohesin, and Pol II occupancy provides a mechanistic explanation for overlap with Cornelia de Lange syndrome (CdLS). (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-4-6">izumi2015germlinegainoffunctionmutations pages 4-6</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-8-10">izumi2015germlinegainoffunctionmutations pages 8-10</a>)</p>
+<p>No CHOPS-specific natural-history cohort, prevalence estimate, formal diagnostic criteria, disease-modifying treatment, or interventional trial was identified. Diagnosis is molecular, generally through exome/genome sequencing or targeted <strong>AFF4</strong> analysis, and care is supportive and organ-directed.</p>
+<p>The following structured summary is suitable for knowledge-base ingestion.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Established finding</th>
+<th>Evidence/quantity</th>
+<th>Suggested ontology</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease name/definition</td>
+<td>CHOPS syndrome is a multisystem developmental disorder named for cognitive impairment/coarse facies, heart defects, obesity, pulmonary involvement, short stature, and skeletal dysplasia</td>
+<td>Initially delineated in 3 unrelated probands; phenotype overlaps Cornelia de Lange syndrome spectrum but is molecularly distinct via AFF4 gain-of-function (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-1-3">izumi2015germlinegainoffunctionmutations pages 1-3</a>)</td>
+<td><a href="https://bioregistry.io/OMIM:616368" target="_blank" rel="noopener noreferrer">OMIM:616368</a>; <a href="https://bioregistry.io/EFO:0009031" target="_blank" rel="noopener noreferrer">EFO:0009031</a>; MONDO: unavailable/unverified</td>
+</tr>
+<tr>
+<td>Synonyms</td>
+<td>Cognitive impairment–coarse facies–heart defects–obesity–pulmonary involvement–short stature–skeletal dysplasia syndrome; CHOPS syndrome</td>
+<td>Acronym-based syndrome name used in primary literature and disease-target resources (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, OpenTargets Search: CHOPS syndrome-AFF4)</td>
+<td>Exact synonym mapping to disease record</td>
+</tr>
+<tr>
+<td>Evidence source type</td>
+<td>Knowledge is derived primarily from aggregated disease-level literature plus deep molecular analysis of patient-derived fibroblasts; not from large registry or trial datasets</td>
+<td>3 published probands in landmark study; fibroblast transcriptomics/ChIP-seq/cell-line functional assays (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-4-6">izumi2015germlinegainoffunctionmutations pages 4-6</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-10-11">izumi2015germlinegainoffunctionmutations pages 10-11</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-11-13">izumi2015germlinegainoffunctionmutations pages 11-13</a>)</td>
+<td>ECO: human clinical evidence; in vitro functional evidence</td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td>AFF4 (ALF transcription elongation factor 4), core scaffold component of the super elongation complex (SEC)</td>
+<td>Single established causal gene for classic CHOPS syndrome in available evidence (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-1-3">izumi2015germlinegainoffunctionmutations pages 1-3</a>)</td>
+<td>HGNC: AFF4; NCBI Gene/Ensembl gene record</td>
+</tr>
+<tr>
+<td>Pathogenic variants</td>
+<td>Recurrent de novo missense variants in the degron/ALF homology region: c.760A&gt;G (p.Thr254Ala), c.761C&gt;G (p.Thr254Ser), c.772C&gt;T (p.Arg258Trp)</td>
+<td>3/3 probands had heterozygous de novo missense variants; all affected highly conserved residues (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>)</td>
+<td>Sequence Ontology: missense_variant</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>Autosomal dominant disorder usually arising de novo</td>
+<td>Variants absent in all 6 biological parents in the discovery cohort; no inherited multigeneration pedigree established (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a> Autosomal dominant inheritance; <a href="http://purl.obolibrary.org/obo/HP_0025352" target="_blank" rel="noopener noreferrer">HP:0025352</a> De novo mutation</td>
+</tr>
+<tr>
+<td>Molecular class/mechanism</td>
+<td>Gain-of-function caused by impaired SIAH1-mediated ubiquitin/proteasome degradation of AFF4</td>
+<td>Mutant AFF4 resists degradation and behaves opposite to AFF4 knockdown/LoF models (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-4-6">izumi2015germlinegainoffunctionmutations pages 4-6</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-6-8">izumi2015germlinegainoffunctionmutations pages 6-8</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>)</td>
+<td>GO: positive regulation of transcription by RNA polymerase II; GO: protein ubiquitination</td>
+</tr>
+<tr>
+<td>Causal chain</td>
+<td>Degron-region AFF4 missense mutation → reduced SIAH1 binding/degradation → chromatin-associated AFF4 accumulation → altered SEC activity and RNAP2 pause-release/elongation → altered cohesin/RNAP2 genome-wide binding → developmental transcriptional dysregulation → multisystem phenotype</td>
+<td>Supported by patient fibroblasts, overexpression systems, transcriptomics, and ChIP-seq (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-4-6">izumi2015germlinegainoffunctionmutations pages 4-6</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-8-10">izumi2015germlinegainoffunctionmutations pages 8-10</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-6-8">izumi2015germlinegainoffunctionmutations pages 6-8</a>, <a href="#ref-izumi2016disordersoftranscriptional-pages-9-10">izumi2016disordersoftranscriptional pages 9-10</a>, <a href="#ref-tei2024cohesinregulatespromoterproximal-pages-1-3">tei2024cohesinregulatespromoterproximal pages 1-3</a>)</td>
+<td>GO: protein stabilization; GO: chromatin binding; GO: transcription elongation by RNA polymerase II</td>
+</tr>
+<tr>
+<td>Core phenotype: cognitive/developmental</td>
+<td>Cognitive impairment/intellectual disability/developmental delay</td>
+<td>Present across all 3 index cases as core naming feature (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" rel="noopener noreferrer">HP:0100543</a> Cognitive impairment; <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> Intellectual disability</td>
+</tr>
+<tr>
+<td>Core phenotype: facial</td>
+<td>Coarse facies/dysmorphic facial features</td>
+<td>Core naming feature; dysmorphic/coarse facial appearance reported in all 3 probands (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" rel="noopener noreferrer">HP:0000280</a> Coarse facial features</td>
+</tr>
+<tr>
+<td>Core phenotype: cardiac</td>
+<td>Congenital heart disease, especially PDA and/or VSD</td>
+<td>Cardiac defects in all 3 probands; PDA reported in 3/3, VSD in 2/3 from available case descriptions (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001644" target="_blank" rel="noopener noreferrer">HP:0001644</a> Congenital heart defect; <a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" rel="noopener noreferrer">HP:0001643</a> Patent ductus arteriosus; <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" rel="noopener noreferrer">HP:0001629</a> Ventricular septal defect</td>
+</tr>
+<tr>
+<td>Core phenotype: obesity</td>
+<td>Obesity/abnormal weight gain</td>
+<td>Common syndrome-defining feature; described in all 3 probands and considered a core component of the acronym (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-8-10">izumi2015germlinegainoffunctionmutations pages 8-10</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a> Obesity</td>
+</tr>
+<tr>
+<td>Core phenotype: pulmonary/airway</td>
+<td>Chronic lung disease/airway involvement including tracheomalacia, laryngomalacia, subglottic-tracheal stenosis</td>
+<td>Pulmonary involvement in 3/3 probands; chronic lung disease noted as universal in initial cohort (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-8-10">izumi2015germlinegainoffunctionmutations pages 8-10</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" rel="noopener noreferrer">HP:0002093</a> Respiratory insufficiency; <a href="http://purl.obolibrary.org/obo/HP_0002783" target="_blank" rel="noopener noreferrer">HP:0002783</a> Tracheomalacia; <a href="http://purl.obolibrary.org/obo/HP_0001600" target="_blank" rel="noopener noreferrer">HP:0001600</a> Laryngomalacia</td>
+</tr>
+<tr>
+<td>Core phenotype: growth/skeletal</td>
+<td>Short stature and skeletal dysplasia with vertebral anomalies, kyphoscoliosis, brachydactyly</td>
+<td>Short stature and brachydactyly in all 3; vertebral/skeletal anomalies in multiple probands (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> Short stature; <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" rel="noopener noreferrer">HP:0001156</a> Brachydactyly; <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a> Scoliosis; <a href="http://purl.obolibrary.org/obo/HP_0000929" target="_blank" rel="noopener noreferrer">HP:0000929</a> Abnormality of the vertebral column</td>
+</tr>
+<tr>
+<td>Additional phenotypes</td>
+<td>Gastroesophageal reflux, constipation, hearing loss, horseshoe kidney, cryptorchidism, cataracts</td>
+<td>Present in subsets rather than all cases; evidence remains case-based (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>, <a href="#ref-piche2019theexpandingphenotypes-pages-7-9">piche2019theexpandingphenotypes pages 7-9</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a> Gastroesophageal reflux; <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a> Constipation; <a href="http://purl.obolibrary.org/obo/HP_0000084" target="_blank" rel="noopener noreferrer">HP:0000084</a> Horseshoe kidney; <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a> Cryptorchidism; <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" rel="noopener noreferrer">HP:0000518</a> Cataract</td>
+</tr>
+<tr>
+<td>Age/onset/course</td>
+<td>Congenital or early-childhood onset developmental disorder with chronic multisystem manifestations</td>
+<td>Discovery cases were pediatric/developmental presentations; no formal staging system or long-term natural history study identified (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003577" target="_blank" rel="noopener noreferrer">HP:0003577</a> Congenital onset</td>
+</tr>
+<tr>
+<td>Key cell/tissue systems</td>
+<td>Brain/neurodevelopment, craniofacial tissues, heart, airway/lung, skeleton, gastrointestinal tract, kidney, gonads, eye</td>
+<td>Multisystem developmental syndrome inferred from human phenotype distribution; mechanistic studies mainly in dermal fibroblasts (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-10-11">izumi2015germlinegainoffunctionmutations pages 10-11</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-11-13">izumi2015germlinegainoffunctionmutations pages 11-13</a>)</td>
+<td>UBERON: brain, heart, lung, vertebral column; CL: fibroblast</td>
+</tr>
+<tr>
+<td>Omics evidence</td>
+<td>Patient fibroblast transcriptomics showed 288 downregulated and 445 upregulated genes in one analysis; RNA-seq identified 519 differentially expressed genes in CHOPS samples</td>
+<td>Disease-relevant direct targets include MYC, JUN, TMEM100, ZNF711, FAM13C; direct AFF4 targets upregulated by 9–127% (mean 48.9%) (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-4-6">izumi2015germlinegainoffunctionmutations pages 4-6</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-11-13">izumi2015germlinegainoffunctionmutations pages 11-13</a>)</td>
+<td>GO: embryonic organ development; GO: skeletal system development</td>
+</tr>
+<tr>
+<td>Chromatin evidence</td>
+<td>ChIP-seq showed altered genome-wide binding of AFF4, cohesin, and RNAP2 with AFF4 accumulation around TSS/gene regions and excess chromatin-associated AFF4</td>
+<td>Mechanistic link to SEC–cohesin–RNAP2 dysregulation supported in patient cells (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-8-10">izumi2015germlinegainoffunctionmutations pages 8-10</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-18-22">izumi2015germlinegainoffunctionmutations pages 18-22</a>, <a href="#ref-izumi2016disordersoftranscriptional-pages-9-10">izumi2016disordersoftranscriptional pages 9-10</a>)</td>
+<td>GO: chromatin organization; GO: RNA polymerase II CTD phosphorylation</td>
+</tr>
+<tr>
+<td>Differential diagnosis</td>
+<td>Cornelia de Lange syndrome and related disorders of transcriptional regulation/cohesinopathy spectrum</td>
+<td>Overlapping phenotype and partially shared transcriptomic signature, but CHOPS is distinguished by AFF4 GOF rather than classic cohesin-gene LoF (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-1-3">izumi2015germlinegainoffunctionmutations pages 1-3</a>, <a href="#ref-tei2024cohesinregulatespromoterproximal-pages-1-3">tei2024cohesinregulatespromoterproximal pages 1-3</a>)</td>
+<td>MONDO/CdLS spectrum cross-reference</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Molecular diagnosis is best established by exome/genome sequencing or targeted AFF4 analysis in a patient with CdLS-like features plus obesity/pulmonary involvement/short stature-skeletal findings</td>
+<td>Discovery was by exome sequencing; no disease-specific biochemical biomarker or formal consensus criteria identified (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</td>
+<td>NCIT: Whole Exome Sequencing; NCIT: Molecular Genetic Testing</td>
+</tr>
+<tr>
+<td>Treatment status</td>
+<td>No disease-modifying or targeted CHOPS therapy established; management is supportive and organ-specific</td>
+<td>No relevant CHOPS interventional trials identified; care inferred from phenotype burden rather than syndrome-specific evidence (<a href="#ref-piche2019theexpandingphenotypes-pages-7-9">piche2019theexpandingphenotypes pages 7-9</a>)</td>
+<td>NCIT: Supportive Care; NCIT: Physical Therapy; NCIT: Cardiology Referral; NCIT: Pulmonology Referral</td>
+</tr>
+<tr>
+<td>Prevention/genetic counseling</td>
+<td>Primary prevention not established; recurrence risk generally low when variant is de novo, but standard counseling should address possible germline mosaicism uncertainty</td>
+<td>No CHOPS-specific recurrence studies or prevention trials found (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>)</td>
+<td>NCIT: Genetic Counseling</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>Extremely rare; prevalence and incidence not established</td>
+<td>Only a handful of published patients identified in available literature; no population-based estimate (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>)</td>
+<td>Orphan disease epidemiology field: unknown</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Long-term survival, life expectancy, and prognostic factors are unknown</td>
+<td>No longitudinal cohort, survival analysis, or validated prognostic biomarker identified (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</td>
+<td>Prognosis field: unknown</td>
+</tr>
+<tr>
+<td>Environment/risk modifiers</td>
+<td>No established environmental, lifestyle, infectious, or protective factors</td>
+<td>Current evidence supports primary monogenic etiology without defined gene-environment interaction data (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>)</td>
+<td>Exposure ontology: not established</td>
+</tr>
+<tr>
+<td>Model/functional systems</td>
+<td>Main disease models are patient-derived fibroblasts and transfected cell lines; Aff4 knockout differs phenotypically from CHOPS, supporting GOF; an ENU Aff1 mouse with related degron mechanism is supportive but indirect</td>
+<td>Functional evidence is strong for cellular mechanism, limited for organismal CHOPS-specific modeling (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-6-8">izumi2015germlinegainoffunctionmutations pages 6-8</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>)</td>
+<td>CL: fibroblast; model type: in vitro human cell model</td>
+</tr>
+<tr>
+<td>Recent developments (2023–2024)</td>
+<td>Recent work strengthens the SEC/cohesin pause-release framework relevant to CHOPS: AFF4 shown to have distinct TSS-proximal elongation roles, and cohesin depletion increases SEC recruitment and reduces RNAP2 pausing</td>
+<td>Mechanistic context from 2023 AFF1/AFF4 SEC study and 2024 cohesin/SEC preprint supports the CHOPS pathogenic model, though not CHOPS-patient cohorts directly (<a href="#ref-che2023distinctrolesof-pages-2-3">che2023distinctrolesof pages 2-3</a>, <a href="#ref-che2023distinctrolesof-pages-1-2">che2023distinctrolesof pages 1-2</a>, <a href="#ref-tei2024cohesinregulatespromoterproximal-pages-1-3">tei2024cohesinregulatespromoterproximal pages 1-3</a>)</td>
+<td>GO: promoter-proximal RNA polymerase II pausing; GO: transcription elongation</td>
+</tr>
+<tr>
+<td>Evidence gaps</td>
+<td>No validated MONDO ID confirmed here, no syndrome-specific trials, no robust prevalence, no natural-history registry, no single-cell/spatial/proteomic/metabolomic datasets, and no known natural disease in other species</td>
+<td>Important for knowledge-base curation to mark as unavailable rather than absent disease biology (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-tei2024cohesinregulatespromoterproximal-pages-1-3">tei2024cohesinregulatespromoterproximal pages 1-3</a>)</td>
+<td>Evidence status annotation: not available/unverified</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table condenses the highest-confidence knowledge-base fields for CHOPS syndrome, including identifiers, causal AFF4 variants, mechanism, key phenotypes, diagnostic approach, and major evidence gaps. It is designed for rapid downstream curation into a structured rare-disease entry.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and identifiers</h3>
+<ul>
+<li><strong>Preferred name:</strong> CHOPS syndrome.</li>
+<li><strong>Expanded name/synonym:</strong> Cognitive impairment–coarse facies–heart defects–obesity–pulmonary involvement–short stature–skeletal dysplasia syndrome.</li>
+<li><strong>OMIM:</strong> <strong>616368</strong>.</li>
+<li><strong>EFO/Open Targets:</strong> <strong>EFO_0009031</strong>; Open Targets associates this entity with one established target, <strong>AFF4</strong> (ENSG00000072364), supported principally by PMID <strong>25730767</strong>. (OpenTargets Search: CHOPS syndrome-AFF4)</li>
+<li><strong>MONDO:</strong> A definitive current MONDO identifier was not established by the retrieved evidence; it should be marked <strong>unverified</strong>, not guessed. Open Targets separately displays “Cornelia de Lange syndrome 6” as MONDO_0957921, but that label should not automatically be substituted for CHOPS without ontology-level verification. (OpenTargets Search: CHOPS syndrome-AFF4)</li>
+<li><strong>Orphanet, MeSH, ICD-10/ICD-11:</strong> No disease-specific identifiers were verified. Clinical coding will usually require broader congenital-malformation, neurodevelopmental, or genetic-syndrome codes.</li>
+</ul>
+<p>The landmark report was Izumi et al., <em>Nature Genetics</em>, online March 2015, volume 47:338–344; PMID <strong>25730767</strong>, DOI <a href="https://doi.org/10.1038/ng.3229">10.1038/ng.3229</a>. Its abstract states: <strong>“Using exome sequencing, we discovered missense mutations in AFF4…in three unrelated probands with a new syndrome…that we have named CHOPS syndrome.”</strong> The evidence is aggregated disease-level literature derived from individually phenotyped patients and patient-derived cells, not population EHR statistics. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-1-3">izumi2015germlinegainoffunctionmutations pages 1-3</a>)</p>
+<h2>2. Etiology, risk, and protective factors</h2>
+<p>The necessary and currently established cause is a <strong>germline heterozygous gain-of-function AFF4 variant</strong> affecting a narrow, highly conserved degron/ALF-homology region. All three original variants were absent from all six tested biological parents, establishing de novo occurrence in that cohort. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>)</p>
+<ul>
+<li><strong>Genetic risk:</strong> A pathogenic activating/degradation-resistant AFF4 allele. No susceptibility loci, modifier genes, founder variants, or polygenic risk scores are established.</li>
+<li><strong>Environmental, lifestyle, occupational, or infectious risk:</strong> None established. These factors are not considered primary causes.</li>
+<li><strong>Protective factors:</strong> No genetic or environmental protective factors have been reported.</li>
+<li><strong>Gene–environment interaction:</strong> Unknown. Obesity may be modified by food intake and activity, but no CHOPS-specific interaction study supports such an effect.</li>
+<li><strong>Family history:</strong> Usually negative because known cases arose de novo. A negative family history does not reduce suspicion.</li>
+</ul>
+<h2>3. Phenotypes</h2>
+<p>The phenotype begins prenatally or in early childhood and is chronic. Frequencies below are descriptive of the three index cases.</p>
+<ul>
+<li><strong>Neurodevelopment:</strong> Cognitive impairment/intellectual disability and developmental delay were shared features (3/3). Severity was clinically meaningful but not quantified by standardized IQ or adaptive-function scales. Suggested terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" rel="noopener noreferrer">HP:0100543</a> Cognitive impairment</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> Intellectual disability</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> Global developmental delay</strong>. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</li>
+<li><strong>Craniofacial:</strong> Coarse/dysmorphic facial appearance occurred in all index patients. Suggested term: <strong><a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" rel="noopener noreferrer">HP:0000280</a> Coarse facial features</strong>. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</li>
+<li><strong>Growth/metabolic:</strong> Short stature, obesity, and brachydactyly were shared findings (3/3). Obesity may emerge during childhood; the original authors proposed altered appetite regulation because AFF4 is expressed in hypothalamus, but this remains a hypothesis rather than a demonstrated metabolic pathway. Suggested terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> Short stature</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a> Obesity</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" rel="noopener noreferrer">HP:0001156</a> Brachydactyly</strong>. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-8-10">izumi2015germlinegainoffunctionmutations pages 8-10</a>)</li>
+<li><strong>Cardiac:</strong> Patent ductus arteriosus was reported in 3/3 and ventricular septal defect in 2/3. Suggested terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" rel="noopener noreferrer">HP:0001643</a> Patent ductus arteriosus</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" rel="noopener noreferrer">HP:0001629</a> Ventricular septal defect</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a> Abnormal heart morphology</strong>. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>, <a href="#ref-piche2019theexpandingphenotypes-pages-7-9">piche2019theexpandingphenotypes pages 7-9</a>)</li>
+<li><strong>Pulmonary/upper airway:</strong> Pulmonary involvement or chronic lung disease affected all three. Individual manifestations included tracheomalacia, laryngomalacia, narrow oropharynx, and subglottic/tracheal stenosis. Suggested terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0002783" target="_blank" rel="noopener noreferrer">HP:0002783</a> Tracheomalacia</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001600" target="_blank" rel="noopener noreferrer">HP:0001600</a> Laryngomalacia</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" rel="noopener noreferrer">HP:0002093</a> Respiratory insufficiency</strong>, and the appropriate HPO stenosis term after clinical confirmation. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-8-10">izumi2015germlinegainoffunctionmutations pages 8-10</a>)</li>
+<li><strong>Skeletal:</strong> Vertebral abnormalities, kyphoscoliosis, and brachydactyly were reported; severity varies. Suggested terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0000929" target="_blank" rel="noopener noreferrer">HP:0000929</a> Abnormality of the vertebral column</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" rel="noopener noreferrer">HP:0002751</a> Kyphoscoliosis</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a> Scoliosis</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" rel="noopener noreferrer">HP:0001156</a> Brachydactyly</strong>. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</li>
+<li><strong>Gastrointestinal:</strong> Gastroesophageal reflux and constipation are reported manifestations. Suggested terms: <strong><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a> Gastroesophageal reflux</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a> Constipation</strong>. (<a href="#ref-piche2019theexpandingphenotypes-pages-7-9">piche2019theexpandingphenotypes pages 7-9</a>)</li>
+<li><strong>Other variable findings:</strong> Horseshoe kidney (<strong><a href="http://purl.obolibrary.org/obo/HP_0000085" target="_blank" rel="noopener noreferrer">HP:0000085</a></strong>), cryptorchidism (<strong><a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a></strong>), hearing loss (<strong><a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a></strong>), and cataracts (<strong><a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" rel="noopener noreferrer">HP:0000518</a></strong>) occurred in individual patients. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</li>
+</ul>
+<p>No CHOPS-specific EQ-5D, SF-36, PROMIS, or caregiver-burden study exists. Nevertheless, developmental disability, respiratory disease, congenital heart disease, skeletal restriction, and communication/motor limitations plausibly impose substantial lifelong effects on schooling, independence, mobility, and caregiver burden; these are clinical inferences rather than measured syndrome-specific outcomes.</p>
+<h2>4. Genetic and molecular information</h2>
+<p><strong>AFF4</strong>—ALF transcription elongation factor 4, Ensembl <strong>ENSG00000072364</strong>—is the only established causal gene. The original variants are heterozygous missense substitutions: c.760A&gt;G/p.Thr254Ala, c.761C&gt;G/p.Thr254Ser, and c.772C&gt;T/p.Arg258Trp. They affect highly conserved residues and were germline/de novo, not somatic. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, OpenTargets Search: CHOPS syndrome-AFF4)</p>
+<p>The functional classification is <strong>gain of function through protein stabilization</strong>, not haploinsufficiency. Mutants resist SIAH1-dependent ubiquitination/proteasomal turnover and accumulate particularly in chromatin fractions. Phenotypic differences between CHOPS patients, AFF4 genomic deletions, and Aff4-knockout mice further argue against simple loss of function. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-6-8">izumi2015germlinegainoffunctionmutations pages 6-8</a>, OpenTargets Search: CHOPS syndrome-AFF4)</p>
+<p>Population frequencies were not supplied in the retrieved primary text. For clinical curation, current gnomAD absence or extreme rarity should be checked against the exact transcript/build at interpretation time; absence alone is insufficient because the mechanism and tight positional clustering are critical. ClinVar classifications should likewise be retrieved contemporaneously. No validated modifier gene, disease-specific DNA-methylation episignature, pathogenic structural variant, repeat expansion, mitochondrial variant, or somatic mosaic mechanism has been established.</p>
+<h2>5. Environmental information</h2>
+<p>No toxin, radiation, pollution, occupation, diet, smoking, alcohol exposure, exercise pattern, or pathogen has been shown to cause or trigger CHOPS syndrome. Environmental management may influence secondary obesity, cardiopulmonary fitness, reflux, and constipation, but it cannot reverse the congenital AFF4 variant. There is no infectious or zoonotic component.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<ol>
+<li>A missense change alters the AFF4 degron/ALF-homology region.</li>
+<li>Mutant AFF4 interacts inadequately with the SIAH1 degradation machinery and becomes resistant to ubiquitin-dependent proteasomal clearance.</li>
+<li>Stabilized AFF4 accumulates on chromatin as part of the SEC, whose other components include ELL/ELL2 and P-TEFb (<strong>CDK9–cyclin T1</strong>).</li>
+<li>Excess SEC perturbs promoter-proximal Pol II pause release and productive elongation, including altered Ser2-phosphorylated Pol II distribution.</li>
+<li>Genome-wide AFF4, cohesin/RAD21, SPT5, and Pol II occupancy changes produce developmental transcriptional dysregulation.</li>
+<li>Misexpression of developmental, skeletal, extracellular-matrix, and immediate-early genes leads to the multisystem phenotype. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-4-6">izumi2015germlinegainoffunctionmutations pages 4-6</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-6-8">izumi2015germlinegainoffunctionmutations pages 6-8</a>, <a href="#ref-izumi2016disordersoftranscriptional-pages-9-10">izumi2016disordersoftranscriptional pages 9-10</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-1-3">izumi2015germlinegainoffunctionmutations pages 1-3</a>)</li>
+</ol>
+<p>In patient fibroblasts, one analysis identified <strong>288 downregulated and 445 upregulated genes</strong>. Direct AFF4 targets increased <strong>9–127% (mean 48.9%)</strong>, including <strong>MYC, JUN, TMEM100, ZNF711, and FAM13C</strong>. Upregulated sets were enriched for homeobox proteins, skeletal-system development, anterior–posterior patterning, and embryonic-organ development; downregulated sets included actin-binding and extracellular-matrix genes. A separately described RNA-seq analysis reported <strong>519 differentially expressed genes</strong>. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-4-6">izumi2015germlinegainoffunctionmutations pages 4-6</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-11-13">izumi2015germlinegainoffunctionmutations pages 11-13</a>)</p>
+<p>The primary experimental systems were patient dermal fibroblasts, hTERT-immortalized fibroblasts, HEK293T overexpression assays, and HeLa lysates. Methods included microarray, RNA-seq, qRT-PCR, western blotting, protein interaction assays, and ChIP-seq. This is strong cellular functional evidence, but it does not identify a single affected embryonic cell lineage. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-18-22">izumi2015germlinegainoffunctionmutations pages 18-22</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-10-11">izumi2015germlinegainoffunctionmutations pages 10-11</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-11-13">izumi2015germlinegainoffunctionmutations pages 11-13</a>)</p>
+<h3>Recent mechanistic developments</h3>
+<p>A peer-reviewed 2023 study showed that AFF1 and AFF4 are not interchangeable SEC scaffolds: approximately <strong>74% of AFF4 peaks</strong> localized at Pol-II-bound transcription start sites, with AFF4 enriched downstream of the TSS and traveling into highly transcribed gene bodies. AFF4 depletion caused slow elongation/early termination in a subset of bound genes, refining why stabilized AFF4 can distort developmental transcription. Che et al., accepted July 31, 2023, DOI <a href="https://doi.org/10.1093/jmcb/mjad049">10.1093/jmcb/mjad049</a>. This was general cell-line biology, not a CHOPS patient cohort. (<a href="#ref-che2023distinctrolesof-pages-2-3">che2023distinctrolesof pages 2-3</a>, <a href="#ref-che2023distinctrolesof-pages-1-2">che2023distinctrolesof pages 1-2</a>)</p>
+<p>A March 16, 2024 bioRxiv preprint found that acute cohesin depletion reduced promoter Pol II binding and pausing while increasing SEC recruitment; SEC inhibition abolished the pausing reduction. This supports a model in which cohesin normally limits SEC access to promoters. The study used RAD21/SMC1A degron-engineered HCT116 cells, nascent-RNA sequencing, ChIP-seq, and the experimental SEC inhibitor KL-1; it is mechanistically relevant but was <strong>not peer reviewed in the retrieved 2024 version and is not therapeutic evidence for CHOPS</strong>. DOI <a href="https://doi.org/10.1101/2024.03.15.584908">10.1101/2024.03.15.584908</a>. (<a href="#ref-tei2024cohesinregulatespromoterproximal-pages-1-3">tei2024cohesinregulatespromoterproximal pages 1-3</a>, <a href="#ref-tei2024cohesinregulatespromoterproximal-pages-14-17">tei2024cohesinregulatespromoterproximal pages 14-17</a>)</p>
+<p>Suggested annotations include <strong><a href="http://purl.obolibrary.org/obo/GO_0006368" target="_blank" rel="noopener noreferrer">GO:0006368</a> transcription elongation by RNA polymerase II</strong>, <strong><a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" rel="noopener noreferrer">GO:0006357</a> regulation of transcription by RNA polymerase II</strong>, protein ubiquitination/proteasomal catabolism, chromatin binding, embryonic organ development, skeletal-system development, and anterior–posterior pattern specification. Relevant cellular compartments are <strong>nucleus/chromatin</strong>; suggested cell term for the directly assayed human system is <strong><a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> fibroblast</strong>. No CHOPS-specific immune, metabolic, lipidomic, metabolomic, single-cell, spatial-transcriptomic, or multi-omic signature has been reported.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>Primary systems include the developing central nervous system, craniofacial complex, heart, upper airway/lung, axial and appendicular skeleton, and growth-regulatory tissues. Variable secondary involvement includes gastrointestinal tract, kidney, testes, ear, and lens. Suggested UBERON mappings include <strong>brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), trachea (<a href="http://purl.obolibrary.org/obo/UBERON_0003126" target="_blank" rel="noopener noreferrer">UBERON:0003126</a>), vertebral column (<a href="http://purl.obolibrary.org/obo/UBERON_0001130" target="_blank" rel="noopener noreferrer">UBERON:0001130</a>), kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), and eye (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>)</strong>. Mechanistic localization is nuclear/chromatin-associated rather than mitochondrial, lysosomal, or extracellular. No consistent lateralization has been reported. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-8-10">izumi2015germlinegainoffunctionmutations pages 8-10</a>)</p>
+<h2>8. Temporal development</h2>
+<p>CHOPS is a congenital/early-childhood developmental disorder with chronic, lifelong manifestations. Heart defects, dysmorphism, airway malacia/stenosis, vertebral anomalies, and growth disturbance may be evident at birth or infancy; developmental impairment becomes clearer with age, and obesity may emerge later. No validated early/intermediate/advanced staging system, remission pattern, progression rate, or critical therapeutic window exists. Early infancy is nevertheless clinically important for detecting airway obstruction, chronic lung disease, feeding/reflux problems, and congenital heart lesions.</p>
+<h2>9. Inheritance and population</h2>
+<p>Inheritance is best described as <strong>autosomal dominant, usually de novo</strong>. Both sexes were affected in the original cohort—two females and one male. Penetrance appears high for proven degron-region activating variants, but the sample is too small to estimate penetrance statistically. Expressivity is variable, particularly for cardiac, airway, renal, genital, auditory, and ocular findings. Anticipation, founder effects, consanguinity effects, carrier frequency, and ethnic/geographic enrichment are unknown. Germline mosaicism has not been demonstrated but cannot be excluded in counseling. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-15-18">izumi2015germlinegainoffunctionmutations pages 15-18</a>)</p>
+<p>Neither incidence nor prevalence per 100,000 is known. Published case counts cannot yield a defensible prevalence because ascertainment and molecular testing are incomplete. The condition should be classified as ultra-rare.</p>
+<h2>10. Diagnostics</h2>
+<p>There are no consensus clinical criteria or diagnostic biochemical biomarkers. Suspicion should arise in a child with developmental impairment/coarse facies plus the combination of obesity, short stature, skeletal/vertebral abnormalities, congenital heart disease, and chronic pulmonary or structural airway disease—especially when CdLS testing is negative.</p>
+<p><strong>Recommended molecular workflow:</strong></p>
+<ol>
+<li>Trio whole-exome or genome sequencing with phenotype-driven analysis of <strong>AFF4</strong>, including careful review of missense variants near residues Thr254–Arg258.</li>
+<li>Confirm by an orthogonal method and test both parents to establish de novo status.</li>
+<li>If sequencing is nondiagnostic, consider CNV analysis, genome reanalysis, mosaic calling, and broader developmental-disorder/CdLS-like panels. CMA detects large CNVs but will miss the known single-nucleotide variants; karyotype/FISH are not first-line tests.</li>
+<li>Functional testing—protein stability, chromatin fractionation, or transcriptomic/ChIP-seq studies—remains research-level rather than routine.</li>
+</ol>
+<p>Baseline clinical evaluation should include echocardiography/ECG, pulmonology and ENT airway assessment, oxygenation and sleep evaluation as indicated, spine/limb radiographs, hearing and ophthalmic examinations, renal ultrasound, growth/BMI and nutrition assessment, and developmental, speech, motor, feeding, and behavioral evaluation. These recommendations are phenotype-directed expert practice rather than a validated CHOPS guideline.</p>
+<p>Principal differentials include classic/nonclassic CdLS (<strong>NIPBL, SMC1A, SMC3, RAD21, HDAC8</strong>) and other disorders of transcriptional regulation involving <strong>AFF3, BRD4, ANKRD11, EP300, TAF1</strong>, and related chromatin genes. CHOPS is distinguished molecularly by an activating AFF4 degron variant; clinically, obesity and prominent pulmonary/airway disease may be useful clues. Shared AFF4/cohesin/Pol-II dysregulation explains the overlap rather than making the diseases identical. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-1-3">izumi2015germlinegainoffunctionmutations pages 1-3</a>, <a href="#ref-tei2024cohesinregulatespromoterproximal-pages-1-3">tei2024cohesinregulatespromoterproximal pages 1-3</a>, <a href="#ref-piche2019theexpandingphenotypes-pages-7-9">piche2019theexpandingphenotypes pages 7-9</a>)</p>
+<p>Population newborn screening, biochemical carrier screening, repeat-expansion testing, mitochondrial testing, liquid biopsy, and prenatal ultrasound criteria are not established.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>There are no survival curves, mortality rates, life-expectancy estimates, validated prognostic scores, or prognostic biomarkers. Morbidity is likely driven by developmental disability, chronic airway/lung disease, congenital heart disease, orthopedic deformity, obesity, reflux/constipation, and sensory deficits. Recovery from the underlying developmental syndrome is not expected, although individual complications may improve with treatment. The small literature does not justify claims about normal or shortened lifespan.</p>
+<h2>12. Treatment and current applications</h2>
+<p>No approved disease-modifying pharmacotherapy, AFF4-directed treatment, gene therapy, ASO/siRNA therapy, cell therapy, or genotype-specific clinical pathway exists. ClinicalTrials.gov searches identified no relevant CHOPS interventional trial. Management is therefore multidisciplinary and symptom-directed:</p>
+<ul>
+<li>cardiology surveillance and repair/intervention for hemodynamically significant PDA/VSD;</li>
+<li>pulmonology, ENT, sleep medicine, airway-clearance support, oxygen/ventilatory support, or airway surgery according to anatomy and physiology;</li>
+<li>nutrition and feeding therapy, reflux and constipation treatment, and individualized obesity management;</li>
+<li>physical and occupational therapy, speech/language and augmentative-communication services, educational supports, and developmental pediatrics;</li>
+<li>orthopedic monitoring for vertebral deformity/kyphoscoliosis and mobility impairment;</li>
+<li>audiology, ophthalmology, nephrology/urology, and endocrinology referrals when indicated.</li>
+</ul>
+<p>Suggested NCIt concepts include <strong>Supportive Care</strong>, <strong>Physical Therapy</strong>, <strong>Occupational Therapy</strong>, <strong>Speech Therapy</strong>, <strong>Genetic Counseling</strong>, <strong>Cardiac Surgery</strong>, and <strong>Airway Management</strong>, with exact codes verified against the current NCIt release.</p>
+<p>SEC inhibitors such as KL-1 can alter SEC activity experimentally, but global transcriptional elongation is fundamental to normal cells. The available data neither establish a safe therapeutic window nor support off-label use in CHOPS. (<a href="#ref-tei2024cohesinregulatespromoterproximal-pages-14-17">tei2024cohesinregulatespromoterproximal pages 14-17</a>, <a href="#ref-che2023distinctrolesof-pages-2-3">che2023distinctrolesof pages 2-3</a>)</p>
+<h2>13. Prevention</h2>
+<p>Primary prevention through lifestyle modification, vaccination, or exposure avoidance is not applicable to a usually de novo monogenic disorder. Secondary prevention consists of prompt molecular diagnosis and early surveillance for airway, pulmonary, cardiac, feeding, developmental, orthopedic, and sensory complications. Tertiary prevention includes respiratory and cardiac management, obesity prevention, reflux/constipation care, therapy services, mobility support, and educational accommodations.</p>
+<p>Genetic counseling should explain autosomal-dominant causation, usually de novo occurrence, uncertainty from possible parental germline mosaicism, and a <strong>50% transmission risk for an affected individual’s future pregnancies</strong> if reproductive fitness permits. When the familial variant is known, prenatal diagnosis and preimplantation genetic testing are technically possible. CHOPS is not part of routine newborn or population carrier screening.</p>
+<h2>14. Other species and natural disease</h2>
+<p>No naturally occurring CHOPS-equivalent veterinary disease, affected breed, zoonotic transmission, or cross-species infectious susceptibility was identified. Orthologous AFF-family proteins and the SEC/proteasomal mechanism are evolutionarily conserved, but conservation should not be conflated with a naturally occurring animal syndrome.</p>
+<h2>15. Model organisms and experimental systems</h2>
+<p>The best disease-relevant models are <strong>human patient-derived dermal fibroblasts</strong> carrying p.Thr254Ala, p.Thr254Ser, or p.Arg258Trp and engineered HEK293T/HeLa systems. These reproduce AFF4 stabilization, chromatin accumulation, downstream target activation, and altered AFF4/cohesin/Pol-II occupancy. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-18-22">izumi2015germlinegainoffunctionmutations pages 18-22</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-10-11">izumi2015germlinegainoffunctionmutations pages 10-11</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-11-13">izumi2015germlinegainoffunctionmutations pages 11-13</a>)</p>
+<p>Aff4-knockout mice have phenotypes unlike CHOPS, an important limitation that supports gain-of-function rather than loss-of-function pathogenesis. An ENU-induced mouse mutation in the homologous degron mechanism of <strong>Aff1</strong> provides indirect evidence that altered degradation of AF4/FMR2-family proteins is pathogenic, but it is not a CHOPS knock-in model. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-6-8">izumi2015germlinegainoffunctionmutations pages 6-8</a>, <a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>)</p>
+<p>No validated AFF4-CHOPS knock-in mouse, rat, zebrafish, Drosophila, organoid, or patient-derived iPSC model was identified. Priorities for the field are precise p.Thr254/p.Arg258 knock-in models, neural-crest/cardiopulmonary/skeletal organoids, longitudinal registries, and single-cell or spatial profiling during differentiation.</p>
+<h2>Evidence assessment and research priorities</h2>
+<p>The causal inference is strong despite the tiny cohort because three unrelated patients had clustered de novo variants and concordant cellular gain-of-function effects. The major weakness is external validity: penetrance, full phenotypic range, variant-specific severity, survival, and treatment outcomes remain unresolved. The most consequential next steps are international case aggregation, standardized HPO phenotyping, natural-history follow-up, contemporary ClinVar/gnomAD reconciliation, development of precise knock-in models, and testing whether AFF4 normalization can be achieved without broadly suppressing essential SEC-dependent transcription.</p>
+<h3>Principal references</h3>
+<ol>
+<li>Izumi K, et al. <strong>Germline Gain-of-Function Mutations in AFF4 Cause a Developmental Syndrome Functionally Linking the Super Elongation Complex and Cohesin.</strong> <em>Nature Genetics</em>. Published March 2015;47:338–344. PMID: <strong>25730767</strong>. DOI: <a href="https://doi.org/10.1038/ng.3229">10.1038/ng.3229</a>. (<a href="#ref-izumi2015germlinegainoffunctionmutations-pages-3-4">izumi2015germlinegainoffunctionmutations pages 3-4</a>)</li>
+<li>Izumi K. <strong>Disorders of Transcriptional Regulation: An Emerging Category of Multiple Malformation Syndromes.</strong> <em>Molecular Syndromology</em>. Published September 2016;7:262–273. DOI: <a href="https://doi.org/10.1159/000448747">10.1159/000448747</a>. (<a href="#ref-izumi2016disordersoftranscriptional-pages-9-10">izumi2016disordersoftranscriptional pages 9-10</a>)</li>
+<li>Piché J, et al. <strong>The expanding phenotypes of cohesinopathies: one ring to rule them all!</strong> <em>Cell Cycle</em>. Published September 2019;18:2828–2848. DOI: <a href="https://doi.org/10.1080/15384101.2019.1658476">10.1080/15384101.2019.1658476</a>. (<a href="#ref-piche2019theexpandingphenotypes-pages-7-9">piche2019theexpandingphenotypes pages 7-9</a>)</li>
+<li>Che Z, et al. <strong>Distinct roles of two SEC scaffold proteins, AFF1 and AFF4, in regulating RNA polymerase II transcription elongation.</strong> <em>Journal of Molecular Cell Biology</em>. Accepted July 31, 2023;15(8):mjad049. DOI: <a href="https://doi.org/10.1093/jmcb/mjad049">10.1093/jmcb/mjad049</a>. (<a href="#ref-che2023distinctrolesof-pages-1-2">che2023distinctrolesof pages 1-2</a>)</li>
+<li>Tei S, et al. <strong>Cohesin regulates promoter-proximal pausing of RNA Polymerase II by limiting recruitment of super elongation complex.</strong> bioRxiv preprint posted March 16, 2024. DOI: <a href="https://doi.org/10.1101/2024.03.15.584908">10.1101/2024.03.15.584908</a>. (<a href="#ref-tei2024cohesinregulatespromoterproximal-pages-1-3">tei2024cohesinregulatespromoterproximal pages 1-3</a>)</li>
+</ol>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-izumi2015germlinegainoffunctionmutations-pages-3-4"></a>(izumi2015germlinegainoffunctionmutations pages 3-4): Kosuke Izumi, Ryuichiro Nakato, Zhe Zhang, Andrew C Edmondson, Sarah Noon, Matthew C Dulik, Ramakrishnan Rajagopalan, Charles P Venditti, Karen Gripp, Joy Samanich, Elaine H Zackai, Matthew A Deardorff, Dinah Clark, Julian L Allen, Dale Dorsett, Ziva Misulovin, Makiko Komata, Masashige Bando, Maninder Kaur, Yuki Katou, Katsuhiko Shirahige, and Ian D Krantz. Germline gain-of-function mutations in aff4 cause a developmental syndrome functionally linking the super elongation complex and cohesin. Nature genetics, 47:338-344, Mar 2015. URL: <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ng.3229</a>, <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.3229</a>. This article has 173 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-izumi2015germlinegainoffunctionmutations-pages-4-6"></a>(izumi2015germlinegainoffunctionmutations pages 4-6): Kosuke Izumi, Ryuichiro Nakato, Zhe Zhang, Andrew C Edmondson, Sarah Noon, Matthew C Dulik, Ramakrishnan Rajagopalan, Charles P Venditti, Karen Gripp, Joy Samanich, Elaine H Zackai, Matthew A Deardorff, Dinah Clark, Julian L Allen, Dale Dorsett, Ziva Misulovin, Makiko Komata, Masashige Bando, Maninder Kaur, Yuki Katou, Katsuhiko Shirahige, and Ian D Krantz. Germline gain-of-function mutations in aff4 cause a developmental syndrome functionally linking the super elongation complex and cohesin. Nature genetics, 47:338-344, Mar 2015. URL: <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ng.3229</a>, <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.3229</a>. This article has 173 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-izumi2015germlinegainoffunctionmutations-pages-8-10"></a>(izumi2015germlinegainoffunctionmutations pages 8-10): Kosuke Izumi, Ryuichiro Nakato, Zhe Zhang, Andrew C Edmondson, Sarah Noon, Matthew C Dulik, Ramakrishnan Rajagopalan, Charles P Venditti, Karen Gripp, Joy Samanich, Elaine H Zackai, Matthew A Deardorff, Dinah Clark, Julian L Allen, Dale Dorsett, Ziva Misulovin, Makiko Komata, Masashige Bando, Maninder Kaur, Yuki Katou, Katsuhiko Shirahige, and Ian D Krantz. Germline gain-of-function mutations in aff4 cause a developmental syndrome functionally linking the super elongation complex and cohesin. Nature genetics, 47:338-344, Mar 2015. URL: <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ng.3229</a>, <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.3229</a>. This article has 173 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-izumi2015germlinegainoffunctionmutations-pages-1-3"></a>(izumi2015germlinegainoffunctionmutations pages 1-3): Kosuke Izumi, Ryuichiro Nakato, Zhe Zhang, Andrew C Edmondson, Sarah Noon, Matthew C Dulik, Ramakrishnan Rajagopalan, Charles P Venditti, Karen Gripp, Joy Samanich, Elaine H Zackai, Matthew A Deardorff, Dinah Clark, Julian L Allen, Dale Dorsett, Ziva Misulovin, Makiko Komata, Masashige Bando, Maninder Kaur, Yuki Katou, Katsuhiko Shirahige, and Ian D Krantz. Germline gain-of-function mutations in aff4 cause a developmental syndrome functionally linking the super elongation complex and cohesin. Nature genetics, 47:338-344, Mar 2015. URL: <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ng.3229</a>, <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.3229</a>. This article has 173 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-chops-syndrome-aff4"></a>(OpenTargets Search: CHOPS syndrome-AFF4): Open Targets Query (CHOPS syndrome-AFF4, 5 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-izumi2015germlinegainoffunctionmutations-pages-10-11"></a>(izumi2015germlinegainoffunctionmutations pages 10-11): Kosuke Izumi, Ryuichiro Nakato, Zhe Zhang, Andrew C Edmondson, Sarah Noon, Matthew C Dulik, Ramakrishnan Rajagopalan, Charles P Venditti, Karen Gripp, Joy Samanich, Elaine H Zackai, Matthew A Deardorff, Dinah Clark, Julian L Allen, Dale Dorsett, Ziva Misulovin, Makiko Komata, Masashige Bando, Maninder Kaur, Yuki Katou, Katsuhiko Shirahige, and Ian D Krantz. Germline gain-of-function mutations in aff4 cause a developmental syndrome functionally linking the super elongation complex and cohesin. Nature genetics, 47:338-344, Mar 2015. URL: <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ng.3229</a>, <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.3229</a>. This article has 173 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-izumi2015germlinegainoffunctionmutations-pages-11-13"></a>(izumi2015germlinegainoffunctionmutations pages 11-13): Kosuke Izumi, Ryuichiro Nakato, Zhe Zhang, Andrew C Edmondson, Sarah Noon, Matthew C Dulik, Ramakrishnan Rajagopalan, Charles P Venditti, Karen Gripp, Joy Samanich, Elaine H Zackai, Matthew A Deardorff, Dinah Clark, Julian L Allen, Dale Dorsett, Ziva Misulovin, Makiko Komata, Masashige Bando, Maninder Kaur, Yuki Katou, Katsuhiko Shirahige, and Ian D Krantz. Germline gain-of-function mutations in aff4 cause a developmental syndrome functionally linking the super elongation complex and cohesin. Nature genetics, 47:338-344, Mar 2015. URL: <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ng.3229</a>, <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.3229</a>. This article has 173 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-izumi2015germlinegainoffunctionmutations-pages-15-18"></a>(izumi2015germlinegainoffunctionmutations pages 15-18): Kosuke Izumi, Ryuichiro Nakato, Zhe Zhang, Andrew C Edmondson, Sarah Noon, Matthew C Dulik, Ramakrishnan Rajagopalan, Charles P Venditti, Karen Gripp, Joy Samanich, Elaine H Zackai, Matthew A Deardorff, Dinah Clark, Julian L Allen, Dale Dorsett, Ziva Misulovin, Makiko Komata, Masashige Bando, Maninder Kaur, Yuki Katou, Katsuhiko Shirahige, and Ian D Krantz. Germline gain-of-function mutations in aff4 cause a developmental syndrome functionally linking the super elongation complex and cohesin. Nature genetics, 47:338-344, Mar 2015. URL: <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ng.3229</a>, <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.3229</a>. This article has 173 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-izumi2015germlinegainoffunctionmutations-pages-6-8"></a>(izumi2015germlinegainoffunctionmutations pages 6-8): Kosuke Izumi, Ryuichiro Nakato, Zhe Zhang, Andrew C Edmondson, Sarah Noon, Matthew C Dulik, Ramakrishnan Rajagopalan, Charles P Venditti, Karen Gripp, Joy Samanich, Elaine H Zackai, Matthew A Deardorff, Dinah Clark, Julian L Allen, Dale Dorsett, Ziva Misulovin, Makiko Komata, Masashige Bando, Maninder Kaur, Yuki Katou, Katsuhiko Shirahige, and Ian D Krantz. Germline gain-of-function mutations in aff4 cause a developmental syndrome functionally linking the super elongation complex and cohesin. Nature genetics, 47:338-344, Mar 2015. URL: <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ng.3229</a>, <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.3229</a>. This article has 173 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-izumi2016disordersoftranscriptional-pages-9-10"></a>(izumi2016disordersoftranscriptional pages 9-10): Kosuke Izumi. Disorders of transcriptional regulation: an emerging category of multiple malformation syndromes. Molecular Syndromology, 7:262-273, Sep 2016. URL: <a href="https://doi.org/10.1159/000448747" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000448747</a>, <a href="https://doi.org/10.1159/000448747" target="_blank" rel="noopener noreferrer">doi:10.1159/000448747</a>. This article has 69 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tei2024cohesinregulatespromoterproximal-pages-1-3"></a>(tei2024cohesinregulatespromoterproximal pages 1-3): Shoin Tei, Toyonori Sakata, Atsunori Yoshimura, Toyoaki Natsume, Masato T Kanemaki, Masashige Bando, and Katsuhiko Shirahige. Cohesin regulates promoter-proximal pausing of rna polymerase ii by limiting recruitment of super elongation complex. bioRxiv, Mar 2024. URL: <a href="https://doi.org/10.1101/2024.03.15.584908" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/2024.03.15.584908</a>, <a href="https://doi.org/10.1101/2024.03.15.584908" target="_blank" rel="noopener noreferrer">doi:10.1101/2024.03.15.584908</a>. This article has 3 citations.</p>
+</li>
+<li>
+<p><a id="ref-piche2019theexpandingphenotypes-pages-7-9"></a>(piche2019theexpandingphenotypes pages 7-9): Jessica Piché, Patrick Piet Van Vliet, Michel Pucéat, and Gregor Andelfinger. The expanding phenotypes of cohesinopathies: one ring to rule them all! Cell Cycle, 18:2828-2848, Sep 2019. URL: <a href="https://doi.org/10.1080/15384101.2019.1658476" target="_blank" rel="noopener noreferrer">https://doi.org/10.1080/15384101.2019.1658476</a>, <a href="https://doi.org/10.1080/15384101.2019.1658476" target="_blank" rel="noopener noreferrer">doi:10.1080/15384101.2019.1658476</a>. This article has 121 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-izumi2015germlinegainoffunctionmutations-pages-18-22"></a>(izumi2015germlinegainoffunctionmutations pages 18-22): Kosuke Izumi, Ryuichiro Nakato, Zhe Zhang, Andrew C Edmondson, Sarah Noon, Matthew C Dulik, Ramakrishnan Rajagopalan, Charles P Venditti, Karen Gripp, Joy Samanich, Elaine H Zackai, Matthew A Deardorff, Dinah Clark, Julian L Allen, Dale Dorsett, Ziva Misulovin, Makiko Komata, Masashige Bando, Maninder Kaur, Yuki Katou, Katsuhiko Shirahige, and Ian D Krantz. Germline gain-of-function mutations in aff4 cause a developmental syndrome functionally linking the super elongation complex and cohesin. Nature genetics, 47:338-344, Mar 2015. URL: <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/ng.3229</a>, <a href="https://doi.org/10.1038/ng.3229" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.3229</a>. This article has 173 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-che2023distinctrolesof-pages-2-3"></a>(che2023distinctrolesof pages 2-3): Zhuanzhuan Che, Xiaoxu Liu, Qian Dai, Ke Fang, Chenghao Guo, Junjie Yue, Haitong Fang, Peng Xie, Zhuojuan Luo, and Chengqi Lin. Distinct roles of two sec scaffold proteins, aff1 and aff4, in regulating rna polymerase ii transcription elongation. Journal of Molecular Cell Biology, Aug 2023. URL: <a href="https://doi.org/10.1093/jmcb/mjad049" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/jmcb/mjad049</a>, <a href="https://doi.org/10.1093/jmcb/mjad049" target="_blank" rel="noopener noreferrer">doi:10.1093/jmcb/mjad049</a>. This article has 8 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-che2023distinctrolesof-pages-1-2"></a>(che2023distinctrolesof pages 1-2): Zhuanzhuan Che, Xiaoxu Liu, Qian Dai, Ke Fang, Chenghao Guo, Junjie Yue, Haitong Fang, Peng Xie, Zhuojuan Luo, and Chengqi Lin. Distinct roles of two sec scaffold proteins, aff1 and aff4, in regulating rna polymerase ii transcription elongation. Journal of Molecular Cell Biology, Aug 2023. URL: <a href="https://doi.org/10.1093/jmcb/mjad049" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/jmcb/mjad049</a>, <a href="https://doi.org/10.1093/jmcb/mjad049" target="_blank" rel="noopener noreferrer">doi:10.1093/jmcb/mjad049</a>. This article has 8 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tei2024cohesinregulatespromoterproximal-pages-14-17"></a>(tei2024cohesinregulatespromoterproximal pages 14-17): Shoin Tei, Toyonori Sakata, Atsunori Yoshimura, Toyoaki Natsume, Masato T Kanemaki, Masashige Bando, and Katsuhiko Shirahige. Cohesin regulates promoter-proximal pausing of rna polymerase ii by limiting recruitment of super elongation complex. bioRxiv, Mar 2024. URL: <a href="https://doi.org/10.1101/2024.03.15.584908" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/2024.03.15.584908</a>, <a href="https://doi.org/10.1101/2024.03.15.584908" target="_blank" rel="noopener noreferrer">doi:10.1101/2024.03.15.584908</a>. This article has 3 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/CHOPS_Syndrome-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>5</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Chondrosarcoma-openai.html">← Chondrosarcoma (OpenAI)</a>
+                
+                
+                <a href="Chordoma-openai.html">Chordoma (OpenAI) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/CHOPS_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/CHOPS_Syndrome-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

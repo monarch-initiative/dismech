@@ -130,9 +130,16 @@ jobs:
             "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
             --jq '.[].filename')
 
+          # `stubs/` is curation scope, not infra: the curation queue is one YAML
+          # file per uncurated disease, and a curation PR is *supposed* to delete
+          # the stub it curates (see CLAUDE.md, "Curation Stub Queue"). Omitting it
+          # from this allowlist failed the textbook curation PR shape -- new
+          # kb/disorders entry + history record + caches + `- stubs/<Disease>.yaml`
+          # -- and demanded a scope-override label for doing exactly the right
+          # thing (PR #9027).
           if echo "$CHANGED" | grep -q '^kb/'; then
             INFRA=$(echo "$CHANGED" \
-              | grep -vE '^(kb/|history/|cache/|references_cache/|research/|pages/|dashboard/)' \
+              | grep -vE '^(kb/|stubs/|history/|cache/|references_cache/|research/|pages/|dashboard/)' \
               || true)
 
             if [ -n "$INFRA" ]; then
@@ -297,6 +304,13 @@ jobs:
       # it (issue #8623). ~12s over kb/ + the schema and conf trees, offline.
       - name: Check for duplicate YAML keys
         run: uv run python scripts/check_duplicate_yaml_keys.py
+
+      # Ungated and whole-directory on purpose. The check that matters here is
+      # "a curated disease must not still have a stub", and the PR that breaks
+      # it is a curation PR touching only kb/ -- no stubs/ path filter would
+      # fire on it. ~20s, offline. See docs/curation-stubs.md.
+      - name: Check the curation stub queue
+        run: uv run dismech-stubs check
 
       - name: Validate changed disorder KB files
         if: steps.changes.outputs.kb_disorders == 'true'

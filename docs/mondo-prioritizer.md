@@ -1,6 +1,19 @@
 # MONDO Prioritizer
 
-The MONDO prioritizer builds a curation queue from MONDO disease rows rather than
+!!! note "No longer the curation queue"
+
+    The outstanding curation queue is now [`stubs/`](curation-stubs.md) — one
+    YAML file per disease, edited by pull request. The prioritizer's ranked
+    output is kept as a *browsable pool* for discovering MONDO concepts to
+    nominate into that queue, but it is no longer the answer to "what should I
+    curate next". Issue
+    [#8969](https://github.com/monarch-initiative/dismech/issues/8969) records
+    why: every cheap ontology feature the score can use (child count, synonym
+    count, aggregator tags) correlates with *being a grouping* rather than with
+    *being worth curating*, so the head of the ranking filled with umbrella
+    terms no matter how the weights were tuned.
+
+The MONDO prioritizer builds a candidate pool from MONDO disease rows rather than
 from ad hoc checklist issues. It scores candidate diseases against local DisMech
 coverage, then applies a small set of explicit specificity heuristics to suggest
 whether a term should be curated as a root, lumped into a parent, or dropped.
