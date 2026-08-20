@@ -31,7 +31,7 @@ under 450 lines. Details and a prioritized worklist below.
 
 | Grouping | Before | After | Added |
 |---|--:|--:|---|
-| Lysosomal Storage Disorders | 14 immediate | 35 immediate | 1 nested grouping (NCL), 22 diseases, −1 redundant |
+| Lysosomal Storage Disorders | 14 immediate | 36 immediate | 1 nested grouping (NCL), 22 diseases, −1 redundant |
 | Mucopolysaccharidoses | 4 | 7 | MPS VI, MPS VII, MPS IX |
 | Mucolipidoses | 3 | 4 | ML III alpha/beta |
 | Niemann-Pick Diseases | 4 | 5 | NPD type E |
