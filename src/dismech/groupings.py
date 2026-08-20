@@ -291,6 +291,11 @@ class DiseaseFacts:
     module_stems: set[str] = field(default_factory=set)
     # HP id -> best (strongest) known frequency band, if any.
     phenotype_freq: dict[str, str | None] = field(default_factory=dict)
+    # Normalized nosology/classification tags this disease carries. Holds both
+    # the bare value ("combined immunodeficiency") and the keyed form
+    # ("iuis_category:combined immunodeficiency") so a criterion may cite
+    # either. See _classification_tags().
+    classification_tags: set[str] = field(default_factory=set)
 
 
 def _walk(obj: Any) -> Iterable[Any]:
@@ -304,9 +309,59 @@ def _walk(obj: Any) -> Iterable[Any]:
             yield from _walk(v)
 
 
+def _norm_tag(value: str) -> str:
+    """Normalize a classification tag for comparison (case/whitespace-insensitive)."""
+    return " ".join(value.lower().split())
+
+
+def _classification_tags(data: dict) -> set[str]:
+    """Collect the nosology tags a disease entry carries.
+
+    DisMech has no single canonical nosology slot, so three slots count:
+
+    * the structured ``classifications:`` block — every
+      ``<key>.classification_value``, contributed both bare and as
+      ``<key>:<value>`` so a criterion can disambiguate when the same string
+      appears under two schemes;
+    * the free-text ``parents:`` and ``categories:`` lists, which is where
+      tags such as ``RASopathy`` live.
+
+    Plural/singular is not normalized away: a criterion citing ``RASopathy``
+    does not match an entry tagged ``RASopathies``. Keeping the match literal
+    means a normalization drift shows up as UNKNOWN/NOT_SATISFIED in the audit
+    rather than being silently papered over.
+    """
+    tags: set[str] = set()
+
+    classifications = data.get("classifications")
+    if isinstance(classifications, dict):
+        for key, assignment in classifications.items():
+            items = assignment if isinstance(assignment, list) else [assignment]
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                value = item.get("classification_value")
+                if isinstance(value, str) and value.strip():
+                    tags.add(_norm_tag(value))
+                    tags.add(f"{_norm_tag(str(key))}:{_norm_tag(value)}")
+
+    for slot in ("parents", "categories"):
+        values = data.get(slot)
+        if isinstance(values, str):
+            values = [values]
+        if isinstance(values, list):
+            for value in values:
+                if isinstance(value, str) and value.strip():
+                    tags.add(_norm_tag(value))
+                    tags.add(f"{_norm_tag(slot)}:{_norm_tag(value)}")
+
+    return tags
+
+
 def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
-    """Extract genes, GO terms, module conformance, and phenotype frequencies."""
+    """Extract genes, GO terms, module conformance, phenotypes, classifications."""
     facts = DiseaseFacts(name=name)
+    facts.classification_tags = _classification_tags(data)
 
     for node in _walk(data):
         if not isinstance(node, dict):
@@ -425,7 +480,15 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
                         if FREQUENCY_RANK[have] <= FREQUENCY_RANK[min_freq]
                         else Satisfaction.NOT_SATISFIED
                     )
-    # HAS_CLASSIFICATION / HAS_INHERITANCE / HAS_MAPPING / OTHER -> UNKNOWN.
+    elif predicate == "HAS_CLASSIFICATION":
+        wanted = node.get("classification")
+        if isinstance(wanted, str) and wanted.strip():
+            result = (
+                Satisfaction.SATISFIED
+                if _norm_tag(wanted) in facts.classification_tags
+                else Satisfaction.NOT_SATISFIED
+            )
+    # HAS_INHERITANCE / HAS_MAPPING / OTHER -> UNKNOWN.
 
     if node.get("negated"):
         result = result.negate()
