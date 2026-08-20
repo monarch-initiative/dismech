@@ -1,13 +1,13 @@
 ---
 name: claim-disease
-description: Use when claiming the next disease to curate in dismech. Two-phase pick — open `claim`-labelled issues for what is already taken, then the `stubs/` queue for what is left — then files a `Curate <label> (MONDO:NNNNNNN)` claim issue assigned to the current GitHub user. Accepts an optional integer 1–8 to claim N diseases at once.
+description: Use when claiming the next disease to curate in dismech. Two-phase pick — open `claim`-labelled issues for what is already taken, then the `stubs/` queue for what is left — then files a `Curate <label> (MONDO:NNNNNNN)` claim issue assigned to the current GitHub user. Accepts an optional integer 1–8 to claim N diseases at once. The skill should also start the curation process.
 ---
 
 # claim-disease
 
 Claim the next disease(s) to curate. The queue of remaining work is `stubs/`;
 the live lock on who has what is an open GitHub issue labelled `claim`. This
-skill checks both, then files the claim.
+skill checks both, then files the claim, and then commences work.
 
 ## When to use
 
@@ -157,6 +157,9 @@ surface. Assume neither phase knows about a PR.
 
 7. **Report**: the issue URLs, and — explicitly — every candidate you skipped
    with the reason. If you filed fewer than N, say so; do not pad the count.
+
+8. **Do we the work**: start curating the entries. Unless the user says to
+   hold off
 
 ## Filing a claim
 
