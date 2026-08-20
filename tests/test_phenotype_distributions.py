@@ -382,13 +382,69 @@ def _unperformed_lookups(issues) -> list[str]:
     WARNINGs, deliberately: not being able to check a term is not evidence the
     term is wrong. A test asserting on the *result* of a lookup has to make the
     same distinction, or it reports a flaky network as a code defect.
+
+    Matches the module's own constants rather than literal text. `Issue` has no
+    structural kind field, so this is still substring matching — but against a
+    name the emitting code shares, and
+    `test_unperformed_lookup_phrases_match_what_the_code_emits` pins that the
+    real messages still contain them. Hard-coded literals would let a reword
+    silently return this file to being intermittently red, which is the exact
+    symptom the skip exists to fix.
     """
+    from dismech.phenotype_distribution import (
+        UNPERFORMED_ADAPTER,
+        UNPERFORMED_RESOLVE,
+    )
+
     return [
         i.message
         for i in issues
         if i.severity == "WARNING"
-        and ("could not resolve" in i.message or "could not load" in i.message)
+        and (UNPERFORMED_RESOLVE in i.message or UNPERFORMED_ADAPTER in i.message)
     ]
+
+
+def test_unperformed_lookup_phrases_match_what_the_code_emits(
+    profile_set_path: Path, monkeypatch
+) -> None:
+    """The skip predicate must recognise the messages actually produced.
+
+    Without this, rewording either warning in `check_terms` makes
+    `_unperformed_lookups` silently return nothing, and the wrong-CURIE test
+    below stops skipping and goes back to failing whenever OLS is slow — a
+    quiet regression to the defect just fixed. Constants make the coupling
+    visible; this makes breaking it loud.
+
+    Both branches are exercised against real emissions rather than asserted
+    against string literals, so the phrases cannot drift from their use.
+    """
+    import oaklib
+
+    from dismech.phenotype_distribution import check_terms
+
+    def mutate(data):
+        data["disease"]["disease_term"]["term_id"] = "HP:0410017"
+
+    coll = _mutate(profile_set_path, mutate)
+
+    class _RaisingAdapter:
+        def label(self, curie: str) -> str | None:
+            raise ConnectionError("simulated outage")
+
+    monkeypatch.setattr(oaklib, "get_adapter", lambda spec: _RaisingAdapter())
+    assert _unperformed_lookups(check_terms([coll])), (
+        "a lookup that raised was not recognised as unperformed; "
+        "`UNPERFORMED_RESOLVE` no longer matches what `check_terms` emits"
+    )
+
+    def _unloadable(spec):
+        raise RuntimeError("simulated adapter load failure")
+
+    monkeypatch.setattr(oaklib, "get_adapter", _unloadable)
+    assert _unperformed_lookups(check_terms([coll])), (
+        "an adapter that failed to load was not recognised as unperformed; "
+        "`UNPERFORMED_ADAPTER` no longer matches what `check_terms` emits"
+    )
 
 
 def test_term_check_reports_a_wrong_label_without_a_local_ontology(

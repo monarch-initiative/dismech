@@ -68,6 +68,16 @@ _VERIFIABLE_PREFIXES = (
     "PHENODIST:",
 )
 
+#: Phrases marking an issue as "the lookup did not happen" rather than "the
+#: term is wrong". `check_terms` draws that distinction by severity too, but
+#: severity alone is not enough for a caller: WARNING also covers findings that
+#: *were* checked. Shared as constants because a consumer would otherwise match
+#: the message text, and a reword here would silently change its behaviour —
+#: `tests/test_phenotype_distributions.py` skips on exactly this, and would
+#: quietly go back to failing on a flaky network. A test pins the coupling.
+UNPERFORMED_RESOLVE = "could not resolve"
+UNPERFORMED_ADAPTER = "could not load"
+
 _yaml = YAML(typ="safe")
 _yaml.allow_duplicate_keys = False
 
@@ -333,7 +343,7 @@ def check_terms(
                             coll.path,
                             rid,
                             "WARNING",
-                            f"{where}: could not resolve {term_id} ({exc}); "
+                            f"{where}: {UNPERFORMED_RESOLVE} {term_id} ({exc}); "
                             "term left unverified",
                         )
                     )
@@ -366,7 +376,7 @@ def check_terms(
                 "",
                 "WARNING",
                 (
-                    f"could not load the {prefix} adapter ({exc}); every "
+                    f"{UNPERFORMED_ADAPTER} the {prefix} adapter ({exc}); every "
                     f"{prefix} term in this run was left unchecked"
                 ),
             )
