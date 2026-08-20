@@ -208,6 +208,15 @@ Nominated by: <source_name from the stub>
 `status: CLAIMED` — that was removed on purpose. Two sources of truth for one
 fact is how they drift, and the YAML one is the slow, invisible one.
 
+## Check comments on the issue
+
+Although the primary purpose of filing the issue is to establish the claim,
+a nice side effect is that you will have an agent (and possibly people) commenting
+on the claim. This provides a "second opinion" mechanism.
+
+It may take a few minutes for the agent comment to appear, so you can start
+work and check back later.
+
 ## Finishing a curation
 
 The curation PR **should delete the stub** alongside adding the KB entry, and
