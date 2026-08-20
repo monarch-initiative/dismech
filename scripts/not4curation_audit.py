@@ -69,11 +69,13 @@ from dismech.yaml_io import safe_load_path
 #: Files scanned when no explicit path is given: every curated KB entry plus the
 #: schema, whose static ``meaning:`` values are ontology bindings too and are
 #: validated by `just validate-terms-schema` under the same blind spot.
+#: Every ``kb/`` subtree at any depth, deliberately rather than a hand-listed
+#: few: a subtree added later carries bindings the moment somebody curates into
+#: it, and a scope that silently omits it is the kind of gap this check exists
+#: to close. Recursive because ``kb/hypotheses/`` nests three levels deep
+#: (``<Disease>/<hypothesis>/assessments/*.yaml``).
 DEFAULT_TARGETS = (
-    "kb/disorders/*.yaml",
-    "kb/modules/*.yaml",
-    "kb/comorbidities/*.yaml",
-    "kb/groupings/*.yaml",
+    "kb/**/*.yaml",
     "src/dismech/schema/dismech.yaml",
 )
 
@@ -126,6 +128,11 @@ class Report:
     #: a marker is a synonym, so an adapter returning none can never find one.
     synonym_hits: dict[str, int] = field(default_factory=dict)
     skipped_prefixes: dict[str, str] = field(default_factory=dict)
+    #: The subset of ``skipped_prefixes`` skipped because the adapter would not
+    #: build (offline, bucket outage), as opposed to being out of scope by
+    #: choice. Kept as its own set so ``--require-adapters`` does not have to
+    #: substring-match the wording of a human-readable reason.
+    unavailable_prefixes: dict[str, str] = field(default_factory=dict)
     in_use: list[Flagged] = field(default_factory=list)
     cached_only: list[Flagged] = field(default_factory=list)
     inventory: list[Flagged] = field(default_factory=list)
@@ -400,6 +407,7 @@ def audit(
 
     for prefix, reason in cache.failures.items():
         report.skipped_prefixes[prefix] = reason
+        report.unavailable_prefixes[prefix] = reason
         report.checked_prefixes.pop(prefix, None)
         report.synonym_hits.pop(prefix, None)
 
@@ -461,10 +469,18 @@ def resolve_targets(raw: Iterable[str]) -> list[Path]:
         elif path.exists():
             targets.append(path)
         else:
-            base = _REPO_ROOT if not Path(item).is_absolute() else Path("/")
+            # ``Path.glob`` rejects an absolute pattern outright, so split the
+            # anchor off and glob relative to it; a relative pattern is resolved
+            # against the repo root so `just check-not4curation 'kb/*/*.yaml'`
+            # works from anywhere.
+            if path.is_absolute():
+                base = Path(path.anchor)
+                pattern = path.relative_to(path.anchor).as_posix()
+            else:
+                base, pattern = _REPO_ROOT, item
             targets.extend(
                 p
-                for p in sorted(base.glob(item))
+                for p in sorted(base.glob(pattern))
                 if not p.name.endswith(".history.yaml")
             )
     return targets
@@ -580,6 +596,7 @@ def _print_json(report: Report, stream) -> None:
         {
             "checked_prefixes": report.checked_prefixes,
             "synonym_hits": report.synonym_hits,
+            "unavailable_prefixes": report.unavailable_prefixes,
             "skipped_prefixes": report.skipped_prefixes,
             "in_use": [_as_dict(i) for i in report.in_use],
             "cached_only": [_as_dict(i) for i in report.cached_only],
@@ -620,7 +637,10 @@ def main(argv: list[str] | None = None) -> int:
         "--prefix",
         action="append",
         default=[],
-        help="restrict to this ontology prefix (repeatable)",
+        help="check exactly these ontology prefixes (repeatable). An explicit "
+        "prefix is taken at face value, so it bypasses the local/remote scope "
+        "rule -- naming an OLS-served prefix costs one network round trip per "
+        "bound term",
     )
     parser.add_argument(
         "--marker",
@@ -681,9 +701,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         _print_text(report, stream)
 
-    unavailable = {
-        p: r for p, r in report.skipped_prefixes.items() if "unavailable" in r
-    }
+    unavailable = report.unavailable_prefixes
     if unavailable and args.require_adapters:
         print(
             "STRICT: could not build "

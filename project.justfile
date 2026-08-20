@@ -929,7 +929,7 @@ check-term-cache-integrity:
 # dropped (`--include-remote` opts in, at one network round trip per term).
 # Also reports, as a non-gating note, flagged CURIEs sitting in cache/ but
 # unused -- do NOT hand-delete those rows; the gate is the fix.
-# Reject ontology bindings their own ontology flags Not4Curation (#8472).
+# Reject ontology bindings flagged Not4Curation by their own ontology (#8472).
 [group('QC')]
 check-not4curation *args:
     uv run python scripts/not4curation_audit.py "$@"

@@ -323,6 +323,179 @@ def test_cli_passes_on_a_clean_file(repo, capsys):
     assert "OK:" in capsys.readouterr().out
 
 
+def test_cli_reports_an_absolute_glob_that_matches_nothing(repo, capsys):
+    """``Path.glob`` rejects an absolute pattern, so this used to raise."""
+    exit_code = audit.main(
+        [
+            "/nonexistent/dir/*.yaml",
+            "--oak-config",
+            str(repo / "conf" / "oak_config.yaml"),
+            "--no-cache-scan",
+        ]
+    )
+
+    assert exit_code == 2
+    assert "no YAML files matched" in capsys.readouterr().err
+
+
+def test_absolute_glob_that_matches_is_expanded(repo):
+    _entry(repo, "XCO:0000013")
+
+    targets = audit.resolve_targets([str(repo / "kb" / "*.yaml")])
+
+    assert [p.name for p in targets] == ["Entry.yaml"]
+
+
+def test_history_records_are_never_scanned(repo):
+    (repo / "kb" / "Entry.history.yaml").write_text("name: x\n", encoding="utf-8")
+
+    targets = audit.resolve_targets([str(repo / "kb")])
+
+    assert targets == []
+
+
+def test_default_targets_cover_every_kb_subtree_at_any_depth():
+    """A kb/ subtree added later must not silently fall out of scope.
+
+    Recursive matters: ``kb/hypotheses/`` nests three levels deep, so a
+    ``kb/*/*.yaml`` pattern would miss it entirely.
+    """
+    assert "kb/**/*.yaml" in audit.DEFAULT_TARGETS
+
+
+def test_directory_arguments_are_scanned_recursively(repo):
+    nested = repo / "kb" / "hypotheses" / "Disease" / "model"
+    nested.mkdir(parents=True)
+    (nested / "assessment.yaml").write_text(
+        "term:\n  id: XCO:0000294\n", encoding="utf-8"
+    )
+
+    report = audit.audit(
+        audit.resolve_targets([str(repo / "kb")]),
+        oak_config=repo / "conf" / "oak_config.yaml",
+        cache_dir=None,
+    )
+
+    assert [f.curie for f in report.in_use] == ["XCO:0000294"]
+    assert (
+        report.in_use[0]
+        .usages[0]
+        .path.endswith("kb/hypotheses/Disease/model/assessment.yaml")
+    )
+
+
+# --------------------------------------------------------------------------- #
+# inventory, extra markers, and output formats
+# --------------------------------------------------------------------------- #
+
+
+def test_list_flagged_reports_the_whole_deny_list_not_just_what_is_used(repo):
+    report = _audit(
+        repo, _entry(repo, "XCO:0000013"), prefixes=["XCO"], list_flagged=True
+    )
+
+    assert report.in_use == []
+    assert [f.curie for f in report.inventory] == ["XCO:0000294"]
+    assert report.inventory[0].label == "estrogen/estrogen analog"
+
+
+def test_an_extra_marker_can_be_supplied(repo):
+    report = _audit(
+        repo,
+        _entry(repo, "XCO:0000013"),
+        markers=("locallyretired",),
+    )
+
+    assert report.in_use == []
+
+    report = _audit(
+        repo,
+        _entry(repo, "XCO:0000013"),
+        markers=("noiseexposure",),
+    )
+
+    assert [f.curie for f in report.in_use] == ["XCO:0000013"]
+
+
+def test_cli_marker_flag_is_normalized_like_a_synonym(repo, capsys):
+    """``--marker`` takes prose; it is folded the same way a synonym is."""
+    path = _entry(repo, "XCO:0000013")
+
+    exit_code = audit.main(
+        [
+            str(path),
+            "--oak-config",
+            str(repo / "conf" / "oak_config.yaml"),
+            "--no-cache-scan",
+            "--marker",
+            "Noise Exposure",
+        ]
+    )
+
+    assert exit_code == 1
+    assert "XCO:0000013" in capsys.readouterr().err
+
+
+def test_cli_json_output_is_machine_readable(repo, capsys):
+    import json
+
+    path = _entry(repo, "XCO:0000294")
+
+    exit_code = audit.main(
+        [
+            str(path),
+            "--oak-config",
+            str(repo / "conf" / "oak_config.yaml"),
+            "--no-cache-scan",
+            "--format",
+            "json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert [i["curie"] for i in payload["in_use"]] == ["XCO:0000294"]
+    assert payload["checked_prefixes"] == {"XCO": 1}
+    assert payload["synonym_hits"] == {"XCO": 1}
+    assert payload["unavailable_prefixes"] == {}
+
+
+def test_cli_tsv_output_has_one_row_per_usage(repo, capsys):
+    path = _entry(repo, "XCO:0000294")
+
+    audit.main(
+        [
+            str(path),
+            "--oak-config",
+            str(repo / "conf" / "oak_config.yaml"),
+            "--no-cache-scan",
+            "--format",
+            "tsv",
+        ]
+    )
+    rows = [line.split("\t") for line in capsys.readouterr().out.strip().splitlines()]
+
+    assert rows[0] == ["state", "curie", "label", "marker_synonym", "location"]
+    assert len(rows) == 2
+    assert rows[1][:2] == ["IN_USE", "XCO:0000294"]
+
+
+def test_unavailable_prefixes_are_recorded_structurally(repo, monkeypatch):
+    """``--require-adapters`` must not depend on the wording of a reason string."""
+    import oaklib
+
+    def boom(_):
+        raise RuntimeError("no network")
+
+    monkeypatch.setattr(oaklib, "get_adapter", boom)
+    report = _audit(repo, _entry(repo, "XCO:0000294"))
+
+    assert set(report.unavailable_prefixes) == {"XCO"}
+    assert set(report.skipped_prefixes) >= {"XCO", "HP"}
+    # Out-of-scope by choice is not the same as could-not-be-checked.
+    assert "HP" not in report.unavailable_prefixes
+
+
 def test_cli_require_adapters_gates_a_degraded_run(repo, monkeypatch, capsys):
     import oaklib
 

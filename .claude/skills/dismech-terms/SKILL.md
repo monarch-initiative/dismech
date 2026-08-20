@@ -141,7 +141,8 @@ uv run runoak -i sqlite:obo:ecto descendants ECTO:3000000 -p i
 RGD keeps XCO terms for hierarchy that it does **not** want annotated with, and
 marks them with a related synonym reading `Not4Curation` — a synonym, not an
 obsoletion axiom. Such a term exists, has a matching label, and is reachable
-from `ExO:0000002`, so `just validate-terms` passes it. Twenty-four XCO terms
+from `XCO:0000000` (the XCO root among the `ExposureTerm` enum's `source_nodes`;
+`ExO:0000002` is the ECTO one), so `just validate-terms` passes it. Twenty-four XCO terms
 carry the marker, and three of them (`XCO:0000294` estrogen/estrogen analog,
 `XCO:0000950` anticonvulsant, `XCO:0000561` antidepressant) got into the #8430
 tranches before a reviewer noticed (#8472).
