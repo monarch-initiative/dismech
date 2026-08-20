@@ -23,13 +23,20 @@ generic `qualifiers` list.
 
 | Qualifier | Emitted on | Source slot | Qualifies |
 |---|---|---|---|
-| `direction:<increased\|decreased>` | Disease→GO edges (biological process, molecular function, cellular component) | `Descriptor.modifier` | the **object** |
+| `direction:<increased\|decreased>` | Disease→process edges (biological process, molecular function, pathway) | `Descriptor.modifier` | the **object** |
 | `subject_direction:<increased\|decreased>` | Exposure→Disease edges | `exposure_term.modifier` | the **subject** |
 | `causal_link_type` values (`DIRECT`, `INDIRECT_KNOWN_INTERMEDIATES`, …) | pathophysiology causal edges (SEPIO sidecar) | `downstream[].causal_link_type` | the edge |
 
+Note that `cellular_component_to_edge` does **not** read `modifier` and so emits
+no qualifier, while `pathway_to_edge` does — and its object category is
+`biolink:Pathway` rather than a GO category, despite the term itself being a GO
+biological process. A consumer filtering direction-carrying edges by object
+category has to include `biolink:Pathway` alongside `biolink:BiologicalProcess`
+and `biolink:MolecularActivity`.
+
 **The bare `direction:` prefix means "object" by convention**, and only because
-those edges predate the exposure case. On a Disease→GO edge the disease is
-always the subject and the direction always describes the GO term, so the
+those edges predate the exposure case. On a Disease→process edge the disease is
+always the subject and the direction always describes the process term, so the
 prefix was never ambiguous in context. The exposure edge inverts that geometry —
 the ECTO term is the *subject* — so it spells the end out. Normalizing the older
 edges to `object_direction:` would be tidier but is a breaking change to

@@ -605,6 +605,19 @@ class TestCellularComponentToEdge:
         component = {"preferred_term": "cilium"}
         assert cellular_component_to_edge("MONDO:0004979", component) is None
 
+    def test_cellular_component_carries_no_direction(self):
+        """This edge does not read `modifier`, and docs/kgx-export.md says so.
+
+        The direction-carrying edges are biological process, molecular function,
+        and pathway; a cellular component is a location rather than a level, so
+        there is nothing for a direction to qualify.
+        """
+        component = {
+            "term": {"id": "GO:0005929", "label": "cilium"},
+            "modifier": "DECREASED",
+        }
+        assert cellular_component_to_edge("MONDO:0004979", component).qualifiers is None
+
 
 class TestChemicalEntityToEdge:
     """Tests for chemical_entity_to_edge function."""
