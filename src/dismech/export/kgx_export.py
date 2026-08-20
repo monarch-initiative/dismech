@@ -533,6 +533,24 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     of X"), use `biolink:associated_with_decreased_likelihood_of` instead.
     See #2098.
 
+    `exposure_term.modifier` sets the polarity of the *subject*, emitted as a
+    `subject_direction:<increased|decreased>` entry in the `qualifiers` list.
+    Without it a deficiency exposure exports inverted: `Anencephaly` curates
+    `ECTO:9000123` (exposure to folic acid) with `modifier: DECREASED`, meaning
+    *low* folate contributes to the defect, but the bare triple reads as
+    "exposure to folic acid contributes to anencephaly" — the opposite claim.
+    See #8468.
+
+    The qualifier is a free-text list entry rather than Biolink's typed
+    `subject_direction_qualifier` because the pinned `biolink_model` pydantic
+    bindings do not expose that slot on `ExposureEventToOutcomeAssociation`
+    (its only qualifier slots are `qualifier`, `qualifiers`,
+    `population_context_qualifier`, and `temporal_context_qualifier`). This
+    follows the pattern `biological_process_to_edge` and
+    `molecular_function_to_edge` already use, but those describe the *object*
+    of a Disease→GO edge and so write a bare `direction:`; here the modifier
+    describes the subject, so the prefix is explicit rather than positional.
+
     Args:
         disease_id: The disease term ID
         environmental: An environmental dict from environmental[]
@@ -551,6 +569,12 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
         environmental.get("effect"),
         environmental.get("influences_mechanisms"),
     )
+
+    exposure_term = environmental.get("exposure_term")
+    modifier = exposure_term.get("modifier") if isinstance(exposure_term, dict) else None
+    direction = MODIFIER_TO_DIRECTION.get(modifier) if modifier else None
+    qualifiers = [f"subject_direction:{direction}"] if direction else None
+
     return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(),
         subject=exposure_id,
@@ -558,6 +582,7 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
         object=disease_id,
         subject_category="biolink:ExposureEvent",
         object_category="biolink:Disease",
+        qualifiers=qualifiers,
         publications=publications if publications else None,
         supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,

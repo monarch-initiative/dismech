@@ -274,11 +274,19 @@ def statement_from_association(
     if not lines:
         return None
 
+    # Carry the association's qualifiers across. Without this the sidecar
+    # restates the bare triple and loses everything the qualifier encodes —
+    # including the exposure polarity that keeps a deficiency entry from
+    # reading as its own opposite (#8468), and the `direction:` qualifiers the
+    # Disease→GO edges have always carried.
+    qualifiers = getattr(association, "qualifiers", None)
+
     return Statement(
         id=association.id,
         subject=association.subject,
         predicate=association.predicate,
         object=association.object,
+        qualifiers=list(qualifiers) if qualifiers else None,
         has_evidence_lines=lines,
         source_disease=disease_name,
         dismech_section=section,

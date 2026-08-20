@@ -449,6 +449,85 @@ class TestExposureToEdge:
         edge = exposure_to_edge("MONDO:0004979", environmental)
         assert edge.predicate == "biolink:contributes_to"
 
+    def test_decreased_modifier_emits_subject_direction(self):
+        """A deficiency exposure must not export as plain exposure (#8468).
+
+        Reproduces the Anencephaly maternal-folate-deficiency entry: the ECTO
+        subject is "exposure to folic acid", but the curated claim is that
+        *low* folate triggers the defect. Without the qualifier the triple
+        asserts the opposite of the YAML.
+        """
+        environmental = {
+            "name": "Maternal Folate Deficiency",
+            "exposure_term": {
+                "preferred_term": "low maternal folic acid exposure",
+                "modifier": "DECREASED",
+                "term": {"id": "ECTO:9000123", "label": "exposure to folic acid"},
+            },
+            "influences_mechanisms": [
+                {
+                    "target": "Disrupted Folate One-Carbon Metabolism",
+                    "environmental_effect": "TRIGGERS",
+                }
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0008742", environmental)
+        assert edge is not None
+        assert edge.subject == "ECTO:9000123"
+        assert edge.predicate == "biolink:contributes_to"
+        assert edge.qualifiers == ["subject_direction:decreased"]
+
+    def test_increased_modifier_emits_subject_direction(self):
+        """An INCREASED modifier is a fidelity gain, not an inversion (#8468)."""
+        environmental = {
+            "name": "High Sodium Diet",
+            "exposure_term": {
+                "modifier": "INCREASED",
+                "term": {"id": "ECTO:9001347", "label": "exposure to sodium chloride"},
+            },
+            "influences_mechanisms": [
+                {"target": "Sodium Retention", "environmental_effect": "TRIGGERS"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0001134", environmental)
+        assert edge.qualifiers == ["subject_direction:increased"]
+
+    def test_modifier_is_independent_of_predicate(self):
+        """Direction qualifies the subject; the predicate still reads the effect.
+
+        Periconceptional folate supplementation (Ventricular_Septal_Defect) is
+        an INCREASED exposure that PROTECTS_AGAINST — both signals must survive.
+        """
+        environmental = {
+            "name": "Periconceptional folic acid supplementation",
+            "exposure_term": {
+                "modifier": "INCREASED",
+                "term": {"id": "ECTO:9000123", "label": "exposure to folic acid"},
+            },
+            "influences_mechanisms": [
+                {"target": "Cardiac Septation", "environmental_effect": "PROTECTS_AGAINST"}
+            ],
+        }
+        edge = exposure_to_edge("MONDO:0002526", environmental)
+        assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
+        assert edge.qualifiers == ["subject_direction:increased"]
+
+    def test_no_modifier_emits_no_qualifiers(self):
+        """An exposure without a modifier keeps qualifiers unset."""
+        environmental = {
+            "exposure_term": {"term": {"id": "ECTO:6000029"}},
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.qualifiers is None
+
+    def test_unmapped_modifier_emits_no_qualifiers(self):
+        """A modifier outside the direction map is dropped, not guessed at."""
+        environmental = {
+            "exposure_term": {"modifier": "ABSENT", "term": {"id": "ECTO:6000029"}},
+        }
+        edge = exposure_to_edge("MONDO:0004979", environmental)
+        assert edge.qualifiers is None
+
 
 class TestMolecularFunctionToEdge:
     """Tests for molecular_function_to_edge function."""

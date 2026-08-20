@@ -207,11 +207,14 @@ class FakeAssociation:
     """Minimal stand-in for a Biolink Association (biolink-model is an optional dep)."""
 
     def __init__(self, id="urn:uuid:edge-1", subject="MONDO:0009061",
-                 predicate="biolink:has_phenotype", object="HP:0030828"):
+                 predicate="biolink:has_phenotype", object="HP:0030828",
+                 qualifiers=None):
         self.id = id
         self.subject = subject
         self.predicate = predicate
         self.object = object
+        if qualifiers is not None:
+            self.qualifiers = qualifiers
 
 
 class TestStatementFromAssociation:
@@ -247,6 +250,34 @@ class TestStatementFromAssociation:
             inherited_from=parent_id,
         )
         assert statement.evidence_inherited_from == parent_id
+
+    def test_qualifiers_are_carried_across(self):
+        """A dropped qualifier leaves the sidecar restating the bare triple (#8468).
+
+        For a deficiency exposure the bare triple is the opposite of the curated
+        claim, so this is the difference between a correct and an inverted
+        statement, not a cosmetic loss.
+        """
+        association = FakeAssociation(
+            subject="ECTO:9000123",
+            predicate="biolink:contributes_to",
+            object="MONDO:0000819",
+            qualifiers=["subject_direction:decreased"],
+        )
+        statement = statement_from_association(
+            association, CFTR_EVIDENCE, disease_name="Anencephaly", section="environmental"
+        )
+        assert statement.qualifiers == ["subject_direction:decreased"]
+
+    def test_absent_qualifiers_stay_unset(self):
+        """An association with no qualifiers must not gain an empty list."""
+        assert statement_from_association(FakeAssociation(), CFTR_EVIDENCE).qualifiers is None
+        assert (
+            statement_from_association(
+                FakeAssociation(qualifiers=[]), CFTR_EVIDENCE
+            ).qualifiers
+            is None
+        )
 
 
 class TestPathophysiologyStatements:
