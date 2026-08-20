@@ -88,19 +88,22 @@ FREQUENCY_TO_HP = {
 # https://w3id.org/monarch-initiative/dismech/ and is `default_prefix`, so these
 # resolve into our own model rather than a fictional one.
 #
-# What the schema records for those three is "no suitable ontology term found
-# across PATO/GENO/GO/SO (verified 2026-06-26)". An OLS-wide recheck on
-# 2026-08-20 was NOT simply a confirmation of that:
+# The schema records two *different* notes for these three, with different
+# scopes: DYSREGULATED says "No PATO term exists -- verified via OAK 2026-06-26",
+# while GAIN_OF_FUNCTION and LOSS_OF_FUNCTION say "No suitable ontology term
+# found across PATO/GENO/GO/SO (verified 2026-06-26)". An OLS-wide recheck on
+# 2026-08-20 was NOT simply a confirmation of either:
 #   - DYSREGULATED: confirmed unbound. Every "dysregulation" hit across PATO, GO,
 #     NCIT, OGMS and MPATH is a disease entity, not a quality.
 #   - GAIN_OF_FUNCTION / LOSS_OF_FUNCTION: candidate terms exist in PATO's
 #     `functionality` branch, which the original four-ontology search did not
 #     surface -- PATO:0001625 "increased functionality" and PATO:0001624
-#     "decreased functionality". Not adopted here: whether they fit is a schema
-#     question (they would belong on the enum's `meaning:`, which this exporter
-#     only reads), and the fit is imperfect, since ModifierEnum's GAIN_OF_FUNCTION
-#     means escaping regulatory control rather than increased ability. Pending a
-#     curator decision; the export follows whatever the schema binds.
+#     "decreased functionality". This contradicts the schema note above, which
+#     says nothing suitable was found across PATO. Not adopted here: whether they
+#     fit is a schema question (they would belong on the enum's `meaning:`, which
+#     this exporter only reads), and the fit is imperfect, since ModifierEnum's
+#     GAIN_OF_FUNCTION means escaping regulatory control rather than increased
+#     ability. Tracked in #9136; the export follows whatever the schema binds.
 #
 # The fallback is qualified by its enum, not flat. 18 permissible-value names in
 # this schema belong to more than one enum, and GAIN_OF_FUNCTION/LOSS_OF_FUNCTION

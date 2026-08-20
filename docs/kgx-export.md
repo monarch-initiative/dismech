@@ -71,9 +71,11 @@ dismech and Biolink do not align: refer to the dismech model by its own prefix
 rather than minting a fictional one.
 
 **The scope of that "no term" finding matters, so it is recorded precisely.** The
-schema's own note is *"no suitable ontology term found across PATO/GENO/GO/SO
-(verified 2026-06-26)"*. An OLS-wide recheck on 2026-08-20 did not simply confirm
-it:
+schema carries two different notes here, with different scopes: `DYSREGULATED` is
+*"No PATO term exists — verified via OAK 2026-06-26"*, while `GAIN_OF_FUNCTION`
+and `LOSS_OF_FUNCTION` are *"No suitable ontology term found across
+PATO/GENO/GO/SO (verified 2026-06-26)"*. An OLS-wide recheck on 2026-08-20 did
+not simply confirm either:
 
 - `DYSREGULATED` — **confirmed unbound**. Every "dysregulation" hit across PATO,
   GO, NCIT, OGMS and MPATH is a disease entity (IPEX, DMDD), not a quality. The
@@ -86,8 +88,9 @@ it:
   adopted: it is a schema question (they belong on the enum's `meaning:`, which
   this exporter only reads), and the fit is imperfect — `ModifierEnum`'s
   `GAIN_OF_FUNCTION` means escaping regulatory control rather than increased
-  ability to perform a function. Pending a curator decision; the export follows
-  whatever the schema binds.
+  ability to perform a function. Note this **contradicts the schema note**, which
+  says nothing suitable was found across PATO. Tracked in #9136; the export
+  follows whatever the schema binds.
 
 `CausalLinkTypeEnum` binds none of its four values, so all four take the same
 route: `dismech:CausalLinkTypeEnum#DIRECT`, `#INDIRECT_KNOWN_INTERMEDIATES`,
