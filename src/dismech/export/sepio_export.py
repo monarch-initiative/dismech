@@ -294,6 +294,21 @@ def statement_from_association(
     )
 
 
+def _causal_link_curie(causal_link_type: str | None) -> str | None:
+    """CURIE for a ``CausalLinkTypeEnum`` value, for the ``qualifiers`` list.
+
+    Biolink types that slot as ``range: ontology class``, so a bare ``DIRECT``
+    is not a legal entry any more than ``direction:increased`` was.
+    ``CausalLinkTypeEnum`` binds none of its four values to an ontology term, so
+    they take the dismech namespace -- ``dismech:`` is declared in the schema
+    prefix map and is ``default_prefix``, making these resolvable CURIEs into
+    our own model rather than invented ones.
+    """
+    if not causal_link_type:
+        return None
+    return f"dismech:{causal_link_type}"
+
+
 def pathophysiology_node_id(disease_name: str, node_name: str) -> str:
     """Local identifier for a pathophysiology node, which has no ontology term."""
     return f"dismech:{_slug(disease_name)}#{_slug(node_name)}"
@@ -386,7 +401,7 @@ def pathophysiology_statements(record: dict[str, Any]) -> Iterator[Statement]:
             edge_lines = evidence_to_lines(edge.get("evidence"), edge_statement_id)
             if not edge_lines:
                 continue
-            causal_link_type = edge.get("causal_link_type")
+            causal_link_type = _causal_link_curie(edge.get("causal_link_type"))
             yield Statement(
                 id=edge_statement_id,
                 subject=node_id,

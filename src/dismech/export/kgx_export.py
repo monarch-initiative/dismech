@@ -72,10 +72,34 @@ FREQUENCY_TO_HP = {
     "VERY_RARE": "HP:0040284",
 }
 
-# Modifier enum to biolink direction qualifier
-MODIFIER_TO_DIRECTION = {
-    "INCREASED": "increased",
-    "DECREASED": "decreased",
+# ModifierEnum to the CURIE emitted in an association's `qualifiers` list.
+#
+# Biolink declares that slot as `range: ontology class`, so every entry must be a
+# CURIE naming a class -- not a free-text `key:value` string. The earlier
+# `direction:increased` / `subject_direction:decreased` forms violated that twice
+# over: they were not CURIEs, and their prefixes named namespaces that do not
+# exist. A prefix before a colon is a namespace claim, and `direction:` was not
+# one anybody could resolve.
+#
+# Values come from the schema rather than being invented here. `ModifierEnum`
+# already binds four of its seven values to PATO, so those export as the bound
+# term. The remaining three have no ontology term (checked across PATO/GENO/GO/SO
+# when the enum was written), so they fall back to the dismech namespace --
+# `dismech:` is declared in the schema prefix map as
+# https://w3id.org/monarch-initiative/dismech/ and `default_prefix: dismech`,
+# so these are resolvable CURIEs pointing at our own model rather than fictional
+# ones.
+#
+# `test_modifier_curies_match_schema_meanings` pins this against
+# src/dismech/schema/dismech.yaml so the two cannot drift.
+MODIFIER_TO_CURIE = {
+    "INCREASED": "PATO:0002300",       # increased quality
+    "DECREASED": "PATO:0002301",       # decreased quality
+    "ABNORMAL": "PATO:0000460",        # abnormal
+    "ABSENT": "PATO:0000462",          # absent
+    "DYSREGULATED": "dismech:DYSREGULATED",
+    "GAIN_OF_FUNCTION": "dismech:GAIN_OF_FUNCTION",
+    "LOSS_OF_FUNCTION": "dismech:LOSS_OF_FUNCTION",
 }
 
 
@@ -346,9 +370,9 @@ def biological_process_to_edge(
     """
     Convert a biological process entry to a KGX edge.
 
-    Uses biolink:affects predicate. The modifier field (INCREASED/DECREASED)
-    is captured in the qualifiers list for future use when biolink supports
-    typed qualifier fields on a Disease→BiologicalProcess association.
+    Uses biolink:affects predicate. The modifier is emitted into the generic
+    `qualifiers` list as the CURIE `MODIFIER_TO_CURIE` binds it to, since biolink
+    has no typed qualifier field on a Disease→BiologicalProcess association.
 
     Args:
         disease_id: The disease term ID
@@ -362,19 +386,18 @@ def biological_process_to_edge(
     if not term_id:
         return None
 
-    # Get modifier and map to direction qualifier string
-    # Note: Base Association class doesn't support typed qualifiers like
-    # object_direction_qualifier, so we store it in the qualifiers list
+    # The modifier becomes an ontology CURIE in the generic `qualifiers` list;
+    # Association has no typed object_direction_qualifier. See MODIFIER_TO_CURIE.
     modifier = process.get("modifier")
-    direction = MODIFIER_TO_DIRECTION.get(modifier) if modifier else None
+    qualifier_curie = MODIFIER_TO_CURIE.get(modifier) if modifier else None
 
     # Format evidence (indirect - inherited from parent mechanism)
     publications, supporting_text = _format_evidence(parent_evidence, indirect=True)
 
     predicate = "biolink:affects"
     qualifiers = []
-    if direction:
-        qualifiers.append(f"direction:{direction}")
+    if qualifier_curie:
+        qualifiers.append(qualifier_curie)
 
     return Association(
         id=_make_edge_id(),
@@ -474,23 +497,6 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     )
 
 
-# Modifier to direction for an exposure *subject*. Extends MODIFIER_TO_DIRECTION
-# with ABSENT, which on an exposure carries polarity the shared map does not:
-# PATO:0000462 "not occurring or not present" means the exposure did not happen,
-# so dropping it would export the un-negated triple — the same inversion #8468
-# fixes for DECREASED, and a starker one. Biolink's DirectionQualifierEnum has
-# only increased/upregulated/decreased/downregulated, so `decreased` is the
-# faithful projection: absence is the limiting case of reduction, and both make
-# the claim "less of X than the comparator", which is the axis a consumer reads.
-#
-# Deliberately an overlay rather than an entry in the shared map: on a
-# Disease→process edge ABSENT qualifies a process rather than an exposure, and
-# widening that map would silently change edges no one has reviewed. The
-# polarity-free values (ABNORMAL, DYSREGULATED) are still dropped in both
-# places — they assert no direction, so there is nothing to invert.
-_EXPOSURE_MODIFIER_TO_DIRECTION = {**MODIFIER_TO_DIRECTION, "ABSENT": "decreased"}
-
-
 # Protective-effect patterns. Matched against environmental[].effect to flip the
 # predicate from contributes_to → associated_with_decreased_likelihood_of when the
 # curated text indicates the exposure reduces disease risk (see #2098).
@@ -550,25 +556,21 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     of X"), use `biolink:associated_with_decreased_likelihood_of` instead.
     See #2098.
 
-    `exposure_term.modifier` sets the polarity of the *subject*, emitted as a
-    `subject_direction:<increased|decreased>` entry in the `qualifiers` list
-    (see `_EXPOSURE_MODIFIER_TO_DIRECTION` for why ABSENT maps to `decreased`
-    here but not on the Disease→GO edges).
-    Without it a deficiency exposure exports inverted: `Anencephaly` curates
-    `ECTO:9000123` (exposure to folic acid) with `modifier: DECREASED`, meaning
-    *low* folate contributes to the defect, but the bare triple reads as
-    "exposure to folic acid contributes to anencephaly" — the opposite claim.
-    See #8468.
+    `exposure_term.modifier` is emitted into `qualifiers` as the CURIE
+    `MODIFIER_TO_CURIE` binds it to. Without it a deficiency exposure exports
+    inverted: `Anencephaly` curates `ECTO:9000123` (exposure to folic acid) with
+    `modifier: DECREASED`, meaning *low* folate contributes to the defect, but
+    the bare triple reads as "exposure to folic acid contributes to anencephaly"
+    — the opposite claim. See #8468.
 
-    The qualifier is a free-text list entry rather than Biolink's typed
-    `subject_direction_qualifier` because the pinned `biolink_model` pydantic
-    bindings do not expose that slot on `ExposureEventToOutcomeAssociation`
-    (its only qualifier slots are `qualifier`, `qualifiers`,
-    `population_context_qualifier`, and `temporal_context_qualifier`). This
-    follows the pattern `biological_process_to_edge` and
-    `molecular_function_to_edge` already use, but those describe the *object*
-    of a Disease→GO edge and so write a bare `direction:`; here the modifier
-    describes the subject, so the prefix is explicit rather than positional.
+    The qualifier attaches to the subject here and to the object on the
+    Disease→process edges, which the CURIE itself does not say. It is recoverable
+    from the edge either way: a disease is never the end a `decreased quality`
+    describes, so on an exposure edge it can only be the exposure and on a
+    Disease→process edge only the process. Biolink's typed
+    `subject_direction_qualifier`/`object_direction_qualifier` would state it
+    outright, but neither is on `ExposureEventToOutcomeAssociation` or
+    `Association` in the pinned bindings. See #9132.
 
     Args:
         disease_id: The disease term ID
@@ -591,8 +593,8 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
 
     exposure_term = environmental.get("exposure_term")
     modifier = exposure_term.get("modifier") if isinstance(exposure_term, dict) else None
-    direction = _EXPOSURE_MODIFIER_TO_DIRECTION.get(modifier) if modifier else None
-    qualifiers = [f"subject_direction:{direction}"] if direction else None
+    qualifier_curie = MODIFIER_TO_CURIE.get(modifier) if modifier else None
+    qualifiers = [qualifier_curie] if qualifier_curie else None
 
     return ExposureEventToOutcomeAssociation(
         id=_make_edge_id(),
@@ -617,7 +619,7 @@ def molecular_function_to_edge(
     Convert a molecular function entry to a KGX edge.
 
     Same pattern as biological_process_to_edge: Disease affects GO molecular function,
-    with optional direction qualifier from modifier.
+    with the modifier emitted as a qualifier CURIE.
 
     Args:
         disease_id: The disease term ID
@@ -632,13 +634,13 @@ def molecular_function_to_edge(
         return None
 
     modifier = mf.get("modifier")
-    direction = MODIFIER_TO_DIRECTION.get(modifier) if modifier else None
+    qualifier_curie = MODIFIER_TO_CURIE.get(modifier) if modifier else None
 
     publications, supporting_text = _format_evidence(parent_evidence, indirect=True)
 
     qualifiers = []
-    if direction:
-        qualifiers.append(f"direction:{direction}")
+    if qualifier_curie:
+        qualifiers.append(qualifier_curie)
 
     return Association(
         id=_make_edge_id(),
@@ -733,7 +735,7 @@ def pathway_to_edge(
     Convert a pathway entry to a KGX edge.
 
     Same pattern as biological_process_to_edge: Disease affects GO biological process
-    (pathways are GO BP terms), with optional direction qualifier.
+    (pathways are GO BP terms), with the modifier emitted as a qualifier CURIE.
 
     Args:
         disease_id: The disease term ID
@@ -748,13 +750,13 @@ def pathway_to_edge(
         return None
 
     modifier = pathway.get("modifier")
-    direction = MODIFIER_TO_DIRECTION.get(modifier) if modifier else None
+    qualifier_curie = MODIFIER_TO_CURIE.get(modifier) if modifier else None
 
     publications, supporting_text = _format_evidence(parent_evidence, indirect=True)
 
     qualifiers = []
-    if direction:
-        qualifiers.append(f"direction:{direction}")
+    if qualifier_curie:
+        qualifiers.append(qualifier_curie)
 
     return Association(
         id=_make_edge_id(),

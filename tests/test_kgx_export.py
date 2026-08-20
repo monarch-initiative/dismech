@@ -1,5 +1,7 @@
 """Tests for KGX edge and node exporter."""
 
+from pathlib import Path
+
 import pytest
 
 pytest.importorskip("biolink_model", reason="biolink-model not installed (install with: uv sync --group export)")
@@ -338,6 +340,53 @@ class TestGeneToEdge:
         assert gene_to_edge("MONDO:0004979", None) is None
 
 
+class TestModifierCurieMap:
+    """The qualifier vocabulary is derived from the schema, not invented here."""
+
+    def test_modifier_curies_match_schema_meanings(self):
+        """Every PATO CURIE in the map is the schema's own `meaning` (#9131).
+
+        The map is hardcoded for runtime simplicity, so this is what stops it
+        drifting from `ModifierEnum`. The generated datamodel cannot be used as
+        the source — it carries no `meaning:` and is missing two permissible
+        values — so the schema YAML is read directly.
+        """
+        import yaml
+
+        from dismech.export.kgx_export import MODIFIER_TO_CURIE
+
+        schema = yaml.safe_load(
+            (Path(__file__).parent.parent / "src/dismech/schema/dismech.yaml").read_text()
+        )
+        values = schema["enums"]["ModifierEnum"]["permissible_values"]
+
+        # every value is exported, none silently dropped
+        assert set(MODIFIER_TO_CURIE) == set(values)
+
+        for name, pv in values.items():
+            meaning = (pv or {}).get("meaning")
+            if meaning:
+                assert MODIFIER_TO_CURIE[name] == meaning, (
+                    f"{name} is bound to {meaning} in the schema"
+                )
+            else:
+                # no ontology term -> the dismech namespace, never an invented one
+                assert MODIFIER_TO_CURIE[name] == f"dismech:{name}"
+
+    def test_no_qualifier_is_a_bare_string(self):
+        """Biolink types `qualifiers` as `range: ontology class` (#9131).
+
+        A `direction:increased`-style entry claims a namespace that does not
+        exist, which is what this whole vocabulary change is about.
+        """
+        from dismech.export.kgx_export import MODIFIER_TO_CURIE
+
+        for value in MODIFIER_TO_CURIE.values():
+            prefix, _, local = value.partition(":")
+            assert local, f"{value} is not a CURIE"
+            assert prefix in {"PATO", "dismech"}, f"{prefix} is not a declared prefix"
+
+
 class TestExposureToEdge:
     """Tests for exposure_to_edge function."""
 
@@ -449,7 +498,7 @@ class TestExposureToEdge:
         edge = exposure_to_edge("MONDO:0004979", environmental)
         assert edge.predicate == "biolink:contributes_to"
 
-    def test_decreased_modifier_emits_subject_direction(self):
+    def test_decreased_modifier_emits_pato_curie(self):
         """A deficiency exposure must not export as plain exposure (#8468).
 
         Reproduces the Anencephaly maternal-folate-deficiency entry: the ECTO
@@ -475,9 +524,9 @@ class TestExposureToEdge:
         assert edge is not None
         assert edge.subject == "ECTO:9000123"
         assert edge.predicate == "biolink:contributes_to"
-        assert edge.qualifiers == ["subject_direction:decreased"]
+        assert edge.qualifiers == ["PATO:0002301"]
 
-    def test_increased_modifier_emits_subject_direction(self):
+    def test_increased_modifier_emits_pato_curie(self):
         """An INCREASED modifier is a fidelity gain, not an inversion (#8468)."""
         environmental = {
             "name": "High Sodium Diet",
@@ -490,7 +539,7 @@ class TestExposureToEdge:
             ],
         }
         edge = exposure_to_edge("MONDO:0001134", environmental)
-        assert edge.qualifiers == ["subject_direction:increased"]
+        assert edge.qualifiers == ["PATO:0002300"]
 
     def test_modifier_is_independent_of_predicate(self):
         """Direction qualifies the subject; the predicate still reads the effect.
@@ -510,7 +559,7 @@ class TestExposureToEdge:
         }
         edge = exposure_to_edge("MONDO:0002526", environmental)
         assert edge.predicate == "biolink:associated_with_decreased_likelihood_of"
-        assert edge.qualifiers == ["subject_direction:increased"]
+        assert edge.qualifiers == ["PATO:0002300"]
 
     def test_no_modifier_emits_no_qualifiers(self):
         """An exposure without a modifier keeps qualifiers unset."""
@@ -520,42 +569,37 @@ class TestExposureToEdge:
         edge = exposure_to_edge("MONDO:0004979", environmental)
         assert edge.qualifiers is None
 
-    def test_absent_modifier_is_a_decreased_exposure(self):
-        """ABSENT carries polarity on an exposure and must not be dropped (#8468).
+    @pytest.mark.parametrize(
+        "modifier,expected",
+        [
+            ("ABSENT", "PATO:0000462"),
+            ("ABNORMAL", "PATO:0000460"),
+            ("DYSREGULATED", "dismech:DYSREGULATED"),
+        ],
+    )
+    def test_every_modifier_exports_as_a_curie(self, modifier, expected):
+        """No ModifierEnum value is dropped, and none becomes a non-CURIE.
 
-        `PATO:0000462` "not occurring or not present" means the exposure did not
-        happen, so dropping it re-exports the un-negated triple this PR exists to
-        fix — a starker inversion than DECREASED, not a milder one. Biolink's
-        DirectionQualifierEnum offers only increased/upregulated/decreased/
-        downregulated, so `decreased` is the faithful projection.
+        ABSENT needs no lossy projection onto "decreased" — PATO carries its own
+        `absent`. DYSREGULATED has no ontology term at all, so it takes the
+        dismech namespace rather than being silently discarded.
         """
         environmental = {
-            "exposure_term": {"modifier": "ABSENT", "term": {"id": "ECTO:9000123"}},
+            "exposure_term": {"modifier": modifier, "term": {"id": "ECTO:9000123"}},
         }
         edge = exposure_to_edge("MONDO:0000819", environmental)
-        assert edge.qualifiers == ["subject_direction:decreased"]
+        assert edge.qualifiers == [expected]
 
-    @pytest.mark.parametrize("modifier", ["ABNORMAL", "DYSREGULATED"])
-    def test_directionless_modifier_emits_no_qualifiers(self, modifier):
-        """A modifier asserting no direction is dropped, not guessed at.
+    def test_the_same_curie_is_used_on_a_disease_process_edge(self):
+        """One vocabulary across every edge type — no per-site variant (#9131).
 
-        Unlike ABSENT these say nothing about more-or-less, so there is no
-        polarity to lose and nothing to invert.
-        """
-        environmental = {
-            "exposure_term": {"modifier": modifier, "term": {"id": "ECTO:6000029"}},
-        }
-        edge = exposure_to_edge("MONDO:0004979", environmental)
-        assert edge.qualifiers is None
-
-    def test_absent_stays_dropped_on_the_go_edges(self):
-        """The ABSENT mapping is exposure-specific and must not leak (#8468).
-
-        On a Disease→GO edge ABSENT qualifies a process, not an exposure, and
-        widening the shared map would silently change edges nobody reviewed.
+        The exposure edge qualifies its subject and this one its object, but the
+        CURIE is the same because the curated modifier is.
         """
         process = {"term": {"id": "GO:0016301"}, "modifier": "ABSENT"}
-        assert biological_process_to_edge("MONDO:0004979", process).qualifiers is None
+        assert biological_process_to_edge("MONDO:0004979", process).qualifiers == [
+            "PATO:0000462"
+        ]
 
 
 class TestMolecularFunctionToEdge:
@@ -575,7 +619,7 @@ class TestMolecularFunctionToEdge:
         assert edge.object == "GO:0016301"
         assert edge.subject_category == "biolink:Disease"
         assert edge.object_category == "biolink:MolecularActivity"
-        assert "direction:increased" in edge.qualifiers
+        assert edge.qualifiers == ["PATO:0002300"]
 
     def test_missing_term_id(self):
         """Test with missing term.id."""
@@ -659,7 +703,7 @@ class TestPathwayToEdge:
         assert edge.object == "GO:0016055"
         assert edge.subject_category == "biolink:Disease"
         assert edge.object_category == "biolink:Pathway"
-        assert "direction:decreased" in edge.qualifiers
+        assert edge.qualifiers == ["PATO:0002301"]
 
     def test_missing_term_id(self):
         """Test with missing term.id."""

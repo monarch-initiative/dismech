@@ -14,62 +14,102 @@ The `_sepio` sidecar is a separate model documented in
 
 ## Edge qualifiers
 
-Several dismech slots carry a **direction** that the Biolink predicate alone
-cannot express. The pinned `biolink_model` pydantic bindings expose typed
-qualifier slots on only some association classes — `Association` and
-`ExposureEventToOutcomeAssociation` both lack `subject_direction_qualifier` and
-`object_direction_qualifier` — so direction is emitted as a string entry in the
-generic `qualifiers` list.
+Several dismech slots carry a **modifier** that the Biolink predicate alone
+cannot express. Biolink declares the `qualifiers` slot as:
 
-| Qualifier | Emitted on | Source slot | Qualifies |
-|---|---|---|---|
-| `direction:<increased\|decreased>` | Disease→process edges (biological process, molecular function, pathway) | `Descriptor.modifier` | the **object** |
-| `subject_direction:<increased\|decreased>` | Exposure→Disease edges | `exposure_term.modifier` | the **subject** |
-| `causal_link_type` values (`DIRECT`, `INDIRECT_KNOWN_INTERMEDIATES`, …) | pathophysiology causal edges (SEPIO sidecar) | `downstream[].causal_link_type` | the edge |
+```yaml
+qualifiers:
+  description: connects an association to qualifiers that modify or qualify the meaning of that association
+  range: ontology class
+  multivalued: true
+```
 
-Note that `cellular_component_to_edge` does **not** read `modifier` and so emits
-no qualifier, while `pathway_to_edge` does — and its object category is
-`biolink:Pathway` rather than a GO category, despite the term itself being a GO
-biological process. A consumer filtering direction-carrying edges by object
-category has to include `biolink:Pathway` alongside `biolink:BiologicalProcess`
-and `biolink:MolecularActivity`.
+`range: ontology class` — so every entry is a **CURIE naming a class**. A
+free-text entry like `direction:increased` is not one, and its prefix claims a
+namespace (`direction:`) that nothing can resolve. Both forms are gone; see
+#9131.
 
-**The bare `direction:` prefix means "object" by convention**, and only because
-those edges predate the exposure case. On a Disease→process edge the disease is
-always the subject and the direction always describes the process term, so the
-prefix was never ambiguous in context. The exposure edge inverts that geometry —
-the ECTO term is the *subject* — so it spells the end out. Normalizing the older
-edges to `object_direction:` would be tidier but is a breaking change to
-7,262 existing edges; see #9132.
+| Source slot | Emitted on | Qualifies |
+|---|---|---|
+| `Descriptor.modifier` | Disease→process edges (biological process, molecular function, pathway) | the **object** |
+| `exposure_term.modifier` | Exposure→Disease edges | the **subject** |
+| `downstream[].causal_link_type` | pathophysiology causal edges (SEPIO sidecar) | the edge |
 
-### Why exposure direction matters
+Note `pathway_to_edge` carries `object_category: biolink:Pathway` rather than a
+GO category, even though the term is a GO biological process — a consumer
+filtering qualifier-carrying edges by category has to include `biolink:Pathway`
+alongside `biolink:BiologicalProcess` and `biolink:MolecularActivity`.
 
-The exposure edge's subject is the ECTO term itself, so the direction is what
+### The vocabulary comes from the schema
+
+Values are not invented by the exporter. `ModifierEnum` already binds four of
+its seven permissible values to PATO, and those export as the bound term:
+
+| `ModifierEnum` | Emitted CURIE | Label |
+|---|---|---|
+| `INCREASED` | `PATO:0002300` | increased quality |
+| `DECREASED` | `PATO:0002301` | decreased quality |
+| `ABNORMAL` | `PATO:0000460` | abnormal |
+| `ABSENT` | `PATO:0000462` | absent |
+| `DYSREGULATED` | `dismech:DYSREGULATED` | — |
+| `GAIN_OF_FUNCTION` | `dismech:GAIN_OF_FUNCTION` | — |
+| `LOSS_OF_FUNCTION` | `dismech:LOSS_OF_FUNCTION` | — |
+
+The last three have no ontology term — PATO, GENO, GO and SO were all checked
+when the enum was written — so they fall back to the **dismech namespace**,
+declared in the schema prefix map as `https://w3id.org/monarch-initiative/dismech/`
+and set as `default_prefix`. These are resolvable CURIEs pointing at our own
+model, which is the right answer when dismech and Biolink do not align: refer to
+the dismech model by its own prefix rather than minting a fictional one.
+
+`CausalLinkTypeEnum` binds none of its four values, so all four take the same
+route: `dismech:DIRECT`, `dismech:INDIRECT_KNOWN_INTERMEDIATES`,
+`dismech:INDIRECT_UNKNOWN_INTERMEDIATES`, `dismech:UNKNOWN`.
+
+`test_modifier_curies_match_schema_meanings` pins the map against
+`src/dismech/schema/dismech.yaml`, so the exporter and the schema cannot drift;
+`test_no_qualifier_is_a_bare_string` pins that every emitted value is a CURIE
+under a declared prefix.
+
+### Which end a qualifier applies to
+
+The CURIE does not say whether it qualifies the subject or the object — it is a
+quality, not a statement about edge geometry. It is recoverable from the edge:
+a disease is never the end a `decreased quality` describes, so on an exposure
+edge the qualifier can only be about the exposure, and on a Disease→process edge
+only about the process.
+
+Biolink's typed `subject_direction_qualifier` / `object_direction_qualifier`
+would state it outright, but neither is present on `Association` or
+`ExposureEventToOutcomeAssociation` in the pinned bindings (their only qualifier
+slots are `qualifier`, `qualifiers`, and — on the exposure class —
+`population_context_qualifier` and `temporal_context_qualifier`). Tracked in
+#9132.
+
+### Why exposure polarity matters
+
+The exposure edge's subject is the ECTO term itself, so the qualifier is what
 separates a deficiency from an exposure. Both of these curate `ECTO:9000123`
 (exposure to folic acid) as the subject:
 
 ```
 Anencephaly                 ECTO:9000123 --contributes_to-->                          MONDO:0000819
-                            qualifiers: [subject_direction:decreased]
+                            qualifiers: [PATO:0002301]     # decreased quality
 Ventricular_Septal_Defect   ECTO:9000123 --associated_with_decreased_likelihood_of--> MONDO:0002070
-                            qualifiers: [subject_direction:increased]
+                            qualifiers: [PATO:0002300]     # increased quality
 ```
 
 Without the qualifier the first triple asserts that exposure to folate causes
-anencephaly, which is the opposite of the curated claim (#8468). The direction
-is carried **independently of the predicate** because the two axes are
-orthogonal: the second entry is an *increased* exposure that is *protective*.
-
-`ModifierEnum` values that assert no direction (`ABNORMAL`, `DYSREGULATED`) are
-dropped rather than guessed at. `ABSENT` (`PATO:0000462`) is the exception on an
-exposure — "not occurring or not present" is a statement about polarity, so it
-maps to `decreased`, the closest value in Biolink's
-`DirectionQualifierEnum` (`increased`/`upregulated`/`decreased`/`downregulated`,
-which has no "absent"). That mapping is exposure-specific: on a Disease→GO edge
-`ABSENT` qualifies a process rather than an exposure and is still dropped.
+anencephaly, the opposite of the curated claim (#8468). The qualifier is carried
+**independently of the predicate** because the two axes are orthogonal: the
+second entry is an *increased* exposure that is *protective*.
 
 ## What is not exported
 
+- `cellular_components[].modifier` — `cellular_component_to_edge` never reads
+  `modifier`, so 61 curated values across `kb/` are dropped. Pre-existing, and
+  left alone here rather than quietly widening this change; wiring it would add
+  qualifiers to edges that have never carried them.
 - `Pathophysiology.triggers` — the *other* route an ECTO exposure term reaches a
   mechanism node. It has no KGX edge at all, so the exposure-polarity handling
   above does not apply to it.
