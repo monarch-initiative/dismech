@@ -303,10 +303,16 @@ def _causal_link_curie(causal_link_type: str | None) -> str | None:
     they take the dismech namespace -- ``dismech:`` is declared in the schema
     prefix map and is ``default_prefix``, making these resolvable CURIEs into
     our own model rather than invented ones.
+
+    Qualified by the enum rather than flat: ``DIRECT`` is a very generic local
+    name to plant at the root of a shared namespace, and 18 permissible-value
+    names in this schema already belong to more than one enum. Matches the
+    ``dismech:{...}#{...}`` fragment convention used by
+    :func:`pathophysiology_node_id`.
     """
     if not causal_link_type:
         return None
-    return f"dismech:{causal_link_type}"
+    return f"dismech:CausalLinkTypeEnum#{causal_link_type}"
 
 
 def pathophysiology_node_id(disease_name: str, node_name: str) -> str:

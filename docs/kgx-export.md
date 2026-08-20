@@ -29,6 +29,13 @@ free-text entry like `direction:increased` is not one, and its prefix claims a
 namespace (`direction:`) that nothing can resolve. Both forms are gone; see
 #9131.
 
+Two honest caveats about this slot. Biolink marks it `deprecated: true` in the
+same block, and it is used anyway because it is the only qualifier slot the
+pinned bindings expose on these association classes — the typed direction
+qualifiers are the eventual destination (#9132). And the `dismech:` CURIEs below
+satisfy `range: ontology class` in form but not in substance: nothing publishes a
+class at those IRIs. Both are conscious positions, not oversights.
+
 | Source slot | Emitted on | Qualifies |
 |---|---|---|
 | `Descriptor.modifier` | Disease→process edges (biological process, molecular function, pathway) | the **object** |
@@ -51,9 +58,9 @@ its seven permissible values to PATO, and those export as the bound term:
 | `DECREASED` | `PATO:0002301` | decreased quality |
 | `ABNORMAL` | `PATO:0000460` | abnormal |
 | `ABSENT` | `PATO:0000462` | absent |
-| `DYSREGULATED` | `dismech:DYSREGULATED` | — |
-| `GAIN_OF_FUNCTION` | `dismech:GAIN_OF_FUNCTION` | — |
-| `LOSS_OF_FUNCTION` | `dismech:LOSS_OF_FUNCTION` | — |
+| `DYSREGULATED` | `dismech:ModifierEnum#DYSREGULATED` | — |
+| `GAIN_OF_FUNCTION` | `dismech:ModifierEnum#GAIN_OF_FUNCTION` | — |
+| `LOSS_OF_FUNCTION` | `dismech:ModifierEnum#LOSS_OF_FUNCTION` | — |
 
 The last three have no ontology term — PATO, GENO, GO and SO were all checked
 when the enum was written — so they fall back to the **dismech namespace**,
@@ -63,8 +70,17 @@ model, which is the right answer when dismech and Biolink do not align: refer to
 the dismech model by its own prefix rather than minting a fictional one.
 
 `CausalLinkTypeEnum` binds none of its four values, so all four take the same
-route: `dismech:DIRECT`, `dismech:INDIRECT_KNOWN_INTERMEDIATES`,
-`dismech:INDIRECT_UNKNOWN_INTERMEDIATES`, `dismech:UNKNOWN`.
+route: `dismech:CausalLinkTypeEnum#DIRECT`, `#INDIRECT_KNOWN_INTERMEDIATES`,
+`#INDIRECT_UNKNOWN_INTERMEDIATES`, `#UNKNOWN`.
+
+**The fallback is qualified by its enum, not flat.** 18 permissible-value names
+in this schema belong to more than one enum. `GAIN_OF_FUNCTION` and
+`LOSS_OF_FUNCTION` are among them — they are `FunctionalImpactEnum` values too,
+where they describe a *variant's consequence* rather than a *pathway's activity
+state*, a distinction the schema keeps deliberately and which can co-occur on one
+node. A flat `dismech:GAIN_OF_FUNCTION` would give both concepts one IRI. The
+`dismech:{Enum}#{VALUE}` form matches `SchemaView.get_uri(ModifierEnum)` and the
+fragment convention already used for pathophysiology node IDs.
 
 `test_modifier_curies_match_schema_meanings` pins the map against
 `src/dismech/schema/dismech.yaml`, so the exporter and the schema cannot drift;

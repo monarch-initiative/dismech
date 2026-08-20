@@ -370,8 +370,9 @@ class TestModifierCurieMap:
                     f"{name} is bound to {meaning} in the schema"
                 )
             else:
-                # no ontology term -> the dismech namespace, never an invented one
-                assert MODIFIER_TO_CURIE[name] == f"dismech:{name}"
+                # no ontology term -> the dismech namespace, qualified by the
+                # enum so it cannot collide with a same-named value elsewhere
+                assert MODIFIER_TO_CURIE[name] == f"dismech:ModifierEnum#{name}"
 
     def test_no_qualifier_is_a_bare_string(self):
         """Biolink types `qualifiers` as `range: ontology class` (#9131).
@@ -385,6 +386,21 @@ class TestModifierCurieMap:
             prefix, _, local = value.partition(":")
             assert local, f"{value} is not a CURIE"
             assert prefix in {"PATO", "dismech"}, f"{prefix} is not a declared prefix"
+
+    def test_unbound_values_are_namespaced_by_their_enum(self):
+        """A flat `dismech:GAIN_OF_FUNCTION` would name two different concepts.
+
+        GAIN_OF_FUNCTION and LOSS_OF_FUNCTION are `FunctionalImpactEnum` values
+        too, where they describe a variant's consequence rather than a pathway's
+        activity state — CLAUDE.md keeps those apart, and they can co-occur on a
+        single node. 18 permissible-value names in the schema are shared this way.
+        """
+        from dismech.export.kgx_export import MODIFIER_TO_CURIE
+
+        for value in MODIFIER_TO_CURIE.values():
+            if value.startswith("dismech:"):
+                assert "#" in value, f"{value} is not qualified by its enum"
+                assert value.startswith("dismech:ModifierEnum#")
 
 
 class TestExposureToEdge:
@@ -574,7 +590,7 @@ class TestExposureToEdge:
         [
             ("ABSENT", "PATO:0000462"),
             ("ABNORMAL", "PATO:0000460"),
-            ("DYSREGULATED", "dismech:DYSREGULATED"),
+            ("DYSREGULATED", "dismech:ModifierEnum#DYSREGULATED"),
         ],
     )
     def test_every_modifier_exports_as_a_curie(self, modifier, expected):

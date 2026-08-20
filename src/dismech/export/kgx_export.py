@@ -83,12 +83,20 @@ FREQUENCY_TO_HP = {
 #
 # Values come from the schema rather than being invented here. `ModifierEnum`
 # already binds four of its seven values to PATO, so those export as the bound
-# term. The remaining three have no ontology term (checked across PATO/GENO/GO/SO
-# when the enum was written), so they fall back to the dismech namespace --
-# `dismech:` is declared in the schema prefix map as
-# https://w3id.org/monarch-initiative/dismech/ and `default_prefix: dismech`,
-# so these are resolvable CURIEs pointing at our own model rather than fictional
-# ones.
+# term. The remaining three have no ontology term (rechecked across all of OLS,
+# not just the PATO/GENO/GO/SO of the original note), so they fall back to the
+# dismech namespace -- `dismech:` is declared in the schema prefix map as
+# https://w3id.org/monarch-initiative/dismech/ and is `default_prefix`, so these
+# resolve into our own model rather than a fictional one.
+#
+# The fallback is qualified by its enum, not flat. 18 permissible-value names in
+# this schema belong to more than one enum, and GAIN_OF_FUNCTION/LOSS_OF_FUNCTION
+# are among them: they are also `FunctionalImpactEnum` values, where they mean the
+# consequence of a specific variant rather than the activity state of a pathway.
+# CLAUDE.md keeps those apart deliberately -- they can co-occur on one node -- so a
+# flat `dismech:GAIN_OF_FUNCTION` would mint one IRI for two different claims. The
+# `dismech:{Enum}#{VALUE}` form matches `SchemaView.get_uri(ModifierEnum)` and the
+# fragment convention `sepio_export.pathophysiology_node_id` already uses.
 #
 # `test_modifier_curies_match_schema_meanings` pins this against
 # src/dismech/schema/dismech.yaml so the two cannot drift.
@@ -97,9 +105,9 @@ MODIFIER_TO_CURIE = {
     "DECREASED": "PATO:0002301",       # decreased quality
     "ABNORMAL": "PATO:0000460",        # abnormal
     "ABSENT": "PATO:0000462",          # absent
-    "DYSREGULATED": "dismech:DYSREGULATED",
-    "GAIN_OF_FUNCTION": "dismech:GAIN_OF_FUNCTION",
-    "LOSS_OF_FUNCTION": "dismech:LOSS_OF_FUNCTION",
+    "DYSREGULATED": "dismech:ModifierEnum#DYSREGULATED",
+    "GAIN_OF_FUNCTION": "dismech:ModifierEnum#GAIN_OF_FUNCTION",
+    "LOSS_OF_FUNCTION": "dismech:ModifierEnum#LOSS_OF_FUNCTION",
 }
 
 

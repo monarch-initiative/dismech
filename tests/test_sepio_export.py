@@ -297,7 +297,7 @@ class TestPathophysiologyStatements:
         assert causal.subject == node.object
         assert causal.predicate == "dismech:causally_upstream_of"
         assert causal.object == "dismech:Cystic_Fibrosis#Airway_Surface_Liquid_Depletion"
-        assert causal.qualifiers == ["dismech:DIRECT"]  # range: ontology class, not a bare enum
+        assert causal.qualifiers == ["dismech:CausalLinkTypeEnum#DIRECT"]
         assert len(causal.has_evidence_lines) == 1
 
     def test_node_statement_id_is_deterministic(self):
