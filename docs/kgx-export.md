@@ -74,8 +74,8 @@ rather than minting a fictional one.
 schema carries two different notes here, with different scopes: `DYSREGULATED` is
 *"No PATO term exists — verified via OAK 2026-06-26"*, while `GAIN_OF_FUNCTION`
 and `LOSS_OF_FUNCTION` are *"No suitable ontology term found across
-PATO/GENO/GO/SO (verified 2026-06-26)"*. An OLS-wide recheck on 2026-08-20 did
-not simply confirm either:
+PATO/GENO/GO/SO (verified 2026-06-26)"*. An OLS-wide recheck on 2026-08-20
+confirmed the first and partly overturned the second:
 
 - `DYSREGULATED` — **confirmed unbound**. Every "dysregulation" hit across PATO,
   GO, NCIT, OGMS and MPATH is a disease entity (IPEX, DMDD), not a quality. The

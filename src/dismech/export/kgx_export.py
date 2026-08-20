@@ -92,7 +92,7 @@ FREQUENCY_TO_HP = {
 # scopes: DYSREGULATED says "No PATO term exists -- verified via OAK 2026-06-26",
 # while GAIN_OF_FUNCTION and LOSS_OF_FUNCTION say "No suitable ontology term
 # found across PATO/GENO/GO/SO (verified 2026-06-26)". An OLS-wide recheck on
-# 2026-08-20 was NOT simply a confirmation of either:
+# 2026-08-20 confirmed the first and partly overturned the second:
 #   - DYSREGULATED: confirmed unbound. Every "dysregulation" hit across PATO, GO,
 #     NCIT, OGMS and MPATH is a disease entity, not a quality.
 #   - GAIN_OF_FUNCTION / LOSS_OF_FUNCTION: candidate terms exist in PATO's
