@@ -29,6 +29,7 @@ from dismech.graph import (
 )
 from dismech.perturb.results_export import load_results as load_model_run_results
 from dismech.perturb.results_export import threshold_kind
+from dismech.term_labels import label_restates_title
 from dismech.term_tooltips import sample_type_descriptor, term_tooltip
 from dismech.yaml_io import safe_load, safe_load_path
 
@@ -59,6 +60,10 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # page is being rendered.
     env.globals["term_tooltip"] = term_tooltip
     env.globals["sample_type_descriptor"] = sample_type_descriptor
+    # Whether a bound term's label restates the card title it sits beside
+    # (issue #8402). A global for the same reason: it depends only on the two
+    # strings, never on which page is being rendered.
+    env.globals["label_restates_title"] = label_restates_title
     return env
 
 
@@ -2100,6 +2105,7 @@ def render_disorder(
     html = _strip_line_end_whitespace(
         template.render(
             disorder=disorder,
+            classification_spec=_classification_display_spec(),
             yaml_content=yaml_content,
             source_file=source_file,
             mermaid_code=mermaid_code,
@@ -2605,6 +2611,11 @@ def _curie_url(curie: str | None) -> str | None:
         return f"https://pubmed.ncbi.nlm.nih.gov/{local}/"
     if upper == "DOI":
         return f"https://doi.org/{local}"
+    if upper == "ICTRP":
+        # Bioregistry has no ICTRP prefix, and the trial identifier keeps its
+        # own registry's punctuation (CTRI/2021/05/033585), so link the portal
+        # record directly.
+        return f"https://trialsearch.who.int/Trial2.aspx?TrialID={local}"
     if upper in _OBO_CURIE_PREFIXES:
         return f"http://purl.obolibrary.org/obo/{_OBO_CURIE_PREFIXES[upper]}_{local}"
     return f"https://bioregistry.io/{prefix}:{local}"
@@ -4076,7 +4087,10 @@ def render_all_groupings(
 _PROJECT_ENTITY_KINDS = ("diseases", "modules", "groupings", "drugs", "phenotypes")
 
 _NIH_TOPICS_ENUM_PATH = (
-    Path(__file__).parent / "schema" / "classifications" / "nih_research_priorities.yaml"
+    Path(__file__).parent
+    / "schema"
+    / "classifications"
+    / "nih_research_priorities.yaml"
 )
 
 
@@ -4092,12 +4106,9 @@ def _nih_topic_display() -> dict[str, dict]:
         return {}
     with _NIH_TOPICS_ENUM_PATH.open(encoding="utf-8") as fh:
         doc = safe_load(fh) or {}
-    pvs = (
-        (doc.get("enums") or {})
-        .get("NIHResearchPriorityEnum", {})
-        .get("permissible_values")
-        or {}
-    )
+    pvs = (doc.get("enums") or {}).get("NIHResearchPriorityEnum", {}).get(
+        "permissible_values"
+    ) or {}
     out: dict[str, dict] = {}
     for key, meta in pvs.items():
         desc = (meta or {}).get("description", "") if isinstance(meta, dict) else ""
@@ -4650,6 +4661,75 @@ def _load_classification_enums() -> dict:
     return enums
 
 
+def _classification_display_spec(schema: dict | None = None) -> list[dict]:
+    """Ordered display spec for the disorder page's Classifications card.
+
+    Derived from ``DiseaseClassifications`` in the schema rather than hardcoded
+    in the template, so a newly added classification slot renders without a
+    template edit — the previous hardcoded list had silently drifted, leaving
+    ICIMD, ISDS and NIH assignments curated but invisible.
+
+    Labels come from each slot's LinkML ``title``. Slots that declare a
+    ``slot_group`` are nested under that group, which is the one job LinkML
+    slot groups are actually for ("slot groups do not change the semantics of a
+    model but are a useful way of visually grouping related slots").
+    """
+    if schema is None:
+        # Called once per rendered page; _load_schema re-parses ~270KB of YAML
+        # (~61 ms), which is ~90 s over a full build, so memoize the derived
+        # spec rather than the schema. Treat the result as read-only.
+        return _default_classification_display_spec()
+    slots = schema.get("slots") or {}
+    classifications = (schema.get("classes") or {}).get("DiseaseClassifications") or {}
+
+    def label_for(slot_name: str) -> str:
+        slot_def = slots.get(slot_name) or {}
+        return slot_def.get("title") or slot_name.replace("_", " ").title()
+
+    spec: list[dict] = []
+    group_index: dict[str, dict] = {}
+    for slot_name in classifications.get("slots") or []:
+        entry = {"slot": slot_name, "label": label_for(slot_name)}
+        group_name = (slots.get(slot_name) or {}).get("slot_group")
+        if not group_name:
+            spec.append({"label": entry["label"], "members": [entry]})
+            continue
+        group = group_index.get(group_name)
+        if group is None:
+            group = {"label": label_for(group_name), "members": []}
+            group_index[group_name] = group
+            spec.append(group)
+        group["members"].append(entry)
+    return spec
+
+
+@cache
+def _default_classification_display_spec() -> list[dict]:
+    """Memoized spec for the committed schema. Read-only; do not mutate."""
+    return _classification_display_spec(_load_schema())
+
+
+def _collect_exposure_classifications(disorder: dict) -> dict[str, list]:
+    """Flatten ``environmental[].exposure_classifications`` into one dict.
+
+    Exposure/agent classifications (IARC group, GHS class, route, …) hang off
+    each ``environmental`` entry rather than off the disease, so they need
+    gathering before they can go through the same slot-to-enum lookup as the
+    disease-level ``classifications`` block. Several environmental entries on
+    one disorder may carry the same slot, so values accumulate into a list.
+    """
+    collected: dict[str, list] = {}
+    for entry in disorder.get("environmental") or []:
+        if not isinstance(entry, dict):
+            continue
+        for slot_name, value in (entry.get("exposure_classifications") or {}).items():
+            if value is None:
+                continue
+            items = value if isinstance(value, list) else [value]
+            collected.setdefault(slot_name, []).extend(items)
+    return collected
+
+
 def _assignment_class_to_enum(schema: dict) -> dict[str, str]:
     mapping: dict[str, str] = {}
     classes = schema.get("classes") or {}
@@ -4777,6 +4857,7 @@ def render_classification_pages(
                 "name": name,
                 "slug": slugify(name),
                 "classifications": disorder.get("classifications") or {},
+                "exposure_classifications": _collect_exposure_classifications(disorder),
             }
         )
 
@@ -4784,7 +4865,10 @@ def render_classification_pages(
         name: {} for name in enums
     }
     for disorder in disorders:
-        classifications = disorder.get("classifications") or {}
+        classifications = {
+            **(disorder.get("classifications") or {}),
+            **(disorder.get("exposure_classifications") or {}),
+        }
         for slot_name, entry in classifications.items():
             if entry is None:
                 continue

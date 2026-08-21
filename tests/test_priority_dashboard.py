@@ -1,8 +1,10 @@
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 
+from dismech.compare.mondo_export import candidates_meta_path
 from dismech.priority_dashboard import (
     PRIORITY_BLOCK_END,
     PRIORITY_BLOCK_START,
@@ -155,8 +157,10 @@ heuristics:
 
     assert result_1["summary"]["total_candidates"] == 3
     assert result_1["summary"]["already_curated"] == 1
+    assert result_1["summary"]["already_curated_excluded_from_export"] == 0
     assert result_1["summary"]["remaining_candidates"] == 2
     assert result_1["summary"]["root_action_candidates"] == 1
+    assert result_1["summary"]["coverage_percent"] == pytest.approx(33.3)
     assert (dashboard_dir / "priority.html").exists()
     assert (dashboard_dir / "priority.json").exists()
 
@@ -184,6 +188,93 @@ heuristics:
 
     assert result_2["summary"]["remaining_candidates"] == 2
     assert dashboard_index.read_text(encoding="utf-8").count(PRIORITY_BLOCK_START) == 1
+
+
+def test_curated_rows_dropped_by_the_exporter_still_count_as_coverage(
+    tmp_path: Path,
+) -> None:
+    """The real pipeline never ships an ALREADY_CURATED row (#7425).
+
+    ``just gen-priority-dashboard`` runs the MONDO exporter with ``--kb-dir``,
+    which drops every already-curated root before the TSV is written. Counting
+    only the surviving curated rows therefore reported ``already_curated: 0``
+    and ``coverage_percent: 0.0`` against a KB of well over a thousand
+    disorders. The dropped count arrives in the export's sidecar and belongs in
+    both halves of the fraction.
+    """
+    kb_dir = tmp_path / "kb" / "disorders"
+    dashboard_dir = tmp_path / "dashboard"
+    candidates = tmp_path / "candidates.json"
+    config = tmp_path / "config.yaml"
+
+    _write_json(
+        candidates,
+        [
+            {
+                "mondo_id": "MONDO:0002442",
+                "label": "long QT syndrome",
+                "definition": "Inherited repolarization disorder.",
+                "synonyms": ["LQTS"],
+                "parents": ["cardiac channelopathy"],
+                "xrefs": ["OMIM:192500"],
+                "child_count": 16,
+            },
+            {
+                "mondo_id": "MONDO:0010342",
+                "label": "autism, susceptibility to, X-linked 3",
+                "definition": "MECP2-linked susceptibility signal.",
+                "synonyms": ["AUTSX3"],
+                "parents": ["neurodevelopmental disorder"],
+                "xrefs": ["OMIM:300496"],
+            },
+        ],
+    )
+    _write(
+        candidates_meta_path(candidates),
+        json.dumps(
+            {
+                "disease_root_id": "MONDO:0000001",
+                "kb_dir": str(kb_dir),
+                "total_descendants": 8,
+                "excluded_curated": 6,
+                "exported_rows": 2,
+            }
+        ),
+    )
+    _write(
+        config,
+        """
+weights: {}
+caps: {}
+thresholds:
+  broad_parent_min_children: 4
+  subtype_series_min_family_size: 2
+  over_specific_leaf_min_words: 7
+heuristics:
+  grouping_term_patterns: []
+  subtype_series_patterns: []
+""",
+    )
+
+    result = generate_priority_dashboard_report(
+        candidates_path=candidates,
+        kb_dir=kb_dir,
+        dashboard_dir=dashboard_dir,
+        config_path=config,
+    )
+
+    summary = result["summary"]
+    assert summary["already_curated"] == 6
+    assert summary["already_curated_excluded_from_export"] == 6
+    assert summary["remaining_candidates"] == 2
+    assert summary["total_candidates"] == 8
+    assert 0 < summary["coverage_percent"] < 100
+    assert summary["coverage_percent"] == pytest.approx(75.0)
+
+    # The table only ever holds the two exported rows, so the headline has to
+    # say where the other six went rather than look like a rendering bug.
+    html_report = (dashboard_dir / "priority.html").read_text(encoding="utf-8")
+    assert "6 of them were dropped from the candidate export" in html_report
 
 
 def test_generate_priority_dashboard_skips_category_section_without_category_data(
