@@ -2036,6 +2036,69 @@ just count-verified-snippets kb/disorders/Cholera.yaml kb/disorders/Asthma.yaml
 #   Snippets checked: 376/376 verified against cached references
 ```
 
+**Five more gates belong in this loop, because CI runs them ungated (#9137).**
+The three checks above are the ones CI runs *on your changed files*; these five
+run on **every** PR with no path filter at all (`.github/workflows/main.yaml`),
+precisely because the PRs that trip them are curation PRs touching only `kb/`,
+which no `src/tests` filter would catch. A curator who runs only the documented
+loop can therefore finish every check and still push work that fails CI:
+
+```bash
+just check-folded-hyphens                              # whole KB + src/, ~8s
+just check-snippet-length                              # whole KB, ~1min
+just check-title-snippets                              # whole KB, ~2.5min
+just check-environmental-evidence                      # whole KB, ~1min
+just check-duplicate-keys kb/disorders/MyDisease.yaml  # or bare: kb/ + schema + conf, ~18s
+```
+
+All five are offline — no reference fetching, no OAK, no network — which is why
+they belong in the per-edit loop rather than the pre-PR sweep. They are not all
+*fast*, though: only `check-duplicate-keys` takes file arguments, so the other
+four re-scan the whole KB every run (and the ratchets scan it twice, once at
+`HEAD` and once at the baseline ref). Run them after a tranche of edits rather
+than after every keystroke.
+
+**What each one actually catches** — the failure modes are non-obvious, and all
+five are invisible to `validate` / `validate-terms` / `count-verified-snippets`:
+
+| Gate | The defect |
+|---|---|
+| `check-folded-hyphens` | A line inside a folded (`>`, `>-`) scalar that ends in a hyphen. `SCA3/Machado-` + newline folds to `Machado- Joseph` — a corrupted disease name in the rendered prose, invisible in the raw YAML (#4799). A suspended hyphen whose continuation starts `and`/`or`/`to`/`vs`/`nor` is exempt. |
+| `check-snippet-length` | An evidence snippet under 5 words. A bare term lifted from a table (`'Babinski signs++++'`) carries no propositional content — it can support nothing — and usually signals text-extraction damage (#7450). Pipe-delimited structured-source rows (ORPHA/ClinGen/ICEES/NCIT) are exempt. |
+| `check-title-snippets` | A snippet that is the cited paper's *title*, or a contiguous fragment of it, rather than its finding — see §6 below (#8374). |
+| `check-environmental-evidence` | An `environmental:` entry with no entry-level `evidence:` block, which is an uncited causation claim (#8296). Evidence on that entry's `influences_mechanisms` links is a **different** claim — "this exposure acts on this node", not "this exposure is real" — and does not satisfy this gate. |
+| `check-duplicate-keys` | A repeated mapping key: kept silently by PyYAML's safe loaders, fatal to the ruamel-backed reference validator. See "Duplicate YAML Keys" below (#8623). |
+
+**Grandfathering, and the trap in it.** Four of the five ratchet against a
+baseline so the pre-existing backlog need not be cleaned up first — but they do
+not source that baseline the same way, and the difference decides whether
+`--update-baseline` can help you:
+
+- `check-snippet-length`, `check-title-snippets`, and `check-environmental-evidence`
+  derive the grandfather set **live from a git ref** (`--against-ref origin/main`
+  locally; the PR's base branch in CI). The committed `tests/*_baseline.txt` is
+  only a fallback for when that ref cannot be read, and **CI never reads it**. So
+  a finding your branch *adds* cannot be baselined away: `just
+  update-snippet-length-baseline` (and its `update-title-snippet-baseline` /
+  `update-environmental-evidence-baseline` siblings) rewrites a file CI ignores,
+  passes locally, and still fails CI. Fix the snippet.
+- `check-folded-hyphens` is the exception: CI runs it with no `--against-ref`, so
+  it reads the committed `tests/folded_hyphen_baseline.txt` and `just
+  update-folded-hyphen-baseline` genuinely does move the gate. That is a reason
+  for more care, not less — a hyphen split is a corrupted term in rendered prose.
+  Regenerate it only when you have deliberately changed the backlog (e.g. fixed
+  entries), never to admit a split you just introduced.
+- `check-duplicate-keys` has no baseline at all. Every finding is new.
+
+**Triage views.** Each ratchet has a `list-*` sibling printing every finding,
+baselined or not — `just list-short-snippets`, `just list-title-snippets`,
+`just list-environmental-evidence-gaps` (and `just list-empty-snippets` for the
+unbaselined `check-empty-snippets` guard, which `just qc` and the pytest suite
+run but no ungated CI step does). Use these to see the existing backlog in a
+file you are already editing; the gates themselves only report what is new. All
+of them are also part of `just qc`, but `qc` runs `validate-all` too and is far
+too slow for the curation loop.
+
 **Pre-PR sweep — run ONCE over every changed file, before opening or updating a PR:**
 
 ```bash
@@ -2275,7 +2338,14 @@ just validate-disorders kb/disorders/MyDisease.yaml
    so a PMID you forgot to fetch shows up as `not cached locally` rather than
    passing quietly
 4. If a snippet doesn't match, fix it to be an exact quote or find a different PMID
-5. Run `just validate-disorders <every changed file>` once before opening the PR
+5. Run the five ungated CI gates — `just check-folded-hyphens`,
+   `just check-snippet-length`, `just check-title-snippets`,
+   `just check-environmental-evidence`, and `just check-duplicate-keys
+   kb/disorders/YourFile.yaml`. They are offline, they run on every PR whatever
+   it touches, and none of the checks above can see what they catch (see
+   "Validation Workflow" for what each one means and why a new finding cannot be
+   baselined away)
+6. Run `just validate-disorders <every changed file>` once before opening the PR
    (see "Validation Workflow" for why this is the end-of-run check)
 
 **Deterministic cache contract check (dismech#871):**
