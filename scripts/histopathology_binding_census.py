@@ -115,14 +115,20 @@ def render(stats: dict, markdown: bool) -> str:
         "bound-term vocabulary: "
         + ", ".join(f"{p} {n}" for p, n in sorted(stats["prefixes"].items(), key=lambda kv: -kv[1])),
         "",
-        f"distinct unbound labels: {stats['distinct_unbound_labels']} for {unbound} unbound"
-        f" findings (the closer these are, the less recurring vocabulary there is to bind)",
-        f"post-composed labels: {stats['compound_unbound']} of {unbound} unbound"
-        f" ({_pct(stats['compound_unbound'], unbound)})"
-        f" vs {stats['compound_bound']} of {bound} bound"
-        f" ({_pct(stats['compound_bound'], bound)})",
-        f"findings using an inherited post-composition slot"
-        f" ({', '.join(POSTCOMPOSITION_SLOTS)}): {stats['postcomposed']} of {total}",
+        (
+            f"distinct unbound labels: {stats['distinct_unbound_labels']} for {unbound} unbound"
+            f" findings (the closer these are, the less recurring vocabulary there is to bind)"
+        ),
+        (
+            f"post-composed labels: {stats['compound_unbound']} of {unbound} unbound"
+            f" ({_pct(stats['compound_unbound'], unbound)})"
+            f" vs {stats['compound_bound']} of {bound} bound"
+            f" ({_pct(stats['compound_bound'], bound)})"
+        ),
+        (
+            "findings using an inherited post-composition slot"
+            f" ({', '.join(POSTCOMPOSITION_SLOTS)}): {stats['postcomposed']} of {total}"
+        ),
     ]
     if markdown:
         return "```\n" + "\n".join(lines) + "\n```"
