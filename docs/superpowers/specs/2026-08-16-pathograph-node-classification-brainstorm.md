@@ -341,6 +341,39 @@ overlap can be surfaced as a QC warning instead.
   mechanically rather than by eye. Bundling is a curation state, not a flaw in
   the classification: a node that resists a single class is the tool working.
 
+## The tree is now machine-readable
+
+[`pathograph_node_classes.txt`](../pathograph_node_classes.txt) parses.
+`src/dismech/node_classes.py` reads the compact indented form and emits YAML,
+JSON, a summary, or the text itself (a stable round-trip). The grammar is three
+line types — class, example, attribute — documented in the file's own header:
+
+```
+CLASS NAME  -- optional gloss
+  subclass
+    Node name  [Disease_Entry]
+      :split ACTIVITY = SCN5A Sodium-Channel Loss of Function
+      :split TISSUE = Impaired Cardiac Conduction
+```
+
+```bash
+just node-classes                  # check grammar (instant)
+just node-classes --verify-kb      # also resolve every leaf against kb/ (~12s)
+just node-classes --format yaml    # emit YAML; also json, text, summary
+```
+
+Two things this buys beyond tidiness. **`--verify-kb` is the check that was
+being run by hand** on every edit to the tree — every cited leaf must be a real
+pathophysiology node in a real entry. A class tree whose leaves have drifted
+from the KB is worse than no tree, because it still looks grounded; that check
+is now a test (`tests/test_node_classes.py`) rather than a habit. And
+**`--format text` round-trips**, so the compact form stays authoritative while
+the design is unsettled, and the move to YAML is mechanical whenever it is
+wanted — the parser already emits exactly the structure a LinkML enum or class
+hierarchy would need, with `id` derived as upper-snake.
+
+Current state: 12 top-level classes, 53 classes, 108 examples across 78 entries.
+
 ## Open questions
 
 - **8 tiers or 6?** Tiers 3/4 (molecular vs pathway) and 7/8 (systemic vs

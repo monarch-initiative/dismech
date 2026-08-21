@@ -828,6 +828,18 @@ check-reference-cache-frontmatter:
 check-term-cache-integrity:
     uv run python -m dismech.term_cache_integrity cache
 
+# Parse and check the compact pathograph node-class tree
+# (docs/superpowers/pathograph_node_classes.txt). The tree is a DESIGN artifact
+# -- nothing in kb/ or the schema depends on it -- but its leaves are real
+# (node, disease) pairs, and a tree whose leaves have drifted from the KB is
+# worse than no tree because it still looks grounded. Bare invocation checks the
+# grammar only (instant); --verify-kb also resolves every cited leaf against
+# kb/ (slow: parses the whole KB). --format yaml|json|text emits the tree,
+# `text` being a stable round-trip of the compact form.
+[group('QC')]
+node-classes *args:
+    uv run python -m dismech.node_classes {{args}}
+
 # Guard against duplicated mapping keys anywhere in kb/ (#8623). PyYAML keeps
 # the last value silently, so a duplicate is invisible to every test and
 # renderer here, while the ruamel-based reference validator rejects the file
