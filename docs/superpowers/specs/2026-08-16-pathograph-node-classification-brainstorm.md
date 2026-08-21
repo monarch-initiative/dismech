@@ -374,6 +374,93 @@ hierarchy would need, with `id` derived as upper-snake.
 
 Current state: 12 top-level classes, 53 classes, 108 examples across 78 entries.
 
+## How this ties in with module classification
+
+Modules (`kb/modules/`) validate against the same `Disease` class, so their
+pathophysiology nodes get node classes exactly like disorder nodes do. The open
+question is whether a *module* then gets a class, and whether it is derived.
+
+Three options were on the table: (1) module class is entirely a function of the
+nodes it contains, (2) something bespoke, (3) neither. **The corpus says (3):
+two orthogonal things, one bespoke and one derived.**
+
+### Deriving it from nodes does not work
+
+Profiling all 123 modules (580 nodes, 71% classifiable — better grounded than
+disorder nodes at ~50%) and reducing each to an *entry→exit* signature, using
+the informal groups CLAUDE.md already names:
+
+| group | modules | distinct signatures |
+|---|---:|---:|
+| treatment toxicity | 4 | **1** |
+| Xogenesis | 5 | 3 |
+| disease-like phenotype | 10 | 4 |
+| drug mechanism | 8 | 4 |
+| hallmark of cancer | 10 | **7** |
+
+The failure is a collision, not a precision problem. `CELLULAR→CELLULAR` is the
+signature of **all four** toxicity modules, **seven of ten** disease-like
+phenotype modules, two of the five Xogenesis modules, and three hallmark
+modules. One signature spans four curator-authored groups. In the other
+direction, "hallmark of cancer" has seven signatures across ten modules — the
+group is internally heterogeneous by shape.
+
+That is the expected result on reflection: the existing groups encode **why the
+module exists in the KB** — is this a cancer hallmark, a drug-toxicity pattern,
+a drug-mechanism target pattern, a phenotype final-common-pathway, a
+structure-formation pattern — and that is a curation-provenance fact, not a
+property of the node cascade.
+
+### But the derived shape is not noise either
+
+It separates things the bespoke groups do not:
+
+- **Drug-mechanism modules are ACTIVITY-anchored** (`viral_protease_inhibition`,
+  `bacterial_protein_synthesis_inhibition`, `fungal_cell_wall_…`). That is
+  exactly right — the drug target *is* a molecular activity, which is the tier
+  added in the previous section.
+- **Xogenesis splits cleanly by what gets built**: `amyloidogenesis` is
+  ACTIVITY→SUBSTANCE (a deposit), while `thrombogenesis` and `atherogenesis` are
+  CELLULAR→TISSUE (a cellular structure). That distinction is real and is not
+  currently recorded anywhere.
+- `genome_instability_mutation` is the only GENOMIC→GENOMIC hallmark, and
+  `deregulated_cellular_energetics` the only SUBSTANCE one — both correct.
+
+### So: two slots, and the derived one audits the bespoke one
+
+Same relationship node class already has with ontology grounding — evidence
+*for* a curated claim, not a parallel axis:
+
+| | what it is | who sets it |
+|---|---|---|
+| **module kind** | hallmark / toxicity / drug-mechanism / disease-like phenotype / Xogenesis / serial-homology / … | curator (already exists, in CLAUDE.md prose, with no slot) |
+| **module shape** | entry→exit signature over node classes, plus the class histogram | computed |
+
+The bespoke half is not new work — it is formalizing a taxonomy that already
+exists as prose. The derived half becomes a consistency check: a module filed as
+a drug-mechanism pattern whose nodes are not ACTIVITY-anchored is worth a look,
+as is a new Xogenesis module that ends CELLULAR rather than TISSUE or SUBSTANCE.
+
+### The one place node class serves modules directly
+
+Every module has a **key conformance target** — the node other entries point at
+with `conforms_to`. That is a node, so it carries a node class, and that gives
+the conformance check real teeth: **a disorder node conforming to a module node
+of a different class is a probable mis-mapping.** This is the sharpest concrete
+use of node classification found so far, and it needs no module-level slot at
+all.
+
+### Caveat on these numbers
+
+Module signatures rest on few nodes (most modules have 2–6), so an individual
+signature is fragile; the collision result is robust because it is about
+overlap, not precision. And four drug-mechanism modules came back unclassifiable
+— not because their nodes lack grounding (all five nodes of
+`bacterial_cell_wall_synthesis_inhibition` carry GO BP terms) but because
+bacterial GO terms fall outside the top-200 seed table. That is a seed-coverage
+gap, and an argument for extending the table to 500 terms before leaning on
+module shape.
+
 ## Open questions
 
 - **8 tiers or 6?** Tiers 3/4 (molecular vs pathway) and 7/8 (systemic vs
