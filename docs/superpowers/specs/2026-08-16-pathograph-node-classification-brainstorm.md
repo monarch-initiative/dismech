@@ -140,239 +140,91 @@ Loss of Function` were filed under GENOMIC; they are activity claims. GENOMIC
 keeps only genome-level content — dosage, structural variants, imprinting,
 silencing, transcriptional regulation.
 
-## The GO seed table works
+## The GO seed table
 
 [`pathograph_node_class_go_seed.tsv`](../pathograph_node_class_go_seed.tsv)
-hand-classifies the **top 200 GO BP terms** (55.6% of all BP annotations) into
-the nine classes, with a `confidence` column so genuinely ambiguous terms
-(`inflammatory response`, `nervous system development`) are marked `LOW` and
-suggest rather than seed.
+hand-classifies **640 GO BP terms** into the nine classes, with a `confidence`
+column so genuinely ambiguous terms (`inflammatory response`, `nervous system
+development`) are marked `LOW` and suggest rather than seed.
 
-Result over all 12,290 pathophysiology nodes:
+It was built in three tranches, and the third one is the interesting result.
 
-| | nodes | share |
+| tranche | terms | how chosen |
+|---|---:|---|
+| 1 | 200 | most frequent GO BP terms in the KB |
+| 2 | +300 | next most frequent (to rank 500) |
+| 3 | +140 | **every GO BP term used in `kb/modules/` that the first two missed** |
+
+### Coverage
+
+Over all 12,290 pathophysiology nodes:
+
+| | 200 terms | 500 terms | 640 terms |
+|---|---:|---:|---:|
+| single unambiguous class (seeded) | 34.5% | 43.6% | **45.0%** |
+| conflicting classes (debundle candidate) | 3.6% | 5.8% | **6.2%** |
+| combined, with the `MF or gene` rule | 49.8% | 58.7% | **60.1%** |
+
+Class mix of the seeded nodes: CELLULAR 42%, TISSUE 18%, PATHWAY 11%,
+SUBSTANCE 10%, GENOMIC 8%, SYSTEMIC 6%, ACTIVITY 5%.
+
+**Diminishing returns are steep on frequency alone.** The first 200 terms
+seeded ~21 nodes each; terms 201–500 seeded ~3.7 each. Chasing the frequency
+tail further is not worth it — 1,184 GO BP terms are used twice or less and
+together account for only 12.6% of all annotations.
+
+### Frequency ranking has a systematic blind spot
+
+Tranche 3 exists because of a wrong prediction. Four bacterial drug-mechanism
+modules would not classify, and the earlier guess was that their GO terms fell
+below the frequency cutoff. Two of the four terms they depend on were in fact
+**already in the table, marked `LOW`** — a confidence gap, not a coverage gap.
+The rest were genuinely absent, and inspecting them revealed the real pattern:
+whole specialist vocabularies were missing — viral lifecycle (`virion assembly`,
+`viral genome integration into host DNA`, `establishment of viral latency`),
+meiosis, fungal and bacterial cell wall, cortical migration — because each term
+is rare KB-wide while being *central to the module that uses it*.
+
+Adding those 140 terms moves the needle barely at all corpus-wide (43.6% →
+45.0%) and enormously where it matters:
+
+| | all nodes | module nodes |
 |---|---:|---:|
-| carry ≥1 seeded GO BP term | 5,382 | 43.8% |
-| carry ≥1 HIGH-confidence term | 4,675 | 38.0% |
-| **→ single unambiguous class (seeded)** | **4,235** | **34.5%** |
-| **→ conflicting classes (debundle candidate)** | **440** | **3.6%** |
-| + `has GO MF or gene` rule | +1,448 | → 49.8% combined |
+| seeded single class | 45.0% | **63.8%** |
+| conflicts | 6.2% | 11.2% |
+| combined with MF/gene rule | 60.1% | **76.4%** |
 
-**200 decisions classified or flagged ~5,700 nodes.** Seeded distribution:
-CELLULAR 43.4%, TISSUE 19.7%, PATHWAY 13.9%, GENOMIC 8.5%, SUBSTANCE 6.2%,
-ACTIVITY 4.5%, SYSTEMIC 3.9%.
+The lesson generalizes past this table: **frequency-ranked seeding
+under-serves exactly the conserved-mechanism content the KB most wants
+classified.** Any future extension should be target-driven, not rank-driven.
 
-The 440 conflicts are a second debundling detector, and unlike the earlier one
-it needs no curated class at all — a node whose *own* GO annotations span two
-classes is making two claims:
+### Self-check against an independent label
+
+Mapping each seed class onto the coarser `biological_scale` enum
+(ACTIVITY/SUBSTANCE/GENOMIC → MOLECULAR, PATHWAY → no equivalent) and comparing
+against the curator's own tag on the 1,252 nodes that carry both:
+**65% agree.** That number held steady across all three tranches, which is at
+least evidence the labelling is internally consistent rather than drifting.
+
+It should not be read as 35% error. The largest disagreement classes are
+CELLULAR-seed→TISSUE-curated (98) and CELLULAR-seed→MOLECULAR-curated (71) —
+which is precisely the debundle signal: the GO term describes the *process*
+while the curator tagged the *node's* substrate, and when those differ the node
+is often carrying both. Separating "my label is wrong" from "the node is
+bundled" needs manual review of a sample, and has not been done.
+
+### The conflicts are a second debundling detector
+
+762 nodes (6.2%) carry GO terms that span two classes. Unlike the earlier
+detector this needs no curated class at all — a node whose *own* annotations
+disagree is making two claims:
 
 - *Impaired Oligodendrocyte Precursor Proliferation and …* — CELLULAR + TISSUE
 - *Neutrophil Oxidative and Proteolytic Injury* [ARDS] — CELLULAR + SUBSTANCE
 - *Cortical Excitation-Inhibition Imbalance* — CELLULAR + PATHWAY
 - *Failure of Poly(ADP-Ribose) Turnover under Stress* — CELLULAR + GENOMIC
 
-Note how many say "and" in the name. Extending the table from 200 to 500 terms
-would reach 75.6% of BP annotations for roughly 300 more decisions.
-
-## What this replaces
-
-`role` is a free-text `string` slot with `examples: [Primary]` and no enum.
-2,322 nodes use it, with **55 distinct values** after normalising case and
-spacing (72 before — `trigger`, `TRIGGER`, and `Trigger` all occur). Top eight
-cover 90%; the 41-value tail is where it fell apart:
-
-| value | n | | value | n |
-|---|---:|---|---|---:|
-| trigger | 472 | | therapeutic_vulnerability | 91 |
-| consequence | 384 | | intermediate | 34 |
-| central_effector | 362 | | mechanism | 31 |
-| effector | 327 | | driver | 30 |
-| amplifier | 213 | | adaptive_escape | 30 |
-| mediator | 122 | | modifier | 29 |
-| outcome | 94 | | *(41 more, <=13 each)* | 227 |
-
-The tail conflates four different questions in one slot: cascade position
-(`upstream`, `root`, `endpoint`), confidence (`provisional_effector`,
-`emerging_mechanism`, `disputed_branch`), direction (`protective`,
-`host_defense`), and drug interface (`therapeutic_vulnerability`,
-`intrinsic_resistance`). The tree absorbs the last two as C1/C2, and the first
-two are handled below.
-
-## Two things the tree should *not* try to do
-
-**Don't encode where the node sits in the graph — the graph already knows.**
-Cross-tabbing curated `role` against topology:
-
-| role | n | source | internal | sink | isolated |
-|---|---:|---:|---:|---:|---:|
-| trigger | 352 | **89%** | 11% | 0% | 0% |
-| mediator | 122 | 1% | **99%** | 0% | 0% |
-| central_effector | 257 | 4% | **96%** | 0% | 0% |
-| amplifier | 140 | 4% | **95%** | 1% | 0% |
-| consequence | 270 | 0% | 55% | **44%** | 1% |
-| outcome | 86 | 0% | 56% | **44%** | 0% |
-
-`trigger` is just "graph source". `consequence` and `outcome` are
-indistinguishable from each other and from "graph sink". Compute those; don't
-ask a curator to retype them. `therapeutic_vulnerability` is 55% *isolated* —
-those nodes have no pathophysiology edges at all and exist only as targets of
-`treatments.target_mechanisms`, which is exactly C2 and exactly derivable.
-
-**Don't encode confidence.** `mechanism_confidence` already exists
-(`ESTABLISHED` 373 / `PROVISIONAL` 348 / `HYPOTHETICAL` 89). A node is
-`PATHWAY_EFFECT` whether or not the pathway claim is solid.
-
-## Ontology grounding: evidence for the class, not a second axis
-
-GO / CL / UBERON / CHEBI should **not** become a parallel classification. One
-slot stays authoritative; the terms do three jobs *for* it — **seed** it,
-**check** it, and **find bundles** in it.
-
-Measured against the 3,704 nodes that already carry a curated
-`biological_scale` (using it as a stand-in class label):
-
-| grounding present | n | MOL | CEL | TIS | ORG |
-|---|---:|---:|---:|---:|---:|
-| GO MF | 313 | **91%** | 8% | 0% | 1% |
-| gene | 582 | **81%** | 14% | 3% | 2% |
-| GO MF + gene | 59 | **98%** | 2% | 0% | 0% |
-| CL + UBERON | 131 | 3% | 18% | **70%** | 8% |
-| UBERON alone | 250 | 2% | 2% | **63%** | 34% |
-| GO BP + CL | 666 | 13% | **61%** | 20% | 6% |
-| **GO BP alone** | 501 | 40% | 24% | 13% | 23% |
-| nothing at all | 629 | 12% | 5% | 20% | **62%** |
-
-Two results matter.
-
-**GO MF is near-definitional for MOLECULAR** (91%, and 98% with a gene), and
-UBERON pulls hard toward TISSUE. Those are *slot-level* signals — you only need
-to know which slot is filled.
-
-**GO BP presence carries no signal at all** (40/24/13/23 — barely different from
-the corpus baseline). That is not a defect; GO BP legitimately spans every tier,
-from `protein ubiquitination` to `blood coagulation`. It means BP is a
-*term-level* signal: you need the identity of the term, not its presence.
-
-**And GO BP term identity does separate — for about half the vocabulary.** Of
-the 58 GO BP terms used ≥8× on labelled nodes, 29 are ≥70% one scale:
-
-| clean | | genuinely ambiguous | |
-|---|---|---|---|
-| `GO:0006914` autophagy | 92% CELLULAR | `GO:0006954` inflammatory response | 47% |
-| `GO:0016567` protein ubiquitination | 92% MOLECULAR | `GO:0007399` nervous system development | 37% |
-| `GO:0001913` T cell mediated cytotoxicity | 92% CELLULAR | `GO:0007596` blood coagulation | 43% |
-| `GO:0030182` neuron differentiation | 88% CELLULAR | `GO:0007224` smoothened signaling pathway | 47% |
-| `GO:0006325` chromatin organization | 84% MOLECULAR | `GO:0006487` protein N-linked glycosylation | 44% |
-
-The ambiguous column is ambiguous for a real reason — inflammation genuinely
-happens at cellular, tissue, and organism scale. Don't force those; they are
-exactly where the class has to come from the curator.
-
-### Seeding is far cheaper than classifying nodes
-
-The KB uses **2,073 distinct GO BP terms** across 12,158 BP annotations, but the
-head is short: the top 200 terms cover **55.6%** of all annotations and the top
-500 cover **75.6%**. Add 398 MF, 476 CL, 542 UBERON, 338 CHEBI terms.
-
-So the tractable job is *classify a few hundred ontology terms once and
-propagate*, not *classify 12,290 nodes*. That also makes the seed auditable in
-one file rather than spread across 2,000 YAML entries.
-
-### The same signal is the debundling instrument
-
-This is what the classification is *for*. Take the GO BP terms that are
-scale-pure, and flag any node whose own class disagrees with its term's usual
-class. **55 of the 333 labelled nodes carrying a confident GO term disagree —
-17%**, and they read as genuine bundles:
-
-- *SCN5A Sodium-Channel Loss of Function* [Atrial_Standstill] — curated
-  MOLECULAR, annotated `GO:0061337 cardiac conduction` (usually TISSUE).
-  Splits into the channel lesion and the conduction failure.
-- *Loss of Cardiomyocyte KATP Conductance* — curated CELLULAR, annotated
-  `potassium ion transmembrane transport` (usually MOLECULAR).
-- *White-Matter Oxidative Stress* [Alexander_Disease] — curated TISSUE,
-  annotated `response to oxidative stress` (usually CELLULAR).
-
-A node needing two classes is a node making two claims. The value of the
-classification is that it *names which two*, so the split is obvious rather than
-a judgement call.
-
-### One detector that does NOT work
-
-"Node carries a molecular-tier term **and** a UBERON term" looks like a
-cross-tier bundle detector. It fires on 368 nodes (3.0%) and is mostly wrong:
-*"PRRX1/OTX2 Loss of Function in First-Arch Neural Crest"* and *"ANK2
-Haploinsufficiency in Neurons"* are single molecular claims with a site
-qualifier. **UBERON is usually doing location duty, not tier duty.** Rejected.
-
-## Overlap with existing sections — worth deciding early
-
-Tiers 1 and 2 duplicate the `genetic:` and `environmental:` sections, which are
-already separate node types in the pathograph. But curators *do* write genomic
-lesions as pathophysiology nodes — roughly 7% of node names carry variant /
-dosage / fusion language, and "Biallelic HMGCL loss of function" is a
-pathophysiology node, not a `genetic:` entry.
-
-Two options, and this needs a decision rather than a default:
-
-- **Keep tiers 1-2 in the enum.** Accepts that the same claim can be written
-  two ways, but classifies what curators actually wrote.
-- **Drop tiers 1-2**, start the enum at MOLECULAR, and treat a genomic
-  pathophysiology node as a curation smell that belongs in `genetic:`.
-
-Leaning toward the first for now — reclassifying ~900 existing nodes into
-another section is a much bigger change than adding two enum values, and the
-overlap can be surfaced as a QC warning instead.
-
-## What it buys
-
-- **Cross-disease queries that don't work today:** every pathological structure
-  formed across the KB (tier 6, structure-formed); every metabolic crisis node
-  (tier 7); every drug intervention point (C2).
-- **Layout.** Colour or column by tier and the pathograph reads as a cascade
-  left to right instead of a uniform blue field. Today all 12,290
-  pathophysiology nodes render identically.
-- **QC with teeth.** A tier-6 node upstream of a tier-3 node is a probable
-  mis-drawn edge. A tier-8 OUTCOME node with outgoing `causes` edges is
-  probably a phenotype in the wrong section.
-- **Debundling — the primary payoff.** Forcing one class per node surfaces
-  nodes doing two jobs (~41% of the `biological_scale` survey's sample were
-  split candidates), and the GO-disagreement detector above finds them
-  mechanically rather than by eye. Bundling is a curation state, not a flaw in
-  the classification: a node that resists a single class is the tool working.
-
-## The tree is now machine-readable
-
-[`pathograph_node_classes.txt`](../pathograph_node_classes.txt) parses.
-`src/dismech/node_classes.py` reads the compact indented form and emits YAML,
-JSON, a summary, or the text itself (a stable round-trip). The grammar is three
-line types — class, example, attribute — documented in the file's own header:
-
-```
-CLASS NAME  -- optional gloss
-  subclass
-    Node name  [Disease_Entry]
-      :split ACTIVITY = SCN5A Sodium-Channel Loss of Function
-      :split TISSUE = Impaired Cardiac Conduction
-```
-
-```bash
-just node-classes                  # check grammar (instant)
-just node-classes --verify-kb      # also resolve every leaf against kb/ (~12s)
-just node-classes --format yaml    # emit YAML; also json, text, summary
-```
-
-Two things this buys beyond tidiness. **`--verify-kb` is the check that was
-being run by hand** on every edit to the tree — every cited leaf must be a real
-pathophysiology node in a real entry. A class tree whose leaves have drifted
-from the KB is worse than no tree, because it still looks grounded; that check
-is now a test (`tests/test_node_classes.py`) rather than a habit. And
-**`--format text` round-trips**, so the compact form stays authoritative while
-the design is unsettled, and the move to YAML is mechanical whenever it is
-wanted — the parser already emits exactly the structure a LinkML enum or class
-hierarchy would need, with `id` derived as upper-snake.
-
-Current state: 12 top-level classes, 53 classes, 108 examples across 78 entries.
+Note how many say "and" in the name.
 
 ## How this ties in with module classification
 
