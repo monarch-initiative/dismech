@@ -44,6 +44,11 @@ DISORDER = {
             "source": "OMIM",
             "assertion_type": "disease_record",
             "external_id": "OMIM:154700",
+            "description": "OMIM entry for the example disease.",
+            "notes": (
+                "This external assertion is broader than the present entry, "
+                "which isolates one branch."
+            ),
         },
         {
             "name": "ClinGen validity assertion",
@@ -79,6 +84,22 @@ def test_disease_level_assertion_evidence_renders(tmp_path: Path) -> None:
     html = _render(tmp_path, DISORDER)
     assert "MONDO:0007947 | Exact" in html
     assert "The cross-reference table maps ORPHA:558." in html
+
+
+def test_assertion_notes_render(tmp_path: Path) -> None:
+    """`notes` is where a record's scope caveat lives, so it cannot be dropped.
+
+    24 of the 212 disease-level records carry one, and on entries like
+    `Aortic_Valve_Disease_2` it records that the external record is *broader*
+    than the dismech entry -- without it the card contradicts the entry it
+    sits on. No variant-level record carries `notes`, so rendering it here
+    leaves variant output unchanged in practice as well as in intent.
+    """
+    html = _render(tmp_path, DISORDER)
+    assert (
+        "This external assertion is broader than the present entry, "
+        "which isolates one branch." in html
+    )
 
 
 def test_assertion_identifier_linking(tmp_path: Path) -> None:

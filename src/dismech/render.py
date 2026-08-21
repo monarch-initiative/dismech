@@ -177,12 +177,18 @@ _CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._-]*:[^\s]+$")
 
 
 def is_curie(value: object) -> bool:
-    """Whether a string looks like a CURIE that ``curie_to_url`` can resolve.
+    """Whether a string is CURIE-shaped, so it is worth handing to a resolver.
 
     Used for identifiers curated as free text -- an ``ExternalAssertion``'s
     ``external_id`` is ``ORPHA:558`` on one record and an opaque ClinGen
     ``assertion_<uuid>-<timestamp>`` on the next, and only the former should
     become a resolver link.
+
+    Shape is all this can promise. ``curie_to_url`` never fails: a prefix the
+    schema map does not carry (``ORPHA``, ``OMIM`` and ``CGGV`` are all absent)
+    falls through to ``https://bioregistry.io/{curie}``, which resolves for a
+    registered prefix and 404s otherwise. That is the same treatment these
+    identifiers already get as evidence references elsewhere on the page.
     """
     return bool(value) and bool(_CURIE_RE.match(str(value)))
 
