@@ -10,6 +10,7 @@ year: '2014'
 doi: 10.1586/17446651.2014.926810
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Understanding the pathological manifestations of aromatase excess syndrome: lessons for clinical diagnosis

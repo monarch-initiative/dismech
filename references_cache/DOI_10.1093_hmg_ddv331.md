@@ -31,6 +31,7 @@ year: '2015'
 doi: 10.1093/hmg/ddv331
 content_type: unavailable
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Mutations in<i>PIGY</i>: expanding the phenotype of inherited glycosylphosphatidylinositol deficiencies
