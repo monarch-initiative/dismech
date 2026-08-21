@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 from linkml.validator import Validator
+from linkml.validator.plugins import JsonschemaValidationPlugin
 
 # scripts/ is not a package; make its modules importable for tests that reuse
 # validation logic shared with the CLI tools.
@@ -202,8 +203,37 @@ def _non_therapeutic_action_target_errors(data):
 
 @pytest.fixture(scope="module")
 def validator():
-    """Create a validator instance for all tests."""
-    return Validator(SCHEMA_PATH)
+    """Create a validator instance for all tests.
+
+    The ``validation_plugins`` argument is load-bearing, not decoration:
+    ``Validator.iter_results_from_source`` short-circuits with ``return []``
+    when no plugins are configured, so ``Validator(SCHEMA_PATH)`` yields an
+    empty report for *any* instance and every assertion built on it passes
+    vacuously (dismech#8320). ``closed=False`` matches the ``linkml-validate``
+    CLI default that ``just validate`` and CI use, so pytest and CI agree on
+    what conforms; the stricter ``closed=True`` form is used deliberately by
+    individual tests that need unknown-property/enum rejection.
+    """
+    return Validator(
+        SCHEMA_PATH, validation_plugins=[JsonschemaValidationPlugin(closed=False)]
+    )
+
+
+def test_validator_fixture_is_not_inert(validator):
+    """Guard: the shared ``validator`` fixture must actually validate.
+
+    Without this, a plugin-less ``Validator`` silently turns the whole-KB
+    conformance sweep into ~2300 no-ops — which is how the #8217 AnimalModel
+    regression invalidated 224 entries while the sweep reported all-green
+    (dismech#8320). A document missing the required identifier must error.
+    """
+    report = validator.validate({"description": "no name"}, target_class="Disease")
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert errors, (
+        "validator fixture produced no errors for a Disease missing its required "
+        "`name` — it has no validation plugins and every test using it is vacuous"
+    )
 
 
 @pytest.mark.kb_data
@@ -217,6 +247,27 @@ def test_valid_disorder_files(filepath, validator):
 
     # ValidationReport has a results list with ValidationResult objects
     # Only errors are issues, not informational messages
+    errors = [r for r in report.results if r.severity.name == "ERROR"]
+
+    assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
+
+
+@pytest.mark.kb_data
+@pytest.mark.parametrize("filepath", MODULE_FILES)
+def test_valid_module_files(filepath, validator):
+    """Test that all mechanism module files validate against the schema.
+
+    Modules use the same `Disease` class as disorder entries, so a schema
+    tightening invalidates them the same way — but until dismech#8320 the
+    whole-KB sweep covered disorders, comorbidities and groupings and left
+    `kb/modules/` out. `just validate-modules` catches this, and CI only ever
+    runs it over *changed* files, which is exactly the blind spot #8320 was
+    filed about.
+    """
+    with open(filepath) as f:
+        data = safe_load(f)
+
+    report = validator.validate(data, target_class="Disease")
     errors = [r for r in report.results if r.severity.name == "ERROR"]
 
     assert not errors, f"Validation errors in {filepath}: {[str(e) for e in errors]}"
@@ -869,7 +920,10 @@ def test_phenotype_multivalued_subtypes_validates(validator, tmp_path):
     disease = {
         "name": "Test Multi-Subtype Disease",
         "disease_term": {
-            "term": {"id": "MONDO:0000001", "label": "disease or disorder"}
+            # `preferred_term` is required on a descriptor; this payload omitted
+            # it and went unnoticed while the validator fixture was inert (#8320).
+            "preferred_term": "disease or disorder",
+            "term": {"id": "MONDO:0000001", "label": "disease or disorder"},
         },
         "has_subtypes": [
             {"name": "Type 1", "description": "Subtype one."},
@@ -1470,8 +1524,15 @@ def test_valid_grouping_files(filepath, validator):
 
 @pytest.fixture(scope="module")
 def synthesis_validator():
-    """Validator bound to the standalone research-synthesis schema."""
-    return Validator(SYNTHESIS_SCHEMA_PATH)
+    """Validator bound to the standalone research-synthesis schema.
+
+    Needs an explicit plugin for the same reason as ``validator`` above —
+    see dismech#8320.
+    """
+    return Validator(
+        SYNTHESIS_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=False)],
+    )
 
 
 @pytest.mark.kb_data
@@ -1534,8 +1595,15 @@ def test_synthesis_derive_consensus():
 
 @pytest.fixture(scope="module")
 def hypothesis_assessment_validator():
-    """Validator bound to the standalone hypothesis-assessment schema."""
-    return Validator(HYPOTHESIS_ASSESSMENT_SCHEMA_PATH)
+    """Validator bound to the standalone hypothesis-assessment schema.
+
+    Needs an explicit plugin for the same reason as ``validator`` above —
+    see dismech#8320.
+    """
+    return Validator(
+        HYPOTHESIS_ASSESSMENT_SCHEMA_PATH,
+        validation_plugins=[JsonschemaValidationPlugin(closed=False)],
+    )
 
 
 @pytest.mark.kb_data

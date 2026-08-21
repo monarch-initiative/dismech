@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from linkml.validator import Validator
+from linkml.validator.plugins import JsonschemaValidationPlugin
 
 from dismech.stubs import (
     build_coverage_index,
@@ -56,7 +57,12 @@ def issues():
 
 @pytest.fixture(scope="module")
 def stub_validator():
-    return Validator(str(STUB_SCHEMA_PATH))
+    # An explicit plugin is required: a plugin-less Validator returns an empty
+    # report for any instance, making every assertion vacuous (dismech#8320).
+    return Validator(
+        str(STUB_SCHEMA_PATH),
+        validation_plugins=[JsonschemaValidationPlugin(closed=False)],
+    )
 
 
 def test_stub_dir_exists():
