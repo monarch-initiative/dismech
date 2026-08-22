@@ -105,6 +105,112 @@ def test_excluded_frequency_emits_not_qualifier_and_blank_frequency(tmp_path):
     assert rows[0]["frequency"] == ""
 
 
+def test_upstream_risk_phenotype_skipped_from_hpoa(tmp_path):
+    """A phenotype driving a pathophysiology node is an upstream risk state, not a
+    manifestation: it must NOT produce a phenotype.hpoa has_phenotype row."""
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0007699", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "pathophysiology": [{"name": "Thyroidal Oxidative Stress"}],
+            "phenotypes": [
+                {
+                    "name": "Selenium Deficiency",
+                    "phenotype_term": {
+                        "term": {
+                            "id": "HP:0033192",
+                            "label": "Decreased circulating selenium concentration",
+                        }
+                    },
+                    "sequelae": [{"target": "Thyroidal Oxidative Stress"}],
+                    "evidence": [
+                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "SUPPORT"},
+                    ],
+                },
+                {
+                    "name": "Goiter",
+                    "phenotype_term": {"term": {"id": "HP:0000853", "label": "Goiter"}},
+                    "evidence": [
+                        {"reference": "PMID:2", "evidence_source": "HUMAN_CLINICAL", "supports": "SUPPORT"},
+                    ],
+                },
+            ],
+        },
+    )
+    rows, _ = hpoa_rows_for_disorder(yaml_path)
+    hpo_ids = {r["hpo_id"] for r in rows}
+    assert "HP:0033192" not in hpo_ids  # upstream risk state skipped
+    assert "HP:0000853" in hpo_ids  # real manifestation still emitted
+
+
+def test_mondo_upstream_risk_phenotype_keeps_comorbidity_row(tmp_path):
+    """A MONDO-typed upstream risk state still yields a comorbidity row.
+
+    The comorbidity projection already emits the direction-neutral
+    `biolink:associated_with`, so there is no `has_phenotype` inversion there to
+    suppress — and KGX keeps the same edge. Dropping the row would make the two
+    exporters disagree.
+    """
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0007699", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "pathophysiology": [{"name": "Thyroidal Oxidative Stress"}],
+            "phenotypes": [
+                {
+                    "name": "Vitamin D Deficiency",
+                    "phenotype_term": {
+                        "term": {"id": "MONDO:0100471", "label": "vitamin D deficiency"}
+                    },
+                    "sequelae": [{"target": "Thyroidal Oxidative Stress"}],
+                    "evidence": [
+                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "SUPPORT"},
+                    ],
+                },
+            ],
+        },
+    )
+    rows, comorb_rows = hpoa_rows_for_disorder(yaml_path)
+    assert rows == []  # never a has_phenotype row
+    assert [r["comorbid_id"] for r in comorb_rows] == ["MONDO:0100471"]
+    assert comorb_rows[0]["predicate"] == "biolink:associated_with"
+
+
+def test_unbound_upstream_risk_phenotype_emits_no_row(tmp_path):
+    """An ontology-unbound upstream risk state must not fall through to the
+    synthetic `DISMECH:` id, which would be the same has_phenotype inversion."""
+    yaml_path = _write(
+        tmp_path / "X.yaml",
+        {
+            "disease_term": {"term": {"id": "MONDO:0007699", "label": "x"}},
+            "creation_date": "2026-01-01T00:00:00Z",
+            "pathophysiology": [{"name": "Thyroidal Oxidative Stress"}],
+            "phenotypes": [
+                {
+                    "name": "Selenium Deficiency",
+                    "sequelae": [{"target": "Thyroidal Oxidative Stress"}],
+                    "evidence": [
+                        {"reference": "PMID:1", "evidence_source": "HUMAN_CLINICAL", "supports": "SUPPORT"},
+                    ],
+                },
+                {
+                    "name": "Goiter",
+                    "phenotype_term": {"term": {"id": "HP:0000853", "label": "Goiter"}},
+                    "evidence": [
+                        {"reference": "PMID:2", "evidence_source": "HUMAN_CLINICAL", "supports": "SUPPORT"},
+                    ],
+                },
+            ],
+        },
+    )
+    rows, _ = hpoa_rows_for_disorder(yaml_path)
+    hpo_ids = {r["hpo_id"] for r in rows}
+    assert not any(i.startswith("DISMECH:") for i in hpo_ids)
+    assert hpo_ids == {"HP:0000853"}
+
+
 def test_partial_support_kept_as_positive(tmp_path):
     """PARTIAL support is a positive row with no qualifier (not dropped, not NOT)."""
     yaml_path = _write(
