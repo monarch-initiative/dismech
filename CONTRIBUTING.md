@@ -311,6 +311,13 @@ but we have gone much further.
 You can explore these in the "Actions" tab in GitHub. For up to date documentation, ask an agent. What follows here may be out of date, but should
 still give a flavor of what we do.
 
+**Two different things get called "assigning an agent".** GitHub's own **"Assign
+agent to issue"** (Preview) dispatches a coding agent — there, assignment *is* the
+trigger. DisMech's own workflow agents are **mention**-driven (`@claude`,
+`@dragon-ai-agent`) and never fire on assignment; to them an assignee means
+"claimed", which removes the issue from the curation scanner's queue. See
+[What assigning an issue actually does](https://monarch-initiative.github.io/dismech/explanation/automation-and-agents/#what-assigning-an-issue-actually-does).
+
 ### dragon-ai-agent
 
 In dismech, dragon-ai-agent acts as an autonomous curator/reviewer bot integrated into the repo's issue and PR workflow.

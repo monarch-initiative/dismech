@@ -308,6 +308,87 @@ Preview what the next sweep would do, read-only: `just auto-merge-preview`.
 
 ---
 
+## What assigning an issue actually does
+
+Two different systems attach meaning to assignment, and they mean **opposite**
+things. Knowing which one you are invoking is the whole game.
+
+### GitHub's agent assignment (a platform feature)
+
+GitHub itself offers **"Assign agent to issue"** — currently a **Preview**
+feature, reached from the issue's assignee control. It opens a dialog with an
+optional prompt, a target repository, and an agent selector; assigning dispatches
+a coding agent (`copilot-swe-agent`, which is assignable in this repo) to work the
+issue and open a pull request.
+
+**There, assignment *is* the dispatch.** It is a GitHub product feature, so none
+of the Actions machinery on this page applies to it — no `if:` gate, no
+`cron-profiles.yaml` cadence, no `AGENT_MODEL` resolution, and none of the
+[trust boundaries](#trust-boundaries) above.
+
+**It is not, however, unaware of this repo.** `.github/copilot-instructions.md` is
+a **symlink to `../CLAUDE.md`** (and `AGENTS.md` points there too), so a dispatched
+coding agent receives the same curation rulebook every other agent here works
+from — the evidence SOP, the never-hand-write-the-caches rule, the whole thing.
+Because it is a symlink rather than a copy, it cannot drift out of date.
+
+What it does *not* inherit is the Claude Code-specific tooling: the skills in
+`.claude/skills/` and the deep-research providers, which need local API keys. So
+it is well-suited to bounded, well-specified work and poorly suited to new
+disease curation. Its output is still gated the same way as anything else — the
+[validation stack](../quality-control.md) and `claude-code-review` do not care
+which agent wrote the YAML, which is the point of *models judge, deterministic
+code decides*.
+
+### DisMech's own agents (this repo's workflows)
+
+The workflow fleet described on this page is **mention-driven**. None of it
+listens for assignment:
+
+| Agent | Trigger | Who may fire it |
+|---|---|---|
+| `claude.yml` | `@claude` in the issue body/title, or in an issue/PR/review comment | Author of the issue or comment must be `OWNER`/`MEMBER`/`COLLABORATOR` |
+| `dragon-ai.yml` | `@dragon-ai-agent please …` as ordinary prose — ignored inside code spans and fenced blocks, so documenting the keyword doesn't fire it | Must be listed in [`.github/ai-controllers.json`](https://github.com/monarch-initiative/dismech/blob/main/.github/ai-controllers.json) |
+
+`dragon-ai.yml` once supported assignment dispatch and **dropped it** — its header
+records the retirement of the machine account and of the programmatic assigner
+(`stale-pr-reassign`) that drove it. The `dragon-ai-agent` account still exists
+and still appears in the assignee picker, but assigning to it does nothing: the
+workflow does not list `assigned` among its trigger types. `pr-shepherd`'s prompt
+carries the matching rule for agents — never assign `dragon-ai-agent` just to
+trigger work.
+
+`claude.yml` *does* list `issues: [assigned]` among its trigger types, which looks
+like an exception but isn't: its `if:` still requires `@claude` in the body or
+title. Assigning an issue that already mentions `@claude` re-fires it; assigning
+one that doesn't mention it does nothing. That path also gates on the **issue
+author's** association rather than the assigner's, so assigning an
+externally-authored issue cannot turn untrusted issue text into an agent trigger
+— the same trust boundary as [above](#trust-boundaries).
+
+### To this repo's automation, an assignee means "claimed"
+
+`curation-scanner` selects with `is:open is:issue no:assignee` and is explicitly
+"restricted to items with no human / non-agent assignee, so the scanner never
+steps on work a person has already claimed." Assignment on an *issue* is therefore
+the same claim signal as assignment on a *PR*, where it vetoes the auto-merge
+sweep.
+
+> **To DisMech's own workflows an assignee means "somebody has this" — never "an
+> agent should pick this up."** To get *their* attention, mention the agent.
+
+**The two systems collide, quietly.** Assigning an issue to GitHub's coding agent
+gives that issue an assignee, so it simultaneously **removes the issue from
+`curation-scanner`'s queue**. That is usually the outcome you want — two agents
+should not work the same issue — but nothing announces it, and it is the reason
+the distinction on this page matters in practice rather than only in theory.
+
+Finally, two automations need no prompting at all: `claude-issue-triage` and
+`claude-issue-summarize` both fire on `issues: [opened]`. If a bot commented on
+your issue moments after you filed it and you did nothing, that was one of these.
+
+---
+
 ## See also
 
 - [Design Decisions §7](design-decisions.md) — curation governance policy
