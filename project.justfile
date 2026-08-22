@@ -1096,6 +1096,28 @@ quick-test:
 list-disorders:
     @for f in {{kb_dir}}/*.yaml; do basename "$f" .yaml; done | sort
 
+# List mechanism modules with their node chains (the conformance targets).
+# This is the canonical way to discover what modules exist — CLAUDE.md
+# deliberately does NOT carry a hand-maintained module list.
+# Pass a substring to filter: `just list-modules inflamm`
+[group('KB')]
+list-modules filter="":
+    #!/usr/bin/env -S uv run python
+    import pathlib, textwrap, yaml
+    filt = {{ quote(filter) }}.lower()
+    for path in sorted(pathlib.Path("kb/modules").glob("*.yaml")):
+        doc = yaml.safe_load(path.read_text()) or {}
+        nodes = [n.get("name", "?") for n in (doc.get("pathophysiology") or [])]
+        desc = " ".join((doc.get("description") or "").split())
+        if filt and filt not in f"{path.stem} {desc} {' '.join(nodes)}".lower():
+            continue
+        print(f"\n{path.stem}")
+        if desc:
+            print(textwrap.fill(desc, 96, initial_indent="  ", subsequent_indent="  ",
+                                max_lines=4, placeholder=" …"))
+        for node in nodes:
+            print(f"    - {path.stem}#{node}")
+
 # Count disorders
 [group('KB')]
 count-disorders:
