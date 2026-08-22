@@ -487,6 +487,92 @@ bacterial GO terms fall outside the top-200 seed table. That is a seed-coverage
 gap, and an argument for extending the table to 500 terms before leaning on
 module shape.
 
+## Comparison with MPATH and NCI Thesaurus
+
+Both are prior art for "kinds of pathology" and both were checked against the
+tree (via OLS, 2026-08).
+
+### MPATH — a process/structure mirror over lesion type
+
+```
+MPATH:0 pathological entity
+├── MPATH:596 pathological process          ├── MPATH:603 pathological anatomical entity
+│   ├── 597 cell and tissue damage process  │   ├── 1   cell and tissue damage
+│   ├── 188 immunopathological process      │   ├── 105 circulatory disorder
+│   ├── 604 defective growth/differentiation│   ├── 126 growth and differentiation defect
+│   ├── 606 neoplasia                       │   ├── 218 neoplasm
+│   ├── 599 developmental abnormalities     │   ├── 55  developmental/structural abnormality
+│   └── 175 healing and repair process      │   └── 607 healing and repair structure
+```
+
+Two structural facts. MPATH's **primary** split is occurrent vs continuant, and
+then a near-perfect 6-way mirror across it. Its classifying axis is **lesion
+type as a pathologist sees it** — damage, immune, growth, development,
+neoplasia, repair.
+
+**It is orthogonal to ours, not competing.** We classify by *position in the
+causal chain*; MPATH classifies by *what kind of lesion resulted*. A single
+dismech node has both properties.
+
+Where they touch, our TISSUE leaves map onto MPATH cleanly: `injury` →
+MPATH:597/1, `inflammatory infiltration` + `immune evasion` → MPATH:188,
+`developmental malformation` → MPATH:599/55, `neoplastic invasion` →
+MPATH:606/218, `impaired repair` → MPATH:175/607.
+
+Two asymmetries matter:
+
+- **MPATH stops at the cell.** It has no counterpart to our GENOMIC, ACTIVITY,
+  SUBSTANCE or PATHWAY tiers — the entire upper half of our cascade. That is the
+  part of dismech's pathograph MPATH cannot express, and it is most of what
+  makes a mechanism graph a mechanism graph rather than a lesion list.
+- **We have no systematic process/structure mirror.** The Xogenesis convention
+  already borrowed the idea for five modules, but the taxonomy at large has one
+  `pathological structure formed` leaf rather than a pairing rule. Worth
+  deciding deliberately rather than by omission.
+
+### MPATH found a real gap: circulatory disorder
+
+MPATH gives `circulatory disorder` **top-level** billing. We had scattered it —
+thrombus under `structure formed`, ischemia in its own leaf — and had no home at
+all for roughly **70 haemorrhage, oedema/effusion and dilatation/ectasia nodes**.
+`TISSUE > circulatory disturbance` was added as a direct result.
+
+### NCIT:C16956 Pathologic Process — a flat term list, not a taxonomy
+
+41 direct children, no intermediate structure, and radically mixed granularity:
+`Pathogenesis` (the entire concept of disease mechanism) sits as a sibling of
+`Karyomegaly` (a nucleus is enlarged). It also mixes kinds freely — processes
+(`Amyloidogenesis`, `Necrotic Process`), states (`Impaired Cytoskeletal
+Integrity`), relations (`Host-Parasite Relationship`), outcomes (`Disease
+Progression`), and even a therapeutic effect (`Graft-Versus-Tumor Induction`).
+
+So NCIT offers **no structural competition** — there is nothing here to adopt as
+an organising axis. What it does offer is **leaf-level grounding**: a
+ready-made, coded term for many of our leaves — `Amyloidogenesis` C44955,
+`Neovascularization` C16900, `Invasion` C75004, `Intravasation` C48197 /
+`Extravasation` C48198, `Degeneration` C61557, `Necrotic Process` C16897,
+`Cell Stress Process` C21065, `Mitochondrial Damage` C45524, `Lithiasis` C97086,
+`Ectasia` C120877, `Fibroplasia` C120881, `Microgliosis` C120898.
+
+That is the practical use: if leaves ever need CURIEs, NCIT supplies many of
+them without inventing anything.
+
+Checked against the KB, NCIT's classic gross-pathology terms are mostly *not*
+worth leaves for us — `Ulceration` matches 2 nodes, `Hyalinization` 1. Their
+absence from our tree is correct, not an oversight.
+
+### What neither has
+
+- **Causal ordering.** Neither encodes upstream/downstream at all.
+- **DISPOSITION.** NCIT's `Permissiveness` (C19311) is the nearest thing and is
+  about infection susceptibility only; MPATH has nothing. Our four disposition
+  shapes have no prior art here.
+- **COMPENSATION.** Neither ontology has any notion of the body pushing back.
+  This is arguably the most distinctive class in the tree and the one with the
+  least external support — which cuts both ways.
+- **INTERVENTION POINT.** Neither, unsurprisingly, since neither is modelling
+  drug action.
+
 ## Open questions
 
 - **8 tiers or 6?** Tiers 3/4 (molecular vs pathway) and 7/8 (systemic vs
