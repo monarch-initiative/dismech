@@ -38,7 +38,8 @@ junk hits. Results are in
 (one row per matched review, with the topical `orientation` label used below).
 
 **The ≥10-character filter makes 338 a lower bound.** It excludes 62 curated
-disease names — among them `Asthma`, `COVID-19`, `Epilepsy`, `Glaucoma`,
+entries — counted by filename stem, which is the key the matcher used; the same
+cut over the entries' top-level `name:` field gives 60 — among them `Asthma`, `COVID-19`, `Epilepsy`, `Glaucoma`,
 `Cholera`, `Dengue`, `Botulism`, `Chordoma`, `Glioma` — i.e. exactly the common
 short names a clinical-question corpus is full of. The true overlap is larger
 than 338, which shifts the yield arithmetic below but not the verdict: the
@@ -112,7 +113,11 @@ but roughly the 31 mechanism-leaning reviews plus the better half of the 46
 mixed — call it 40–50 reviews of plausible interest, each carrying ≤13
 references.
 
-Best of the mechanism-leaning set:
+Best of the mechanism-leaning set. This is an **editorial pick, not a strict
+top-10 by reference count** — it skips a 12-reference Cystic Fibrosis row and an
+11-reference Hepatocellular Carcinoma row whose subjects (cystic lung disease
+imaging, radiotherapy) are not mechanism content despite the classifier's label.
+Re-cut it yourself from the `orientation` column:
 
 | Refs | dismech entry | Review |
 |---|---|---|
@@ -120,7 +125,7 @@ Best of the mechanism-leaning set:
 | 12 | Metabolic Dysfunction-Associated… | Incretin-Based Therapies for MASLD |
 | 11 | Non-Small Cell Lung Cancer | Mechanisms of Osimertinib Resistance in NSCLC |
 | 10 | Optic Neuritis | Mechanistic Insights and Clinical Implications of Ethambutol… |
-| 10 | Brucellosis | Brucellosis: Epidemiology, Pathogenesis, and Prevention |
+| 10 | Brucellosis | Brucellosis: Insights into Epidemiology, Pathogenesis, and Public Health Implications |
 | 9 | IgA Nephropathy | Advances in Understanding and Managing IgA Nephropathy |
 | 8 | Polycystic Ovary Syndrome | Complex Pathophysiology of PCOS |
 | 8 | Hemochromatosis | Genetic and Clinical Insights into Hereditary Hemochromatosis |
