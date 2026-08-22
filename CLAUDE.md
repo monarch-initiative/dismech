@@ -2275,7 +2275,42 @@ derived counts, qualitative-term mapping, clinical estimate), the literature-ter
 → enum mapping table, and worked examples. **When in doubt, omit `frequency:`
 rather than fabricate justification.**
 
-### 8. Running Full QC
+### 8. Read the Title Off the Cache, Never From Memory
+
+`reference_title` (on an `EvidenceItem`) and `title` (on a top-level
+`references:` entry) are the title of the paper you cited. They were checked by
+nothing until issue #9138, and the failure mode that exposed is a specific one:
+**correct PMID, verified snippet, invented title.** Each gate looks at a
+different field — `linkml-validate` confirms the slot is a string,
+`count-verified-snippets` and `validate-references` check the *snippet*,
+`validate-terms` checks ontology terms, and `check_title_snippets` (despite the
+name) asks whether a snippet quotes a title. None of them reads the title.
+
+On PR #9111 three of twenty `(reference, reference_title)` pairs named papers
+that do not exist. Two were written by an agent that had just verified the
+adjacent snippets as exact substrings of the cached text and then wrote the
+titles beside them from memory. **Being rigorous about the quote and careless
+about the citation attached to it is a distinct failure mode**, and these values
+are not inert — they render on the disorder page and flow into the cx2 and SEPIO
+exports.
+
+The correct title is already on disk, in the reference's cache frontmatter:
+
+```bash
+head -5 references_cache/PMID_34081534.md
+# ---
+# reference_id: PMID:34081534
+# title: Axonal Growth Abnormalities Underlying Ocular Cranial Nerve Disorders.
+```
+
+Copy it from there. `just check-reference-titles` gates new mismatches (offline,
+similarity-based so punctuation, dashes, diacritics and source-XML markup do not
+trip it), and prints the cached title in the failure message so the fix is a
+copy-paste. `just list-reference-title-mismatches` is the triage view.
+`scripts/find_missing_reference_titles.py` is the complementary check for
+*absent* titles.
+
+### 9. Running Full QC
 
 ```bash
 # All validation checks
