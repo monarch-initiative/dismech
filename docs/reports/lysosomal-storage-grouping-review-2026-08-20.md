@@ -221,9 +221,11 @@ them, this is a large structural gap.
 
 - `Lysosomal_Acid_Phosphatase_Deficiency` has **zero treatments** and one
   phenotype across 175 lines — the thinnest member of the tree.
-- `Sly_syndrome` carries no joint phenotype at all, though joint contracture is
-  a cardinal MPS VII feature. It satisfies the grouping criteria via dysostosis
-  multiplex, so nothing flags it; the criteria audit surfaced it incidentally.
+- `Sly_syndrome` carried no joint phenotype at all, though joint stiffness and
+  contracture are cardinal MPS VII features. It satisfied the grouping criteria
+  via dysostosis multiplex, so nothing flagged it; the criteria audit surfaced it
+  incidentally. **Fixed in this branch** — `HP:0001387` Joint stiffness added
+  with GeneReviews evidence (PMID:38190471).
 
 ---
 
@@ -422,7 +424,7 @@ they belong in the disorder entries and are left as work:
 5. `Wolman_Disease` / `Cholesteryl_Ester_Storage_Disease`: LAL-D Registry
    longitudinal sebelipase data (PMID:42617290).
 6. `Lysosomal_Acid_Phosphatase_Deficiency`: has no treatments and one phenotype.
-7. `Sly_syndrome`: no joint phenotype annotated.
+7. ~~`Sly_syndrome`: no joint phenotype annotated.~~ **Done in this branch.**
 
 **P2 — structural**
 
