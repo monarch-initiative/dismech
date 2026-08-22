@@ -3,15 +3,15 @@
 ## Executive summary
 
 The raw absence count is not a useful work queue. On the `main` snapshot used
-for this audit, the knowledge base contains 2,090 disorder files:
+for this audit, the knowledge base contains 2,140 disorder files:
 
 - 17 have one or more curated `computational_models` entries;
 - 6 explicitly carry `computational_models: []`;
-- 2,067 have no `computational_models` field.
+- 2,117 have no `computational_models` field.
 
 The resumed curation series has eleven open, one-disorder PRs. If all merge,
-28 disorders will have populated computational-model sections and 2,056 will
-still have no field. Most of those 2,056 are rare disorders for which no
+28 disorders will have populated computational-model sections and 2,106 will
+still have no field. Most of those 2,106 are rare disorders for which no
 disease-level computational model is expected. They should not be converted
 mechanically to empty lists.
 
@@ -26,23 +26,27 @@ This report complements the execution-focused
 
 ## Work already in flight
 
-| PR | Disorder | Distinctive model class | Snapshot state |
-|---|---|---|---|
-| [#9084](https://github.com/monarch-initiative/dismech/pull/9084) | Glioblastoma, IDH-wildtype | reaction-diffusion and data-assimilation twins; multiscale ABM/RL | Approved and green after pathograph join-point fix |
-| [#9087](https://github.com/monarch-initiative/dismech/pull/9087) | Advanced sleep phase syndrome | circadian ODE and physiological phase estimator | Approved and green |
-| [#9091](https://github.com/monarch-initiative/dismech/pull/9091) | Multiple sclerosis | computational disease models | Approved and green |
-| [#9104](https://github.com/monarch-initiative/dismech/pull/9104) | Hyperinsulinemic hypoglycemia | glucose-insulin physiology | Approved and green |
-| [#9119](https://github.com/monarch-initiative/dismech/pull/9119) | Noonan syndrome | allele-specific signaling models | Approved and green |
-| [#9122](https://github.com/monarch-initiative/dismech/pull/9122) | Ataxia-telangiectasia | DNA-damage/signaling models | Approved and green |
-| [#9123](https://github.com/monarch-initiative/dismech/pull/9123) | Brugada syndrome | cardiac electrophysiology | Approved and green |
-| [#9140](https://github.com/monarch-initiative/dismech/pull/9140) | Renal cell carcinoma | agent-based tumor model | Approved and green |
-| [#9142](https://github.com/monarch-initiative/dismech/pull/9142) | Hepatitis C | within-host viral dynamics | Approved and green |
-| [#9145](https://github.com/monarch-initiative/dismech/pull/9145) | Chronic myeloid leukemia | ecological ODE / treatment-response ensemble | Approved and green |
-| [#9263](https://github.com/monarch-initiative/dismech/pull/9263) | Alzheimer disease | EEG-personalized brain digital twin | New PR; local validation complete |
+| PR | Disorder | Distinctive model class |
+|---|---|---|
+| [#9084](https://github.com/monarch-initiative/dismech/pull/9084) | Glioblastoma, IDH-wildtype | reaction-diffusion and data-assimilation twins; multiscale ABM/RL |
+| [#9087](https://github.com/monarch-initiative/dismech/pull/9087) | Advanced sleep phase syndrome | circadian ODE and physiological phase estimator |
+| [#9091](https://github.com/monarch-initiative/dismech/pull/9091) | Multiple sclerosis | computational disease models |
+| [#9104](https://github.com/monarch-initiative/dismech/pull/9104) | Hyperinsulinemic hypoglycemia | glucose-insulin physiology |
+| [#9119](https://github.com/monarch-initiative/dismech/pull/9119) | Noonan syndrome | allele-specific signaling models |
+| [#9122](https://github.com/monarch-initiative/dismech/pull/9122) | Ataxia-telangiectasia | DNA-damage/signaling models |
+| [#9123](https://github.com/monarch-initiative/dismech/pull/9123) | Brugada syndrome | cardiac electrophysiology |
+| [#9140](https://github.com/monarch-initiative/dismech/pull/9140) | Renal cell carcinoma | agent-based tumor model |
+| [#9142](https://github.com/monarch-initiative/dismech/pull/9142) | Hepatitis C | within-host viral dynamics |
+| [#9145](https://github.com/monarch-initiative/dismech/pull/9145) | Chronic myeloid leukemia | ecological ODE / treatment-response ensemble |
+| [#9263](https://github.com/monarch-initiative/dismech/pull/9263) | Alzheimer disease | EEG-personalized brain digital twin |
 
-The ten approved PRs are unassigned, conflict-free, and eligible for the
-repository's deterministic auto-merge sweep after its three-day cooling period.
-They should not be merged early by bypassing that control.
+Operational state is deliberately kept out of the table because it changes
+faster than this report. As of 2026-08-22 19:11 UTC, nine approved PRs (#9087
+through #9145 above) were marked ready for review and were conflict-free. #9084
+and #9263 remained drafts while requested review fixes were being completed.
+Approved, ready, unassigned PRs become eligible for the repository's
+deterministic auto-merge sweep after its three-day cooling period; drafts are
+never eligible. Current state should be read from the linked PRs.
 
 ## Tier 1: curate next
 
@@ -134,14 +138,15 @@ permits:
 - run the deposited model or at least a bounded smoke test when feasible;
 - use deep-research/OpenScientist output only as a lead, after disease-identity
   and reference verification;
-- add a history record and regenerate `app/models/data.js`.
+- add a history record and regenerate `app/models/data.js` with
+  `just gen-models-data` (or `uv run python -m dismech.export.models_export`).
 
 ## Reproducing the census
 
 The snapshot counts use only top-level fields on `origin/main`:
 
 ```bash
-find kb/disorders -maxdepth 1 -name '*.yaml' | wc -l
+git ls-tree -r --name-only origin/main -- kb/disorders/ | grep -c '\.yaml$'
 git grep -l '^computational_models:' origin/main -- 'kb/disorders/*.yaml'
 ```
 
