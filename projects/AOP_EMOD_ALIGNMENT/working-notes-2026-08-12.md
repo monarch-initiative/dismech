@@ -1,7 +1,9 @@
-# AOP / EMOD ↔ dismech: working notes toward Comment B on issue #8309
+# AOP / EMOD ↔ dismech: working notes behind the alignment record
 
-**Status:** working notes, not a finished position. Local branch `notes-8309-aop-emod`,
-deliberately not pushed.
+**Status:** working notes — the provenance and derivation behind
+[`projects/AOP_EMOD_ALIGNMENT.md`](../AOP_EMOD_ALIGNMENT.md), which is the record
+that answers [#8309](https://github.com/monarch-initiative/dismech/issues/8309).
+Read the project page first; this file exists so its claims can be traced.
 **Project:** detail file for [`projects/AOP_EMOD_ALIGNMENT.md`](../AOP_EMOD_ALIGNMENT.md).
 Only top-level `projects/*.md` render to `pages/projects/`, so this file stays unpublished.
 **Date:** 2026-08-12
@@ -45,7 +47,7 @@ Two pages, **evidence sections only**:
 - `aopwiki.org/aops/17#evidence`
 - `aopwiki.org/relationships/1765#evidence`
 
-These cover the **classic, published handbook rubric** — the authored-grade half of the
+These cover the **AOP-Wiki v2.8 data model** — the authored-grade half of the
 comparison. Stable and citable, unlike EMOD.
 
 | What to extract | What it decides |
@@ -103,16 +105,16 @@ Also present on the KER: `evidence-collection-strategy`, `known-modulating-facto
 
 So: **High / Moderate / Low / Not Specified.** An authored ordinal grade, confirmed —
 and `Not Specified` is ~34% of WoE grades and ~57% of quantitative-understanding grades,
-so a large share is simply ungraded. That is a coverage fact worth carrying into Comment B
+so a large share is simply ungraded. That is a coverage fact worth carrying into the response
 alongside dismech's own evidence-coverage gaps (#8296).
 
 ### What this settles, point by point
 
 1. **Value vocabulary** — authored ordinal, High/Moderate/Low/Not Specified. The
-   authored-vs-derived contrast is real *for the published rubric*.
+   authored-vs-derived contrast is real *for the v2.8 data model*.
 2. **Dimensions scored per KER** — none are scored at KER level. The KER carries prose;
    the single ordinal grade sits on the AOP's relationship listing. The issue's assumed
-   three-dimension rubric is close but mis-levelled.
+   three-dimension scoring is close but mis-levelled.
 3. **Essentiality** — **AOP level**, as `key-event-essentiality-summary`. It therefore does
    *not* map onto a dismech edge. Closest dismech analogue is a node-level claim assessed
    in the context of a particular model, not `CausalEdge`. This corrects the §12
@@ -134,7 +136,7 @@ alongside dismech's own evidence-coverage gaps (#8296).
 The KER evidence being unstructured HTML prose with inline author-year citations is
 plausibly *the problem EMOD exists to solve*. That makes EMOD's Observation/Evidence
 structuring effort and dismech's `EvidenceItem` + validator convergent responses to the
-same weakness, arrived at independently — a stronger claim for Comment B than "these two
+same weakness, arrived at independently — a stronger claim for the response than "these two
 frameworks resemble each other."
 
 ---
@@ -237,7 +239,7 @@ DECREASED:
 
 Same axis, same ontology, same two terms. This is a shared grounding rather than an
 analogy, and it is checkable rather than argued — probably the single most defensible
-alignment claim available for Comment B.
+alignment claim available for the response.
 
 **It also resolves the direction-polarity question.** dismech carries *both* directions, in
 different slots:
@@ -263,17 +265,17 @@ dismech `BiologicalScaleEnum`: `MOLECULAR` / `CELLULAR` / `TISSUE` / `ORGANISM` 
 the upstream and downstream events on the KER, but **the precise properties are not
 finalized — EMOD is still under development.**
 
-Two consequences for Comment B:
+Two consequences for the response:
 
 1. **Do not attempt a field-level comparison.** There are no final fields. Asserting one
    would be exactly the confident-but-wrong claim this whole grounding exercise was about.
 2. **The "authored vs derived" contrast needs splitting.** If KER evidence is *composed
    from* the Observations at each end, EMOD's evidence is **derived from typed measurement
    records**, not an authored expert grade. That contrast therefore holds only against the
-   *classic handbook rubric* — and EMOD appears to be moving toward the same
-   derived-from-structure position dismech committed to in §12. Comment B must treat
+   *v2.8 data model* — and EMOD appears to be moving toward the same
+   derived-from-structure position dismech committed to in §12. The response must treat
    "AOP's evidence model" as two reference points, not one:
-   - the **published handbook rubric** — stable, authored
+   - the **AOP-Wiki v2.8 data model** — stable, authored
    - **EMOD** — in development, compositional
 
 So the extent of alignment is not a fixed quantity: one side is mid-revision, and revising
@@ -334,23 +336,30 @@ entry.
 
 ## 10. Open questions — all in one place
 
-Nothing here blocks drafting Comment B against the stable half.
+Nothing here blocks drafting the response against the stable half.
 
 1. ~~AOP-Wiki evidence pages~~ — **RESOLVED via the local XML dump, see §2a.** No blocker
-   remains for the handbook-rubric half. Comment B is writable.
+   remains for the v2.8 half. The response is writable.
 2. **Is `Causal Agent` genuinely dead**, or dormant/revivable? Recorded as "tried in a
    project, not adopted by the AOP community" — which is how it will be described unless
    corrected.
 3. **Does `Phenotype` remain a proposed EC entity**, or has it since been adopted? The
    poster is from 2024 and marks it proposed. Bears on the HP-binding comparison.
-4. **Is a two-reference-point structure the right shape for Comment B** (handbook rubric =
-   stable/authored; EMOD = provisional/compositional), or should it address only the
-   published rubric and leave EMOD out until the properties settle?
+4. ~~Is a two-reference-point structure the right shape for the response~~ — **RESOLVED.**
+   Yes: the record treats v2.8 (stable/authored) and EMOD (provisional/compositional) as
+   two reference points.
+5. **Does the EMOD 3.0 preprint** ([arXiv 2605.21645](https://arxiv.org/abs/2605.21645))
+   supersede the slide/poster material in §3-§7? Not yet read.
+
+Items 2, 3, and 5 are **questions for @gingin77**, not statements of record. They are held
+here rather than on the project page until answered.
 
 ---
 
 ## Next step
 
-Draft Comment B on #8309: a graded, per-dimension assessment of how far dismech's evidence
-model already covers what AOP's KER weight-of-evidence covers — with the EMOD half marked
-provisional and dated.
+Carried into [`projects/AOP_EMOD_ALIGNMENT.md`](../AOP_EMOD_ALIGNMENT.md), which records
+what is known about the Handbook/v2.8 standards, EMOD, and the `Lead_Poisoning` use case,
+and states the per-dimension alignment reading. Adoption calls (AOP-Wiki as a structured
+source, `aop_role`, AOP-as-module) are deferred to their own issues and are **not**
+decided there.
