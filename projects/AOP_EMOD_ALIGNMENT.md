@@ -16,18 +16,18 @@ diseases:
 
 ## Scope
 
-This project started with issue [#8309](https://github.com/monarch-initiative/dismech/issues/8309), which 
+This project started with issue [#8309](https://github.com/monarch-initiative/dismech/issues/8309), which
 asked **to what extent** dismech's environmental-exposure and evidence modeling approaches align with the Adverse
 Outcome Pathway (AOP) framework, including the AOP Evidence Model (EMOD) expansions. Iterative
 refinement of the questions that need to be asked led to the content of this project document.
 The project should be used to identify specific directions for dismech and AOP integration.
 
-There are **two AOP reference categories** describing the AOP framework and the data classes on a conceptual level. 
+There are **two AOP reference categories** describing the AOP framework and the data classes on a conceptual level.
 
 | Reference category | What it is | Status |
 |---|---|---|
-| **AOP-Wiki v2.8 data model** | The current structure. The AOP Developer's Handbook presents it conceptually to humans; the bulk XML serializes it. | Stable, citable |
-| **AOP EMOD** | Proposed computable version of the framework and expansion of v2.8, adding structure to fields that are currently free text. | In development; evolving with emergent use cases |
+| **AOP-Wiki v2.8 data model** | The current structure. The AOP Developers' Handbook presents it conceptually to humans; the bulk XML serializes it. | Stable, citable |
+| **AOP EMOD** | Computable expansion of v2.8, adding structure to fields that are currently free text. | Being adopted by the AOP community; details not OECD-endorsed and open to change |
 
 `Lead_Poisoning` is the pilot comparator entry used to ground the comparison
 against a real dismech pathograph.
@@ -48,17 +48,15 @@ depends on which construct it describes — not on which side of the comparison 
   community, but the details have not been endorsed by the OECD as the AOP standard
   and remain open to change.
 - **dismech side.** Settled: `EvidenceItem` and `CausalEdge`, exercised across ~2000
-  entries. Open: `biological_scale` is optional and barely populated, OBI assay
-  grounding is unvalidated, and `inference.role` is an unbuilt proposal.
+  entries. Open: `biological_scale` is optional and barely populated, and OBI assay
+  grounding is unvalidated.
 
 ## What is known about the AOP Schema
 
 The record begins with each framework described on its own terms — what it defines,
 and how firmly — before any construct is mapped from one to the other.
 
----
-
-### The AOP-Wiki v2.8 data model and Developers' Handbook
+### The AOP-Wiki data model — v2.8 and EMOD properties
 
 Normative reference: Villeneuve D, Meek B, Viviani B, Burgdorf T, LaLone C,
 O'Brien J, et al. *AOP Developers' Handbook v2.8*. AOP-Wiki; 2026
@@ -91,10 +89,30 @@ may sit in the same AOP without a KER pairing them, and a KER may itself record
 feedforward or feedback loops — AOP 17 carries a neuroinflammation ⇄ cell-injury
 loop.
 
+#### Key Event Components
+
+Key Event Components (KECs) were introduced in AOP-Wiki Release 2.2 to make Events
+computable by binding them to OBO Foundry terms. Each KEC defines a discrete **action**,
+**object**, and **process** term.
+
+Action terms come from an AOP-Wiki controlled vocabulary based on the Phenotypes and
+Traits Ontology (PATO). Object and process terms use selected bio-ontologies. Separate
+controlled vocabularies define levels of biological organization (LoBO), sex, and life
+stage; CL and UBERON give biological spatial context for Events; and NCBI Taxon labels
+species applicability for Events, KERs, and AOPs.
+
+EMOD adds **phenotype** as a fourth entity alongside action, object, and process. Its
+Observation and Assay classes each define a biological object, process, and/or
+phenotype, serving Events across all levels of biological organization from molecular to
+population. The phenotype property does work the other three cannot: paired with
+Experimental Effect it separates a chemical that induces an outcome from one that treats
+it — the difference between an Observation mapping to a Seizure Event and one mapping to
+a Decreased Seizure Event.
+
 #### Maturity stages
 
 AOPs can be classified in ways that reflect maturity of knowledge associated with a
-pathway, how extensively they have been developed, and how much quantiative data is
+pathway, how extensively they have been developed, and how much quantitative data is
 available to support their use for predictive toxicology.
 
 A 2014 paper on AOP development offers the following AOP classification options:
@@ -119,18 +137,40 @@ objective, nor absolute", and that all three stages have uses for regulatory dec
 support. AOPs "can evolve over time toward greater predictive sophistication (or toward
 obsolescence if rejected by subsequent evidence)".
 
+A partial AOP whose Events are not all known is explicitly useful — for setting
+priorities and identifying what to test next.
+
 Source: Villeneuve DL, Crump D, Garcia-Reyero N, Hecker M, Hutchinson TH, LaLone CA,
 Landesmann B, Lettieri T, Munn S, Nepelska M, Ottinger MA, Vergauwen L, Whelan M.
 *Adverse outcome pathway (AOP) development I: strategies and principles.* Toxicol Sci
 2014;142(2), Table 3. [PMID:25466378](https://pubmed.ncbi.nlm.nih.gov/25466378/).
 
-A partial AOP whose Events are not all known is explicitly useful — for setting priorities and identifying what to test next.
+### Evidence structure
 
-Biological plausibility is also a named field on the KER, kept separate from empirical
+<!--
+TODO: this section currently covers only the two EMOD evidence classes. The v2.8 data
+model already carries a substantial evidence apparatus that belongs here too, including:
+
+  - Weight of Evidence. Referenced once in the comparison table but never introduced.
+    The KER carries free-text <weight-of-evidence>, <biological-plausibility>,
+    <emperical-support-linkage> (note the schema's own typo), <quantitative-understanding>
+    and <uncertainties-or-inconsistencies>; the ordinal grade sits separately on the AOP's
+    relationship listing, as <evidence> and <quantitative-understanding-value>, with the
+    vocabulary High / Moderate / Low / Not Specified. Counted across the 2026-08-06 export
+    (595 AOPs, 2361 KERs), Not Specified is ~34% of weight-of-evidence grades and ~57% of
+    quantitative-understanding grades.
+  - Key event essentiality, assessed at AOP level as <key-event-essentiality-summary>,
+    not on the KER.
+  - <overall-assessment>, which carries the Bradford-Hill-style criteria prompt.
+  - Citation practice in the deployed corpus: inline author-year references, with a
+    separate <references> element, not identifiers bound to a specific claim.
+
+Source material is in AOP_EMOD_ALIGNMENT/draft-sections-1-6.md, section 1.
+-->
+
+Biological plausibility is a named field on the KER, kept separate from empirical
 support, so the distinction between what is plausible and what is demonstrated is
 carried on individual relationships as well as on the AOP as a whole.
-
-### The AOP-Wiki EMOD expansions
 
 EMOD adds structure to AOP-Wiki fields that are currently free text. Two of its classes
 carry evidence, and they attach at different points in the backbone:
@@ -142,6 +182,13 @@ carry evidence, and they attach at different points in the backbone:
 An Event may have several Observations. At minimum an Observation names a stressor, a
 biological entity that maps to the Event, and a direction of perturbation that aligns
 with it.
+
+Source: Hench VK, Caufield JH, Moxon SAT, O'Brien JM, Edwards SW. *AOP-Wiki EMOD 3.0:
+Data Model Expansions and Content Evaluation Framework for Using Agentic AI to Improve
+Integration between AOPs and New Approach Methodologies (NAMs).* arXiv
+[2605.21645](https://arxiv.org/abs/2605.21645), 2026. EMOD is modelled in LinkML at
+[`EHS-Data-Standards/linkml-aop`](https://github.com/EHS-Data-Standards/linkml-aop),
+under active development.
 
 ---
 
@@ -160,7 +207,7 @@ that merely resemble each other across the two models are left out.
 | KEC Object / Process | `cell_types`, `biological_processes`, `locations` | Shared GO/HP/CL/UBERON terms make Event-to-node matching computable rather than manual |
 | KEC Action | `Descriptor.modifier` | Both PATO-derived; mappable term by term |
 | Experiment Type | `EvidenceItem.evidence_source` | Mappable term by term, with one named gap: no clinical or epidemiological term on the AOP side |
-| Evidence (attached to the KER) | `CausalEdge.evidence` | A validated verbatim quote supporting causality between two Events — what a KER carrying no graded evidence needs to be filled |
+| Evidence (attached to the KER) | `CausalEdge.evidence` | A validated verbatim quote supporting causality between two Events — the unit a KER with no weight-of-evidence assessment needs |
 | Observation (attached to the Event) | `EnvironmentalMechanismTarget.evidence`, `ExperimentalReadout.evidence` | Grounds a stressor/exposure-to-mechanism record, with direction, in a quote validated against the cited source |
 
 ### What blocks integration until resolved
@@ -191,3 +238,27 @@ This matters most where EMOD is explicitly headed. Structuring evidence for AI-r
 raises the question of what stops a generated claim from drifting off its source, and a
 required verbatim quote is a check that runs without a human reading the paper. dismech
 has run on this constraint across ~2000 entries.
+
+---
+
+## The Lead_Poisoning use case
+
+<!--
+TODO: write this section. `Lead_Poisoning` is declared in the frontmatter and named in
+Scope as the pilot comparator, but nothing in the body currently uses it.
+
+Material is available in AOP_EMOD_ALIGNMENT/draft-sections-1-6.md, section 3, but two
+things there need rework before reuse:
+  - the "terminal mechanism node cannot sit in an AOP" claim is flagged SUSPECT — it
+    rests on the false premise that a Key Event requires KERs on both sides;
+  - the AOP 17 comparison predates the MIE and toxicokinetics reframing. Lead absorption
+    and systemic distribution are ADME and sit outside an AOP; `Inhibition of
+    delta-aminolevulinic acid dehydratase` is the MIE-shaped node.
+
+The AOP side of the comparison is expected to come from the OpenScientist network work
+rather than from a single published AOP, so AOP 17 may not remain the comparator.
+-->
+
+*Not yet written.* The AOP side of this use case will draw on an AOP network with
+consensus nodes, under development in OpenScientist.
+
