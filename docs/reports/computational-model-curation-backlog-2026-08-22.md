@@ -40,7 +40,7 @@ This report complements the execution-focused
 | [#9145](https://github.com/monarch-initiative/dismech/pull/9145) | Chronic myeloid leukemia | ecological ODE / treatment-response ensemble | Approved and green |
 | [#9263](https://github.com/monarch-initiative/dismech/pull/9263) | Alzheimer disease | EEG-personalized brain digital twin | New PR; local validation complete |
 
-The nine approved PRs are unassigned, conflict-free, and eligible for the
+The ten approved PRs are unassigned, conflict-free, and eligible for the
 repository's deterministic auto-merge sweep after its three-day cooling period.
 They should not be merged early by bypassing that control.
 
