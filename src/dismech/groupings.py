@@ -185,15 +185,17 @@ def lint_criterion_advisories(node: Any, path: str = "logic") -> list[str]:
     advisories: list[str] = []
     if not isinstance(node, dict):
         return advisories
-    if classify_node(node) is NodeKind.LEAF:
-        if node.get("criterion_predicate") == "HAS_CLASSIFICATION":
-            value = node.get("classification")
-            if isinstance(value, str) and ":" not in value:
-                advisories.append(
-                    f"{path}: HAS_CLASSIFICATION {value!r} is unkeyed; prefer "
-                    f"'<slot>:{value}' so the criterion pins which "
-                    f"classification slot it reads"
-                )
+    if (
+        classify_node(node) is NodeKind.LEAF
+        and node.get("criterion_predicate") == "HAS_CLASSIFICATION"
+    ):
+        value = node.get("classification")
+        if isinstance(value, str) and ":" not in value:
+            advisories.append(
+                f"{path}: HAS_CLASSIFICATION {value!r} is unkeyed; prefer "
+                f"'<slot>:{value}' so the criterion pins which "
+                f"classification slot it reads"
+            )
     for i, child in enumerate(node.get("operands", []) or []):
         advisories.extend(
             lint_criterion_advisories(child, f"{path}.operands[{i}]")
