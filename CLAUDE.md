@@ -543,8 +543,18 @@ and the payload for that predicate:
 - `HAS_GENE` → `gene`
 - `CONFORMS_TO_MODULE` → `module` (a `kb/modules/` stem, optionally with `#Node Name`)
 - `HAS_BIOLOGICAL_PROCESS` → `biological_processes`
-- `HAS_CLASSIFICATION` → `classification`; `HAS_INHERITANCE` / `HAS_MAPPING` / `OTHER`
-  carry the value in `description`
+- `HAS_INHERITANCE` → `inheritance_term` (an HPO mode-of-inheritance term).
+  **The payload is optional**, unlike every other predicate's: a leaf naming a
+  term is evaluated against every curated `inheritance` block in the member -
+  disease level, `has_subtypes`, and the per-gene blocks under `genetic` - with
+  the same ontology closure as `HAS_PHENOTYPE`; a leaf carrying only a `description` — for a constraint no
+  single HP term names, such as "hereditary rather than acquired" in
+  `Hereditary_Systemic_Amyloidoses` — stays free text and evaluates to UNKNOWN.
+  **Name the term whenever one exists.** An UNKNOWN leaf inside an `AND`
+  forces the whole conjunction to UNKNOWN, so one unevaluable inheritance
+  clause hides every checkable clause beside it.
+- `HAS_CLASSIFICATION` → `classification`; `HAS_MAPPING` / `OTHER` carry the
+  value in `description`
 - `negated: true` negates a leaf (alternative to a `NOT` operator)
 
 **Criteria semantics (`=>` / `<=` / `<=>`):** `criteria_semantics` records the OWL-style
@@ -917,7 +927,43 @@ entries: `Alport_Syndrome`, `Usher_Syndrome`,
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
 `Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
-(`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+(`grouping_basis: OTHER`, a `NECESSARY_AND_SUFFICIENT` `HAS_INHERITANCE`
+criterion over HP:0010984 / HP:0010983).
+
+**Binding the term is what puts an entry in the grouping.** The criteria are
+*sufficient*, so `just check-groupings` reports any entry carrying a bound
+digenic/oligogenic block but missing from `members:` as a candidate — that is
+the mechanism that keeps the union complete, and it only works if the term is
+bound. An entry describing digenic inheritance in prose alone is invisible to
+it.
+
+**The bar is requirement, not severity.** Bind the term when the phenotype does
+not appear without both loci. Decline when either locus suffices on its own and
+the second only shifts penetrance or severity — that is a modifier, and belongs
+in `genetic:` with `relationship_type: MODIFIER`/`COOPERATING`. Most KB entries
+using the word "digenic" are on the declining side, and several say so
+explicitly: `Hypertrophic_Cardiomyopathy_3` (TPM1 alone causes disease; MYH7
+worsens it), `Familial_Defective_Apolipoprotein_B-100`,
+`Primary_Hyperoxaluria_Type_3`, `Cystinuria` (type AB raises aminoaciduria, not
+stone disease), `Chromosome_18p_Deletion_Syndrome` (the digenic claim belongs to
+FSHD2, a different disease), `Brugada_Syndrome` (an unresolved fraction is not a
+demonstrated two-locus architecture),
+`Familial_Nonmedullary_Thyroid_Carcinoma`, `RDH5-Related_Retinopathy` and
+`BBSome-Related_Retinitis_Pigmentosa`. Leaving those unbound is correct, not an
+oversight — read the entry's stated reasoning before overturning it. Watch for
+the title trap in particular: several papers advertise "digenic inheritance" in
+the title while the abstract reports a severity modifier, or (as in
+`Joubert_syndrome`'s citation) a digenic case belonging to a different disease.
+
+**Finding what is still missing.** `scripts/olida_crosswalk.py` cross-walks the
+[OLIDA](https://olida.ibsquare.be/) oligogenic-diseases database against
+`kb/disorders`, splitting it into already-bound, curated-but-unbound (the cheap
+wins) and no-entry-at-all; `research/olida_crosswalk.md` is the committed
+report. Regenerate it rather than hand-editing. Two caveats it states itself: the
+name matching is a screen a curator must confirm, and a high OLIDA confidence
+score rates the *variant combination*, not the claim that the *disease* requires
+two loci — Cystinuria scores at OLIDA's maximum and is still correctly a
+non-member.
 
 ### Hypothesis-Based Phenotype Algorithms
 
