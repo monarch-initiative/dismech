@@ -1,0 +1,932 @@
+id: https://w3id.org/monarch-initiative/dismech/phenotype_distribution
+name: dismech_phenotype_distribution
+title: Disorder Mechanisms Phenotype Profile Schema
+description: >-
+  EHR-derived phenotype profiles, curated as a separate artifact so a disease
+  entry can cite one as evidence.
+
+  **What a profile is.** One `Profile` = one interpretable pattern in one disease
+  cohort: a label and one weighted-code distribution per clinical domain. The
+  disease is declared once on the enclosing `ProfileSet`, as a single MONDO term,
+  so nesting and overlap between cohorts is MONDO's subclass tree — which dismech
+  already renders — rather than a cohort vocabulary of this schema's own.
+
+  **Design principle: a disease page, not a model report.** An earlier draft of
+  this schema carried a full model layer: component counts, inference methods,
+  hyperparameters, per-domain reliability, cohort arms and the denominators
+  attached to them. That was the wrong altitude twice over. Per-domain weights,
+  reliability, and precision/recall are model *evaluation* rather than
+  disease-page content; and they are the fastest-moving part of the pipeline, so
+  a curation schema encoding them would need revising every time the models
+  moved. That layer is gone. Anything model-specific now lives in
+  `ProfileSource`, including an open `profile_metadata` key/value map, so the
+  models can be reshaped freely without touching the profile contract.
+
+  The shape follows the proposal by the author of the models that produce this
+  data (see the CHARMPheno repository in `see_also`); the reasoning is recorded
+  here because the more elaborate alternative was built first and did not survive
+  review.
+
+  **Codes are opaque; the vocabulary is declared.** A profile's `code` is a bare
+  identifier in whatever system `code_vocabulary` names — an OMOP concept id, an
+  ICD-10-CM code, a LOINC code. Two lessons are encoded there: do not put a
+  source-vocabulary CURIE in a code field, because that proved brittle; and do
+  not name the fields after one vocabulary either, because data may arrive coded
+  in another. Profiles range over **clinical codes, not ontology terms**, so a
+  consumer that reads them as HPO because dismech is HPO-centric is wrong.
+
+  **Evidence modelling.** The evidence layer follows SEPIO
+  (https://sepio-framework.github.io/sepio-linkml/) and is deliberately
+  vocabulary-compatible with the SEPIO pilot proposed for the main dismech
+  schema in monarch-initiative/dismech#7439: an `EvidenceLine` is one argument
+  bearing a direction and a strength, holding one or more `DataItem`s (here the
+  quotable statistic), each `reported_in` a typed `Document`. Splitting
+  direction from strength matters more for statistics than for prose — a
+  precisely estimated null and an underpowered null point the same way with very
+  different force. `EvidenceDirectionEnum` reuses the permissible values of the
+  native dismech `EvidenceItemSupportEnum` verbatim so the two forms stay
+  mechanically inter-convertible.
+
+  **Citation goes one way only.** A profile set names no dismech entry. Each
+  profile renders to a `PHENODIST:` reference-cache file and the disease entry
+  cites it and quotes a row — the same direction as every other structured
+  source dismech consumes.
+
+  **Weights are not prevalences.** The topic-model literature calls a component's
+  share of mass its "prevalence"; here `prevalence` means what dismech's own
+  `prevalence[]` block means — patients over a stated denominator of patients at
+  risk — so the slots are `profile_weight` and `code_weight`, and neither is
+  convertible to an occurrence rate.
+
+license: BSD-3-Clause
+
+see_also:
+  - https://github.com/oneilsh/CHARMPheno
+  - https://sepio-framework.github.io/sepio-linkml/
+  - https://github.com/monarch-initiative/dismech/issues/7439
+
+imports:
+  - linkml:types
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  dismech: https://w3id.org/monarch-initiative/dismech/
+  phenodist: https://w3id.org/monarch-initiative/dismech/phenotype_distribution/
+  HP: http://purl.obolibrary.org/obo/HP_
+  MONDO: http://purl.obolibrary.org/obo/MONDO_
+  LOINC: https://loinc.org/
+  skos: http://www.w3.org/2004/02/skos/core#
+  xsd: http://www.w3.org/2001/XMLSchema#
+
+default_prefix: phenodist
+default_range: string
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+enums:
+
+  CodeVocabularyEnum:
+    description: >-
+      The identifier system a set of codes is drawn from — what a distribution
+      is actually *over*.
+
+      This is the single most important fact about a profile and must never be
+      assumed. Profiles range over **clinical codes**, not over ontology terms:
+      current work is over OMOP concept ids (from harmonized All of Us data),
+      but data may equally arrive already coded in a source terminology (ICD,
+      LOINC, RxNorm, SNOMED), so the vocabulary is declared rather than fixed by
+      the schema. A consumer that reads a profile's codes as HPO terms because
+      dismech is HPO-centric would be wrong today for every existing profile.
+
+      Declaring the vocabulary is what lets the code fields stay generic. An
+      earlier draft named them `concept_id`/`concept_name` after OMOP, which
+      quietly made OMOP the only representable case; the lesson that survived
+      from that draft is the narrower one — do not put a *source-vocabulary
+      CURIE* in a code field and expect it to resolve, because that proved
+      brittle in practice. Name the vocabulary once, keep the code opaque.
+
+      Terminology identities are stable even though model internals churn, so
+      this is an enum rather than an escape-hatch property; `OTHER` plus a
+      version string covers anything unlisted (procedure and drug-class systems
+      such as CPT/HCPCS and ATC are the likely next additions). ICD revisions
+      are separate values rather than one `ICD` with the revision in prose: an
+      ICD-9-CM code is not interpretable as ICD-10-CM, and a consumer filtering
+      by revision should not have to parse free text to find out.
+    permissible_values:
+      OMOP_CONCEPT_ID:
+        description: >-
+          OMOP standard concept identifiers, the current feature space for
+          CHARMPheno profiles over harmonized All of Us data.
+      SNOMED_CT:
+        description: SNOMED CT concept identifiers.
+      ICD9CM:
+        description: ICD-9-CM codes.
+      ICD10CM:
+        description: ICD-10-CM codes.
+      ICD11:
+        description: ICD-11 codes.
+      LOINC:
+        description: LOINC codes, typically for laboratory measurement features.
+      RXNORM:
+        description: RxNorm identifiers for drug-exposure features.
+      MONDO:
+        description: >-
+          MONDO disease terms. Rare as a feature space and lossy relative to
+          source codes; more often the vocabulary used to *identify* a cohort
+          than the one the distribution ranges over.
+      HP:
+        description: >-
+          HPO phenotype terms. As with MONDO, lossy relative to source clinical
+          codes and not the default feature space.
+      OTHER:
+        description: >-
+          Another identifier system. Name it in the version field beside this
+          one — `code_vocabulary_version` on a code distribution, or
+          `identification_vocabulary_detail` on a cohort-identification step.
+
+  ClinicalDomainEnum:
+    description: >-
+      Source data domain a code distribution ranges over.
+
+      A profile holds one distribution *per domain* and states no cross-domain
+      combination — no weights, no merged vector. How domains combine is an open
+      modelling question and a rendering choice, and is deliberately outside this
+      contract rather than frozen into it.
+    permissible_values:
+      CONDITION:
+        description: Diagnosis / problem-list codes.
+      DRUG:
+        description: Drug exposure codes.
+      MEASUREMENT:
+        description: Laboratory and other measurements, optionally value-aware.
+      OBSERVATION:
+        description: Observation codes.
+      PROCEDURE:
+        description: Procedure codes.
+      DEVICE:
+        description: Device exposure codes.
+      OTHER:
+        description: Another domain; name it in the distribution's `description`.
+
+  ValueQualifierEnum:
+    description: >-
+      Direction of a value-aware code, for domains where the same concept means
+      different things at different values — a measurement code carries no
+      clinical signal until you know whether it was high or low.
+    permissible_values:
+      HIGH:
+        description: Value above the reference interval.
+      LOW:
+        description: Value below the reference interval.
+      NORMAL:
+        description: Value within the reference interval.
+      ABNORMAL:
+        description: Value outside the reference interval, direction unstated.
+      POSITIVE:
+        description: Qualitative positive result.
+      NEGATIVE:
+        description: Qualitative negative result.
+
+  ProfileMethodEnum:
+    description: >-
+      How the profiles in a set were derived.
+
+      KNOWN DUPLICATION, pending a decision: every value here is also a value of
+      the native dismech `AssociationSignalMethodEnum`, spelled the same and
+      meaning the same, and that enum is a superset. The open proposal is to
+      delete this enum and use the native one; see the duplication audit on
+      monarch-initiative/dismech#7612.
+
+      That subset claim is pinned by a test, subset rather than set-equality
+      because the native enum carries two values that describe no way a profile
+      is derived. The guard is conditional — it says only that *if* this enum
+      exists it stays a subset — so it survives every outcome and argues for
+      none of them.
+    permissible_values:
+      COMPUTATIONAL_INFERENCE:
+        description: >-
+          Inferred by a model fitted to structured records — the topic-model
+          family and its successors.
+      EHR_COHORT_ASSOCIATION:
+        description: Direct co-occurrence statistics over an EHR cohort.
+      OTHER:
+        description: Another method; describe it in `source.description`.
+
+  ProvenanceTierEnum:
+    description: >-
+      What kind of epistemic object a collection is. A distribution curated from
+      published literature and one exported wholesale from a model bundle share
+      this schema but are not the same sort of claim, and a consumer should be
+      able to filter on that without inferring it from a directory path.
+    permissible_values:
+      CURATED:
+        description: >-
+          Human-curated from published literature or a named data source, with
+          each profile reviewed. Citable from a kb entry.
+      TOOL_EXPORTED:
+        description: >-
+          Transcribed from a model or pipeline export. The numbers are real,
+          but the reading of a component as a named clinical pattern is
+          unreviewed curator judgement.
+      ILLUSTRATIVE:
+        description: >-
+          Synthetic or placeholder values existing to demonstrate the schema.
+          Must never be cited from a kb entry and must never be rendered into
+          the reference cache.
+
+  EvidenceDirectionEnum:
+    description: >-
+      Direction an evidence line points, relative to its target proposition.
+      Permissible values are copied verbatim from the native dismech
+      `EvidenceItemSupportEnum` so a SEPIO-form line and a native evidence item
+      say the same thing the same way and remain inter-convertible.
+    permissible_values:
+      SUPPORT:
+        title: Supports
+        description: The evidence supports the proposition.
+      REFUTE:
+        title: Refutes
+        description: The evidence contradicts the proposition.
+      PARTIAL:
+        title: Partially supports
+        description: The evidence partially or indirectly supports the proposition.
+      NO_EVIDENCE:
+        title: No evidence
+        description: The cited source contains nothing bearing on the proposition.
+      WRONG_STATEMENT:
+        title: Wrong statement
+        description: The proposition contains a demonstrable factual error.
+
+  EvidenceStrengthEnum:
+    description: >-
+      How forceful the evidence line is, independent of which way it points.
+      Matches the vocabulary proposed in monarch-initiative/dismech#7439.
+    permissible_values:
+      STRONG:
+        description: Large, well-powered, low-bias, and ideally replicated.
+      MODERATE:
+        description: Adequately powered with identified but bounded limitations.
+      WEAK:
+        description: Underpowered, single-source, or substantially confounded.
+      VERY_WEAK:
+        description: Anecdotal, exploratory, or heavily caveated.
+
+  DocumentTypeEnum:
+    description: >-
+      Type of the source document an evidence item was reported in. Matches the
+      vocabulary proposed in monarch-initiative/dismech#7439.
+    permissible_values:
+      PRIMARY_LITERATURE:
+        description: Primary research article.
+      REVIEW:
+        description: Review article.
+      PREPRINT:
+        description: Preprint.
+      CLINICAL_TRIAL_RECORD:
+        description: Trial registry record.
+      STRUCTURED_DATABASE:
+        description: Structured database record or table row.
+      PRACTICE_GUIDELINE:
+        description: Clinical practice guideline.
+      BOOK_OR_CHAPTER:
+        description: Book or book chapter.
+      DATA_ANALYSIS_REPORT:
+        description: >-
+          Analysis report, model bundle, or dashboard artifact rather than a
+          published document — the usual source for a model-derived record.
+      OTHER:
+        description: Other document type.
+
+  DataItemTypeEnum:
+    description: >-
+      Kind of information entity being interpreted as evidence. Extends the
+      #7439 vocabulary with the statistical item types this schema needs.
+    permissible_values:
+      TEXT_SPAN:
+        description: Quoted span of text.
+      MEASUREMENT:
+        description: A single measured value.
+      STATISTIC:
+        description: A summary statistic.
+      DISTRIBUTION_PARAMETER:
+        description: A fitted distribution parameter or parameter vector.
+      TABLE_ROW:
+        description: A row of a structured table.
+      IMAGE:
+        description: An image or figure.
+      OTHER:
+        description: Other information entity.
+
+  AgentTypeEnum:
+    description: Kind of agent responsible for an activity or assertion.
+    permissible_values:
+      PERSON:
+        description: An individual person.
+      ORGANIZATION:
+        description: An organization or consortium.
+      SOFTWARE:
+        description: A software agent or pipeline.
+
+  ActivityTypeEnum:
+    description: Kind of activity that produced a record or evidence line.
+    permissible_values:
+      STATISTICAL_ANALYSIS:
+        description: Statistical estimation from data.
+      MODEL_FITTING:
+        description: Fitting a latent-variable or predictive model.
+      DATA_EXTRACTION:
+        description: Extraction of reported statistics from a document.
+      META_ANALYSIS:
+        description: Pooling across studies.
+      CURATION:
+        description: Human or agent curation of the record.
+      VALIDATION:
+        description: Checking a record against its source.
+      OTHER:
+        description: Other activity.
+
+# ---------------------------------------------------------------------------
+# Slots
+# ---------------------------------------------------------------------------
+
+slots:
+
+  # --- shared / identity ---
+  id:
+    description: Identifier of the entity.
+    identifier: false
+  name:
+    description: Short name.
+  description:
+    description: Free-text description.
+  notes:
+    description: Curator notes.
+  version:
+    description: Version string.
+  url:
+    description: Resolvable URL.
+  date:
+    description: ISO 8601 date or datetime.
+
+  # --- ontology terms ---
+  term_id:
+    description: CURIE of the ontology term.
+  term_label:
+    description: >-
+      Canonical label of the ontology term. Must match the authoritative label
+      exactly; verify with OAK before committing.
+
+  # --- collection ---
+  collection_id:
+    description: Stable identifier for this collection.
+    required: true
+  provenance_tier:
+    description: >-
+      What kind of epistemic object this collection is. Required, because
+      "these numbers are illustrative" must be a machine-readable fact rather
+      than a sentence in a description that tooling cannot read.
+    range: ProvenanceTierEnum
+    required: true
+  disease:
+    description: >-
+      The disease this profile set is about, as one MONDO term.
+
+      Declared once for the set rather than per profile: a dismech entry
+      associates with a whole `ProfileSet`, and nesting or overlap between
+      cohorts is MONDO's own subclass tree, which dismech already renders.
+    range: DiseaseContext
+  tracked_issues:
+    description: Issue or PR URLs tracking curation of this collection.
+    multivalued: true
+  generated_date:
+    description: When the collection was generated or last regenerated.
+
+  # --- measurement / evidence ---
+  unit:
+    description: Unit of the measured quantity (e.g. years, mg/dL, events/year).
+  evidence_lines:
+    description: SEPIO-shaped arguments connecting a profile to propositions.
+    multivalued: true
+    range: EvidenceLine
+    inlined_as_list: true
+
+  # --- disease context ---
+  disease_name:
+    description: >-
+      dismech entry name for the disease. Should match a `Disease.name` in
+      `kb/disorders/`.
+  disease_term:
+    description: MONDO term for the disease.
+    range: Term
+  subtype:
+    description: >-
+      dismech subtype this record is restricted to. Should match a
+      `has_subtypes[].name` in the target entry.
+  # --- source ---
+  software:
+    description: Software and version used for estimation.
+  primary_references:
+    description: Publications or records the collection is derived from (PMID, DOI, NCT CURIEs).
+    multivalued: true
+
+  # --- SEPIO evidence ---
+  evidence_line_id:
+    description: Identifier for the evidence line within the record.
+  target_proposition:
+    description: The claim this line bears on.
+    range: Proposition
+  direction_of_evidence_provided:
+    description: Which way the line points.
+    range: EvidenceDirectionEnum
+    required: true
+  strength_of_evidence_provided:
+    description: >-
+      How forceful the line is, independent of direction. A precisely estimated
+      null and an underpowered null share a direction but not a strength.
+    range: EvidenceStrengthEnum
+  score_of_evidence_provided:
+    description: Numeric score for the line, when a scoring rubric is in use.
+    range: float
+  evidence_line_type:
+    description: What kind of argument the line makes (e.g. cohort-frequency estimate, model-derived profile).
+  has_evidence_items:
+    description: The information entities interpreted as evidence by this line.
+    multivalued: true
+    range: DataItem
+    inlined_as_list: true
+  contributor:
+    description: Agents responsible for the line.
+    multivalued: true
+    range: Agent
+    inlined_as_list: true
+  specified_by:
+    description: Activity that produced the line.
+    range: Activity
+  proposition_id:
+    description: Identifier for the proposition.
+  subject:
+    description: Subject of the proposition (usually the disease).
+  predicate:
+    description: Predicate relating subject and object.
+  object:
+    description: Object of the proposition (usually the phenotype).
+  statement_text:
+    description: >-
+      The proposition in plain language, written so its truth value is
+      checkable.
+    required: true
+  data_item_id:
+    description: Identifier for the data item.
+  data_type:
+    description: Kind of information entity.
+    range: DataItemTypeEnum
+    required: true
+  item_value:
+    description: >-
+      The evidence content itself. For a TEXT_SPAN this is the verbatim quote
+      and must appear in the cached source; for a STATISTIC it is the rendered
+      statistic line.
+    required: true
+  numeric_value:
+    description: Numeric form of the item, when it has one.
+    range: float
+  reported_in:
+    description: The document this item was reported in.
+    range: Document
+  document_type:
+    description: Kind of source document.
+    range: DocumentTypeEnum
+  agent_type:
+    description: Kind of agent.
+    range: AgentTypeEnum
+  activity_type:
+    description: Kind of activity.
+    range: ActivityTypeEnum
+  performed_by:
+    description: Agents that performed the activity.
+    multivalued: true
+    range: Agent
+    inlined_as_list: true
+  activity_parameters:
+    description: Salient parameters of the activity.
+    multivalued: true
+
+  # --- EHR-derived phenotype profiles ---
+  profile_id:
+    description: >-
+      Stable identifier for the profile within its set. Cited from a dismech
+      entry as `PHENODIST:<profile_id>`, so it must not be renumbered once
+      published — a component index is not a stable name.
+  profiles:
+    description: The profiles in this set.
+    multivalued: true
+    range: Profile
+    inlined_as_list: true
+  profile_source:
+    description: >-
+      Where the profiles came from and how they were made.
+
+      Everything model-specific lives here, including an open `metadata` map, so
+      the model layer can be reshaped without touching the profile contract. A
+      profile is a label and weighted codes; if a consumer has to understand the
+      fit to read it, the split has failed.
+
+      Normally declared once on the set. A profile may declare its own, which
+      **replaces** the set's outright rather than merging with it — so a profile
+      overriding one field must restate the rest, including `weight_basis` if it
+      carries a `profile_weight`. Set it per-profile only when a profile really
+      came from a different run.
+    range: ProfileSource
+  profile_label:
+    description: >-
+      Short human-readable name for the pattern, written for a disease page
+      rather than for the fit — "chronic pain and GI dysmotility", not
+      "component 88".
+    required: true
+  code_distributions:
+    description: >-
+      One categorical distribution over codes per domain. Required: a profile
+      with no distribution is a label with nothing under it.
+    multivalued: true
+    range: CodeDistribution
+    inlined_as_list: true
+    required: true
+  clinical_domain:
+    description: Domain this distribution ranges over.
+    range: ClinicalDomainEnum
+    required: true
+  weighted_codes:
+    description: The codes and their weights, conventionally in descending weight.
+    multivalued: true
+    range: WeightedCode
+    inlined_as_list: true
+    required: true
+  truncated:
+    description: >-
+      Whether the listed codes are a top-N subset rather than the full
+      distribution. Almost always true for a display export, and worth stating:
+      weights that do not sum to 1 are otherwise indistinguishable from a bug.
+    range: boolean
+  code:
+    description: >-
+      The code itself, as a bare identifier in the distribution's declared
+      `code_vocabulary` — an OMOP concept id, an ICD-10-CM code, a LOINC code.
+
+      Deliberately opaque and deliberately not a CURIE. Prefixing it would imply
+      the code resolves the way an ontology term does, and source-vocabulary
+      CURIEs proved brittle in exactly that way; a consumer resolves this
+      against `code_vocabulary` and `code_vocabulary_version`, not against a
+      prefix map. Typed as a string rather than an integer so the field does not
+      silently assume OMOP.
+    required: true
+  code_label:
+    description: >-
+      Human-readable name of the code, carried alongside it so a disease page is
+      readable without a vocabulary lookup.
+    required: true
+  code_vocabulary:
+    description: >-
+      Identifier system this distribution's codes are drawn from. Required: a
+      distribution whose vocabulary is unstated cannot be read correctly, and
+      the answer differs between data sources rather than being fixed.
+    range: CodeVocabularyEnum
+    required: true
+  code_vocabulary_version:
+    description: >-
+      Release of that vocabulary — the OMOP vocabulary release, the SNOMED
+      edition and date, the ICD revision year. Declared per distribution
+      alongside the vocabulary itself, so a consumer never has to look in two
+      places to resolve one code.
+  code_weight:
+    description: >-
+      Weight of this code within its distribution. A share of the
+      distribution's mass, not a patient count and not a frequency of the
+      finding among patients.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+    required: true
+  value_qualifier:
+    description: Direction of a value-aware code.
+    range: ValueQualifierEnum
+  profile_weight:
+    description: >-
+      How much of the fit this profile accounts for, relative to the basis named
+      in `profile_source.weight_basis`.
+
+      A weight rather than a share, because what the number means is
+      model-defined: some models emit a normalized share of mass, others a
+      quantity comparable only within one fit. "Share" would presuppose a
+      normalization not every model guarantees.
+
+      Not a prevalence either. A prevalence counts patients against a stated
+      denominator of patients at risk, which is what dismech's own
+      `prevalence[]` block means; this is a property of a fit. Rendering the two
+      under one word invites a comparison that does not hold.
+
+      Which is why the basis is not optional prose: a weight over a whole corpus
+      and one over a single disease arm can differ by three orders of magnitude
+      and look identical here. Two weights are comparable only when their sets
+      declare the same basis.
+    range: float
+    minimum_value: 0.0
+    maximum_value: 1.0
+  weight_basis:
+    description: >-
+      What every `profile_weight` in this set is relative to — the whole
+      analysed corpus, one disease arm, one cohort — and, where the model's
+      quantity is not a simple fraction, what it measures. Required whenever any
+      profile carries a `profile_weight`, because the number is uninterpretable
+      and silently incomparable without it.
+  resource:
+    description: Name of the resource or pipeline that produced the profiles.
+  method:
+    description: How the profiles were derived.
+    range: ProfileMethodEnum
+  dataset:
+    description: Dataset the profiles were derived from (e.g. All of Us Controlled Tier).
+  dataset_version:
+    description: Version or release of that dataset.
+  model_version:
+    description: Identifier of the fit or run that produced the profiles.
+  cohort_size:
+    description: >-
+      Number of individuals in the cohort the profiles were derived from. An
+      aggregate count only; instances carry no patient-level data.
+    range: integer
+    minimum_value: 0
+  profile_metadata:
+    description: >-
+      Open key/value map for anything model-specific. The escape hatch that
+      keeps a fast-moving model layer out of the profile contract.
+    multivalued: true
+    range: MetadataItem
+    inlined_as_list: true
+  metadata_key:
+    description: Name of the property.
+    required: true
+  metadata_value:
+    description: Value of the property, as text.
+    required: true
+
+# ---------------------------------------------------------------------------
+# Classes
+# ---------------------------------------------------------------------------
+
+classes:
+
+  DiseaseContext:
+    description: The disease a collection or record is about.
+    slots:
+      - disease_name
+      - disease_term
+      - subtype
+      - notes
+
+  Term:
+    description: >-
+      An ontology term reference.
+
+      KNOWN COLLISION, pending a decision: dismech.yaml already defines a class
+      called `Term`, for the same purpose, with slots `id` and `label` rather
+      than `term_id` and `term_label`. Two costs, the second worse than the
+      first — the name forecloses importing both schemas into one namespace,
+      and a curator with dismech muscle memory writes `id:`/`label:` here and
+      gets a validation error nothing in the KB would have led them to expect.
+
+      Not renamed unilaterally: the open proposal is to reuse dismech's `Term`
+      outright rather than to rename this one, and renaming would settle that
+      by default. See the duplication audit on
+      monarch-initiative/dismech#7612.
+    slots:
+      - term_id
+      - term_label
+    slot_usage:
+      term_id:
+        required: true
+      term_label:
+        required: true
+
+  # --- EHR-derived phenotype profiles ---
+
+  ProfileSet:
+    tree_root: true
+    description: >-
+      A set of EHR-derived phenotype profiles from one modelling run: an
+      interpretable summary of what co-occurs in a disease cohort, exported from
+      a fitted model for a disease page to show.
+
+      One set is about one disease, declared once here rather than repeated on
+      every profile — each profile under it is one pattern within that cohort.
+
+      Modelled on the proposal by the author of the models that produce this
+      data (CHARMPheno; see `see_also`), and
+      small on purpose. An earlier draft of this schema grew a full model layer
+      — component counts, inference methods, per-domain reliability, cohort arms
+      — and that was the wrong call twice over: it is model *evaluation* rather
+      than disease-page content, and it is the fastest-moving part of the
+      pipeline, so a curation schema encoding it would need revising every time
+      the models moved. What a page needs is a label and weighted codes.
+    slots:
+      - collection_id
+      - name
+      - description
+      - provenance_tier
+      - disease
+      - profile_source
+      - profiles
+      - generated_date
+      - tracked_issues
+      - notes
+    slot_usage:
+      collection_id:
+        required: true
+      disease:
+        required: true
+      profiles:
+        required: true
+
+  Profile:
+    description: >-
+      One computationally-derived phenotype pattern within a profile set's
+      cohort: a label, and one weighted-code distribution per clinical domain.
+
+      A profile names no disease of its own — the set it belongs to declares
+      that once, for all of them. Any nesting or overlap between cohorts is
+      expressed by MONDO's own subclass tree, which dismech already renders, so
+      this schema ships no cohort or grouping vocabulary of its own.
+    slots:
+      - profile_id
+      - profile_label
+      - description
+      - profile_weight
+      - code_distributions
+      - profile_source
+      - evidence_lines
+      - notes
+    slot_usage:
+      profile_label:
+        required: true
+      code_distributions:
+        required: true
+
+  CodeDistribution:
+    description: >-
+      A categorical distribution over codes within one domain.
+
+      One per domain, with no cross-domain combination stated anywhere: how a
+      condition distribution and a drug distribution should be weighed against
+      each other is an open modelling question, and freezing an answer into the
+      contract would make the schema wrong as soon as the answer changed.
+    slots:
+      - clinical_domain
+      - code_vocabulary
+      - code_vocabulary_version
+      - description
+      - weighted_codes
+      - truncated
+      - notes
+    slot_usage:
+      clinical_domain:
+        required: true
+      code_vocabulary:
+        required: true
+      weighted_codes:
+        required: true
+
+  WeightedCode:
+    description: >-
+      One code and its weight within a distribution. The code is opaque and its
+      system is declared on the enclosing `CodeDistribution` — nothing here
+      assumes OMOP, or any other single vocabulary.
+    slots:
+      - code
+      - code_label
+      - code_weight
+      - value_qualifier
+    slot_usage:
+      code:
+        required: true
+      code_label:
+        required: true
+      code_weight:
+        required: true
+
+  ProfileSource:
+    description: >-
+      Where a profile set came from, and everything model-specific about it.
+
+      The quarantine. Method, dataset, vocabulary release, model version, and an
+      open `profile_metadata` map all live here, so the model layer can be
+      reshaped freely without touching the profile contract above it.
+    slots:
+      - resource
+      - description
+      - method
+      - dataset
+      - dataset_version
+      - cohort_size
+      - weight_basis
+      - model_version
+      - url
+      - primary_references
+      - profile_metadata
+
+  MetadataItem:
+    description: One open key/value property of a profile source.
+    slots:
+      - metadata_key
+      - metadata_value
+    slot_usage:
+      metadata_key:
+        required: true
+      metadata_value:
+        required: true
+
+  # --- SEPIO-aligned evidence layer ---
+
+  EvidenceLine:
+    description: >-
+      One independent argument bearing on a proposition, following SEPIO. The
+      line carries the direction and the strength; the `DataItem`s it holds
+      carry the content. Several items in one line make one argument jointly —
+      the distinction the flat dismech `evidence:` list cannot currently express.
+    slots:
+      - evidence_line_id
+      - target_proposition
+      - direction_of_evidence_provided
+      - strength_of_evidence_provided
+      - score_of_evidence_provided
+      - evidence_line_type
+      - has_evidence_items
+      - contributor
+      - specified_by
+      - description
+
+  Proposition:
+    description: >-
+      The claim an evidence line bears on, stated so its truth value is
+      checkable. Distributions are frequently cited in support of propositions
+      they only partly address — writing the proposition down makes that
+      visible.
+    slots:
+      - proposition_id
+      - subject
+      - predicate
+      - object
+      - statement_text
+
+  DataItem:
+    description: >-
+      A discrete information entity interpreted as evidence. For a text span,
+      `item_value` must be a verbatim quote that appears in the cached source,
+      matching dismech's snippet-verification requirement.
+    slots:
+      - data_item_id
+      - data_type
+      - item_value
+      - numeric_value
+      - unit
+      - reported_in
+      - description
+
+  Document:
+    description: A source document, with its identity and type.
+    slots:
+      - id
+      - document_type
+      - name
+      - url
+      - version
+      - date
+    slot_usage:
+      id:
+        description: >-
+          CURIE or URL identifying the document (e.g. `PMID:12345678`,
+          `DOI:10.1000/xyz`, `NCT01234567`).
+        required: true
+      name:
+        description: Title of the document.
+
+  Agent:
+    description: A person, organization, or software agent bearing responsibility.
+    slots:
+      - id
+      - name
+      - agent_type
+      - version
+      - url
+
+  Activity:
+    description: An action performed by an agent that produced a record or line.
+    slots:
+      - id
+      - name
+      - activity_type
+      - performed_by
+      - date
+      - software
+      - activity_parameters
+      - description
