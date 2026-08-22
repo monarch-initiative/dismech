@@ -850,6 +850,63 @@ window.searchData = [
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
   },
   {
+    "model_key": "Multiple_Sclerosis--computational-model-lesion-aware-personalized-whole-brain-conduction-delay-model--2",
+    "name": "Lesion-Aware Personalized Whole-Brain Conduction-Delay Model",
+    "description": "Direct successor to the Virtual Multiple Sclerosis Patient model. It retains each participant's 84-region DTI connectome and noisy Stuart-Landau dynamics but augments distance-derived edge delays based on a shared whole-brain velocity with an additive tract-specific term derived from the fraction of each tract intersecting the participant's FLAIR lesion mask. Simulation-based inference estimates the patient-specific strength of the lesion-to-delay relationship.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Format not recorded",
+    "model_software": "Custom Stuart-Landau simulator with the SBI toolbox",
+    "base_model": "Virtual Multiple Sclerosis Patient whole-brain model (PMID:38974971)",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:40317832",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Multiple Sclerosis",
+    "disease_id": "MONDO:0005301",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder"
+    ],
+    "variables": [
+      "Tract lesion fraction",
+      "Lesion-to-delay weight",
+      "Edge-specific conduction delay",
+      "Global coupling strength",
+      "Alpha peak amplitude"
+    ],
+    "variable_ids": [
+      "l_jk",
+      "gamma",
+      "tau_jk",
+      "G",
+      "peak_amplitude"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Demyelination"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The inferred lesion-to-delay weight correlated inversely with alpha peak power (r=-0.83), whereas total lesion load did not correlate with alpha peak power or the inferred weight.",
+      "Adding the inferred lesion-effect parameter to the cross-sectional EDSS model yielded leave-one-out R2=0.29882 and adjusted R2=0.018348, but its coefficient was not statistically significant (p=0.1784)."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:40317832"
+    ],
+    "num_evidence": 1,
+    "notes": "A curator search on 2026-08-20 identified no paper-specific code repository or executable model archive, and the clinical inputs are available only on request. Curator inspection found that the open VBI package contains generic Stuart-Landau and SBI components but not this paper's lesion-specific gamma-by-tract formulation, so it is not cited as the model artifact. The article is CC BY 4.0, which licenses the paper rather than an unreleased implementation. Synthetic parameter recovery had slope 0.8 and showed boundary bias. The clinical analysis reuses the small cross-sectional source cohort from the 2024 model; the gamma term was not a statistically significant EDSS predictor, and longitudinal validation is still needed.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-lesion-aware-personalized-whole-brain-conduction-delay-model",
+    "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
+  },
+  {
     "model_key": "Fanconi_Anemia--computational-model-machine-learning-drug-repurposing-drexml--2",
     "name": "Machine Learning Drug Repurposing (drexml)",
     "description": "Machine learning framework using multi-output regression and mechanistic signal transduction models to identify drug targets capable of regulating FA-related cell functionalities. The drexml tool predicts potential therapeutic targets by mapping external proteins to signaling circuits that trigger FA-related phenotypes, identifying over 20 potential drug targets and successfully predicting previously validated repurposed drugs.",
@@ -2048,6 +2105,123 @@ window.searchData = [
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
   },
   {
+    "model_key": "Multiple_Sclerosis--computational-model-uiss-ms-agent-based-treatment-simulator--0",
+    "name": "UISS-MS Agent-Based Treatment Simulator",
+    "description": "Multiscale, multi-compartment agent-based model of relapsing-remitting multiple sclerosis. Its physiology layer represents innate and adaptive immune agents; its MS disease layer represents antigen presentation, Th1/Th17 and B-cell responses, blood-brain-barrier migration, CNS inflammation, and oligodendrocyte loss; and its treatment layers simulate cladribine and ocrelizumab. Retrospective virtual cohorts were selected to match aggregate CLARITY and OPERA trial characteristics and outcomes.",
+    "model_type": "Agent Based",
+    "model_type_raw": "AGENT_BASED",
+    "model_format": "Format not recorded",
+    "model_software": "Universal Immune System Simulator (UISS)",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:37266405",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Multiple Sclerosis",
+    "disease_id": "MONDO:0005301",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder"
+    ],
+    "variables": [
+      "Activated Th1-cell population",
+      "Activated Th17-cell population",
+      "Oligodendrocyte count",
+      "MRI-detectable lesion event",
+      "Annualized relapse rate",
+      "Absolute lymphocyte count"
+    ],
+    "variable_ids": [
+      "Th1",
+      "Th17",
+      "ODC",
+      "ARR",
+      "ALC"
+    ],
+    "variable_terms": [],
+    "num_variables": 6,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Th1/Th17-Mediated Neuroinflammation",
+      "Demyelination",
+      "Inflammatory Lesions"
+    ],
+    "num_mechanisms": 3,
+    "findings": [
+      "In the OPERA simulations, predicted annualized relapse rates were 0.193 for ocrelizumab versus 0.16 observed and 0.349 for interferon beta-1a versus 0.29 observed; the predicted relative reduction was 45.7% versus 50% in the clinical trial.",
+      "Retrospective virtual cohorts reproduced the reported directions of cladribine and ocrelizumab treatment outcomes."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:37266405"
+    ],
+    "num_evidence": 1,
+    "notes": "A curator search on 2026-08-20 identified no public UISS-MS source repository, executable archive, or software license. The article is open access, but that does not license the simulator. Although the authors describe a digital-twin use case, this study had only population-level demographic inputs: thousands of immune repertoires were generated and subsets were selected to match aggregate trial behavior. It therefore does not validate one-to-one patient twins or prospective individual counterfactuals. The CLARITY cohort was used in selection/calibration before the extension analysis, and formal VVUQ and regulatory credibility assessment remained future work.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-uiss-ms-agent-based-treatment-simulator",
+    "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
+  },
+  {
+    "model_key": "Multiple_Sclerosis--computational-model-virtual-multiple-sclerosis-patient-whole-brain-model--1",
+    "name": "Virtual Multiple Sclerosis Patient Whole-Brain Model",
+    "description": "Subject-specific delayed whole-brain model that couples 84 noisy Stuart-Landau oscillators according to each participant's DTI-derived connectome. Simulation-based Bayesian inference uses source-reconstructed MEG alpha-spectrum features to estimate a global coupling parameter and one average whole-brain conduction velocity for each participant.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Python/C++ source and Jupyter notebooks",
+    "model_software": "Python, C++/SWIG, Jupyter, PyTorch sbi",
+    "base_model": "Delayed Stuart-Landau subject-specific whole-brain network",
+    "model_id": "",
+    "repository_url": "https://github.com/ins-amu/virtual_ms/tree/67cb165d2631f73cfae79643accf7bae3e7b4ef1",
+    "repository_host": "GitHub",
+    "publication": "PMID:38974971",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Multiple Sclerosis",
+    "disease_id": "MONDO:0005301",
+    "category": "Neurological Disorder",
+    "parents": [
+      "Autoimmune Disorder"
+    ],
+    "variables": [
+      "Global coupling strength",
+      "Average whole-brain conduction velocity",
+      "Alpha peak frequency",
+      "Alpha peak amplitude",
+      "Total alpha power"
+    ],
+    "variable_ids": [
+      "G",
+      "V",
+      "peak_frequency",
+      "peak_amplitude",
+      "total_alpha_power"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Demyelination"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Inferred average conduction velocity was lower in the 18-person MS group than in 20 controls, while global coupling did not differ.",
+      "Inferred conduction velocities were stronger predictors of clinical disability than structural damage in this cohort."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:38974971"
+    ],
+    "num_evidence": 1,
+    "notes": "Curator inspection on 2026-08-20 used repository commit 67cb165d2631f73cfae79643accf7bae3e7b4ef1 (also tagged v1.0). No LICENSE file or license grant was present; an MIT classifier in setup.py is not sufficient to license the code. The repository contains the delayed Stuart-Landau forward solver and an SBI demonstration, but not the clinical connectomes, MEG inputs, trained posterior, or complete 38-subject analysis. In the curator's smoke test, the default install failed to build the SWIG extension; after a manual build and dependency repairs, a synthetic three-node forward simulation produced finite time series and an alpha-band PSD. Curator comparison also found material paper/code differences in simulation duration, noise scale, priors, alpha band, and feature count. Reproducing the clinical findings therefore requires restricted data and missing workflow components. The paper reports a patent application and calls for larger multicenter replication.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-virtual-multiple-sclerosis-patient-whole-brain-model",
+    "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
+  },
+  {
     "model_key": "Parkinson's_Disease--computational-model-whole-dopaminergic-neuron-sbml-model--1",
     "name": "Whole Dopaminergic Neuron SBML Model",
     "description": "Large-scale Systems Biology Markup Language (SBML) model of dopaminergic neuron containing 139 reactions and 111 metabolites. Captures dopamine synthesis, vesicular storage, release, reuptake, and degradation alongside mitochondrial function and oxidative stress.\n",
@@ -2172,10 +2346,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 45,
-  "total_source_entries": 18,
-  "total_model_types": 7,
+  "total_models": 48,
+  "total_source_entries": 19,
+  "total_model_types": 8,
   "total_runnable": 4,
-  "total_with_repository": 20
+  "total_with_repository": 21
 };
 window.dispatchEvent(new Event('searchDataReady'));
