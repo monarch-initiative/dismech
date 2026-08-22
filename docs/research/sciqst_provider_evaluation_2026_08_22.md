@@ -135,6 +135,104 @@ dismech-relevant item in the corpus and the obvious one to try first. Note
 `X-linked hypophosphatemic rickets` is a live conformer target for the
 `defective_skeletal_mineralization` module, so that one has a concrete home.
 
+## The mindmap corpus (n = 1,865)
+
+Sciqst also publishes 1,895 free "interactive AI mind maps" at
+`/mindmaps/<id>`. These are **not** a second form of literature review. Surveyed
+the same way (1,865 parsed successfully; 29 fetch errors):
+
+- **90,419 total nodes**, median 47 per map, range 6–182.
+- **Zero citations. Corpus-wide, not a single mindmap cites a single PMID or
+  DOI.** Reviews at least give you a reference list; mindmaps give you nothing to
+  verify against.
+- 71% are pure trees (`edges = nodes − 1`); the mean map has 0.94 edges beyond a
+  spanning tree, i.e. occasional cross-links, no real graph structure.
+- The graph is embedded in the page as a `var mindmapNodes` JSON array and
+  rendered client-side with vis-network, so it is trivially extractable — each
+  node carries `name`, `category`, `connections`, and fixed x/y coordinates.
+- Only **73 maps** name a dismech disease (72 curated, 1 stub), and those are
+  heavily duplicated — Heart Failure ×4, Ischemic Stroke ×4, Solitary Fibrous
+  Tumor ×2. Versus 338 matching reviews, the mindmaps are a much thinner overlap.
+
+### The disqualifying property: edges are untyped
+
+A node's `category` records only its depth tier (`Main Topic`, `Subtopic`,
+`Detail`, `Sub_Detail`, `Default`). Edges carry **no predicate at all**. The full
+Osteoporosis map ([`IflXOSqUjp10`](https://www.sciqst.com/mindmaps/IflXOSqUjp10),
+75 nodes) is a textbook chapter outline:
+
+```
+Osteoporosis
+├── Definition
+├── Causes ── Genetic Factors / Lifestyle Factors / Medical Conditions
+│             └── Medications ── Bisphosphonates, Hormone Therapy
+├── Symptoms ── Bone Pain / Fractures / Height Loss
+├── Diagnosis ── Bone Density Test / X-rays / Blood Tests
+├── Treatment ── Lifestyle Changes / Surgical Options
+└── Prevention ── Calcium and Vitamin D / Exercise / Healthy Lifestyle
+```
+
+No RANKL, no osteoclast, no bone remodeling — nothing of what
+`kb/modules/osteoporosis_bone_resorption.yaml` models (remodeling imbalance →
+RANKL-driven osteoclastogenesis → increased resorption → impaired formation → net
+bone loss). It also lists **bisphosphonates under "Causes"**, which is
+backwards — they are the treatment. Uncited, so nothing catches it.
+
+The best case is a map whose prompt explicitly asked for mechanism —
+[*"What is the pathophysiology of left bundle branch block"*](https://www.sciqst.com/mindmaps/WwCi9y5pokG3).
+It does contain a latent causal chain (`Delayed Ventricular Activation →
+Asynchronous Contraction → Reduced Cardiac Output`). But the *same untyped edge*
+also expresses `Left Bundle Branch Block → Symptoms → Fatigue` (manifestation)
+and `→ Treatment → Medications → Beta Blockers` (treated-by). Causal,
+manifestation and therapeutic relations are indistinguishable, and the deepest
+tier is padding (`Beta Blockers → Reduce Heart Rate`, `Low Salt Diet`).
+
+Only 13 of 1,869 maps have a mechanism word in the title at all.
+
+Content is not as boilerplate as the Osteoporosis example suggests — 77.4% of the
+49,282 distinct node labels appear in exactly one map, and only 10.6% of maps
+carry four or more of `Definition/Causes/Symptoms/Diagnosis/Treatment/Prevention`.
+The problem is not that maps are identical; it is that the relations are
+unlabelled and the claims are unsourced.
+
+### Contrast with a dismech pathograph
+
+`pathographs/*.json` edges carry `predicate`, `causal_link_type`, and a
+`description`, and nodes carry `meta.evidence` with resolvable references:
+
+```json
+{"causal_link_type": "DIRECT", "predicate": "causes",
+ "source": "Inherited ADSHE gene architecture",
+ "target": "Nicotinic acetylcholine receptor dysfunction",
+ "description": "CHRNA4, CHRNA2, and CHRNB2 variants alter receptor function."}
+```
+
+A Sciqst mindmap edge is `"connections": ["Asynchronous Contraction"]`. There is
+no lossless mapping from the second into the first: the predicate and the
+evidence are not missing fields to be filled in, they are the entire content of a
+dismech edge.
+
+### Verdict on mindmaps
+
+**No usable content.** Do not ingest them. An uncited, untyped concept tree is
+the one artifact type dismech is specifically built to be the opposite of, and
+converting one would mean inventing both the predicate and the evidence — which
+is the fabrication mode the evidence SOP exists to prevent.
+
+Two secondary observations, neither a reason to ingest:
+
+- **As a demand signal, resist the temptation.** The 1,869 map titles are real
+  user queries and show what clinicians actually ask about. But weighting the
+  stub queue by that is the same mistake as the retired ranked dashboard
+  (issue #8969) — a cheap popularity-correlated feature that tracks how common a
+  topic is rather than whether it is worth curating.
+- **The interaction model is worth stealing, though.** vis-network with a 2D/3D
+  orbit toggle, node size scaled by depth tier (30px at level 1 down to 10px at
+  level 10), hold-1s-to-expand progressive disclosure, click-to-focus and
+  double-click-to-search. dismech pathographs render via dagre/mermaid and get
+  hard to read at high node counts; progressive expansion by depth is a real
+  answer to that. That is a UI idea to file, not data to import.
+
 ## Integration blockers (unchanged)
 
 - **No API, no docs, no export.** dismech generates reports through
@@ -162,7 +260,7 @@ dismech-relevant item in the corpus and the obvious one to try first. Note
 1. **Do not register `sciqst` in `DEEP_RESEARCH_PROVIDERS`** and do not commit
    third-party reviews into `research/`. The provenance and licensing are wrong
    for that, and a registry entry drives a legend and filter chip on the public
-   research index.
+   research index. **Do not ingest mindmaps in any form** — see above.
 2. **Treat the 338 matched reviews as a PMID lead list, nothing more.** The
    useful content of a Sciqst review, for us, is its reference list — its own
    entries are PMID + title with no abstract text, so a curator must fetch the
