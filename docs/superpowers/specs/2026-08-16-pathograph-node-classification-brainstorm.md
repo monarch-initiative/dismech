@@ -260,6 +260,27 @@ lesion from a broken molecular activity, and those are now different tiers.
 candidates, 16.7% stay unclassified.** Class mix: CELLULAR 45.9%, TISSUE 16.8%,
 GENOMIC 12.1%, SUBSTANCE 8.1%, ACTIVITY 7.1%, PATHWAY 6.7%, SYSTEMIC 3.2%.
 
+### One tempting "fix" that makes things worse
+
+Rule 1 outranks rule 3, so a node carrying both a seeded GO BP term and a GO MF
+term is classified from the BP term. That looks like an ordering bug when you
+see a case like `ACADSB molecular function deficiency`, which carries
+`GO:0006550 L-isoleucine catabolic process` (seeded SUBSTANCE) alongside
+`GO:0003995 acyl-CoA dehydrogenase activity` — and whose own name says it is an
+activity claim. MF is also the better-measured signal in isolation (91%).
+
+Promoting MF above BP was tried and is worse. 252 nodes carry both, and the swap
+moves conformance agreement from **90.0% down to 87.3%**, because MF is often a
+secondary annotation on a node that genuinely is about the process
+(*Glycosaminoglycan-Assisted Fibril Nucleation and Extracellular Deposition*
+carries an MF term and is not an activity node).
+
+So the current order is empirically right and the individual case is still
+wrong. Discriminating "this node is about the enzyme" from "this node is about
+the pathway the enzyme sits in" needs more than which slots are populated, and
+is unsolved. The limitation is recorded in the module docstring so the ordering
+does not get "corrected" later.
+
 ## Conformance edges are an independent check on the classes
 
 This is the test the earlier module section predicted, and it is worth more

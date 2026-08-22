@@ -32,6 +32,17 @@ them are in the design doc:
 7. **CL present** → ``CELLULAR`` (``LOW``).
 
 A node matching none of these is left unclassified rather than guessed at.
+
+Known limitation: rule 1 beats rule 3, so a node carrying both a seeded BP term
+and a GO MF term is classified from the BP term. That is sometimes visibly
+wrong — ``ACADSB molecular function deficiency`` carries ``GO:0006550
+L-isoleucine catabolic process`` (SUBSTANCE) and ``GO:0003995 acyl-CoA
+dehydrogenase activity`` (ACTIVITY), and the node name says which one it means.
+**Do not "fix" this by promoting MF above BP.** That was tested: 252 nodes carry
+both, and moving MF first *lowers* conformance agreement from 90.0% to 87.3%,
+because MF is frequently a secondary annotation on a node that really is about
+the process. Discriminating these two needs more than slot presence, and is
+unsolved.
 """
 
 from __future__ import annotations
