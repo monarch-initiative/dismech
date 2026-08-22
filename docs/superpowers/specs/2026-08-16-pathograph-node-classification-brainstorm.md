@@ -322,6 +322,84 @@ Expression in Cerebellar Neurons* conforming to `cerebellar_purkinje_degeneratio
 (GENOMIC vs CELLULAR) reads as the second. Resolving this needs a curator to
 review a sample; until then the check is a worklist, not a verdict.
 
+## Rules should target leaves, not tiers — and `modifier` is the missing axis
+
+The scanner assigns a **tier** (CELLULAR, TISSUE, …). That is the wrong target
+for rule-writing, for a simple reason: once nodes are classified manually
+against the taxonomy, the tier falls out of the leaf for free. A node assigned
+`CELLULAR > cell death` has already said it is CELLULAR. Rules that predict only
+the tier are redundant with the manual pass they are meant to bootstrap.
+
+What survives the redirect, and what does not:
+
+| | status |
+|---|---|
+| tier prediction | superseded by manual leaf assignment |
+| `CONFLICT` / debundle detection | **survives** — it needs terms to *disagree*, not to be right |
+| conformance class check | **survives** — same reason |
+| the confidence gate | **survives** — it is what made the conformance number honest |
+
+### Leaves come in two shapes, and only one is in the seed table
+
+Looking at the taxonomy's actual leaves, they split cleanly:
+
+**Intrinsic leaves** — the GO term alone names the leaf. `GO:0006915 apoptotic
+process` → `CELLULAR > cell death`; `GO:0090398 cellular senescence` →
+`CELLULAR > senescence`; `GO:0030198 extracellular matrix organization` →
+`TISSUE > fibrosis / remodelling`; `GO:0071805 potassium ion transmembrane
+transport` → `ACTIVITY > channel conductance`. These need nothing more than a
+`leaf` column added to the existing seed table.
+
+**Polar leaves** — the GO term names a *family* and the leaf depends on
+direction. `GO:0016055 Wnt signaling pathway` is `PATHWAY > signalling
+increased` or `PATHWAY > signalling reduced` depending on which way it runs; a
+metabolic process term is `SUBSTANCE > accumulation` or `SUBSTANCE > depletion`.
+**The GO term cannot resolve these and the seed table structurally cannot
+either.**
+
+### The polarity is already curated, and the scanner ignores it
+
+`Descriptor.modifier` carries it, and coverage is much better than expected:
+
+| slot | descriptors carrying a modifier |
+|---|---:|
+| `biological_processes` | 9,682 / 12,166 (**79.6%**) |
+| `chemical_entities` | 678 / 813 (83.4%) |
+| `molecular_functions` | 599 / 727 (82.4%) |
+| `cell_types` | 66 / 8,343 (0.8%) |
+| `locations` | 14 / 3,509 (0.4%) |
+
+Values on GO BP: INCREASED 3,441, DECREASED 3,163, ABNORMAL 2,342,
+DYSREGULATED 713.
+
+Tested against an independent signal — the polarity word in the node's own name
+— `modifier` resolves the polar leaves well: **81% agreement on SUBSTANCE**
+(accumulation vs depletion, n=176) and **88% on PATHWAY** (increased vs reduced,
+n=309). Several disagreements are the name-regex misfiring rather than the
+modifier being wrong (*"Impaired Surfactant Catabolism and Macrophage
+Cholesterol Overload"* is an accumulation node whose name contains "Impaired"),
+so those are floors.
+
+So the leaf rule has the shape **GO term (which family) × modifier (which
+direction)**, and the current scanner uses only the first half. The
+`ABNORMAL`/`DYSREGULATED` third of the modifiers names no direction and leaves
+those nodes at family level — which is the honest answer for them.
+
+The CL and UBERON slots carry essentially no modifiers, so leaves under CELLULAR
+and TISSUE must come from intrinsic GO terms; the LOW-confidence CL/UBERON
+fallbacks cannot reach leaf granularity at all.
+
+### Why this is not being implemented yet
+
+Hand-assigning leaves to 640 GO terms is a large, hard-to-revise commitment, and
+**the leaf vocabulary is still moving** — the last expansion of the
+representatives file added five subclasses (physical exposure,
+structural-protein activity, migration/positioning, barrier failure, exhausted
+compensation) that a 108-example sample had hidden. Freezing leaves into the
+seed table before the leaf set stabilises would bake in a vocabulary that is
+still being discovered. Stabilise the leaves against more worked examples first,
+then add the `leaf` column and the modifier axis together.
+
 ## How this ties in with module classification
 
 Modules (`kb/modules/`) validate against the same `Disease` class, so their
