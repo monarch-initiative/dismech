@@ -47,7 +47,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 ROOT = Path(__file__).resolve().parents[1]
 DISORDERS_DIR = ROOT / "kb" / "disorders"
@@ -129,7 +129,7 @@ def load_dismech() -> tuple[dict[str, str], dict[str, str], set[str]]:
             for omim in re.findall(r"OMIM[:_]?(\d{6})", text):
                 by_omim.setdefault(omim, entry)
 
-        def scan(blocks: Any) -> None:
+        def scan(blocks: Any, entry: str = entry) -> None:
             for b in blocks or []:
                 term = ((b or {}).get("inheritance_term") or {}).get("term") or {}
                 if term.get("id") in MULTILOCUS_TERMS:
@@ -221,8 +221,8 @@ def render(rows: list[dict], min_score: int, markdown: bool) -> str:
         for title, group, note in (
             ("Already bound", already, "In the grouping already; nothing to do."),
             ("Curated but unbound", unbound,
-             "A dismech entry exists. Needs only an inheritance block plus evidence - "
-             "confirm the OLIDA disease really is this entry's concept first."),
+             ("A dismech entry exists. Needs only an inheritance block plus evidence - "
+              "confirm the OLIDA disease really is this entry's concept first.")),
             ("No dismech entry", missing, "New entry required."),
         ):
             w(f"## {title} ({len(group)})\n")
