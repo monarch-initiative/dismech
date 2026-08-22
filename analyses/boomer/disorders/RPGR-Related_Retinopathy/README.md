@@ -1,0 +1,40 @@
+# RPGR-Related Retinopathy
+
+Boomer grounding analysis for [`kb/disorders/RPGR-Related_Retinopathy.yaml`](../../../../kb/disorders/RPGR-Related_Retinopathy.yaml).
+
+- **Entry term:** [`MONDO:0100437`](http://purl.obolibrary.org/obo/MONDO_0100437) RPGR-related retinopathy
+- **Grounded subtypes:** 3
+- **Verdicts:** AGREES 2, SILENT 1
+
+## Subtypes
+
+| Subtype | MONDO term | Label | MONDO | Other sources |
+|---|---|---|---|---|
+| Retinitis pigmentosa 3 | `MONDO:0010227` | retinitis pigmentosa 3 | `AGREES` | — no shared vocabulary |
+| X-linked cone-rod dystrophy 1 | `MONDO:0010566` | X-linked cone-rod dystrophy 1 | `AGREES` | — no shared vocabulary |
+| Cone dystrophy 1, X-linked | `MONDO:0800320` | cone dystrophy 1, X-linked | `SILENT` | — no shared vocabulary |
+
+## What boomer did
+
+All identity mappings were accepted together - dismech's subtype hierarchy, the
+mappings, and MONDO's hierarchy are jointly consistent for this entry.
+
+1 subtype(s) are `SILENT`: MONDO asserts no path between the
+terms in either direction. That is consistent (nothing is violated) but
+uncorroborated, and generally indicates a missing `is_a` edge in MONDO rather
+than a dismech error. These are candidate MONDO enrichment proposals.
+
+## Verdict meanings
+
+- **`AGREES`** - MONDO has this subtype's term as a descendant of the entry's term.
+- **`SILENT`** - MONDO relates the two terms in neither direction - usually a missing MONDO `is_a` edge.
+
+## Files
+
+| File | What |
+|---|---|
+| [`kb.yaml`](kb.yaml) | Boomer input. Run with `pyboomer solve kb.yaml -t 60 -C 6`. |
+| [`solution.yaml`](solution.yaml) | Boomer output, machine-readable. |
+| [`solution.md`](solution.md) | Boomer output, rendered. |
+
+Regenerate with [`../../scripts/build_analyses.py`](../../scripts/build_analyses.py).
