@@ -431,13 +431,26 @@ they belong in the disorder entries and are left as work:
 8. Populate `clinical_trials` across the MPS, mucolipidosis and Niemann-Pick
    branches (all currently zero).
 9. Open an issue for transitive module conformance in `groupings.py` (§1.3).
-10. Resolve the `Mucopolysaccharidosis` **umbrella Disease entry**
-    (`MONDO:0019249`): it holds the same MONDO term the MPS *grouping* maps to
-    with `skos:exactMatch`, so the concept exists twice in the KB, as a Disease
-    and as a Grouping. This is the pattern `Diabetes_Mellitus` resolved by
-    keeping the grouping as the union and scoping the umbrella entry. Deliberately
-    **not** changed here — it is a lump/split decision for a curator, not a
-    side-effect of a completeness pass.
+10. Resolve the **umbrella Disease entries**, of which this tree has two, both
+    tracked on issue [#4490](https://github.com/monarch-initiative/dismech/issues/4490):
+    - `Mucopolysaccharidosis` (`MONDO:0019249`) holds the same MONDO term the MPS
+      *grouping* maps to with `skos:exactMatch`, so the concept exists twice in
+      the KB, as a Disease and as a Grouping.
+    - `Glycoprotein_Storage_Disease` (`MONDO:0009296`) self-describes as "a group
+      of autosomal recessive lysosomal storage disorders" and is now listed in
+      the LSD grouping *beside* `Aspartylglucosaminuria` and `Alpha-mannosidosis`,
+      two of the things it is an umbrella for — structurally the same duplication
+      this review removed for Niemann-Pick type C. Caught in review of this work,
+      not by the audit.
+
+    Both are grandfathered rather than fixed. The LSD criterion is
+    `NECESSARY_AND_SUFFICIENT` and both the umbrella and its constituents conform
+    to the module, so dropping either side would create a contradiction — worse
+    than the redundancy. Note both have **empty `has_subtypes`**, so the
+    duplication is invisible from the umbrella entry and only appears once a
+    grouping lists umbrella and constituents as siblings; the `has_subtypes`
+    check proposed on #4490 would catch neither. This is a lump/split decision
+    for a curator, not a side-effect of a completeness pass.
 11. Add `modeled_mechanisms`-linked models: 5 of 48 entries declare any.
 
 **P3 — content depth**
