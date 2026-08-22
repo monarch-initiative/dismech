@@ -568,3 +568,129 @@ and verified.
 - **TUBG1 was not added to `Lissencephaly_and_Neuronal_Migration_Disorders`**, where it
   would also fit. Recommendation 1 scoped it to this grouping; widening to a second
   grouping is a separate call.
+
+---
+
+## 10. Coverage pass: every tubulin-family disease curated (2026-08-20)
+
+The review above is scoped to the grouping — five members, all cortical-malformation
+diseases. A follow-on pass extended coverage to the whole tubulin gene family, on the
+principle that a disease should not go uncurated merely because it falls outside one
+grouping's boundary. Eight new entries:
+
+| Entry | MONDO | What it is |
+|---|---|---|
+| `TUBB4A-related_Neurologic_Disorder` | `MONDO:0800470` | H-ABC hypomyelinating leukodystrophy / DYT4 dystonia — myelin, not migration |
+| `TUBA4A-related_Disorder` | `MONDO:0014531` | ALS22/FTD, hereditary spastic ataxia, and the 2026 myo-tubulinopathies (17/19 families with no CNS disease at all) |
+| `TUBB8-related_Oocyte_Maturation_Defect` | `MONDO:0021573` | Meiotic spindle assembly failure; a primate-specific isotype, so no mouse model is possible |
+| `TUBB1-related_Macrothrombocytopenia` | `MONDO:0800047` | Megakaryocyte marginal-band failure |
+| `TUBGCP4-related_Microcephaly_and_Chorioretinopathy` | `MONDO:0014592` | γ-TuRC component; microcephaly **without** cortical malformation |
+| `TUBGCP6-related_Microcephaly_and_Chorioretinopathy` | `MONDO:0009624` | As above, plus retinal dysfunction |
+| `TUBA8-related_Polymicrogyria_with_Optic_Nerve_Hypoplasia` | *(none)* | Curated as `association: Suspected` — see below |
+| `Uner_Tan_Syndrome` | `MONDO:0100144` | Biallelic TUBB2B p.Arg390Gln; the recessive, cerebellar, basal-ganglia-sparing outlier |
+
+**TUBA8 is the entry that changed shape while being written.** The `check-title-snippets`
+gate refused a title-quoted snippet, which forced a read of the full PMID:28388629
+abstract — where the authors report re-analysing the *original* human subjects by exome
+sequencing and finding a homozygous loss-of-function **SNAP29** variant, "suggesting that
+SNAP29 deficiency, rather than TUBA8 deficiency, may underlie most or all of the
+neurodevelopmental anomalies." The linked-bystander scenario raised in §3 as a
+hypothetical had in fact already been found. The entry is curated with the SNAP29 finding
+as `supports: REFUTE`, and the gene–disease relationship as `Suspected`. This is a
+worked example of a validation gate catching a *substantive* error rather than a
+formatting one.
+
+None of the eight joined the Tubulinopathies grouping: the `NECESSARY` criterion tests
+migration-module conformance, and none of them conform.
+
+---
+
+## 11. QA pass (2026-08-22)
+
+An adversarial re-read of everything above. Cross-entry foreign-key checking over the
+13 tubulin-family entries (every `downstream.target`, `conforms_to` anchor,
+`target_mechanisms` target, model link, discussion `attaches_to`, and subtype FK) came
+back clean, as did duplicate-`disease_term` checking across all 2,099 entries. The pass
+found five things worth fixing, three of them errors in the work above.
+
+### One more disease was uncurated
+
+**`TUBGCP2-related_Lissencephaly_Spectrum_Disorder`** — no MONDO disease term exists (only
+the gene, HGNC:18599), which is why a MONDO-driven sweep missed it. The gene–disease
+relationship is nonetheless solid: AJHG 2019 delineation (PMID:31630790), independent
+replication with functional work in 2021 (PMID:33458610), a 2025 literature review
+(PMID:40017707), and inclusion in a 2026 multicentre cohort (PMID:42472988).
+
+It is mechanistically the interesting one of the γ-TuRC genes. TUBGCP4 and TUBGCP6 cause
+microcephaly with chorioretinopathy and a structurally normal cortex; TUBGCP2 causes frank
+pachygyria and subcortical band heterotopia and **conforms to all three nodes** of the
+migration module. The literature calls it a tubulinopathy — PMID:40448381 does so in its
+title. It is still excluded from the grouping, on gene identity: GCP2 is a γ-tubulin
+*complex* protein, not a tubulin. That is a lumping decision, not a fact, and it is now
+recorded on both sides so it can be revisited. It also demonstrates why the grouping's
+criterion is `NECESSARY` (audit-only) rather than `SUFFICIENT`: a disorder can satisfy the
+mechanism half of the conjunction and still not be a member.
+
+`functional_impact_category` is left `UNKNOWN` rather than defaulted to
+`LOSS_OF_FUNCTION`, with a knowledge gap explaining why: the allele spectrum contains a
+multi-exon deletion and a frameshift (unambiguously null) *and* a missense allele that
+leaves GCP2 protein levels normal while mislocalizing γ-tubulin, HAUS6 and NEDD1.
+
+### Three stale or contradictory statements introduced by the earlier passes
+
+1. **The grouping described itself as alpha- and beta-tubulin only** — in both
+   `description` and `grouping_rationale` — while listing TUBG1 (gamma) as a member. Added
+   in the same pass that added TUBG1. Fixed.
+2. **The grouping's notes said Uner Tan syndrome "is still not covered by any member entry
+   or subtype."** It had been curated as its own entry two sections up in this very
+   report. Fixed.
+3. **The scope-boundary note listed TUBB4A / TUBB4B / TUBA4A / TUBGCP2 / TUBGCP6 as "out
+   of scope"** without saying that most of them now have entries, and omitted TUBGCP4,
+   TUBB8, TUBB1 and TUBA8 entirely. Rewritten to name each entry and to separate the two
+   distinct exclusion reasons (fails the mechanism criterion vs. excluded on gene
+   identity).
+
+### Two scoping gaps
+
+4. **`Uner_Tan_Syndrome` did not say that the eponym is broader than the entry.** The
+   MONDO binding is correct — `MONDO:0100144` is *defined* as the TUBB2B R390Q entity —
+   but the clinical literature also applies the name to VLDLR, CA8, WDR81 and ATP8A2
+   families, which MONDO keeps separate as CAMRQ 1–4. A reader could have taken the entry
+   as covering all of them. Caveat added; the CAMRQ concepts are not tubulin disorders and
+   remain uncurated.
+5. **`MONDO:1060115` (TUBB4B-related ciliopathy) was referenced nowhere in the KB**,
+   despite being the direct is-a parent of the curated LCAEOD entry — the last
+   tubulin-family MONDO disease concept with no KB reference. Added as `skos:broadMatch`,
+   not `exactMatch`: the umbrella's own definition says diagnoses under it can include
+   primary ciliary dyskinesia, which this entry does not cover. As a `broadMatch` it does
+   not retire the concept from the curation queue, which is the intended outcome.
+
+### Two additions from currency checking
+
+The 2026 Turkish multicentre cohort (PMID:42472988) had not been read by any entry. Two
+findings were curated onto `TUBB2A/TUBB2B-related Cortical Malformation`: the first report
+of **probable SUDEP** in a TUBB2A patient — which makes the epilepsy here a mortality risk
+to counsel, not only a seizure burden — and **movement disorders in 33.3%** including
+dystonia and mirror movements. No frequency band was asserted for the latter, because the
+percentage spans all seven cohort genes rather than these two. Mirror movements are worth
+noting mechanistically: they implicate the module's axon-guidance branch, not the
+migration branch that explains the cortical malformation.
+
+### One deferred item closed
+
+TUBG1 **was** added to `Lissencephaly_and_Neuronal_Migration_Disorders` (§9 left this
+open), along with TUBGCP2. All 17 members of that grouping audit as `SATISFIED`.
+
+### What changed, by file
+
+| File | Change |
+|---|---|
+| `kb/disorders/TUBGCP2-related_Lissencephaly_Spectrum_Disorder.yaml` | **New entry.** 4 pathophysiology nodes conforming across all three migration-module nodes, 8 phenotypes, 2 knowledge gaps, 27/27 snippets verified, 86.8% weighted compliance. |
+| `kb/groupings/Tubulinopathies.yaml` | Gamma-tubulin admitted in `description` and `grouping_rationale`; stale Uner Tan gap note corrected; scope boundary rewritten with entry names and the two exclusion classes. |
+| `kb/groupings/Lissencephaly_and_Neuronal_Migration_Disorders.yaml` | TUBG1 and TUBGCP2 added as members with differentiating mechanisms. |
+| `kb/disorders/TUBB2A_TUBB2B-related_Cortical_Malformation.yaml` | Probable-SUDEP evidence on the epilepsy phenotype; new Movement Disorder phenotype. Both from PMID:42472988. |
+| `kb/disorders/Uner_Tan_Syndrome.yaml` | Eponym scope caveat naming the four CAMRQ concepts. |
+| `kb/disorders/Leber_Congenital_Amaurosis_with_Early-Onset_Deafness.yaml` | `MONDO:1060115` broadMatch mapping. |
+
+Four further history records written. Every new snippet is quoted from an abstract cached
+by `just fetch-reference` and verified.
