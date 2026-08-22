@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DLG4-Related Synaptopathy · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>DLG4-Related Synaptopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>DLG4-Related Synaptopathy</h1>
+                
+                <p class="report-subtitle">DLG4-Related Synaptopathy: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-19</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0032919" target="_blank" rel="noopener noreferrer">MONDO:0032919</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">26 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>DLG4-Related Synaptopathy: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>DLG4-related synaptopathy is a rare, autosomal dominant neurodevelopmental disorder caused by de novo (or, rarely, inherited) pathogenic variants in <em>DLG4</em>, the gene encoding postsynaptic density protein 95 (PSD-95), a master scaffolding protein of the glutamatergic postsynaptic density. The disorder was first delineated as a distinct clinical entity by Rodríguez-Palmero et al. (2021), who characterized 53 individuals and coined the term "DLG4-related synaptopathy" (<a href="https://www.nature.com/articles/s41436-020-01075-9">Rodríguez-Palmero et al., 2021, <em>Genet Med</em></a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33597769/">PMID:33597769</a>). The clinical picture is dominated by global developmental delay, intellectual disability (typically mild-to-moderate), autism spectrum disorder (ASD), attention-deficit/hyperactivity disorder (ADHD), and epilepsy in roughly half of patients, with a broader multisystem phenotype including hypotonia, movement disorders, sleep disturbance, ophthalmologic abnormalities, and marfanoid connective-tissue features in a subset.</p>
+<h3>Key Identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gene (HGNC)</td>
+<td><em>DLG4</em>, <a href="https://bioregistry.io/HGNC:2903" target="_blank" rel="noopener noreferrer">HGNC:2903</a></td>
+</tr>
+<tr>
+<td>OMIM Gene</td>
+<td>*602887 – DISCS LARGE MAGUK SCAFFOLD PROTEIN 4; DLG4</td>
+</tr>
+<tr>
+<td>OMIM Phenotype</td>
+<td><strong>#618793 – INTELLECTUAL DEVELOPMENTAL DISORDER, AUTOSOMAL DOMINANT 62 (MRD62)</strong> (<a href="https://www.omim.org/entry/618793">OMIM:618793</a>)</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0032919" target="_blank" rel="noopener noreferrer">MONDO:0032919</a></strong> (label: "intellectual developmental disorder 62"; "DLG4-related synaptopathy" is an exact synonym, confirmed via OLS/MONDO)</td>
+</tr>
+<tr>
+<td>GeneReviews</td>
+<td><a href="https://www.ncbi.nlm.nih.gov/books/NBK592682/">DLG4-Related Synaptopathy — NBK592682</a></td>
+</tr>
+<tr>
+<td>Chromosomal locus</td>
+<td>17p13.1</td>
+</tr>
+<tr>
+<td>MedlinePlus Genetics</td>
+<td><a href="https://medlineplus.gov/genetics/condition/dlg4-related-synaptopathy/">dlg4-related-synaptopathy</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Synonyms / Alternative Names</h3>
+<ul>
+<li>SHINE syndrome (<strong>S</strong>leep disturbances, <strong>H</strong>ypotonia, <strong>I</strong>ntellectual disability, <strong>N</strong>eurologic disorder, <strong>E</strong>pilepsy) — the patient-advocacy-coined acronym used by the DLG4 SHINE Foundation</li>
+<li>DLG4 synaptopathy</li>
+<li>Intellectual developmental disorder, autosomal dominant 62 (MRD62/IDDA62)</li>
+<li>Historically, before the syndrome was delineated, some cases were reported as "intellectual disability with marfanoid features" (Moutton et al., 2018)</li>
+</ul>
+<h3>Data Provenance</h3>
+<p>Information derives predominantly from <strong>aggregated, multi-center case-series/cohort resources</strong> rather than a single large EHR-based cohort, reflecting the disorder's rarity:
+- Rodríguez-Palmero et al. 2021 (n=53, GeneMatcher-assembled international cohort)
+- Moutton et al. 2018 (n=3, exome-sequencing trio discovery cohort; <a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/cge.13243">PMID study</a>)
+- Kassabian et al. 2024, <em>Epilepsia</em> — expanded epilepsy-focused cohort (n=35: 23 newly reported + 12 updated) (<a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/epi.17876">Genotype-phenotype/DEE study</a>)
+- Patient-registry/natural-history data curated by the <strong>DLG4 SHINE Foundation</strong> and <strong>Simons Searchlight</strong>, which together have identified ~100 individuals with pathogenic <em>DLG4</em> variants
+- Individual case reports (deep intronic variant, Levy et al. 2024, <em>Clin Genet</em>; intellectual-regression case, 2023, <em>Hum Genome Var</em>)</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>DLG4-related synaptopathy is a <strong>monogenic, genetically determined</strong> disorder. There is no known infectious, toxic, or purely environmental cause. The near-exclusive mechanism is <strong>haploinsufficiency of PSD-95</strong> produced by heterozygous loss-of-function (or loss-of-function-equivalent) variants in <em>DLG4</em>.</p>
+<h3>Genetic Risk Factors</h3>
+<ul>
+<li><strong>Causal variant class:</strong> predominantly <strong>protein-truncating variants</strong> (nonsense, frameshift, canonical splice-site) predicted to trigger nonsense-mediated decay or produce a non-functional truncated protein; missense variants are also reported (mechanism less certain, but generally interpreted as loss-of-function); rare <strong>deep intronic</strong> variants disrupting splicing have also been described (Levy et al., 2024, <em>Clin Genet</em>, <a href="https://onlinelibrary.wiley.com/doi/full/10.1111/cge.14411">DOI:10.1111/cge.14411</a>).</li>
+<li><strong>Gene constraint:</strong> <em>DLG4</em> is exceptionally intolerant of loss-of-function variation in the general population (<strong>pLI = 1</strong>; under gnomAD v4 conventions this corresponds to LOEUF well below the 0.6 constrained-gene threshold), consistent with haploinsufficiency as the pathogenic mechanism and explaining the complete absence of the variant class in population databases.</li>
+<li><strong>Inheritance:</strong> essentially always <strong>de novo</strong>; rare instances of transmission from a mosaic or (very rarely) mildly affected heterozygous parent are described in GeneReviews.</li>
+<li>No modifier genes have yet been formally established, though interacting synaptic genes (<em>SYNGAP1</em>, other DLG-MAGUK family members) are biologically plausible candidates given shared pathway membership.</li>
+</ul>
+<h3>Environmental Risk Factors</h3>
+<p>None established. This is a purely genetic (Mendelian) disorder; no epidemiological association with parental age, toxin exposure, or perinatal factors has been reported in the literature to date.</p>
+<h3>Protective Factors</h3>
+<p>None identified in the literature — genetic or environmental. No protective variants or modifier alleles have been characterized.</p>
+<h3>Gene-Environment Interactions</h3>
+<p>Not established/not applicable given the disorder's fully penetrant monogenic basis; no CTD/PheGenI gene-environment interaction data exist for <em>DLG4</em>.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Frequencies below are drawn primarily from the Rodríguez-Palmero et al. 2021 cohort (n=53) and the Kassabian et al. 2024 expanded/epilepsy cohort (n=35), as reported in GeneReviews and the primary literature.</p>
+<h3>Cognitive / Developmental (Symptoms)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>Notes</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intellectual disability</td>
+<td>~98–100%</td>
+<td>Mild-to-moderate most common; severe/profound less common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> (Intellectual disability)</td>
+</tr>
+<tr>
+<td>Global developmental delay</td>
+<td>84%</td>
+<td>Mean age of independent walking 20.7 months; first words 32.2 months</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> (Global developmental delay)</td>
+</tr>
+<tr>
+<td>Developmental regression</td>
+<td>~40%</td>
+<td>Motor and/or language regression; strongly associated with ESES/DEE-SWAS in the epilepsy subgroup</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" rel="noopener noreferrer">HP:0002376</a> (Developmental regression)</td>
+</tr>
+<tr>
+<td>Autism spectrum disorder</td>
+<td>56%</td>
+<td>More frequent in individuals with moderate-severe ID</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a> (Autistic behavior)</td>
+</tr>
+<tr>
+<td>ADHD</td>
+<td>57%</td>
+<td>More frequent with co-occurring ASD</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" rel="noopener noreferrer">HP:0007018</a> (Attention deficit hyperactivity disorder)</td>
+</tr>
+<tr>
+<td>Anxiety</td>
+<td>53%</td>
+<td>Often triggered by loud sounds or separation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" rel="noopener noreferrer">HP:0000739</a> (Anxiety)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Neurologic Signs</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>Notes</th>
+<th>HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Epilepsy</td>
+<td>53%</td>
+<td>Generalized and/or focal; mean onset ~6 years</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> (Seizure)</td>
+</tr>
+<tr>
+<td>Developmental and epileptic encephalopathy with spike-wave activation in sleep (DEE-SWAS/ESES)</td>
+<td>&gt;25% of the epilepsy-cohort subset</td>
+<td>Confirmed as part of the phenotypic spectrum by Kassabian et al. 2024; associated with regression in essentially all affected individuals</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011200" target="_blank" rel="noopener noreferrer">HP:0011200</a> (Ictal EEG abnormality) / <a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" rel="noopener noreferrer">HP:0012469</a> (Infantile spasms — n/a; use ESES-specific term where available)</td>
+</tr>
+<tr>
+<td>Hypotonia</td>
+<td>53% (up to ~60% in some series)</td>
+<td>Central hypotonia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a> (Hypotonia)</td>
+</tr>
+<tr>
+<td>Movement disorder</td>
+<td>46%</td>
+<td>Stereotypies and ataxia most common; also dystonia and tremor</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank" rel="noopener noreferrer">HP:0100022</a> (Abnormality of movement); <a href="http://purl.obolibrary.org/obo/HP_0000733" target="_blank" rel="noopener noreferrer">HP:0000733</a> (Stereotypy); <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a> (Ataxia); <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" rel="noopener noreferrer">HP:0001332</a> (Dystonia); <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" rel="noopener noreferrer">HP:0001337</a> (Tremor)</td>
+</tr>
+<tr>
+<td>Migraine / headache</td>
+<td>reported in a subset</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" rel="noopener noreferrer">HP:0002076</a> (Migraine)</td>
+</tr>
+<tr>
+<td>Brain MRI abnormalities</td>
+<td>~30%</td>
+<td>Cerebral/cerebellar atrophy, thin corpus callosum, dysmorphic hippocampus</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" rel="noopener noreferrer">HP:0002119</a> (Ventriculomegaly), <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" rel="noopener noreferrer">HP:0002079</a> (Hypoplasia of the corpus callosum), <a href="http://purl.obolibrary.org/obo/HP_0007360" target="_blank" rel="noopener noreferrer">HP:0007360</a> (Aplasia/hypoplasia of the cerebellum)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Ophthalmologic Findings (Clinical Signs)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>Notes</th>
+<th>HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Overall ophthalmologic involvement</td>
+<td>~50%</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Strabismus</td>
+<td>most common ocular finding</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a> (Strabismus)</td>
+</tr>
+<tr>
+<td>Hyperopia</td>
+<td>second most common</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" rel="noopener noreferrer">HP:0000540</a> (Hyperopia)</td>
+</tr>
+<tr>
+<td>Nystagmus</td>
+<td>—</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> (Nystagmus)</td>
+</tr>
+<tr>
+<td>Cortical visual impairment</td>
+<td>less common</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" rel="noopener noreferrer">HP:0100704</a> (Cerebral visual impairment)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Musculoskeletal / Marfanoid Connective-Tissue Findings</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>Notes</th>
+<th>HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Joint laxity</td>
+<td>36.9%</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" rel="noopener noreferrer">HP:0001382</a> (Joint hypermobility)</td>
+</tr>
+<tr>
+<td>Scoliosis</td>
+<td>20%</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a> (Scoliosis)</td>
+</tr>
+<tr>
+<td>Marfanoid habitus</td>
+<td>~24%</td>
+<td>Long face, slender build, long/thin fingers, pectus excavatum, high-arched palate</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001519" target="_blank" rel="noopener noreferrer">HP:0001519</a> (Disproportionate tall stature) / <a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" rel="noopener noreferrer">HP:0001166</a> (Arachnodactyly) / <a href="http://purl.obolibrary.org/obo/HP_0000276" target="_blank" rel="noopener noreferrer">HP:0000276</a> (Long face) / <a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" rel="noopener noreferrer">HP:0000218</a> (High-palate) / <a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" rel="noopener noreferrer">HP:0000767</a> (Pectus excavatum)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>This marfanoid connective-tissue association was the original phenotype through which <em>DLG4</em> was first implicated in disease (Moutton et al. 2018, <em>Clin Genet</em>: "Truncating variants of the DLG4 gene are responsible for intellectual disability with marfanoid features," <a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/cge.13243">PMID study</a>) — patients showed "mild-to-moderate intellectual disability with similar marfanoid features, including a long face, high-arched palate, long and thin fingers, pectus excavatum, scoliosis and ophthalmological manifestations (nystagmus or strabismus)."</p>
+<h3>Sleep and Gastrointestinal</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>Notes</th>
+<th>HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sleep disturbance</td>
+<td>45%</td>
+<td>Sleep-onset and/or sleep-maintenance difficulty</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" rel="noopener noreferrer">HP:0002360</a> (Sleep disturbance)</td>
+</tr>
+<tr>
+<td>Vomiting</td>
+<td>29%</td>
+<td>Often triggered by seizures, motion, or fatigue</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> (Vomiting)</td>
+</tr>
+<tr>
+<td>GERD / feeding difficulty</td>
+<td>reported</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a> (Gastroesophageal reflux); <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a> (Feeding difficulties)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Phenotype Characteristics</h3>
+<ul>
+<li><strong>Onset:</strong> Early childhood — congenital/infantile-onset global developmental delay is the rule; epilepsy onset averages ~6 years.</li>
+<li><strong>Severity:</strong> Predominantly mild-to-moderate for ID, but a subset (particularly those with DEE-SWAS/ESES) show a more severe, regressive course.</li>
+<li><strong>Progression:</strong> Static/developmental-delay pattern in most; a <strong>regressive</strong> subgroup (~40%) exists, closely tied to the presence of DEE-SWAS/ESES epilepsy.</li>
+<li><strong>Frequency data source:</strong> Rodríguez-Palmero et al. 2021 (primary source of the percentages above) and Kassabian et al. 2024 (epilepsy/DEE-focused expansion).</li>
+</ul>
+<h3>Quality of Life Impact</h3>
+<p>No disease-specific EQ-5D/SF-36/PROMIS data have been published; QoL burden is inferred qualitatively from the combination of intellectual disability, autism, epilepsy (often drug-resistant in the DEE-SWAS subset), sleep disturbance, and anxiety — all of which are recognized independently as major contributors to caregiver burden and reduced adaptive functioning in neurodevelopmental disorders generally. The DLG4 SHINE Foundation registry/natural-history effort is intended in part to generate such data prospectively (<a href="https://www.dlg4shine.org/natural-history-studies">DLG4 SHINE Natural History Studies</a>).</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<h3>Causal Gene</h3>
+<ul>
+<li><strong><em>DLG4</em></strong> (Discs Large MAGUK Scaffold Protein 4 / PSD-95), <a href="https://bioregistry.io/HGNC:2903" target="_blank" rel="noopener noreferrer">HGNC:2903</a>, OMIM <em>602887, located at </em><em>17p13.1</em>*.</li>
+<li>Sole established causal gene for this disorder; OMIM phenotype #618793 (MRD62).</li>
+</ul>
+<h3>Pathogenic Variants</h3>
+<ul>
+<li><strong>Gene/protein:</strong> DLG4/PSD-95; UniProt human PSD-95.</li>
+<li><strong>Variant classification:</strong> Per ACMG/AMP, essentially all reported variants are classified pathogenic/likely pathogenic; ClinVar contains multiple submissions (e.g., NM_001321075.3(DLG4):c.1592-1G&gt;A associated with "Intellectual developmental disorder 62," <a href="https://www.ncbi.nlm.nih.gov/clinvar/RCV001800207/">ClinVar RCV001800207</a>).</li>
+<li><strong>Variant type/class:</strong></li>
+<li><strong>Protein-truncating variants</strong> (nonsense, frameshift, canonical ±1/±2 splice-site) — the large majority</li>
+<li><strong>Missense variants</strong> — reported, presumed loss-of-function but mechanism not experimentally proven in most cases</li>
+<li><strong>Silent (synonymous) and deep-intronic variants</strong> affecting splicing — rare but documented (Levy et al. 2024)</li>
+<li><strong>No gene-targeted deletions/duplications (CNVs)</strong> reported to date per GeneReviews</li>
+<li><strong>Allele frequency:</strong> <em>DLG4</em> pathogenic/truncating variants are <strong>absent from population databases</strong> (gnomAD), consistent with the gene's extreme constraint (pLI = 1).</li>
+<li><strong>Somatic vs. germline:</strong> Disease-causing variants are germline (de novo in the proband in the great majority of cases); parental somatic/germline mosaicism has been documented in rare families, informing recurrence-risk counseling.</li>
+<li><strong>Functional consequence:</strong> <strong>Haploinsufficiency</strong> is the dominant proposed mechanism — loss of one functional <em>DLG4</em> allele is not compensated by other DLG-MAGUK paralogs, based on both human genetic and mouse-knockout data.</li>
+</ul>
+<h3>Protein Domain Structure and Molecular Function</h3>
+<p>PSD-95 is an ~80 kDa <strong>MAGUK (membrane-associated guanylate kinase) family</strong> scaffolding protein with a modular domain architecture: <strong>three PDZ domains (PDZ1, PDZ2, PDZ3)</strong>, one <strong>SH3 domain</strong>, and one catalytically-dead <strong>guanylate kinase (GK) domain</strong> (the SH3-GK forms a conserved "supermodule").
+- <strong>PDZ1/PDZ2</strong> cluster NMDA receptor GluN2 (NR2) subunits (via the C-terminal -ESDV/tSXV PDZ-binding motif), neuroligins, and inward-rectifier/voltage-gated K⁺ channels at the postsynaptic membrane.
+- <strong>PDZ3</strong> binds distinct partners including neuroligins and CRIPT.
+- PSD-95 anchors <strong>AMPA receptors</strong> indirectly through auxiliary transmembrane AMPAR regulatory proteins (<strong>TARPs/stargazin</strong>), which bind PDZ domains and stabilize AMPARs at the postsynaptic density.
+- PSD-95-family MAGUKs are described as "essential for anchoring AMPA and NMDA receptor complexes at the postsynaptic density" (<a href="https://www.pnas.org/doi/10.1073/pnas.1517045112">PNAS 2015</a>).
+- PSD-95 interacts with, and helps organize, additional neurodevelopmental-disease-relevant partners including <strong>SYNGAP1</strong> and other postsynaptic scaffolding/signaling molecules.
+- Acute inactivation of PSD-95 destabilizes AMPA receptors at hippocampal synapses, and PSD-95 is required for NMDA-receptor-dependent synaptic plasticity, directly linking loss of PSD-95 function to impaired excitatory synaptic signaling and plasticity.</p>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0098794" target="_blank" rel="noopener noreferrer">GO:0098794</a> (postsynapse); <a href="http://purl.obolibrary.org/obo/GO_0014069" target="_blank" rel="noopener noreferrer">GO:0014069</a> (postsynaptic density); <a href="http://purl.obolibrary.org/obo/GO_0098839" target="_blank" rel="noopener noreferrer">GO:0098839</a> (postsynaptic density membrane); <a href="http://purl.obolibrary.org/obo/GO_0035249" target="_blank" rel="noopener noreferrer">GO:0035249</a> (synaptic transmission, glutamatergic); <a href="http://purl.obolibrary.org/obo/GO_0035255" target="_blank" rel="noopener noreferrer">GO:0035255</a> (ionotropic glutamate receptor binding); <a href="http://purl.obolibrary.org/obo/GO_0007268" target="_blank" rel="noopener noreferrer">GO:0007268</a> (chemical synaptic transmission); <a href="http://purl.obolibrary.org/obo/GO_0099054" target="_blank" rel="noopener noreferrer">GO:0099054</a> (presynapse — for the paralogous Drosophila dlg data).</p>
+<h3>Other DLG-MAGUK Family Members (Relevant Comparators)</h3>
+<p>Vertebrates have four DLG-MAGUK paralogs: <strong>DLG1 (SAP97)</strong>, <strong>DLG2 (PSD-93/chapsyn-110... note: DLG2 = SAP102/NE-dlg per some nomenclature)</strong>, <strong>DLG3 (SAP102/NE-dlg or PSD-93 depending on source)</strong>, and <strong>DLG4 (PSD-95)</strong>. Each has its own associated neurodevelopmental disorder (<em>DLG2</em>- and <em>DLG3</em>-related intellectual disability/schizophrenia-risk phenotypes have been separately described), and the human genetic and phenotypic data indicate that <strong>these paralogs cannot functionally compensate for loss of PSD-95</strong>, explaining why <em>DLG4</em> haploinsufficiency alone is sufficient to cause disease (see "Neurodevelopmental Disorders Associated with PSD-95 and Its Interaction Partners," <a href="https://pubmed.ncbi.nlm.nih.gov/35457207/">PMID:35457207</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9025546/">PMC9025546</a>).</p>
+<h3>Modifier Genes</h3>
+<p>None formally established.</p>
+<h3>Epigenetic Information / Chromosomal Abnormalities</h3>
+<p>No disease-specific epigenetic signature (DNA methylation episignature) has yet been published for DLG4-related synaptopathy (unlike some other NDD genes). No recurrent chromosomal abnormalities (aneuploidy, translocation) are implicated — this is a single-gene, sequence-variant disorder.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental/toxin factors:</strong> None identified as causal or exacerbating.</li>
+<li><strong>Lifestyle factors:</strong> Not applicable as a primary etiologic contributor; seizure and behavioral triggers (loud sounds, separation, motion, fatigue) are described as symptom modulators rather than disease causes.</li>
+<li><strong>Infectious agents:</strong> None implicated.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal Chain (Molecular → Cellular → Clinical)</h3>
+<ol>
+<li><strong>Molecular trigger:</strong> Heterozygous loss-of-function (or splice-disrupting) variant in <em>DLG4</em> → reduced/absent functional PSD-95 protein (haploinsufficiency), most consistent with nonsense-mediated decay of the truncated transcript or production of a non-functional truncated protein lacking key PDZ/SH3/GK domains.</li>
+<li><strong>Molecular consequence:</strong> Reduced PSD-95 scaffolding capacity at the excitatory postsynaptic density → impaired clustering/stabilization/trafficking of <strong>NMDA receptors</strong> (via PDZ1/PDZ2-NR2 interaction) and <strong>AMPA receptors</strong> (via TARP/stargazin-PDZ interactions) at the synaptic membrane.</li>
+<li><strong>Cellular consequence:</strong> Altered excitatory synapse number, maturation, and dendritic spine morphology; disrupted excitatory/inhibitory synaptic balance in cortical and hippocampal circuits; impaired NMDA-receptor-dependent long-term potentiation/synaptic plasticity (demonstrated directly in <em>Dlg4</em>-null mouse studies).</li>
+<li><strong>Circuit/systems consequence:</strong> Disrupted glutamatergic synaptic transmission and plasticity in cortex, hippocampus, and cerebellum — a <strong>synaptopathy</strong> — producing the core neurodevelopmental phenotype (global developmental delay, intellectual disability). In a subset, cortical hyperexcitability manifests as epilepsy, including the severe DEE-SWAS/ESES phenotype associated with active regression.</li>
+<li><strong>Clinical manifestation:</strong> Global developmental delay, intellectual disability, ASD/ADHD, epilepsy (including DEE-SWAS), movement disorder, hypotonia, and — via a less well-characterized connective-tissue mechanism — marfanoid skeletal/ophthalmologic features.</li>
+</ol>
+<h3>Cellular Processes and Cell Types Involved</h3>
+<ul>
+<li><strong>Primary cell type:</strong> Glutamatergic (excitatory) neurons — cortical pyramidal neurons and hippocampal principal neurons (suggested CL term: <a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a>, glutamatergic neuron; <a href="http://purl.obolibrary.org/obo/CL_0000598" target="_blank" rel="noopener noreferrer">CL:0000598</a>, pyramidal neuron).</li>
+<li><strong>Subcellular compartment:</strong> Postsynaptic density of the dendritic spine (suggested GO Cellular Component: <a href="http://purl.obolibrary.org/obo/GO_0014069" target="_blank" rel="noopener noreferrer">GO:0014069</a> postsynaptic density; <a href="http://purl.obolibrary.org/obo/GO_0043197" target="_blank" rel="noopener noreferrer">GO:0043197</a> dendritic spine).</li>
+<li><strong>Process:</strong> Synaptogenesis, excitatory synaptic maturation, receptor trafficking/anchoring, and activity-dependent synaptic plasticity (LTP/LTD).</li>
+</ul>
+<h3>Molecular/Systems Biology Evidence</h3>
+<ul>
+<li><strong>Animal model data (mouse, Feyder et al. 2010):</strong> <em>Dlg4⁻/⁻</em> (PSD-95 knockout) mice show increased repetitive behaviors, abnormal social/communicative behaviors, impaired motor coordination, and increased stress reactivity, together with subtle dysmorphology of amygdala dendritic spines and altered forebrain expression of synaptic genes — directly paralleling the human ASD/anxiety/motor phenotype ("Association of Mouse <em>Dlg4</em> (PSD-95) Gene Deletion and Human <em>DLG4</em> Gene Variation With Phenotypes Relevant to Autism Spectrum Disorders and Williams' Syndrome," <a href="https://pubmed.ncbi.nlm.nih.gov/20952458/">PMID:20952458</a>).</li>
+<li><strong>Invertebrate model data (Drosophila):</strong> The <em>dlg</em> (discs-large) tumor suppressor gene — the invertebrate DLG-MAGUK ortholog — is required for normal synapse structure at the glutamatergic neuromuscular junction and regulates postsynaptic glutamate receptor subunit composition and structural synaptic plasticity, establishing deep evolutionary conservation of the DLG-MAGUK synaptic scaffolding function across the animal kingdom (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC545058/">PMC545058</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4658212/">PMC4658212</a>).</li>
+<li><strong>In vitro/biochemical data:</strong> Acute inactivation of PSD-95 destabilizes AMPA receptors at hippocampal synapses (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3546964/">PMC3546964</a>); PDZ1/PDZ2 ligand-binding-deficient PSD-95 knock-in mice show impaired synaptic clustering of PSD proteins, altered signal transmission, and disrupted learning behavior — directly modeling domain-specific loss of function (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3575367/">PMC3575367</a>).</li>
+</ul>
+<h3>Genotype-Phenotype Correlation</h3>
+<p>No robust variant-position-specific genotype-phenotype correlation has been firmly established; the disorder is thought to be driven predominantly by simple <strong>haploinsufficiency</strong> regardless of the precise truncating-variant location, though a dedicated genotype-phenotype study is an active area of ongoing collaborative research (ERN-ITHACA "Genotype-phenotype characterization of DLG4-related synaptopathy" call for collaboration, and the Kassabian et al. 2024 DEE-focused cohort).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ Level</h3>
+<ul>
+<li><strong>Primary organ:</strong> Brain (central nervous system) — cortex, hippocampus, cerebellum, corpus callosum (per neuroimaging findings in ~30% of patients).</li>
+<li><strong>Secondary/associated systems:</strong></li>
+<li>Musculoskeletal system (joint laxity, scoliosis, marfanoid habitus)</li>
+<li>Visual system/eye (strabismus, hyperopia, nystagmus, cortical visual impairment)</li>
+<li>Gastrointestinal system (vomiting, GERD/feeding difficulty)</li>
+<li>Sleep/circadian system</li>
+</ul>
+<p><strong>Suggested UBERON terms:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> (brain); <a href="http://purl.obolibrary.org/obo/UBERON_0001950" target="_blank" rel="noopener noreferrer">UBERON:0001950</a> (neocortex); <a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" rel="noopener noreferrer">UBERON:0002421</a> (hippocampal formation); <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> (cerebellum); <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a> (corpus callosum); <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> (eye); <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a> (bone element, for scoliosis/skeletal features).</p>
+<h3>Tissue and Cell Level</h3>
+<ul>
+<li>Glutamatergic excitatory neuronal populations in cerebral cortex and hippocampus (<a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a>); cerebellar Purkinje/granule cell circuits secondarily implicated via cerebellar atrophy findings.</li>
+</ul>
+<h3>Subcellular Level</h3>
+<ul>
+<li>Postsynaptic density / dendritic spine of the excitatory glutamatergic synapse (<a href="http://purl.obolibrary.org/obo/GO_0014069" target="_blank" rel="noopener noreferrer">GO:0014069</a> postsynaptic density; <a href="http://purl.obolibrary.org/obo/GO_0043197" target="_blank" rel="noopener noreferrer">GO:0043197</a> dendritic spine; <a href="http://purl.obolibrary.org/obo/GO_0098794" target="_blank" rel="noopener noreferrer">GO:0098794</a> postsynapse).</li>
+</ul>
+<h3>Localization</h3>
+<ul>
+<li>Diffuse/bilateral CNS involvement (no clear lateralization); neuroimaging abnormalities when present are typically bilateral/symmetric (cerebral/cerebellar atrophy, thin corpus callosum).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Age of onset:</strong> Congenital/early-infantile onset of developmental delay is typical (recognizable within the first 1–2 years of life); mean age of independent walking 20.7 months and first words at 32.2 months indicate onset well within infancy/early childhood.</li>
+<li><strong>Epilepsy onset:</strong> Mean age ~6 years, though it can occur earlier or later.</li>
+<li><strong>Onset pattern:</strong> Predominantly <strong>insidious/developmental</strong> (delay from early infancy) rather than acute; a distinct <strong>regressive</strong> subpattern occurs in association with DEE-SWAS/ESES epilepsy.</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li><strong>Course:</strong> Generally a <strong>static-to-slowly-evolving neurodevelopmental disorder</strong> in the majority; however, ~40% experience frank <strong>developmental regression</strong> (motor and/or language), which is closely tied to the DEE-SWAS/ESES epileptic subtype — in the Kassabian et al. 2024 cohort, regression occurred in essentially all individuals with ESES/DEE-SWAS and in some without it.</li>
+<li><strong>Disease duration:</strong> Chronic, lifelong; documented survival into adulthood (oldest reported patient in the Kassabian cohort was 61 years old; another report described a patient at age 47), suggesting normal or near-normal life expectancy, though the adult phenotype is likely underrecognized due to historically limited genetic testing in adults.</li>
+</ul>
+<h3>Patterns</h3>
+<ul>
+<li><strong>Remission:</strong> No spontaneous remission of the underlying neurodevelopmental phenotype; seizures in the DEE-SWAS subgroup can show EEG/clinical improvement with targeted anti-epileptic treatment (e.g., corticosteroids or other ESES-directed regimens), consistent with general DEE-SWAS management principles.</li>
+<li><strong>Critical periods:</strong> The DEE-SWAS/ESES window (typically preschool-to-school age) represents a critical period of vulnerability during which active regression occurs — early recognition and EEG monitoring (including overnight/24-hour EEG) during this window is emphasized in management recommendations.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Prevalence:</strong> Not formally established (no population-based prevalence study); the disorder is characterized as <strong>rare</strong>. As of recent counts, <strong>~100 individuals</strong> worldwide have been identified with a confirmed pathogenic <em>DLG4</em> variant through combined clinical literature and the DLG4 SHINE Foundation/Simons Searchlight registries, with 53 formally published in the founding cohort study and 35 in the more recent Kassabian et al. 2024 expanded/epilepsy-focused series.</li>
+<li><strong>Incidence:</strong> Not established.</li>
+</ul>
+<h3>Inheritance Pattern</h3>
+<ul>
+<li><strong>Autosomal dominant</strong>, virtually always due to a <strong>de novo</strong> pathogenic variant.</li>
+<li><strong>Penetrance:</strong> Appears to be <strong>complete</strong> (or very high) in reported cases — no confirmed asymptomatic carriers of a clearly pathogenic truncating variant have been well documented, though ascertainment bias (family members generally tested only when clinically indicated) limits certainty.</li>
+<li><strong>Expressivity:</strong> <strong>Variable</strong> — phenotypic severity ranges from mild ID without epilepsy to a severe DEE-SWAS/regressive phenotype, without a clear genotype-driving explanation established to date.</li>
+<li><strong>Genetic anticipation:</strong> Not applicable/not reported (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> Documented as a rare cause of recurrence in siblings of an apparently de novo proband; GeneReviews notes sibling recurrence risk is "slightly above the general population risk" for this reason.</li>
+<li><strong>Founder effects:</strong> None reported.</li>
+<li><strong>Consanguinity:</strong> Not a relevant risk factor given the dominant, de novo mechanism.</li>
+<li><strong>Carrier frequency:</strong> Not applicable in the traditional sense (dominant, not typically "carried" asymptomatically); population database absence of truncating variants (gnomAD, pLI=1) confirms these variants are not tolerated even in single copy in unaffected individuals.</li>
+</ul>
+<h3>Population Demographics</h3>
+<ul>
+<li><strong>Affected populations:</strong> No ethnic/geographic predilection has been reported; cases have been identified across multiple continents/cohorts (European, North American, and other GeneMatcher-connected centers).</li>
+<li><strong>Sex ratio:</strong> Approximately balanced — the Kassabian et al. 2024 cohort reported a male:female ratio of <strong>19:16</strong>, consistent with no strong sex bias, as expected for an autosomal (not X-linked) disorder.</li>
+<li><strong>Age distribution:</strong> Wide range reported — from infancy through at least the 6th–7th decade of life (Kassabian cohort median age at inclusion 13 years, range 1.7–61 years).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical Tests</h3>
+<ul>
+<li>No pathognomonic laboratory biomarker, imaging finding, or biopsy result exists; <strong>the phenotype alone is not sufficiently specific to establish the diagnosis</strong> — GeneReviews explicitly states molecular testing is required.</li>
+<li><strong>Brain MRI:</strong> Recommended as part of the diagnostic work-up in patients presenting with developmental delay/ID; abnormal in ~30% (cerebral/cerebellar atrophy, corpus callosum thinning, hippocampal dysmorphism), but findings are nonspecific.</li>
+<li><strong>EEG:</strong> Important given the ~53% epilepsy prevalence and the specific DEE-SWAS/ESES subtype; overnight/24-hour EEG is recommended for individuals with significant cognitive delay, regression, or clinical suspicion of subclinical epileptiform activity.</li>
+<li><strong>Ophthalmologic exam:</strong> Recommended given the ~50% prevalence of ocular findings (strabismus, hyperopia, nystagmus).</li>
+</ul>
+<h3>Genetic Testing</h3>
+<ul>
+<li><strong>Recommended approach:</strong> A <strong>multigene panel</strong> for intellectual disability/epilepsy, or <strong>comprehensive genomic testing</strong> (exome or genome sequencing) — GeneReviews explicitly states that <strong>single-gene <em>DLG4</em> testing is rarely useful and typically not recommended</strong> as a first-tier test, given the lack of a specific enough clinical gestalt.</li>
+<li><strong>Sequence analysis:</strong> Detects the full spectrum of reported variant types (missense, nonsense, small indels, canonical splice-site variants).</li>
+<li><strong>Gene-targeted deletion/duplication analysis (CNV testing):</strong> No pathogenic CNVs identified to date, so this modality has low diagnostic yield but may still be included in standard panels/exome CNV-calling pipelines.</li>
+<li><strong>RNA testing (RT-PCR/RNA-seq):</strong> Should be considered for variants of uncertain splicing consequence, including synonymous and deep-intronic variants (as demonstrated by the Levy et al. 2024 deep-intronic case).</li>
+<li><strong>Trio (parent-child) sequencing</strong> is valuable both diagnostically (confirming de novo status supports pathogenicity) and for recurrence-risk counseling.</li>
+</ul>
+<h3>Clinical Diagnostic Criteria</h3>
+<p>No formal consensus clinical diagnostic criteria (DSM/ICD-style) exist; diagnosis is <strong>genotype-first</strong> (molecular confirmation) combined with a compatible phenotype.</p>
+<h3>Differential Diagnosis</h3>
+<p>Because features (ID, ASD, epilepsy, hypotonia) are non-specific, the differential includes other genetic <strong>synaptopathies</strong> and syndromic neurodevelopmental disorders, most notably:
+- <strong>SYNGAP1-related intellectual disability</strong> (explicitly noted as an overlapping synaptopathy differential in GeneReviews, given the direct PSD-95–SynGAP1 interaction)
+- Other DLG-MAGUK-family-related disorders (<em>DLG2</em>-, <em>DLG3</em>-related NDDs)
+- Other causes of syndromic ID with marfanoid habitus (e.g., <em>FBN1</em>-related Marfan syndrome itself, Lujan-Fryns syndrome, and — per a 2024 case report — <em>PCDHGA5</em>-related NDD) must be distinguished from the connective-tissue-overlap presentation.</p>
+<h3>Screening</h3>
+<p>No population-based or newborn screening program exists for this ultra-rare disorder; identification occurs via clinical genetic testing triggered by developmental delay/ID/epilepsy work-up.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<h3>Survival and Mortality</h3>
+<ul>
+<li>No formal survival statistics (5-/10-year survival, standardized mortality ratio) have been published.</li>
+<li>Survival into adulthood is well documented (oldest reported case 61 years in the Kassabian 2024 cohort; another individual reported at age 47), suggesting the disorder is not associated with markedly shortened life expectancy in the majority of cases, though this is likely an underestimate of the true adult population given historical underdiagnosis.</li>
+</ul>
+<h3>Morbidity and Functional Outcomes</h3>
+<ul>
+<li><strong>Functional impact:</strong> Lifelong intellectual disability (typically mild-to-moderate) with need for ongoing developmental/educational support; motor impairment (hypotonia, movement disorder) contributes to functional morbidity; a substantial subset experiences developmental regression.</li>
+<li><strong>Quality of life:</strong> No validated disease-specific QoL instrument data published; burden is inferred from the combination of ID + ASD + epilepsy + sleep disturbance + anxiety, all independently associated with reduced QoL in neurodevelopmental disorders broadly.</li>
+</ul>
+<h3>Disease Course / Complications</h3>
+<ul>
+<li><strong>Complications:</strong> Refractory or difficult-to-control epilepsy (notably DEE-SWAS/ESES) is the most clinically significant complication, directly associated with cognitive/language regression; scoliosis requiring orthopedic monitoring; ophthalmologic complications from untreated strabismus/refractive error; feeding/GI complications (GERD, vomiting).</li>
+<li><strong>Recovery potential:</strong> With early intervention (developmental therapies, seizure control), stabilization of function is achievable; the regressive DEE-SWAS phenotype in particular may show partial recovery with EEG-directed antiepileptic/anti-inflammatory treatment (per general DEE-SWAS management principles extrapolated to this disorder, as GeneReviews and Kassabian et al. discuss).</li>
+</ul>
+<h3>Prognostic Factors</h3>
+<ul>
+<li>Presence of DEE-SWAS/ESES epilepsy appears to be the strongest identified prognostic factor for regression/worse cognitive trajectory.</li>
+<li>Severity of baseline ID correlates with likelihood of co-occurring ASD (moderate-severe ID more often associated with ASD).</li>
+<li>No molecular/biomarker-based prognostic classifier has yet been validated.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no disease-modifying or curative therapy</strong>; management is entirely <strong>supportive and symptom-directed</strong>, per GeneReviews consensus recommendations.</p>
+<h3>Pharmacotherapy</h3>
+<ul>
+<li><strong>Anti-seizure medications (ASMs):</strong> Standard epilepsy pharmacotherapy tailored to seizure type; for the DEE-SWAS/ESES subtype, ESES-directed regimens (e.g., corticosteroids/ACTH, or specific ASMs used for encephalopathy with spike-wave activation in sleep) may be considered, following general DEE-SWAS treatment principles rather than DLG4-specific trial data.</li>
+<li><strong>Migraine therapy:</strong> Standard migraine treatment as clinically indicated.</li>
+<li><strong>Sleep pharmacotherapy:</strong> Reserved for refractory sleep disturbance after behavioral measures.</li>
+<li>No pharmacogenomic (PharmGKB/CPIC) guidance specific to <em>DLG4</em> variants exists.</li>
+<li>Suggested NCIT term: <strong>NCIT:C15986</strong> (Pharmacotherapy), with <code>therapeutic_agent</code> specifying individual anti-seizure medications as used case-by-case.</li>
+</ul>
+<h3>Advanced/Experimental Therapeutics</h3>
+<ul>
+<li>No gene therapy, ASO, siRNA, or targeted molecular therapy has been reported or is in registered clinical trials specifically for DLG4-related synaptopathy as of current literature.</li>
+<li>No NCT-registered interventional trials specific to <em>DLG4</em> were identified via available search; research activity is centered on <strong>natural history / registry studies</strong> rather than therapeutic trials (see below).</li>
+</ul>
+<h3>Non-Pharmacologic / Supportive Care</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Intervention</th>
+<th>Suggested NCIT term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Developmental</td>
+<td>Early intervention (birth–3 years), developmental preschool (3–5 years), individualized education plan (IEP)</td>
+<td>NCIT:C49236 (Therapeutic Procedure)</td>
+</tr>
+<tr>
+<td>Motor</td>
+<td>Physical therapy, occupational therapy, adaptive devices</td>
+<td>NCIT:C15302 (Physical Therapy)</td>
+</tr>
+<tr>
+<td>Behavioral/ASD</td>
+<td>Formal autism evaluation; Applied Behavior Analysis (ABA) therapy; ADHD/anxiety screening and management</td>
+<td>NCIT:C15747 (Supportive Care)</td>
+</tr>
+<tr>
+<td>Orthopedic</td>
+<td>Monitoring/management of scoliosis; surgical referral if progressive</td>
+<td>NCIT:C16186 (Orthopedic Surgical Procedure), as needed</td>
+</tr>
+<tr>
+<td>Ophthalmologic</td>
+<td>Annual ophthalmologic evaluation; correction of refractive error; low vision services</td>
+<td>—</td>
+</tr>
+<tr>
+<td>GI</td>
+<td>Standard management of feeding difficulty, GERD, vomiting</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Genetic</td>
+<td>Genetic counseling for families</td>
+<td>NCIT:C15240 (Genetic Counseling)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Treatment Strategy / Algorithms</h3>
+<p>Management follows a <strong>multidisciplinary surveillance-and-support algorithm</strong> as codified in GeneReviews:
+- At every visit: assess for seizures, developmental progress, behavioral concerns (post-infancy), mobility/self-help skills, and sleep disturbance.
+- Annually: ophthalmologic evaluation; consider 24-hour EEG based on clinical indicators (regression, cognitive plateau, suspected subclinical seizures).</p>
+<h3>Experimental/Research Infrastructure</h3>
+<ul>
+<li>The <strong>DLG4 SHINE Foundation</strong> (patient advocacy organization) coordinates natural history studies, a patient registry, and biospecimen collection in partnership with <strong>Simons Searchlight</strong> and other research groups, explicitly framed as the necessary first step toward future targeted-treatment development ("Finding Treatment of DLG4 Synaptopathy Starts with Registry," <a href="https://www.dlg4shine.org/what-is-registry">dlg4shine.org</a>).</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p>Given the disorder's near-exclusively <strong>de novo</strong> genetic origin, classical primary/secondary/tertiary prevention paradigms (vaccination, lifestyle modification, screening programs) are <strong>not applicable</strong> in the traditional sense.</p>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible to prevent de novo germline mutation; population carrier screening is not relevant given the de novo mechanism.</li>
+<li><strong>Secondary prevention (reproductive counseling):</strong></li>
+<li><strong>Genetic counseling</strong> is central: recurrence risk for future pregnancies of parents of an affected (apparently de novo) proband is <strong>low but not zero</strong> (above general population risk) due to the possibility of parental germline mosaicism; recurrence risk rises to <strong>50%</strong> if a parent is confirmed to carry the variant (germline or somatic-germline mosaic, or, rarely, is mildly affected).</li>
+<li><strong>Prenatal diagnosis and preimplantation genetic testing (PGT)</strong> are available once the familial pathogenic variant is identified, allowing informed reproductive decision-making in subsequent pregnancies.</li>
+<li><strong>Tertiary prevention:</strong> Aimed at reducing complications of the established disease — e.g., early EEG surveillance to catch DEE-SWAS/ESES before extensive regression occurs, annual ophthalmologic screening to prevent amblyopia from untreated strabismus/refractive error, and scoliosis monitoring to enable early orthopedic intervention.</li>
+<li><strong>Public health / behavioral / immunization strategies:</strong> Not applicable — this is not an infectious, environmental, or lifestyle-driven condition.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> No naturally occurring veterinary/companion-animal disease attributable to spontaneous <em>Dlg4</em> mutation has been reported in OMIA or the veterinary literature; DLG4-related synaptopathy is a human-specific clinical entity as currently documented.</li>
+<li><strong>Orthologous gene:</strong> <em>Dlg4</em> is conserved across vertebrates (mouse <em>Dlg4</em>, NCBI Gene) and has clear orthologs in zebrafish (<em>dlg4</em>, Gene ID referenced in GeneCards) and in Drosophila (<em>dlg</em>, "discs large," the founding member of the gene family, originally identified as a tumor suppressor).</li>
+<li><strong>Comparative biology:</strong> The DLG-MAGUK gene family (<em>dlg1–dlg4</em> in vertebrates; single <em>dlg</em> in Drosophila) shows deep evolutionary conservation of function in organizing glutamatergic postsynaptic signaling complexes — from the Drosophila neuromuscular junction through to the mammalian cortical excitatory synapse — underscoring that PSD-95's core synaptic scaffolding role, and its vulnerability to haploinsufficiency-driven disease, is an ancient and conserved biological function.</li>
+<li><strong>Zoonotic potential:</strong> Not applicable (not an infectious disease).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Mammalian Models</h3>
+<ul>
+<li><strong>Mouse — <em>Dlg4⁻/⁻</em> (PSD-95 knockout) germline knockout:</strong> The best-characterized model. Recapitulates behavioral features relevant to human ASD/anxiety phenotype: <strong>increased repetitive behaviors, abnormal social and communication behaviors, impaired motor coordination, and increased stress reactivity</strong>; molecular/anatomical correlates include subtle dysmorphology of amygdala dendritic spines and altered forebrain expression of synaptic genes (<a href="https://pubmed.ncbi.nlm.nih.gov/20952458/">PMID:20952458</a>; American Journal of Psychiatry, 2010).</li>
+<li><strong>Mouse — PDZ1/PDZ2 ligand-binding-deficient PSD-95 knock-in:</strong> A domain-specific model showing impaired synaptic clustering of postsynaptic density proteins, altered synaptic signal transmission, and disrupted learning behavior in hippocampal neurons — directly informative for the mechanistic consequence of PDZ-domain-disrupting human variants (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3575367/">PMC3575367</a>).</li>
+<li><strong>Model characteristics:</strong> These murine models show reasonably good <strong>face validity</strong> for the core behavioral domains of the human disease (autism-relevant behaviors, motor coordination deficits) but, as a <strong>complete knockout</strong>, represent a more severe loss-of-function state than the heterozygous human condition; the PDZ-domain-specific knock-in more precisely models a partial/domain-restricted functional loss.</li>
+<li><strong>Model limitations:</strong> Homozygous <em>Dlg4⁻/⁻</em> mice do not directly model the human <strong>heterozygous haploinsufficiency</strong> state (most human patients are heterozygous), so heterozygous <em>Dlg4⁺/⁻</em> mice would in principle be a more disease-relevant model; specific epilepsy/DEE-SWAS phenotypes and the marfanoid connective-tissue phenotype observed in humans have not been reported as recapitulated in existing mouse models.</li>
+</ul>
+<h3>Invertebrate Models</h3>
+<ul>
+<li><strong>Drosophila — <em>dlg</em> (discs-large) mutants:</strong> The Drosophila glutamatergic neuromuscular junction (NMJ) model demonstrates that <em>dlg</em> is required for normal synapse structure, clusters postsynaptic glutamate receptor subunit composition, and mediates structural synaptic plasticity during postsynaptic target growth (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC545058/">PMC545058</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4658212/">PMC4658212</a>). This provides a genetically tractable system for dissecting fundamental DLG-MAGUK synaptic scaffolding function, though it models the ancestral single-paralog system rather than the vertebrate-specific compensatory context.</li>
+</ul>
+<h3>Cellular / iPSC Models</h3>
+<ul>
+<li>No published human iPSC-derived neuron model specific to <em>DLG4</em> patient variants was identified in the current literature search; this represents an identified research gap, and the DLG4 SHINE Foundation biospecimen-collection effort may support development of such models in the future.</li>
+</ul>
+<h3>Resources</h3>
+<ul>
+<li>Mouse Genome Informatics (MGI) — <em>Dlg4</em> allele records</li>
+<li>ZFIN — zebrafish <em>dlg4</em> records</li>
+<li>FlyBase — Drosophila <em>dlg</em> records</li>
+<li>International Mouse Phenotyping Consortium (IMPC) — potential source of additional <em>Dlg4</em> conditional/heterozygous allele phenotyping data (not specifically reviewed here)</li>
+</ul>
+<hr />
+<h2>Summary of Key Evidence Gaps for Curation</h2>
+<ol>
+<li><strong>Genotype-phenotype correlation</strong> remains unresolved — an active area of ongoing collaborative study (ERN-ITHACA call for collaboration; Kassabian et al. 2024).</li>
+<li><strong>No approved or trial-stage disease-modifying therapy</strong> exists; management is entirely supportive.</li>
+<li><strong>Heterozygous (haploinsufficient) mouse models</strong> more precisely matching the human genetic state, and human iPSC-neuron models, are not yet well represented in the published literature — an important caveat for any <code>HUMAN_MODEL_MISMATCH</code> discussion, since the best-characterized mouse data (Feyder et al. 2010) derive from a full knockout rather than a heterozygous model.</li>
+<li><strong>Formal prevalence/incidence figures</strong> and validated QoL instrument data are not yet available — current numbers (~100 individuals identified) reflect registry/cohort ascertainment rather than population-based epidemiology.</li>
+<li><strong>DEE-SWAS/ESES epilepsy subtype</strong> is the most clinically consequential and best-recently-characterized complication (Kassabian et al. 2024) and should be modeled as a distinct, evidence-rich pathophysiology/phenotype node given its strong association with developmental regression.</li>
+</ol>
+<hr />
+<h3>Sources</h3>
+<ul>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK592682/">DLG4-Related Synaptopathy — GeneReviews® (NCBI Bookshelf, NBK592682)</a></li>
+<li><a href="https://www.nature.com/articles/s41436-020-01075-9">DLG4-related synaptopathy: a new rare brain disorder — Genetics in Medicine (Rodríguez-Palmero et al., 2021)</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/33597769/">PubMed PMID:33597769</a> / <a href="https://www.sciencedirect.com/science/article/pii/S1098360021014465">ScienceDirect mirror</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/cge.13243">Truncating variants of the DLG4 gene are responsible for intellectual disability with marfanoid features — Moutton et al., 2018, Clinical Genetics</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/epi.17876">Developmental epileptic encephalopathy in DLG4-related synaptopathy — Kassabian et al., 2024, Epilepsia</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/full/10.1111/cge.14411">A deep intronic DLG4 variant resulting in DLG4-related synaptopathy — Levy et al., 2024, Clinical Genetics</a></li>
+<li><a href="https://www.nature.com/articles/s41439-023-00260-x">A novel DLG4 variant causes DLG4-related synaptopathy with intellectual regression — Human Genome Variation, 2023</a> / <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10770362/">PMC10770362</a></li>
+<li><a href="https://www.omim.org/entry/618793">OMIM #618793 — Intellectual Developmental Disorder, Autosomal Dominant 62 (MRD62)</a></li>
+<li><a href="https://omim.org/entry/602887">OMIM *602887 — DLG4</a></li>
+<li><a href="https://medlineplus.gov/genetics/condition/dlg4-related-synaptopathy/">MedlinePlus Genetics — DLG4-related synaptopathy</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9025546/">Neurodevelopmental Disorders Associated with PSD-95 and Its Interaction Partners — PMC9025546</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/35457207/">PubMed PMID:35457207</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/20952458/">Association of Mouse Dlg4 (PSD-95) Gene Deletion and Human DLG4 Gene Variation With Phenotypes Relevant to ASD and Williams' Syndrome — Feyder et al., 2010, American Journal of Psychiatry / PubMed PMID:20952458</a></li>
+<li><a href="https://www.pnas.org/doi/10.1073/pnas.1517045112">PSD-95 family MAGUKs are essential for anchoring AMPA and NMDA receptor complexes at the postsynaptic density — PNAS</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3575367/">Impaired synaptic clustering of postsynaptic density proteins... in PDZ1 and PDZ2 ligand binding-deficient PSD-95 knockin mice — PMC3575367</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3546964/">Acute Inactivation of PSD-95 Destabilizes AMPA Receptors at Hippocampal Synapses — PMC3546964</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC545058/">Discs-large (DLG) is clustered by presynaptic innervation and regulates postsynaptic glutamate receptor subunit composition in Drosophila — PMC545058</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4658212/">The Drosophila tumor suppressor gene, dlg, is involved in structural plasticity at a glutamatergic synapse — PMC4658212</a></li>
+<li><a href="https://www.dlg4shine.org/natural-history-studies">DLG4 SHINE Foundation — Natural History Studies / Registry</a></li>
+<li><a href="https://www.simonssearchlight.org/research/what-we-study/dlg4/">Simons Searchlight — DLG4</a></li>
+<li><a href="https://ern-ithaca.eu/for-clinicians/calls-for-collaboration/genotype-phenotype-characterization-of-dlg4-related-synaptopathy/">ERN-ITHACA — Genotype-phenotype characterization of DLG4-related synaptopathy (call for collaboration)</a></li>
+<li><a href="http://purl.obolibrary.org/obo/MONDO_0032919" target="_blank" rel="noopener noreferrer">MONDO:0032919</a> (confirmed via EBI OLS4 MONDO ontology search; exact synonym "DLG4-related synaptopathy")</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Unresolved references</h3>
+<p>These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:</p>
+<ul>
+<li><code>DOI:10.1111/cge.14411](https://onlinelibrary.wiley.com/doi/full/10.1111/cge.14411</code> (1 mention) - Identifier did not resolve to a record</li>
+</ul>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>DOI:10.1073/pnas.1517045112</code> <em>(abstract only)</em>: "essential for anchoring AMPA and NMDA receptor complexes at the postsynaptic density"</li>
+<li>closest text in source: "Significance The postsynaptic density (PSD) at the glutamatergic excitatory synapse is a macromolecular machine that underlies synaptic transmission and information storage"</li>
+</ul>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>DOI:10.1073/pnas.1517045112</code> (3 mentions) - PSD-95 family MAGUKs are essential for anchoring AMPA and NMDA receptor complexes at the postsynaptic density</li>
+<li>shared terms: psd-95, postsynaptic</li>
+<li><code>PMC:PMC3546964</code> (5 mentions) - Acute inactivation of PSD-95 destabilizes AMPA receptors at hippocampal synapses.</li>
+<li>shared terms: psd-95, postsynaptic</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>disorder</code>, <code>dlg4</code>, <code>epilepsy</code>, <code>phenotype</code>, <code>developmental</code>, <code>variant</code>, <code>dee-swas</code>, <code>genetic</code>, <code>gene</code>, <code>synaptopathy</code>, <code>intellectual</code>, <code>psd-95</code>, <code>clinical</code>, <code>regression</code>, <code>eses</code>, <code>kassabian</code>, <code>identified</code>, <code>disability</code>, <code>postsynaptic</code>, <code>associated</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="DK1-congenital_disorder_of_glycosylation-asta.html">← DK1-congenital disorder of glycosylation (Asta)</a>
+                
+                
+                <a href="DLG4-Related_Synaptopathy-openscientist.html">DLG4-Related Synaptopathy (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/DLG4-Related_Synaptopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/DLG4-Related_Synaptopathy-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="DLG4-Related_Synaptopathy-openscientist.html"><span class="provider-pill provider-openscientist">OpenScientist</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
