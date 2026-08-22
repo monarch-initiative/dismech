@@ -167,6 +167,40 @@ def lint_criterion(node: Any, path: str = "logic") -> list[str]:
     return errors
 
 
+def lint_criterion_advisories(node: Any, path: str = "logic") -> list[str]:
+    """Return non-gating style advisories for a criteria expression.
+
+    Distinct from :func:`lint_criterion`, whose findings are structural errors
+    and gate CI. These are conventions worth steering toward but which existing
+    curated groupings legitimately do not follow, so flagging them as errors
+    would turn correct files red.
+
+    Currently one advisory: a ``HAS_CLASSIFICATION`` leaf whose value carries no
+    ``<slot>:`` prefix. ``_classification_tags()`` also emits bare-value tags and
+    folds in the free-text ``parents:``/``categories:`` slots, so a bare value
+    matches a tag in *any* slot -- fine when the tag is unique KB-wide (as for
+    ``RASopathy``), but a latent false positive when two nosology schemes share
+    a string. The keyed form pins the slot.
+    """
+    advisories: list[str] = []
+    if not isinstance(node, dict):
+        return advisories
+    if classify_node(node) is NodeKind.LEAF:
+        if node.get("criterion_predicate") == "HAS_CLASSIFICATION":
+            value = node.get("classification")
+            if isinstance(value, str) and ":" not in value:
+                advisories.append(
+                    f"{path}: HAS_CLASSIFICATION {value!r} is unkeyed; prefer "
+                    f"'<slot>:{value}' so the criterion pins which "
+                    f"classification slot it reads"
+                )
+    for i, child in enumerate(node.get("operands", []) or []):
+        advisories.extend(
+            lint_criterion_advisories(child, f"{path}.operands[{i}]")
+        )
+    return advisories
+
+
 def iter_nodes(node: Any) -> Iterable[dict]:
     """Yield every node in a (possibly nested) criteria expression."""
     if not isinstance(node, dict):
@@ -851,6 +885,20 @@ def _report(paths: list[str], strict: bool) -> int:
                 print(f"    - {e}")
         else:
             print("  structure: OK")
+
+        advisories: list[str] = []
+        for ci, criteria in enumerate(grouping.get("membership_criteria", []) or []):
+            advisories.extend(
+                lint_criterion_advisories(
+                    criteria.get("logic"), f"membership_criteria[{ci}].logic"
+                )
+            )
+        if advisories:
+            # Never gating, including under --strict: these are conventions,
+            # not errors, and existing groupings legitimately do not follow them.
+            print("  advisories:")
+            for a in advisories:
+                print(f"    ~ {a}")
 
         # Tier 2: advisory membership audit.
         for ev in evaluate_grouping(grouping, index):

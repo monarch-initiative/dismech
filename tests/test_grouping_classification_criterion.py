@@ -128,3 +128,43 @@ def test_criterion_without_a_classification_payload_stays_unknown():
     """An unfillable leaf must not be read as a violation."""
     leaf = {"criterion_predicate": "HAS_CLASSIFICATION"}
     assert G._eval_leaf(leaf, _facts(IEI_ENTRY)) is G.Satisfaction.UNKNOWN
+
+
+# --------------------------------------------------------------------------- #
+# Advisory lint: steer new criteria toward the keyed <slot>:<value> form.
+#
+# This is deliberately NOT part of lint_criterion(), whose findings gate CI.
+# RASopathies and B-Cell Non-Hodgkin Lymphoma legitimately use the bare form,
+# so raising it as an error would turn two correct files red.
+# --------------------------------------------------------------------------- #
+
+
+def test_unkeyed_classification_criterion_raises_an_advisory():
+    advisories = G.lint_criterion_advisories(_leaf("RASopathy"))
+    assert len(advisories) == 1
+    assert "unkeyed" in advisories[0]
+    assert "<slot>:RASopathy" in advisories[0]
+
+
+def test_keyed_classification_criterion_raises_no_advisory():
+    assert G.lint_criterion_advisories(_leaf("iuis_category:phagocyte defect")) == []
+
+
+def test_advisories_are_not_structural_errors():
+    """The bare form must stay valid — two curated groupings rely on it."""
+    assert G.lint_criterion(_leaf("RASopathy")) == []
+
+
+def test_advisories_recurse_into_branches():
+    branch = {
+        "operator": "AND",
+        "operands": [_leaf("RASopathy"), _leaf("iuis_category:complement deficiency")],
+    }
+    advisories = G.lint_criterion_advisories(branch)
+    assert len(advisories) == 1
+    assert "operands[0]" in advisories[0]
+
+
+def test_other_predicates_raise_no_advisory():
+    leaf = {"criterion_predicate": "HAS_GENE", "gene": {"term": {"id": "hgnc:1133"}}}
+    assert G.lint_criterion_advisories(leaf) == []
