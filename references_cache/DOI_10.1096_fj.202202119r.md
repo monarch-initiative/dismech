@@ -1,5 +1,5 @@
 ---
-reference_id: DOI:10.1096/fj.202202119r
+reference_id: DOI:10.1096/fj.202202119R
 title: Gigaxonin is required for intermediate filament transport
 authors:
 - Bhuvanasundar Renganathan
@@ -12,7 +12,7 @@ authors:
 - Vladimir I. Gelfand
 journal: The FASEB Journal
 year: '2023'
-doi: 10.1096/fj.202202119r
+doi: 10.1096/fj.202202119R
 content_type: abstract_only
 is_preprint: false
 ---
@@ -20,7 +20,7 @@ is_preprint: false
 # Gigaxonin is required for intermediate filament transport
 **Authors:** Bhuvanasundar Renganathan, James P. Zewe, Yuan Cheng, Jean‐Michel Paumier, Mark Kittisopikul, Karen M. Ridge, Puneet Opal, Vladimir I. Gelfand
 **Journal:** The FASEB Journal (2023)
-**DOI:** [10.1096/fj.202202119r](https://doi.org/10.1096/fj.202202119r)
+**DOI:** [10.1096/fj.202202119R](https://doi.org/10.1096/fj.202202119R)
 
 ## Content
 
