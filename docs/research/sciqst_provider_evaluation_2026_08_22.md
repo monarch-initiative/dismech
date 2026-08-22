@@ -137,15 +137,15 @@ dismech-relevant item in the corpus and the obvious one to try first. Note
 
 ## The mindmap corpus (n = 1,865)
 
-Sciqst also publishes 1,895 free "interactive AI mind maps" at
-`/mindmaps/<id>`. These are **not** a second form of literature review. Surveyed
+Sciqst also publishes 1,894 free "interactive AI mind maps" at
+`/mindmaps/<id>` (the sitemap lists 1,895 entries, one of which is the index page). These are **not** a second form of literature review. Surveyed
 the same way (1,865 parsed successfully; 29 fetch errors):
 
-- **90,419 total nodes**, median 47 per map, range 6–182.
+- **90,426 total nodes**, median 47 per map, range 9–182.
 - **Zero citations. Corpus-wide, not a single mindmap cites a single PMID or
   DOI.** Reviews at least give you a reference list; mindmaps give you nothing to
   verify against.
-- 71% are pure trees (`edges = nodes − 1`); the mean map has 0.94 edges beyond a
+- 71% are pure trees (`edges = nodes − 1`); the mean map has 1.01 edges beyond a
   spanning tree, i.e. occasional cross-links, no real graph structure.
 - The graph is embedded in the page as a `var mindmapNodes` JSON array and
   rendered client-side with vis-network, so it is trivially extractable — each
@@ -190,7 +190,7 @@ tier is padding (`Beta Blockers → Reduce Heart Rate`, `Low Salt Diet`).
 Only 13 of 1,869 maps have a mechanism word in the title at all.
 
 Content is not as boilerplate as the Osteoporosis example suggests — 77.4% of the
-49,282 distinct node labels appear in exactly one map, and only 10.6% of maps
+49,351 distinct node labels appear in exactly one map, and only 10.6% of maps
 carry four or more of `Definition/Causes/Symptoms/Diagnosis/Treatment/Prevention`.
 The problem is not that maps are identical; it is that the relations are
 unlabelled and the claims are unsourced.
