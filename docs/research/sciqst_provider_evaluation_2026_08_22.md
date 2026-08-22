@@ -29,12 +29,20 @@ survey below is user-requested retrieval of sitemap-listed public pages.
 
 ## Corpus survey (n = 2,078 public reviews)
 
-Method: `sitemap.xml` → 2,078 `/reviews/<id>` URLs (plus 1,895 public mindmaps,
-not examined) → fetch each → extract `og:title`, meta description, and all
-inline PMIDs. Matching against dismech used the 2,128 `kb/disorders/` names and
-1,831 `stubs/` labels, restricted to names ≥10 characters to suppress junk hits.
-Results are in
-[`sciqst_dismech_review_matches_2026_08_22.tsv`](sciqst_dismech_review_matches_2026_08_22.tsv).
+Method: `sitemap.xml` → 2,078 `/reviews/<id>` URLs (plus 1,894 public mindmaps,
+surveyed separately below) → fetch each → extract `og:title`, meta description,
+and all inline PMIDs. Matching against dismech used the 2,128 `kb/disorders/`
+names and 1,831 `stubs/` labels, restricted to names ≥10 characters to suppress
+junk hits. Results are in
+[`sciqst_dismech_review_matches_2026_08_22.tsv`](sciqst_dismech_review_matches_2026_08_22.tsv)
+(one row per matched review, with the topical `orientation` label used below).
+
+**The ≥10-character filter makes 338 a lower bound.** It excludes 62 curated
+disease names — among them `Asthma`, `COVID-19`, `Epilepsy`, `Glaucoma`,
+`Cholera`, `Dengue`, `Botulism`, `Chordoma`, `Glioma` — i.e. exactly the common
+short names a clinical-question corpus is full of. The true overlap is larger
+than 338, which shifts the yield arithmetic below but not the verdict: the
+23-reference ceiling is the binding constraint and is independent of matching.
 
 ### Reference count is the real, durable limitation
 
@@ -71,10 +79,15 @@ by the oldest paper each review cites:
 | 2024+ (≥38M) | 1,064 | 51.3% |
 
 So about half the corpus is recency-only, and the other half reaches back —
-36.7% cite something pre-2022, 12.9% something pre-2008. Individual reviews cite
-papers from 1997–2004 freely. The three search-surfaced samples happened to fall
-in the recency-only half. Reference *count*, not literature age, is the binding
-constraint.
+**36.6%** cite something pre-2022 and **12.8%** something pre-2008. (Denominator
+2,076, not 2,078: two reviews cite nothing and so have no oldest paper. Both
+figures are recomputed from the counts rather than summed from the rounded
+shares above, which is where an earlier 36.7% / 12.9% came from.) Note the
+PMID→year boundaries are approximate and the two lower ones run 1–2 years late:
+20M is nearer early 2010 than 2008, and 11M nearer 2001 than 2000; the 35M/2022
+and 38M/2024 boundaries are good. Individual reviews cite papers from 1997–2004
+freely. The three search-surfaced samples happened to fall in the recency-only
+half. Reference *count*, not literature age, is the binding constraint.
 
 ## The free corpus: what actually overlaps with dismech
 
@@ -115,8 +128,15 @@ Best of the mechanism-leaning set:
 
 ### The 9 that hit the uncurated stub queue
 
-These are the most interesting, because they cover diseases dismech has *not*
-curated — a free head start rather than a duplicate:
+These are the rows that matched an open `stubs/` entry. **Read the table with a
+caveat: only 2 of the 6 diseases are genuinely uncurated.** Four are *stale
+stubs* whose disease has since been curated under a different name —
+`pheochromocytoma` → `Pheochromocytoma_Paraganglioma.yaml`, `myelofibrosis` →
+`Primary_Myelofibrosis.yaml`, `X-linked hypophosphatemic rickets` →
+`X-Linked_Hypophosphatemia.yaml`, `pancreatitis` → `Chronic_Pancreatitis.yaml`
+plus `kb/modules/pancreatitis_acinar_autodigestion.yaml`. That is the expected
+drift CLAUDE.md describes, cleared by `just tidy-stubs --apply`; it is a
+side-finding of this survey, not a problem with the corpus.
 
 | Refs | Stub disease | Review |
 |---|---|---|
@@ -130,10 +150,15 @@ curated — a free head start rather than a duplicate:
 | 3 | pancreatitis | [The Role of Antibiotics in the Management of Pancreatitis](https://www.sciqst.com/reviews/WfYrk1_UhsSJ) |
 | 1 | trigeminal neuralgia | [The A931T Variant in the TRPM7 Channel](https://www.sciqst.com/reviews/q89f9xkknzZm) |
 
-The interstitial cystitis review (17 references) is the single largest
-dismech-relevant item in the corpus and the obvious one to try first. Note
-`X-linked hypophosphatemic rickets` is a live conformer target for the
-`defective_skeletal_mineralization` module, so that one has a concrete home.
+Interstitial cystitis, trigeminal neuralgia and Muckle-Wells are the genuinely
+uncurated ones. The interstitial cystitis review (17 references) is the largest
+item **in this stub subset** — corpus-wide the largest dismech-relevant match is
+a 22-reference review, *The Impact of the COVID-19 Pandemic on Clostridioides
+difficile Infection (CDI) Acquisition and Outcomes*, against the already-curated
+`Clostridioides difficile Infection`. Note that `X-Linked_Hypophosphatemia` is
+**already a worked conformer** of `defective_skeletal_mineralization` (it
+declares both the phosphopenic-arm and mineralization-front nodes), not a
+conformer target — another instance of the stale-stub drift above.
 
 ## The mindmap corpus (n = 1,865)
 
@@ -151,8 +176,10 @@ the same way (1,865 parsed successfully; 29 fetch errors):
   rendered client-side with vis-network, so it is trivially extractable — each
   node carries `name`, `category`, `connections`, and fixed x/y coordinates.
 - Only **73 maps** name a dismech disease (72 curated, 1 stub), and those are
-  heavily duplicated — Heart Failure ×4, Ischemic Stroke ×4, Solitary Fibrous
-  Tumor ×2. Versus 338 matching reviews, the mindmaps are a much thinner overlap.
+  heavily duplicated — Heart Failure ×9, Atrial Fibrillation ×8, Long COVID ×4,
+  Ischemic Stroke ×4. Versus 338 matching reviews, the mindmaps are a much
+  thinner overlap. Rows are in
+  [`sciqst_dismech_mindmap_matches_2026_08_22.tsv`](sciqst_dismech_mindmap_matches_2026_08_22.tsv).
 
 ### The disqualifying property: edges are untyped
 
@@ -187,7 +214,7 @@ and `→ Treatment → Medications → Beta Blockers` (treated-by). Causal,
 manifestation and therapeutic relations are indistinguishable, and the deepest
 tier is padding (`Beta Blockers → Reduce Heart Rate`, `Low Salt Diet`).
 
-Only 13 of 1,869 maps have a mechanism word in the title at all.
+Only 13 of the 1,865 parsed maps have a mechanism word in the title at all.
 
 Content is not as boilerplate as the Osteoporosis example suggests — 77.4% of the
 49,351 distinct node labels appear in exactly one map, and only 10.6% of maps
@@ -221,7 +248,7 @@ is the fabrication mode the evidence SOP exists to prevent.
 
 Two secondary observations, neither a reason to ingest:
 
-- **As a demand signal, resist the temptation.** The 1,869 map titles are real
+- **As a demand signal, resist the temptation.** The 1,865 map titles are real
   user queries and show what clinicians actually ask about. But weighting the
   stub queue by that is the same mistake as the retired ranked dashboard
   (issue #8969) — a cheap popularity-correlated feature that tracks how common a
