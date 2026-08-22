@@ -207,11 +207,14 @@ class FakeAssociation:
     """Minimal stand-in for a Biolink Association (biolink-model is an optional dep)."""
 
     def __init__(self, id="urn:uuid:edge-1", subject="MONDO:0009061",
-                 predicate="biolink:has_phenotype", object="HP:0030828"):
+                 predicate="biolink:has_phenotype", object="HP:0030828",
+                 qualifiers=None):
         self.id = id
         self.subject = subject
         self.predicate = predicate
         self.object = object
+        if qualifiers is not None:
+            self.qualifiers = qualifiers
 
 
 class TestStatementFromAssociation:
@@ -248,6 +251,34 @@ class TestStatementFromAssociation:
         )
         assert statement.evidence_inherited_from == parent_id
 
+    def test_qualifiers_are_carried_across(self):
+        """A dropped qualifier leaves the sidecar restating the bare triple (#8468).
+
+        For a deficiency exposure the bare triple is the opposite of the curated
+        claim, so this is the difference between a correct and an inverted
+        statement, not a cosmetic loss.
+        """
+        association = FakeAssociation(
+            subject="ECTO:9000123",
+            predicate="biolink:contributes_to",
+            object="MONDO:0000819",
+            qualifiers=["PATO:0002301"],
+        )
+        statement = statement_from_association(
+            association, CFTR_EVIDENCE, disease_name="Anencephaly", section="environmental"
+        )
+        assert statement.qualifiers == ["PATO:0002301"]
+
+    def test_absent_qualifiers_stay_unset(self):
+        """An association with no qualifiers must not gain an empty list."""
+        assert statement_from_association(FakeAssociation(), CFTR_EVIDENCE).qualifiers is None
+        assert (
+            statement_from_association(
+                FakeAssociation(qualifiers=[]), CFTR_EVIDENCE
+            ).qualifiers
+            is None
+        )
+
 
 class TestPathophysiologyStatements:
     """Tests for the assertions that have no KGX counterpart."""
@@ -266,7 +297,7 @@ class TestPathophysiologyStatements:
         assert causal.subject == node.object
         assert causal.predicate == "dismech:causally_upstream_of"
         assert causal.object == "dismech:Cystic_Fibrosis#Airway_Surface_Liquid_Depletion"
-        assert causal.qualifiers == ["DIRECT"]
+        assert causal.qualifiers == ["dismech:CausalLinkTypeEnum#DIRECT"]
         assert len(causal.has_evidence_lines) == 1
 
     def test_node_statement_id_is_deterministic(self):

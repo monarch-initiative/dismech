@@ -120,6 +120,20 @@ classDiagram
 | `evidence[].explanation` | `EvidenceLine.description` | SEPIO has no dedicated rationale slot; a `rationale` field would be a natural addition |
 | `evidence[].supports` | `EvidenceLine.dismech_supports` | the raw enum value, kept verbatim — see below |
 | — | `Document.document_type` | not in dismech; inferred from the reference prefix |
+| the KGX edge's `qualifiers` | `Statement.qualifiers` | carried across verbatim, so the sidecar does not restate a bare triple — see below |
+
+`Statement.qualifiers` carries the KGX association's qualifier list through
+unchanged. This matters most for the modifier qualifier on an
+environmental-exposure statement: the subject is the ECTO exposure term itself
+(`exposure to folic acid`), so a deficiency entry whose qualifier was dropped
+would assert the opposite of what was curated — that exposure to folate
+contributes to anencephaly, rather than that lack of it does (#8468). The
+Disease→process statements carry their modifier qualifiers by the same route.
+See [KGX Export](kgx-export.md) for the CURIE vocabulary these use.
+
+`causal_link_type` is emitted here as `dismech:CausalLinkTypeEnum#DIRECT` and
+friends, for the same reason: `qualifiers` is typed `range: ontology class`, so a
+bare `DIRECT` is not a legal entry.
 
 `EvidenceItemSupportEnum` is mostly a direction-of-support enum and passes
 through unchanged; the two exceptions are `WRONG_STATEMENT` → `REFUTE` (a
