@@ -2100,6 +2100,21 @@ icees-rebuild *args="":
 icees-list limit="20":
     uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
 
+# Refresh STRchive loci JSON (pinned by data/strchive/MANIFEST.yaml)
+[group('Research')]
+strchive-refresh:
+    uv run python -m dismech.structured_sources.cli refresh strchive
+
+# Rebuild every references_cache/STRCHIVE_*.md from the current STRchive snapshot.
+# Use --id STRCHIVE:<locus> (e.g. STRCHIVE:SCA3_ATXN3) to limit to one locus.
+[group('Research')]
+strchive-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild strchive {{args}}
+
+# List the first N STRchive tandem-repeat locus identifiers
+[group('Research')]
+strchive-list limit="20":
+    uv run python -m dismech.structured_sources.cli list strchive --limit {{limit}}
 # Fetch WHO ICTRP trial registration record(s) into references_cache/.
 # Covers every ICTRP primary registry (ChiCTR, ISRCTN, EUCTR, JPRN, CTRI, ...)
 # so a non-ClinicalTrials.gov trial can be cited as ICTRP:<TrialID>.
