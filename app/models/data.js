@@ -639,9 +639,10 @@ window.searchData = [
     ],
     "num_mechanisms": 2,
     "findings": [
+      "DADD digital biomarkers distinguished subjective cognitive decline from healthy controls with seven percentage points greater accuracy than standard EEG biomarkers.",
       "DADD-derived digital biomarkers identified participants positive for Alzheimer CSF biomarkers with 88% accuracy and predicted clinical cognitive-decline conversion with 87% accuracy."
     ],
-    "num_findings": 1,
+    "num_findings": 2,
     "evidence_refs": [
       "PMID:40450374"
     ],
