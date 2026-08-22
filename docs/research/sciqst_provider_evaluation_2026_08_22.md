@@ -92,7 +92,8 @@ half. Reference *count*, not literature age, is the binding constraint.
 ## The free corpus: what actually overlaps with dismech
 
 **338 of the 2,078 reviews name a dismech disease** — 329 matching a curated
-`kb/disorders/` entry, 9 matching an uncurated `stubs/` disease.
+`kb/disorders/` entry, 9 matching an open `stubs/` entry (though most of those
+stubs turn out to be stale; see below).
 
 The catch is topical. Classifying the 338 by title:
 
@@ -126,11 +127,12 @@ Best of the mechanism-leaning set:
 | 8 | ADPKD | Advances in Understanding ADPKD |
 | 7 | Keratoconus | Advances in Understanding the Pathophysiology of Keratoconus |
 
-### The 9 that hit the uncurated stub queue
+### The 9 that hit the stub queue
 
-These are the rows that matched an open `stubs/` entry. **Read the table with a
-caveat: only 2 of the 6 diseases are genuinely uncurated.** Four are *stale
-stubs* whose disease has since been curated under a different name —
+These are the 9 rows that matched an open `stubs/` entry, covering 7 distinct
+diseases. **Read the table with a caveat: only 3 of those 7 are genuinely
+uncurated** — interstitial cystitis, trigeminal neuralgia and Muckle-Wells. The
+other 4 diseases (5 of the 9 rows) are *stale stubs* whose disease has since been curated under a different name —
 `pheochromocytoma` → `Pheochromocytoma_Paraganglioma.yaml`, `myelofibrosis` →
 `Primary_Myelofibrosis.yaml`, `X-linked hypophosphatemic rickets` →
 `X-Linked_Hypophosphatemia.yaml`, `pancreatitis` → `Chronic_Pancreatitis.yaml`
