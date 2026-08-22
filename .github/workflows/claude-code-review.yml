@@ -379,15 +379,26 @@ jobs:
 
       # Hardening: claude-code-action exits 0 even when the agent run itself
       # errored, yielding a zero-cost is_error result and NO posted review —
-      # turning a broken review into a phantom green check. Two failure modes
-      # we have actually hit this way:
+      # turning a broken review into a phantom green check. Failure modes we
+      # have actually hit this way:
       #   * a Claude weekly usage limit on CLAUDE_CODE_OAUTH_TOKEN (rate_limit),
-      #     which silently no-ops EVERY agent workflow account-wide; and
+      #     which silently no-ops EVERY agent workflow account-wide;
       #   * an invalid/retired `--model` (agent-config.yaml once pinned a
-      #     non-existent claude-opus-4-6).
-      # Inspect the execution log and fail the job when the run errored, calling
-      # out a usage-limit distinctly (it was far too hard to diagnose otherwise)
-      # so the next breakage is a loud red X, not a silent pass.
+      #     non-existent claude-opus-4-6); and
+      #   * a STALE BASE BRANCH. For `pull_request` events GitHub runs the
+      #     workflow file from head merged into the PR's BASE, not from main.
+      #     A PR stacked on a long-lived integration branch therefore executes
+      #     that branch's copy of this file — so fixing main does nothing for
+      #     it. dismech#7655 burned hours on this: the base branch predated the
+      #     ANTHROPIC_API_KEY fallback, so the run used the capped subscription
+      #     token even though main had already been fixed. Re-running does not
+      #     help either; a re-run replays the original workflow file. The fix is
+      #     to merge main into the base branch.
+      # Inspect the execution log and fail the job when the run errored, sorting
+      # the credential failures into distinct branches (subscription cap vs API
+      # account out of credit vs max-turns) because their remedies are different
+      # and a wrong one sends debugging the wrong way — which is precisely how
+      # each of the above stayed hard to diagnose. Loud red X, never a silent pass.
       - name: Verify the review agent actually ran
         # Skipped only when the preflight above proved the action *cannot* fetch
         # this PR. Every other path still gets the hardening — a missing
@@ -441,22 +452,71 @@ jobs:
           detail = str(r.get("result") or "").strip()
           haystack = f"{reason} {detail}".lower()
 
-          if reason == "rate_limit" or "usage limit" in haystack or "weekly limit" in haystack:
-              msg = (f"Claude USAGE LIMIT reached — NO review ran ({detail!r}). This is an "
-                     "account-quota issue on the credential in use, NOT a problem with this PR. "
-                     "This workflow prefers ANTHROPIC_API_KEY (pay-per-use, no weekly cap) and "
-                     "only falls back to CLAUDE_CODE_OAUTH_TOKEN when no API key is set — so a "
-                     "weekly-limit error here most likely means ANTHROPIC_API_KEY is unset and "
-                     "the run used the subscription token. Fix: set the ANTHROPIC_API_KEY repo "
-                     "secret, wait for the limit to reset, or rotate the OAuth token to an "
-                     "account with headroom. Re-run this check afterward.")
-              print(f"::error title=Claude review skipped: usage limit::{msg}")
-              summary("### ⛔ Claude review skipped — usage limit reached\n\n" + msg)
+          def fail(title, heading, body):
+              print(f"::error title={title}::{body}")
+              summary(f"### {heading}\n\n{body}")
               sys.exit(1)
+
+          # Ordered most-specific first. Every branch must state a remedy that is
+          # correct for ITS credential path — a confidently-wrong remedy is the
+          # failure this whole block exists to prevent.
+
+          # (a) Budget exhaustion is a workflow bug, not a quota problem. Checked
+          # before the quota markers because "turn limit reached" would otherwise
+          # match LIMIT_MARKERS and send the reader off to check billing.
+          if r.get("subtype") == "error_max_turns":
+              fail("Claude review errored: max turns",
+                   "❌ Claude review ran out of turns",
+                   f"The agent hit its max-turn budget before posting a review. {stats} "
+                   f"detail={detail!r}. This is a workflow-budget problem, NOT a credential "
+                   "problem: raise --max-turns or narrow the review prompt.")
+
+          # (b) Billing failures come from the API-KEY path — the account behind
+          # ANTHROPIC_API_KEY is out of credit. That is the opposite of a
+          # subscription cap and has the opposite remedy, so it gets its own branch.
+          BILLING_MARKERS = ("out of credit", "credit balance", "insufficient quota",
+                             "billing", "payment required")
+          if any(m in haystack for m in BILLING_MARKERS):
+              fail("Claude review skipped: account credit exhausted",
+                   "⛔ Claude review skipped — Anthropic account credit exhausted",
+                   f"NO review ran. {stats} detail={detail!r}. This is a BILLING issue on "
+                   "the account behind ANTHROPIC_API_KEY — not a subscription cap, and not "
+                   "a problem with this PR. Fix: top up credit or check billing on that "
+                   "Anthropic account. Re-setting the secret will NOT help; the key works, "
+                   "the account is empty.")
+
+          # (c) Subscription cap on the OAuth token. Claude phrases this several
+          # ways and the wording has changed over time: matching only "usage limit"
+          # /"weekly limit" missed the live message "You've hit your limit - resets
+          # 8pm (UTC)", which fell through to the generic branch and blamed
+          # --model/a bad token, pointing debugging the wrong way for hours. Match
+          # the family. "rate_limit" (underscore) also covers the machine-readable
+          # `error` value and any future rate_limit_error.
+          LIMIT_MARKERS = ("usage limit", "weekly limit", "hit your limit",
+                           "rate limit", "rate_limit", "limit reached")
+          if any(m in haystack for m in LIMIT_MARKERS):
+              base_check = ("gh api 'repos/{owner}/{repo}/contents/.github/workflows/"
+                            "claude-code-review.yml?ref=<base-branch>' --jq .content | "
+                            "base64 -d | grep -c anthropic_api_key")
+              fail("Claude review skipped: usage limit",
+                   "⛔ Claude review skipped — subscription usage limit reached",
+                   f"NO review ran. {stats} detail={detail!r}. This is a SUBSCRIPTION quota "
+                   "issue on CLAUDE_CODE_OAUTH_TOKEN, not a problem with this PR. This "
+                   "workflow prefers ANTHROPIC_API_KEY (pay-per-use, no subscription cap) "
+                   "and falls back to the OAuth token only when no API key is set, so "
+                   "reaching this means the run used the subscription token. Two ways that "
+                   "happens: (1) the ANTHROPIC_API_KEY repo secret is unset; or (2) this PR "
+                   "targets a BASE BRANCH whose copy of this workflow predates the API-key "
+                   "fallback — for pull_request events GitHub runs the workflow file from "
+                   "head merged into BASE, not from main, so a fixed main does not help a "
+                   "PR stacked on a stale branch. Authoritative check for (2): " + base_check
+                   + " — a count of 0 means the base branch is stale; merge main into it. "
+                   "Re-running this job will NOT help in that case: a re-run replays the "
+                   "original workflow file.")
 
           msg = (f"Review agent errored (is_error=true); NO review was posted. "
                  f"error={reason!r} detail={detail!r} {stats}. Common causes: an "
-                 "invalid/retired --model, a bad CLAUDE_CODE_OAUTH_TOKEN, or an aborted run.")
+                 "invalid/retired --model, a bad credential, or an aborted run.")
           print(f"::error title=Claude review errored::{msg}")
           summary("### ❌ Claude review errored\n\n" + msg)
           sys.exit(1)
