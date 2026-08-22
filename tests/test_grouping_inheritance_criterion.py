@@ -120,8 +120,15 @@ def test_evaluable_leaf_no_longer_poisons_a_conjunction(fake_ontology):
     assert G._eval_node(conjunction, facts) is G.Satisfaction.SATISFIED
 
 
-def test_inheritance_ids_extracted_from_subtypes_too():
-    """A disorder qualifies if ANY curated branch of it does."""
+def test_inheritance_ids_extracted_from_every_curated_branch():
+    """A disorder qualifies if ANY curated branch of it does.
+
+    All three places an `inheritance` block is curated count: disease level,
+    `has_subtypes`, and the per-gene blocks under `genetic`. The gene-level
+    path is the easy one to overlook - no entry currently puts a multi-locus
+    term there, but a per-gene digenic assertion is a reasonable place to make
+    one, and it must not be silently dropped.
+    """
     data = {
         "name": "Test Disease",
         "inheritance": [{"inheritance_term": {"term": {"id": "HP:0000007"}}}],
@@ -131,7 +138,28 @@ def test_inheritance_ids_extracted_from_subtypes_too():
                 "inheritance": [{"inheritance_term": {"term": {"id": "HP:0010984"}}}],
             }
         ],
+        "genetic": [
+            {
+                "name": "SOME_GENE",
+                "inheritance": [{"inheritance_term": {"term": {"id": "HP:0010983"}}}],
+            }
+        ],
     }
     facts = G.extract_disease_facts("Test Disease", data)
-    assert facts.inheritance_ids == {"HP:0000007", "HP:0010984"}
+    assert facts.inheritance_ids == {"HP:0000007", "HP:0010984", "HP:0010983"}
+    # Inheritance terms must not leak into the phenotype set, which would make
+    # them satisfy HAS_PHENOTYPE criteria as well.
     assert "HP:0000007" not in facts.phenotype_freq
+
+
+def test_non_hp_inheritance_terms_are_ignored():
+    """Only HP ids are mode-of-inheritance terms; anything else is not one."""
+    data = {
+        "name": "Test Disease",
+        "inheritance": [
+            {"inheritance_term": {"term": {"id": "MONDO:0000001"}}},
+            {"inheritance_term": {"preferred_term": "Sporadic occurrence"}},
+        ],
+    }
+    facts = G.extract_disease_facts("Test Disease", data)
+    assert facts.inheritance_ids == set()

@@ -540,9 +540,9 @@ and the payload for that predicate:
 - `HAS_BIOLOGICAL_PROCESS` → `biological_processes`
 - `HAS_INHERITANCE` → `inheritance_term` (an HPO mode-of-inheritance term).
   **The payload is optional**, unlike every other predicate's: a leaf naming a
-  term is evaluated against the member's curated `inheritance` blocks (at
-  disease level or on `has_subtypes`), with the same ontology closure as
-  `HAS_PHENOTYPE`; a leaf carrying only a `description` — for a constraint no
+  term is evaluated against every curated `inheritance` block in the member -
+  disease level, `has_subtypes`, and the per-gene blocks under `genetic` - with
+  the same ontology closure as `HAS_PHENOTYPE`; a leaf carrying only a `description` — for a constraint no
   single HP term names, such as "hereditary rather than acquired" in
   `Hereditary_Systemic_Amyloidoses` — stays free text and evaluates to UNKNOWN.
   **Name the term whenever one exists.** An UNKNOWN leaf inside an `AND`

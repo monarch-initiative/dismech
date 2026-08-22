@@ -337,9 +337,13 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
             elif tid.startswith("GO:"):
                 facts.go_ids.add(tid)
 
-        # Inheritance: capture the HPO mode-of-inheritance id. This picks up
-        # blocks at disease level and on has_subtypes alike, which is what the
-        # criteria mean - a disorder qualifies if ANY curated branch of it does.
+        # Inheritance: capture the HPO mode-of-inheritance id. The walk reaches
+        # every `inheritance` block in the entry - disease level, has_subtypes,
+        # and the per-gene blocks under `genetic` - which is what the criteria
+        # mean: a disorder qualifies if ANY curated branch of it does. The
+        # gene-level path is deliberate and pinned by a test; no entry uses it
+        # for a multi-locus term today, but a per-gene digenic assertion is a
+        # reasonable place to make one and must not be silently ignored.
         it = node.get("inheritance_term")
         if isinstance(it, dict):
             iterm = it.get("term") or {}
