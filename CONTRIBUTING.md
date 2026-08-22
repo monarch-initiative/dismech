@@ -2,6 +2,12 @@
 
 Thank you for your interest in contributing to the Disorder Mechanisms Knowledge Base!
 
+> [!TIP]
+> **Brand new?** Start with the [Onboarding guide](docs/onboarding.md)
+> — a short overview of how the system fits together, a step-by-step first curation
+> (Claude Code on the web *and* the local CLI), and what to try once the flow is familiar.
+> This document is the detailed reference behind it.
+
 > [!WARNING]
 > This guide is aimed at **real humans**. Agents are welcome to read this for context,
 > but instructions aimed at people should not be confused for instructions for agents.
