@@ -28,7 +28,7 @@ This report complements the execution-focused
 
 | PR | Disorder | Distinctive model class | Snapshot state |
 |---|---|---|---|
-| [#9084](https://github.com/monarch-initiative/dismech/pull/9084) | Glioblastoma, IDH-wildtype | reaction-diffusion and data-assimilation twins; multiscale ABM/RL | Blocking join-point fix pushed; re-review pending |
+| [#9084](https://github.com/monarch-initiative/dismech/pull/9084) | Glioblastoma, IDH-wildtype | reaction-diffusion and data-assimilation twins; multiscale ABM/RL | Approved and green after pathograph join-point fix |
 | [#9087](https://github.com/monarch-initiative/dismech/pull/9087) | Advanced sleep phase syndrome | circadian ODE and physiological phase estimator | Approved and green |
 | [#9091](https://github.com/monarch-initiative/dismech/pull/9091) | Multiple sclerosis | computational disease models | Approved and green |
 | [#9104](https://github.com/monarch-initiative/dismech/pull/9104) | Hyperinsulinemic hypoglycemia | glucose-insulin physiology | Approved and green |
