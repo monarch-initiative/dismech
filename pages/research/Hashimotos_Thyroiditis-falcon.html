@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -526,10 +688,10 @@
             <header class="report-header">
                 <h1>Hashimoto&#39;s Thyroiditis</h1>
                 
-                <p class="report-subtitle">Disease Pathophysiology Research Report</p>
+                <p class="report-subtitle">Disease Characteristics Research Template</p>
                 
                 
-                <div class="report-date">2025-12-17</div>
+                <div class="report-date">2026-07-16</div>
                 
                 <div class="report-meta">
                     <span class="provider-pill provider-edison">Falcon</span>
@@ -542,290 +704,970 @@
                     <span class="meta-chip">Model: Edison Scientific Literature</span>
                     
                     
-                    <span class="meta-chip">16 citations</span>
+                    <span class="meta-chip">30 citations</span>
                     
                 </div>
             </header>
 
             <article class="report-body">
-                <h1>Disease Pathophysiology Research Report</h1>
+                <p>Question: You are an expert researcher providing comprehensive, well-cited information.</p>
+<p>Provide detailed information focusing on:
+1. Key concepts and definitions with current understanding
+2. Recent developments and latest research (prioritize 2023-2024 sources)
+3. Current applications and real-world implementations
+4. Expert opinions and analysis from authoritative sources
+5. Relevant statistics and data from recent studies</p>
+<p>Format as a comprehensive research report with proper citations. Include URLs and publication dates where available.
+Always prioritize recent, authoritative sources and provide specific citations for all major claims.</p>
+<h1>Disease Characteristics Research Template</h1>
 <h2>Target Disease</h2>
 <ul>
-<li>Disease Name: Hashimoto's Thyroiditis (HT)</li>
-<li>MONDO ID: <a href="http://purl.obolibrary.org/obo/MONDO_0007147" target="_blank" rel="noopener noreferrer">MONDO:0007147</a></li>
-<li>Category: Complex</li>
+<li><strong>Disease Name:</strong> Hashimoto's Thyroiditis</li>
+<li><strong>MONDO ID:</strong>  (if available)</li>
+<li><strong>Category:</strong> Complex</li>
 </ul>
-<h2>Pathophysiology description (current understanding and recent developments)</h2>
-<p>Hashimoto’s thyroiditis is an organ-specific autoimmune disease of the thyroid characterized by adaptive and innate immune activation within the thyroid gland, progressive destruction of thyroid follicular cells (thyrocytes), and frequent development of hypothyroidism. Recent spatial transcriptomic mapping of autoimmune thyroid disease tissue demonstrates that thyrocytes are active participants in local immunity: “damaged antigen-presenting TFCs with upregulated CD74 and MIF expression” are identified in situ, with interferon and inflammatory cytokines inducing antigen-presentation machinery in thyrocytes and enabling direct interactions with infiltrating immune cells (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>; July 2024, Nature Communications) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>). Bulk transcriptomics of HT thyroid tissue reveals strong enrichment of adaptive immune signatures (T and B cell activation), antigen processing/presentation, complement, cytotoxicity, apoptosis and necroptosis, alongside widespread disruption of epithelial differentiation, thyroid hormone biosynthetic programs, cellular metabolism, mitochondrial function, and stromal/ECM remodeling consistent with fibrosis (<a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">doi:10.48188/so.6.9</a>; Oct 2025, ST-OPEN) (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-17-18">cikotic2025transcriptomeanalysisof pages 17-18</a>). </p>
-<p>Expert commentary and clinical mechanistic analogs from immune checkpoint inhibitor (ICI)-induced thyroiditis underscore the centrality of interferon-rich, Th1/Th17-skewed responses, B cell/plasma cell activation, and genetic susceptibility (HLA class II, CTLA4, PTPN22) in precipitating thyroidal autoimmunity and the typical clinical trajectory of destructive thyrotoxicosis followed by (often irreversible) hypothyroidism (<a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">doi:10.3389/fendo.2025.1584675</a>; June 2025, Frontiers in Endocrinology) (<a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-7-8">mao2025immunecheckpointinhibitorinduced pages 7-8</a>).</p>
-<p>Selected direct quotes from recent spatial/clinical mechanistic literature:
-- “Proinflammatory cytokines such as IFN-γ and TNF-α can upregulate the expression of CD74 in TFCs,” linking interferon/inflammatory signals to thyrocyte antigen presentation (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>; July 2024) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).
-- ICI-associated thyroiditis illustrates a canonical pattern of “antigenic cross-reactivity, T-cell subsets and B cell/plasma cell activation, cytokine/chemokine activity and genetic susceptibility” culminating in thyroid follicular destruction and hypothyroidism (<a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">doi:10.3389/fendo.2025.1584675</a>; June 2025) (<a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>).</p>
-<h2>1. Core Pathophysiology</h2>
+<h2>Research Objectives</h2>
+<p>Please provide a comprehensive research report on <strong>Hashimoto's Thyroiditis</strong> covering all of the
+disease characteristics listed below. This report will be used to populate a disease knowledge
+base entry. Be thorough and cite primary literature (PMID preferred) for all claims.</p>
+<p>For each section, <strong>suggested databases/resources</strong> are listed. These are the first places
+you should search for information on each topic.</p>
+<hr />
+<h3>1. Disease Information</h3>
+<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, ICD-10/ICD-11, MeSH, PubMed</p>
+</blockquote>
 <ul>
-<li>Primary mechanisms: breakdown of tolerance to thyroglobulin (TG) and thyroid peroxidase (TPO) with intrathyroidal antigen presentation; interferon-driven upregulation of MHC-II/CD74 in thyrocytes; formation of ectopic germinal centers (GCs) that sustain local B cell maturation and antibody production; cytotoxic and complement-mediated thyrocyte death; stromal (fibroblast) and vascular remodeling supporting persistent lymphocyte trafficking (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-17-18">cikotic2025transcriptomeanalysisof pages 17-18</a>).</li>
-<li>Dysregulated molecular pathways: type I and II interferon signaling (JAK–STAT), NF-κB/inflammasome activation, PI3K–Akt survival/metabolic signaling imbalance, complement activation, apoptosis (FAS/FASL), and chemokine axes (e.g., CXCL12–CXCR4) that organize lymphoid niches (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-17-18">cikotic2025transcriptomeanalysisof pages 17-18</a>).</li>
-<li>Affected cellular processes: antigen processing/presentation; GC formation and B cell affinity maturation; cytotoxic granule/perforin programs; complement-mediated cytotoxicity; epithelial de-differentiation and loss of thyroid hormone biosynthesis programs; mitochondrial/oxidative metabolism disruption; extracellular matrix (ECM) organization and fibrosis (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>).</li>
+<li>What is the disease? Provide a concise overview.</li>
+<li>What are the key identifiers? (OMIM, Orphanet, ICD-10/ICD-11, MeSH, Mondo)</li>
+<li>What are the common synonyms and alternative names?</li>
+<li>Is the information derived from individual patients (e.g., EHR) or aggregated disease-level resources?</li>
 </ul>
-<h2>2. Key Molecular Players</h2>
+<h3>2. Etiology</h3>
 <ul>
-<li>Genes/Proteins (HGNC): TG (<a href="https://bioregistry.io/HGNC:11764" target="_blank" rel="noopener noreferrer">HGNC:11764</a>) and TPO (<a href="https://bioregistry.io/HGNC:12014" target="_blank" rel="noopener noreferrer">HGNC:12014</a>) as principal autoantigens; HLA class II (e.g., HLA-DRA, <a href="https://bioregistry.io/HGNC:4947" target="_blank" rel="noopener noreferrer">HGNC:4947</a>) mediating antigen presentation; immune regulatory and risk genes including CTLA4 (<a href="https://bioregistry.io/HGNC:2505" target="_blank" rel="noopener noreferrer">HGNC:2505</a>), PTPN22 (<a href="https://bioregistry.io/HGNC:9656" target="_blank" rel="noopener noreferrer">HGNC:9656</a>), BACH2 (<a href="https://bioregistry.io/HGNC:935" target="_blank" rel="noopener noreferrer">HGNC:935</a>), GLIS3 (<a href="https://bioregistry.io/HGNC:18128" target="_blank" rel="noopener noreferrer">HGNC:18128</a>), IFIH1 (<a href="https://bioregistry.io/HGNC:18873" target="_blank" rel="noopener noreferrer">HGNC:18873</a>), IRF4 (<a href="https://bioregistry.io/HGNC:6118" target="_blank" rel="noopener noreferrer">HGNC:6118</a>), SH2B3 (<a href="https://bioregistry.io/HGNC:30406" target="_blank" rel="noopener noreferrer">HGNC:30406</a>), and FAS (<a href="https://bioregistry.io/HGNC:11920" target="_blank" rel="noopener noreferrer">HGNC:11920</a>) (OpenTargets disease–target evidence; 2025) (OpenTargets Search: Hashimoto's thyroiditis). Spatial data highlight CD74 (<a href="https://bioregistry.io/HGNC:1709" target="_blank" rel="noopener noreferrer">HGNC:1709</a>) and MIF (<a href="https://bioregistry.io/HGNC:7097" target="_blank" rel="noopener noreferrer">HGNC:7097</a>) upregulation in thyrocytes under IFN/TNF exposure (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>; 2024) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-<li>Chemical entities (CHEBI): iodide (<a href="http://purl.obolibrary.org/obo/CHEBI_24859" target="_blank" rel="noopener noreferrer">CHEBI:24859</a>) as a potential epithelial stressor (ROS/NLRP3 inflammasome), IFN-γ (<a href="http://purl.obolibrary.org/obo/CHEBI_51275" target="_blank" rel="noopener noreferrer">CHEBI:51275</a>) and TNF-α (<a href="http://purl.obolibrary.org/obo/CHEBI_52299" target="_blank" rel="noopener noreferrer">CHEBI:52299</a>) as key cytokines driving antigen-presentation and inflammatory circuits (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-<li>Cell types (CL): thyroid follicular cells/thyrocytes (<a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" rel="noopener noreferrer">CL:0002328</a>), B cells (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>), plasma cells (<a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a>), T helper cells (<a href="http://purl.obolibrary.org/obo/CL_0000911" target="_blank" rel="noopener noreferrer">CL:0000911</a>) including T follicular helper (Tfh; <a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" rel="noopener noreferrer">CL:0002038</a>), dendritic cells (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>), macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), fibroblasts/myofibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>), endothelial cells including high endothelial venule-like states (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>), and follicular dendritic cells (FDC; <a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" rel="noopener noreferrer">CL:0000842</a>) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-17-18">cikotic2025transcriptomeanalysisof pages 17-18</a>).</li>
-<li>Anatomical locations (UBERON): thyroid gland (<a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" rel="noopener noreferrer">UBERON:0002046</a>), germinal center (<a href="http://purl.obolibrary.org/obo/UBERON_0002358" target="_blank" rel="noopener noreferrer">UBERON:0002358</a>), and high endothelial venule (<a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a>) where lymphocyte trafficking and TLS/GC niches are spatially organized (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>).</li>
+<li><strong>Disease Causal Factors</strong>: What are the primary causes? (genetic, environmental, infectious, mechanistic)</li>
+<li><strong>Risk Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, UpToDate, clinical guidelines, ClinVar, ClinGen, GWAS Catalog, PheGenI, CTD, CDC, WHO, epidemiological databases</p>
+</blockquote>
+</li>
+<li>Genetic risk factors (causal variants, susceptibility loci, modifier genes)</li>
+<li>Environmental risk factors (toxins, lifestyle, occupational exposures, age, sex, family history)</li>
+<li><strong>Protective Factors</strong>:<blockquote>
+<p><strong>Search first:</strong> PubMed, Cochrane Library, clinical trial databases, GWAS Catalog, gnomAD, WHO, CDC, nutrition databases</p>
+</blockquote>
+</li>
+<li>Genetic protective factors (protective variants, modifier alleles)</li>
+<li>Environmental protective factors (diet, lifestyle, exposures that reduce risk)</li>
+<li><strong>Gene-Environment Interactions</strong>: How do genetic and environmental factors interact to influence disease?<blockquote>
+<p><strong>Search first:</strong> CTD, PubMed, PheGenI, GxE databases</p>
+</blockquote>
+</li>
 </ul>
-<h2>3. Biological Processes (GO) disrupted</h2>
+<h3>3. Phenotypes</h3>
+<blockquote>
+<p><strong>Search first:</strong> HPO (Human Phenotype Ontology), OMIM, Orphanet, PubMed, clinicaltrials.gov, MedDRA, SNOMED CT, DECIPHER, LOINC</p>
+</blockquote>
+<p>For each phenotype, provide:
+- <strong>Phenotype type</strong>: symptoms, clinical signs, physical manifestations, behavioral changes, or laboratory abnormalities</p>
+<blockquote>
+<p>For symptoms/signs: HPO, OMIM, Orphanet, PubMed
+For behavioral changes: HPO, DSM, RDoC (Research Domain Criteria), PubMed
+For laboratory abnormalities: LOINC, SNOMED CT, LabTests Online, PubMed
+- <strong>Phenotype characteristics</strong>:
+<strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed
+  - Age of symptom onset (neonatal, childhood, adult-onset, late-onset)
+  - Symptom severity (mild, moderate, severe, variable)
+  - Symptom progression (stable, progressive, episodic, fluctuating)
+  - Frequency among affected individuals (percentage or qualitative)
+- <strong>Quality of life impact</strong>: Effects on daily functioning and well-being (per-phenotype when possible)
+<strong>Search first:</strong> EQ-5D database, SF-36, WHO QOL databases, PubMed
+- Suggest HPO (Human Phenotype Ontology) terms for each phenotype</p>
+</blockquote>
+<h3>4. Genetic/Molecular Information</h3>
 <ul>
-<li>Type I interferon signaling (<a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" rel="noopener noreferrer">GO:0060337</a>) and response to interferon-gamma (<a href="http://purl.obolibrary.org/obo/GO_0034341" target="_blank" rel="noopener noreferrer">GO:0034341</a>) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>).</li>
-<li>Antigen processing and presentation of peptide antigen via MHC class II (<a href="http://purl.obolibrary.org/obo/GO_0002495" target="_blank" rel="noopener noreferrer">GO:0002495</a>), including thyrocyte CD74/HLA upregulation (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>).</li>
-<li>NF-κB signaling (<a href="http://purl.obolibrary.org/obo/GO_0043122" target="_blank" rel="noopener noreferrer">GO:0043122</a>) and inflammasome activation (NLRP3) contributing to epithelial inflammatory cell death (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>).</li>
-<li>JAK–STAT signaling (<a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" rel="noopener noreferrer">GO:0007259</a>) downstream of interferons and cytokines (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-<li>PI3K–Akt signaling (<a href="http://purl.obolibrary.org/obo/GO_0014065" target="_blank" rel="noopener noreferrer">GO:0014065</a>) perturbations tied to survival/metabolic stress (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>).</li>
-<li>Complement activation (<a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a>), apoptosis (including FAS-mediated, <a href="http://purl.obolibrary.org/obo/GO_0008625" target="_blank" rel="noopener noreferrer">GO:0008625</a>), and cytotoxic programs (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>).</li>
-<li>Chemokine-mediated signaling (<a href="http://purl.obolibrary.org/obo/GO_0070098" target="_blank" rel="noopener noreferrer">GO:0070098</a>) such as CXCL12–CXCR4 that organizes TLS/GC niches (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-<li>Lymphoid organ development/TLS formation (<a href="http://purl.obolibrary.org/obo/GO_0048535" target="_blank" rel="noopener noreferrer">GO:0048535</a>) and ECM organization/fibrosis (<a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a>) (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-17-18">cikotic2025transcriptomeanalysisof pages 17-18</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>).</li>
+<li><strong>Causal Genes</strong>: Gene mutations or chromosomal abnormalities responsible for disease (gene symbols, OMIM IDs)<blockquote>
+<p><strong>Search first:</strong> OMIM, ClinVar, HGMD, Ensembl, NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Pathogenic Variants</strong>:</li>
+<li>Affected genes (gene symbols, HGNC IDs)
+    &gt; <strong>Search first:</strong> OMIM, NCBI Gene, Ensembl, HGNC, UniProt, GeneCards</li>
+<li>Variant classification (pathogenic, likely pathogenic, VUS per ACMG/AMP guidelines)
+    &gt; <strong>Search first:</strong> ClinVar, ClinGen, ACMG/AMP guidelines, VarSome</li>
+<li>Variant type/class (missense, frameshift, nonsense, splice-site, structural)</li>
+<li>Allele frequency in population databases
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, ExAC, TOPMed, dbSNP</li>
+<li>Somatic vs germline origin
+    &gt; <strong>Search first:</strong> COSMIC (somatic), ClinVar, ICGC, TCGA</li>
+<li>Functional consequences (loss of function, gain of function, dominant negative)</li>
+<li><strong>Modifier Genes</strong>: Genes that modify disease severity or expression</li>
+<li><strong>Epigenetic Information</strong>: DNA methylation, histone modifications, chromatin changes affecting disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Chromosomal Abnormalities</strong>: Large-scale genetic changes (aneuploidy, translocations, inversions)<blockquote>
+<p><strong>Search first:</strong> DECIPHER, ClinVar, ECARUCA, UCSC Genome Browser</p>
+</blockquote>
+</li>
 </ul>
-<h2>4. Cellular Components</h2>
+<h3>5. Environmental Information</h3>
 <ul>
-<li>Thyrocyte plasma membrane and endolysosomal/antigen processing compartments (MHC-II/CD74 localization); extracellular matrix and basement membrane; high endothelial venules facilitating lymphocyte entry; germinal center microdomains populated by FDCs and GC B cells (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>).</li>
+<li><strong>Environmental Factors</strong>: Non-genetic contributing factors (toxins, radiation, pollution, occupational exposure)<blockquote>
+<p><strong>Search first:</strong> CTD (Comparative Toxicogenomics Database), TOXNET, PubMed, EPA databases</p>
+</blockquote>
+</li>
+<li><strong>Lifestyle Factors</strong>: Behavioral factors (smoking, diet, exercise, alcohol consumption)<blockquote>
+<p><strong>Search first:</strong> CDC databases, WHO, PubMed, NHANES</p>
+</blockquote>
+</li>
+<li><strong>Infectious Agents</strong>: If applicable, pathogens causing or triggering disease (bacteria, viruses, fungi, parasites)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON</p>
+</blockquote>
+</li>
 </ul>
-<h2>5. Disease Progression (sequence of events)</h2>
+<h3>6. Mechanism / Pathophysiology</h3>
 <ul>
-<li>Triggers: epithelial stressors (e.g., iodide/oxidative stress), infections, and genetic predisposition (HLA class II, CTLA4, PTPN22, IFIH1, etc.) lower tolerance thresholds (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, OpenTargets Search: Hashimoto's thyroiditis).</li>
-<li>Initiation: interferon- and TNF-rich milieu induces thyrocyte MHC-II/CD74 and chemokine expression; professional APCs (DCs, macrophages) present thyroid autoantigens (TG/TPO) to CD4+ T cells (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>).</li>
-<li>Propagation: Th1/Th17/Tfh responses amplify inflammation and provide B cell help; ectopic GCs form with FDC networks, enabling intrathyroidal affinity maturation and plasma cell differentiation; autoantibodies (TPOAb/TgAb) accumulate (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-7-8">mao2025immunecheckpointinhibitorinduced pages 7-8</a>).</li>
-<li>Effector injury: cytotoxic lymphocytes, complement, and apoptosis (FAS) mediate thyrocyte destruction; bulk transcriptomes show apoptosis/necroptosis signatures and loss of thyrocyte differentiation/hormone biosynthetic programs (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>).</li>
-<li>Remodeling and chronicity: fibroblast/myofibroblast activation (TGF-β–linked), ECM deposition, vascular remodeling with PLVAP+ vessels/HEV-like features sustaining lymphocyte recruitment; fibrosis and permanent hypothyroidism ensue (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>).</li>
+<li><strong>Molecular Pathways</strong>: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)<blockquote>
+<p><strong>Search first:</strong> KEGG, Reactome, WikiPathways, PathBank, BioCyc</p>
+</blockquote>
+</li>
+<li><strong>Cellular Processes</strong>: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (GO), Reactome, KEGG, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Protein Dysfunction</strong>: How protein structure or function is altered (misfolding, aggregation, loss of function, gain of function)<blockquote>
+<p><strong>Search first:</strong> UniProt, PDB (Protein Data Bank), InterPro, Pfam, AlphaFold</p>
+</blockquote>
+</li>
+<li><strong>Metabolic Changes</strong>: Alterations in metabolic processes (energy metabolism, lipid metabolism, amino acid metabolism)<blockquote>
+<p><strong>Search first:</strong> KEGG, BioCyc, HMDB (Human Metabolome Database), BRENDA</p>
+</blockquote>
+</li>
+<li><strong>Immune System Involvement</strong>: Role of immune response (autoimmunity, immunodeficiency, chronic inflammation)<blockquote>
+<p><strong>Search first:</strong> ImmPort, Immunome Database, IEDB, Gene Ontology</p>
+</blockquote>
+</li>
+<li><strong>Tissue Damage Mechanisms</strong>: How tissues/ are injured (oxidative stress, ischemia, fibrosis, necrosis)<blockquote>
+<p><strong>Search first:</strong> PubMed, Gene Ontology, Reactome</p>
+</blockquote>
+</li>
+<li><strong>Biochemical Abnormalities</strong>: Specific molecular defects (enzyme deficiencies, receptor dysfunction, ion channel defects)<blockquote>
+<p><strong>Search first:</strong> BRENDA, UniProt, KEGG, OMIM, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Epigenetic Changes</strong>: DNA methylation, histone modifications affecting gene expression in disease<blockquote>
+<p><strong>Search first:</strong> ENCODE, Roadmap Epigenomics, MethBase, DiseaseMeth</p>
+</blockquote>
+</li>
+<li><strong>Molecular Profiling</strong> (if available):</li>
+<li>Transcriptomics/gene expression changes
+    &gt; <strong>Search first:</strong> GEO (Gene Expression Omnibus), ArrayExpress, GTEx, Human Cell Atlas, SRA</li>
+<li>Proteomics findings
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, Human Protein Atlas, STRING, BioGRID</li>
+<li>Metabolomics signatures
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB, METLIN</li>
+<li>Lipidomics alterations
+    &gt; <strong>Search first:</strong> LIPID MAPS, SwissLipids, LipidHome, Metabolomics Workbench</li>
+<li>Genomic structural features
+    &gt; <strong>Search first:</strong> UCSC Genome Browser, Ensembl, NCBI, dbVar, DGV</li>
+<li><strong>Advanced Technologies</strong> (if applicable):</li>
+<li>Single-cell analysis findings (cell-type specific mechanisms, cellular heterogeneity)
+    &gt; <strong>Search first:</strong> Human Cell Atlas, Single Cell Portal, GEO, CELLxGENE</li>
+<li>Spatial transcriptomics findings
+    &gt; <strong>Search first:</strong> GEO, Spatial Research, Vizgen, 10x Genomics data</li>
+<li>Multi-omics integration results
+    &gt; <strong>Search first:</strong> TCGA, ICGC, cBioPortal, LinkedOmics, PubMed</li>
+<li>Functional genomics screens (CRISPR, RNAi)
+    &gt; <strong>Search first:</strong> DepMap, GenomeRNAi, PubMed, BioGRID ORCS</li>
 </ul>
-<h2>6. Phenotypic Manifestations and clinical correlations</h2>
+<p>For each mechanism, describe:
+- The causal chain from initial trigger to clinical manifestation
+- Which mechanisms are upstream vs downstream
+- What cell types and biological processes are involved
+- Suggest GO terms for biological processes and CL terms for cell types</p>
+<h3>7. Anatomical Structures Affected</h3>
 <ul>
-<li>Key phenotypes: painless goiter, thyroid tenderness in phases of active inflammation, elevated anti-TPO and/or anti-Tg antibodies, transient thyrotoxicosis followed by persistent hypothyroidism, and thyroidal fibrosis on histology (<a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>).</li>
-<li>Mechanistic link: antibody and T cell–mediated injury, interferon/TNF-driven antigen presentation in thyrocytes, and GC-supported local autoantibody production align with clinical serology and functional decline (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>).</li>
-<li>Oncogenesis comorbidity: spatial data identify de-differentiated, oxidative stress–enriched thyrocyte subsets in proximity to immune infiltrates and implicate CD74/MIF signaling in divergent outcomes, offering a mechanistic bridge between chronic autoimmunity and papillary thyroid carcinoma (PTC) microenvironments observed in HT–PTC co-occurrence (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>; 2024) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>). </li>
+<li><strong>Organ Level</strong>:</li>
+<li>Primary organs directly affected</li>
+<li>Secondary organ involvement (complications, secondary effects)</li>
+<li>Body systems involved (cardiovascular, nervous, digestive, respiratory, endocrine, etc.)<blockquote>
+<p><strong>Search first:</strong> Uberon, FMA (Foundational Model of Anatomy), OMIM, HPO, ICD-11, MeSH, SNOMED CT</p>
+</blockquote>
+</li>
+<li><strong>Tissue and Cell Level</strong>:</li>
+<li>Specific tissue types affected (epithelial, connective, muscle, nervous)</li>
+<li>Specific cell populations targeted (with Cell Ontology terms)<blockquote>
+<p><strong>Search first:</strong> Uberon, Human Protein Atlas, Cell Ontology, Human Cell Atlas, CellMarker, PanglaoDB</p>
+</blockquote>
+</li>
+<li><strong>Subcellular Level</strong>:</li>
+<li>Cellular compartments involved (mitochondria, nucleus, ER, lysosomes) (with GO Cellular Component terms)<blockquote>
+<p><strong>Search first:</strong> Gene Ontology (Cellular Component), UniProt, Human Protein Atlas</p>
+</blockquote>
+</li>
+<li><strong>Localization</strong>:</li>
+<li>Specific anatomical sites (with UBERON terms)
+    &gt; <strong>Search first:</strong> FMA, Uberon, NeuroNames (for brain), SNOMED CT</li>
+<li>Lateralization (unilateral, bilateral, asymmetric)
+    &gt; <strong>Search first:</strong> HPO, clinical literature, imaging databases</li>
 </ul>
-<p>Hashimoto's Thyroiditis: Key Entities and Ontology Mappings</p>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset</strong>:</li>
+<li>Typical age of onset (congenital, pediatric, adult, geriatric)</li>
+<li>Onset pattern (acute, subacute, chronic, insidious)<blockquote>
+<p><strong>Search first:</strong> OMIM, Orphanet, HPO, PubMed</p>
+</blockquote>
+</li>
+<li><strong>Progression</strong>:</li>
+<li>Disease stages (early, intermediate, advanced, end-stage)
+    &gt; <strong>Search first:</strong> Cancer Staging Manual (AJCC), WHO classifications, PubMed</li>
+<li>Progression rate (rapid, slow, variable)</li>
+<li>Disease course pattern (episodic, relapsing-remitting, progressive, stable)</li>
+<li>Disease duration (self-limited, chronic lifelong)<blockquote>
+<p><strong>Search first:</strong> Disease registries, longitudinal cohort databases, natural history studies, PubMed, Orphanet, OMIM</p>
+</blockquote>
+</li>
+<li><strong>Patterns</strong>:</li>
+<li>Remission patterns (spontaneous, treatment-induced)
+    &gt; <strong>Search first:</strong> Clinical trial databases, disease registries, PubMed</li>
+<li>Critical periods (time windows of vulnerability or opportunity for intervention)
+    &gt; <strong>Search first:</strong> PubMed, developmental biology databases, clinical guidelines</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology</strong>:</li>
+<li>Prevalence (cases per 100,000 at given time)</li>
+<li>Incidence (new cases per 100,000 per year)<blockquote>
+<p><strong>Search first:</strong> Orphanet, CDC, WHO, GBD (Global Burden of Disease), national registries, SEER, disease registries</p>
+</blockquote>
+</li>
+<li><strong>For Genetic Etiology</strong>:</li>
+<li>Inheritance pattern (AD, AR, X-linked, mitochondrial, multifactorial, polygenic)
+    &gt; <strong>Search first:</strong> OMIM, Orphanet, ClinVar, GTR (Genetic Testing Registry)</li>
+<li>Penetrance (complete, incomplete, age-dependent)
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, PubMed, ClinGen</li>
+<li>Expressivity (variable, consistent)
+    &gt; <strong>Search first:</strong> OMIM, ClinVar, PubMed</li>
+<li>Genetic anticipation (increasing severity in successive generations)
+    &gt; <strong>Search first:</strong> OMIM, PubMed (especially for repeat expansion disorders)</li>
+<li>Germline mosaicism
+    &gt; <strong>Search first:</strong> ClinVar, OMIM, genetic counseling literature, PubMed</li>
+<li>Founder effects (population-specific mutations)
+    &gt; <strong>Search first:</strong> gnomAD, population genetics databases, PubMed</li>
+<li>Consanguinity role
+    &gt; <strong>Search first:</strong> OMIM, population studies, genetic counseling resources</li>
+<li>Carrier frequency
+    &gt; <strong>Search first:</strong> gnomAD, carrier screening databases, GeneReviews, GTR</li>
+<li><strong>Population Demographics</strong>:</li>
+<li>Affected populations (ethnic or demographic groups with higher prevalence)
+    &gt; <strong>Search first:</strong> gnomAD, 1000 Genomes, PAGE Study, PubMed, population registries</li>
+<li>Geographic distribution (endemic areas, regional variation)
+    &gt; <strong>Search first:</strong> WHO, CDC, GBD, Orphanet, geographic epidemiology databases</li>
+<li>Geographic distribution of specific variants</li>
+<li>Sex ratio (male:female)
+    &gt; <strong>Search first:</strong> Disease registries, OMIM, PubMed, epidemiological databases</li>
+<li>Age distribution of affected individuals
+    &gt; <strong>Search first:</strong> CDC, disease registries, SEER, Orphanet</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical Tests</strong>:</li>
+<li>Laboratory tests (blood, urine, tissue chemistry, specific enzyme assays)
+    &gt; <strong>Search first:</strong> LOINC, LabTests Online, PubMed</li>
+<li>Biomarkers (proteins, metabolites, genetic markers, circulating biomarkers)
+    &gt; <strong>Search first:</strong> FDA Biomarker List, BEST (Biomarkers, EndpointS, and other Tools), PubMed</li>
+<li>Imaging studies (X-ray, CT, MRI, PET, ultrasound)
+    &gt; <strong>Search first:</strong> RadLex, DICOM, Radiopaedia, imaging databases</li>
+<li>Functional tests (pulmonary function, cardiac stress tests)
+    &gt; <strong>Search first:</strong> LOINC, clinical guidelines, PubMed</li>
+<li>Electrophysiology (EEG, EMG, ECG, nerve conduction studies)
+    &gt; <strong>Search first:</strong> LOINC, clinical neurophysiology databases, PubMed</li>
+<li>Biopsy findings (histopathology, immunohistochemistry)
+    &gt; <strong>Search first:</strong> SNOMED CT, College of American Pathologists resources, PubMed</li>
+<li>Pathology findings (microscopic examination)
+    &gt; <strong>Search first:</strong> SNOMED CT, Digital Pathology databases, PubMed</li>
+<li><strong>Genetic Testing</strong>:<blockquote>
+<p><strong>Search first:</strong> GTR (Genetic Testing Registry), GeneReviews, ClinGen</p>
+</blockquote>
+</li>
+<li>Overview of recommended genetic testing approach</li>
+<li>Whole genome sequencing (WGS) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, GEL (Genomics England), gnomAD</li>
+<li>Whole exome sequencing (WES) utility
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneMatcher</li>
+<li>Gene panels (which panels, which genes)
+    &gt; <strong>Search first:</strong> GTR, ClinVar, laboratory-specific databases</li>
+<li>Single gene testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, OMIM, GeneReviews</li>
+<li>Chromosomal microarray (CMA)
+    &gt; <strong>Search first:</strong> DECIPHER, ClinVar, dbVar, ECARUCA</li>
+<li>Karyotyping
+    &gt; <strong>Search first:</strong> Chromosome Abnormality Database, ClinVar, cytogenetics resources</li>
+<li>FISH
+    &gt; <strong>Search first:</strong> ClinVar, cytogenetics databases, PubMed</li>
+<li>Mitochondrial DNA testing
+    &gt; <strong>Search first:</strong> MITOMAP, MSeqDR, ClinVar, GTR</li>
+<li>Repeat expansion testing
+    &gt; <strong>Search first:</strong> GTR, ClinVar, repeat expansion databases, PubMed</li>
+<li><strong>Omics-Based Diagnostics</strong> (if applicable):</li>
+<li>RNA sequencing / transcriptomics
+    &gt; <strong>Search first:</strong> GEO, ArrayExpress, GTEx, RNA-seq databases</li>
+<li>Proteomics
+    &gt; <strong>Search first:</strong> PRIDE, ProteomeXchange, FDA Biomarker database</li>
+<li>Metabolomics
+    &gt; <strong>Search first:</strong> MetaboLights, Metabolomics Workbench, HMDB</li>
+<li>Epigenomics
+    &gt; <strong>Search first:</strong> GEO, ENCODE, Roadmap Epigenomics, MethBase</li>
+<li>Liquid biopsy
+    &gt; <strong>Search first:</strong> COSMIC, ClinVar, liquid biopsy databases, PubMed</li>
+<li><strong>Clinical Criteria</strong>:</li>
+<li>Standardized diagnostic criteria (DSM, ICD, society guidelines)
+    &gt; <strong>Search first:</strong> DSM-5, ICD-11, clinical society guidelines, UpToDate</li>
+<li>Differential diagnosis (other conditions to rule out, with distinguishing features)
+    &gt; <strong>Search first:</strong> DynaMed, UpToDate, clinical decision support systems</li>
+<li><strong>Screening</strong>:</li>
+<li>Screening methods for asymptomatic individuals (newborn screening, carrier screening, cascade screening)
+    &gt; <strong>Search first:</strong> ACMG recommendations, CDC newborn screening, GTR</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival and Mortality</strong>:</li>
+<li>Survival rate (5-year, 10-year, overall)
+    &gt; <strong>Search first:</strong> SEER, cancer registries, disease-specific registries, PubMed</li>
+<li>Life expectancy (with and without treatment if applicable)
+    &gt; <strong>Search first:</strong> Orphanet, disease registries, actuarial databases, PubMed</li>
+<li>Mortality rate
+    &gt; <strong>Search first:</strong> CDC, WHO, GBD, national mortality databases</li>
+<li>Disease-specific mortality (deaths directly attributable to disease)
+    &gt; <strong>Search first:</strong> Disease registries, CDC Wonder, GBD, PubMed</li>
+<li><strong>Morbidity and Function</strong>:</li>
+<li>Morbidity (disease-related disability and health impacts)
+    &gt; <strong>Search first:</strong> GBD, WHO, disability databases, PubMed</li>
+<li>Disability outcomes (long-term functional impairments)
+    &gt; <strong>Search first:</strong> ICF (International Classification of Functioning), disability registries</li>
+<li>Quality of life measures (EQ-5D, SF-36, PROMIS, disease-specific tools)
+    &gt; <strong>Search first:</strong> EQ-5D database, SF-36, PROMIS, PubMed</li>
+<li><strong>Disease Course</strong>:</li>
+<li>Complications (secondary problems: infections, organ failure, etc.)
+    &gt; <strong>Search first:</strong> ICD codes, disease registries, clinical databases, PubMed</li>
+<li>Recovery potential (likelihood and extent of recovery, with vs without treatment)
+    &gt; <strong>Search first:</strong> Natural history studies, rehabilitation databases, PubMed</li>
+<li><strong>Prediction</strong>:</li>
+<li>Prognostic factors (age, disease severity, biomarkers, treatment response)
+    &gt; <strong>Search first:</strong> Prognostic models databases, clinical calculators, PubMed</li>
+<li>Prognostic biomarkers (molecular markers predicting disease course)
+    &gt; <strong>Search first:</strong> FDA Biomarker database, PubMed, cancer prognostic databases</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Pharmacotherapy</strong>:</li>
+<li>Pharmacological treatments (drug names, drug classes, mechanisms of action)
+    &gt; <strong>Search first:</strong> DrugBank, RxNorm, ATC classification, DailyMed, FDA databases</li>
+<li>Pharmacogenomics (how genetic variants affect drug metabolism, efficacy, toxicity)
+    &gt; <strong>Search first:</strong> PharmGKB, CPIC (Clinical Pharmacogenetics), FDA Table of PGx Biomarkers</li>
+<li><strong>Advanced Therapeutics</strong>:</li>
+<li>Gene therapy (viral vectors, CRISPR, gene replacement, gene editing)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA gene therapy database, ASGCT resources</li>
+<li>Cell therapy (stem cell transplant, CAR-T, cellular therapeutics)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA cell therapy database, FACT standards</li>
+<li>RNA-based therapies (ASOs, siRNA, mRNA therapies)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, FDA approvals, PubMed</li>
+<li>Targeted therapies (treatments directed at specific molecular targets)
+    &gt; <strong>Search first:</strong> My Cancer Genome, OncoKB, ClinicalTrials.gov, FDA approvals</li>
+<li>Immunotherapies (checkpoint inhibitors, monoclonal antibodies)
+    &gt; <strong>Search first:</strong> Cancer Immunotherapy Database, FDA approvals, ClinicalTrials.gov</li>
+<li><strong>Surgical and Interventional</strong>:</li>
+<li>Surgical interventions (types of surgery, timing, outcomes)
+    &gt; <strong>Search first:</strong> CPT codes, surgical registries, clinical guidelines, PubMed</li>
+<li><strong>Supportive and Rehabilitative</strong>:</li>
+<li>Supportive care (symptom management, pain control, nutrition)
+    &gt; <strong>Search first:</strong> Clinical guidelines, Cochrane Library, PubMed</li>
+<li>Rehabilitation (physical therapy, occupational therapy, speech therapy)
+    &gt; <strong>Search first:</strong> Rehabilitation medicine databases, clinical guidelines, PubMed</li>
+<li><strong>Experimental</strong>:</li>
+<li>Experimental treatments in clinical trials (with NCT identifiers if available)
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, EU Clinical Trials Register, WHO ICTRP</li>
+<li><strong>Treatment Outcomes</strong>:</li>
+<li>Treatment response rates
+    &gt; <strong>Search first:</strong> Clinical trial databases, FDA reviews, systematic reviews, PubMed</li>
+<li>Side effects and adverse events
+    &gt; <strong>Search first:</strong> FDA Adverse Event Reporting System (FAERS), MedWatch, PubMed</li>
+<li><strong>Treatment Strategy</strong>:</li>
+<li>Treatment algorithms (clinical pathways, decision trees)
+    &gt; <strong>Search first:</strong> Clinical practice guidelines, NCCN Guidelines, UpToDate</li>
+<li>Combination therapies
+    &gt; <strong>Search first:</strong> ClinicalTrials.gov, treatment guidelines, PubMed</li>
+<li>Personalized medicine approaches (genotype-guided treatment)
+    &gt; <strong>Search first:</strong> My Cancer Genome, CIViC, PharmGKB, precision medicine databases</li>
+</ul>
+<p>For each treatment, suggest MAXO (Medical Action Ontology) terms where applicable.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Prevention Levels</strong>:</li>
+<li>Primary prevention (preventing disease occurrence: vaccination, risk factor modification)
+    &gt; <strong>Search first:</strong> CDC, WHO, USPSTF recommendations, Cochrane Library</li>
+<li>Secondary prevention (early detection and treatment: screening programs, early intervention)
+    &gt; <strong>Search first:</strong> USPSTF, CDC screening guidelines, WHO</li>
+<li>Tertiary prevention (preventing complications in those with disease)
+    &gt; <strong>Search first:</strong> Clinical guidelines, disease management protocols, PubMed</li>
+<li><strong>Immunization</strong>: Vaccine strategies (if applicable)<blockquote>
+<p><strong>Search first:</strong> CDC vaccine schedules, WHO immunization, FDA vaccine database</p>
+</blockquote>
+</li>
+<li><strong>Screening and Early Detection</strong>:</li>
+<li>Screening programs (population-based: newborn screening, cancer screening)
+    &gt; <strong>Search first:</strong> CDC screening programs, USPSTF, cancer screening databases</li>
+<li>Genetic screening (carrier screening, preimplantation genetic diagnosis, prenatal testing)
+    &gt; <strong>Search first:</strong> ACMG recommendations, ACOG guidelines, GTR</li>
+<li>Risk stratification (identifying high-risk individuals for targeted prevention)
+    &gt; <strong>Search first:</strong> Risk prediction models, clinical calculators, PubMed</li>
+<li><strong>Behavioral Interventions</strong>: Lifestyle modifications to reduce risk<blockquote>
+<p><strong>Search first:</strong> CDC, WHO, behavioral intervention databases, Cochrane Library</p>
+</blockquote>
+</li>
+<li><strong>Counseling</strong>: Genetic counseling (risk assessment, family planning guidance)<blockquote>
+<p><strong>Search first:</strong> NSGC resources, ACMG guidelines, GeneReviews</p>
+</blockquote>
+</li>
+<li><strong>Public Health</strong>:</li>
+<li>Public health interventions (sanitation, vector control, health education)
+    &gt; <strong>Search first:</strong> CDC, WHO, public health databases, PubMed</li>
+<li>Environmental interventions (reducing environmental risk factors)
+    &gt; <strong>Search first:</strong> EPA databases, WHO environmental health, PubMed</li>
+<li><strong>Prophylaxis</strong>: Preventive medications or procedures<blockquote>
+<p><strong>Search first:</strong> Clinical guidelines, FDA approvals, PubMed</p>
+</blockquote>
+</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy</strong>: Species affected (with NCBI Taxon identifiers)<blockquote>
+<p><strong>Search first:</strong> NCBI Taxonomy</p>
+</blockquote>
+</li>
+<li><strong>Breed</strong>: Specific breeds affected (with VBO identifiers if applicable)<blockquote>
+<p><strong>Search first:</strong> VBO (Vertebrate Breed Ontology)</p>
+</blockquote>
+</li>
+<li><strong>Gene</strong>: Orthologous genes in other species (with NCBI Gene IDs)<blockquote>
+<p><strong>Search first:</strong> NCBI Gene</p>
+</blockquote>
+</li>
+<li><strong>Natural Disease</strong>:</li>
+<li>Naturally occurring disease in other species (companion animals, wildlife)
+    &gt; <strong>Search first:</strong> OMIA (Online Mendelian Inheritance in Animals), VetCompass, PubMed</li>
+<li>Veterinary relevance and importance in animal health
+    &gt; <strong>Search first:</strong> OMIA, veterinary databases, PubMed</li>
+<li><strong>Comparative Biology</strong>:</li>
+<li>Comparative pathology (similarities and differences across species)
+    &gt; <strong>Search first:</strong> OMIA, comparative pathology databases, PubMed</li>
+<li>Evolutionary conservation of disease mechanisms
+    &gt; <strong>Search first:</strong> HomoloGene, OrthoMCL, Alliance of Genome Resources</li>
+<li><strong>Transmission</strong> (if applicable):</li>
+<li>Zoonotic potential
+    &gt; <strong>Search first:</strong> CDC zoonotic diseases, WHO zoonoses, GIDEON</li>
+<li>Cross-species susceptibility
+    &gt; <strong>Search first:</strong> NCBI Taxonomy, veterinary databases, PubMed</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Model Types</strong>:</li>
+<li>Model organism type (mammalian, invertebrate, cellular, in vitro)
+    &gt; <strong>Search first:</strong> Alliance of Genome Resources, model organism databases</li>
+<li>Specific model systems (mouse, rat, zebrafish, Drosophila, C. elegans, yeast, cell lines, organoids, iPSCs)
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, SGD, ATCC, Cellosaurus</li>
+<li>Induced models (drug treatment, surgical intervention, environmental manipulation)
+    &gt; <strong>Search first:</strong> MGI, model organism databases, PubMed</li>
+<li><strong>Genetic Models</strong>:</li>
+<li>Types available (knockout, knock-in, transgenic, conditional, humanized)
+    &gt; <strong>Search first:</strong> MGI, IMPC, KOMP, EuMMCR, IMSR</li>
+<li><strong>Model Characteristics</strong>:</li>
+<li>Phenotype recapitulation (how well model reproduces human disease features)
+    &gt; <strong>Search first:</strong> Model organism databases, comparative studies, PubMed</li>
+<li>Model limitations (aspects of human disease not captured)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed, review articles</li>
+<li><strong>Applications</strong>:</li>
+<li>Research applications (what aspects of disease can be studied)
+    &gt; <strong>Search first:</strong> Model organism databases, PubMed</li>
+<li><strong>Resources</strong>:</li>
+<li>Model databases
+    &gt; <strong>Search first:</strong> MGI, RGD, ZFIN, FlyBase, WormBase, IMSR, EMMA, MMRRC</li>
+</ul>
+<hr />
+<h2>Citation Requirements</h2>
+<ul>
+<li>Cite primary literature (PMID preferred) for all mechanistic and clinical claims</li>
+<li>Prioritize recent reviews and landmark papers</li>
+<li>Include direct quotes from abstracts where possible to support key statements</li>
+<li>Distinguish evidence source types: human clinical, model organism, in vitro, computational</li>
+</ul>
+<h2>Output Format</h2>
+<p>Structure your response as a comprehensive narrative organized by the sections above.
+For each section, provide:
+- Factual content with specific details (numbers, percentages, gene names, variant nomenclature)
+- Ontology term suggestions (HPO, GO, CL, UBERON, CHEBI, MAXO, MONDO) where applicable
+- Evidence citations with PMIDs
+- Direct quotes from abstracts to support key claims
+- Clear indication when information is not available or not applicable for this disease</p>
+<p>This report will be used to populate a disease knowledge base entry with:
+- Pathophysiology descriptions with causal chains
+- Gene/protein annotations (HGNC, GO terms)
+- Phenotype associations (HP terms) with frequencies
+- Cell type involvement (CL terms)
+- Anatomical locations (UBERON terms)
+- Chemical entities (CHEBI terms)
+- Treatment annotations (MAXO terms)
+- Evidence items with PMIDs and exact abstract quotes
+- Epidemiology, prognosis, diagnostic, and prevention information
+- Animal model descriptions with phenotype recapitulation details</p>
+<h1>Hashimoto’s Thyroiditis (HT): Comprehensive Disease Characteristics Report (2023–2024 emphasis)</h1>
+<h2>Target disease</h2>
+<ul>
+<li><strong>Disease name:</strong> Hashimoto’s thyroiditis (HT)</li>
+<li><strong>Category:</strong> Complex / polygenic autoimmune disease</li>
+<li><strong>MONDO ID:</strong> Not confirmed from the retrieved evidence in this run (should be programmatically looked up in MONDO; not inferred here).</li>
+</ul>
+<h2>Executive overview</h2>
+<p>Hashimoto’s thyroiditis is a chronic organ-specific autoimmune disease characterized by lymphocytic inflammation of the thyroid gland, circulating autoantibodies against thyroid antigens (notably thyroid peroxidase and thyroglobulin), characteristic ultrasound patterns, and a progressive course that commonly culminates in hypothyroidism requiring lifelong thyroid hormone replacement therapy (levothyroxine). (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</p>
+<p>A large 2024 GWAS meta-analysis in autoimmune thyroid disease (AITD; encompassing HT and related phenotypes) underscores extensive polygenicity and highlights genes involved in T-cell regulation; it identifies a rare start-codon/5′UTR LAG3 variant with a large effect size and functional evidence of reduced inhibitory checkpoint expression. (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</p>
+<p>A 2024 Nature Communications spatial transcriptomics study provides high-resolution mechanistic insight into HT tissue architecture, emphasizing aberrant antigen presentation by thyroid follicular cells (CD74/MIF axis), immune infiltration (T cells, B cells, macrophages), inflammatory fibroblast programs, and vascular remodeling facilitating immune trafficking. (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-13-14">martinezhernandez2024unravelingthemolecular pages 13-14</a>)</p>
+<h2>1. Disease information</h2>
+<h3>1.1 What is the disease?</h3>
+<p>HT (also referred to as chronic autoimmune/lymphocytic thyroiditis) is described as a chronic autoimmune condition affecting the thyroid, driven by dysregulated T- and B-cell immune responses with thyroid infiltration by autoreactive lymphocytes and antibody production. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</p>
+<h3>1.2 Key identifiers and terminology</h3>
+<ul>
+<li><strong>Synonyms:</strong> chronic autoimmune thyroiditis; chronic lymphocytic thyroiditis; autoimmune thyroiditis; Hashimoto disease. (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-kolanu2024fromantibodiesto-pages-1-2">kolanu2024fromantibodiesto pages 1-2</a>)</li>
+<li><strong>ICD-10 (suggested):</strong> E06.3 (autoimmune thyroiditis). (Not directly evidenced in retrieved texts; included as a standard clinical code suggestion—verify against ICD tables in implementation.)</li>
+<li><strong>MeSH (suggested):</strong> Hashimoto Disease. (Not directly evidenced in retrieved texts; verify via MeSH lookup in implementation.)</li>
+</ul>
+<h3>1.3 Evidence source type</h3>
+<p>The information in this report is derived from aggregated evidence sources (systematic reviews/meta-analyses, narrative reviews, human genetics studies, and spatial transcriptomics of human thyroid tissue), plus clinical trial registry entries (ClinicalTrials.gov). (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>, NCT05871957 chunk 1)</p>
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factors (current understanding)</h3>
+<p>HT etiology is multifactorial, involving genetic susceptibility and environmental triggers leading to breakdown of immune tolerance, lymphocytic infiltration, and thyroid tissue destruction. Reviews highlight genetic factors (e.g., HLA-DR, CTLA4) and environmental triggers such as excess dietary iodine and toxicant exposures. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</p>
+<h3>2.2 Risk factors</h3>
+<ul>
+<li><strong>Sex:</strong> Multiple sources emphasize a strong female predominance (reported as women being <strong>4–10×</strong> more susceptible than men). (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</li>
+<li><strong>Micronutrient status:</strong> A 2024 review emphasizes that vitamin D levels are significantly lower in HT patients than controls and discusses supplementation as potentially antibody-lowering in deficient individuals. (<a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</li>
+</ul>
+<h3>2.3 Protective factors</h3>
+<p>Within the retrieved evidence, clear protective genetic variants or protective environmental exposures specific to HT were not explicitly identified; the main genetic evidence emphasizes risk loci and risk-increasing variants in immune regulatory genes. (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p>The retrieved evidence supports the general framework of interaction among <strong>genetic influences, environmental triggers, and epigenetic effects</strong> in HT pathogenesis, but does not provide a specific, quantified gene–environment interaction effect size within the accessed texts. (<a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</p>
+<h2>3. Phenotypes</h2>
+<h3>3.1 Core phenotypes and HPO suggestions</h3>
+<p>A diagnostic review describes common hypothyroid-associated symptoms including fatigue, weight gain, cold sensitivity, dry skin, and constipation. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</p>
+<p>Suggested <strong>HPO terms</strong> (examples) for knowledge base population:
+- Fatigue; Weight gain; Cold intolerance; Dry skin; Constipation; Hypothyroidism. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</p>
+<h3>3.2 Laboratory abnormalities</h3>
+<p>Key laboratory features used in diagnosis include elevated TSH with decreased FT4/FT3 in overt hypothyroidism and detection of anti-TPO and anti-thyroglobulin antibodies as autoimmune markers. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</p>
+<h3>3.3 Imaging and pathology phenotypes</h3>
+<ul>
+<li><strong>Ultrasound:</strong> heterogeneous echotexture and diffuse hypoechogenicity. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</li>
+<li><strong>Histopathology:</strong> lymphocytic infiltrates and germinal centers can be observed on fine-needle aspiration/biopsy; spatial transcriptomics corroborates immune-rich infiltrates with T cells, B cells, and inflammatory macrophages. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>)</li>
+</ul>
+<h3>3.4 Quality of life impact</h3>
+<p>HT can have persistent quality-of-life (QoL) burden even when biochemical targets are met; a 2024 review highlights that some patients report suboptimal HRQoL despite normalized TSH/T4. (<a href="#ref-huang2024traditionalchinesemedicine-pages-4-5">huang2024traditionalchinesemedicine pages 4-5</a>)</p>
+<h2>4. Genetic/molecular information</h2>
+<h3>4.1 Genetic architecture (polygenic susceptibility)</h3>
+<p>A 2024 Nature Communications GWAS meta-analysis in AITD reports <strong>110,945 cases and 1,084,290 controls</strong>, identifying <strong>290 sequence variants at 225 loci</strong> (including <strong>115 previously unreported</strong>), and emphasizes genes involved in <strong>T-cell regulation</strong>. (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</p>
+<p><strong>Abstract quote (genetics scale):</strong> “In a GWAS meta-analysis of 110,945 cases and 1,084,290 controls, 290 sequence variants at 225 loci are associated with AITD.” (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</p>
+<h3>4.2 Notable high-effect variant (LAG3)</h3>
+<p>The same study highlights a rare LAG3 variant (rs781745126-T) that creates a novel upstream start codon and is associated with increased AITD risk and functional reduction of LAG-3 expression.
+- <strong>Effect size:</strong> OR <strong>3.42</strong> with <strong>P = 2.2×10⁻¹⁶</strong> (as reported in the abstract snippet). (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)
+- <strong>Functional evidence:</strong> reduced LAG3 mRNA and surface expression on activated lymphocyte subsets and ~half plasma LAG-3 in heterozygotes; all three homozygous carriers had AITD. (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</p>
+<h3>4.3 Candidate genes outside MHC and immune regulation</h3>
+<p>The genetics evidence points to immune checkpoint and T-cell receptor signaling genes (e.g., LAG3 and ZAP70) as biologically coherent candidates linking inherited variation to immune dysregulation in AITD/HT-relevant phenotypes. (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</p>
+<h3>4.4 Epigenetic information</h3>
+<p>The accessed evidence notes epigenetic effects as part of the causal framework but does not provide specific methylation loci/histone marks within retrieved texts in this run. (<a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</p>
+<h2>5. Environmental information</h2>
+<h3>5.1 Environmental and lifestyle contributors</h3>
+<p>A diagnostic-focused review lists environmental triggers including <strong>excess dietary iodine</strong> and <strong>toxicants</strong> as influences on disease development in susceptible individuals. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</p>
+<h3>5.2 Infectious agents</h3>
+<p>No specific pathogen with causal attribution was supported by the retrieved evidence snippets in this run.</p>
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>6.1 Causal chain (immune dysregulation → tissue injury → hypothyroidism)</h3>
+<p>Across sources, a coherent mechanism emerges:
+1) Genetic susceptibility and environmental triggers contribute to loss of tolerance and immune activation. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>, <a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)
+2) Thyroid-resident and infiltrating immune cells participate in antigen presentation and inflammatory amplification, including aberrant antigen presentation signatures in thyroid follicular cells. (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>)
+3) Chronic immune-mediated follicular injury and tissue remodeling progressively impair hormone synthesis, leading to hypothyroidism requiring replacement therapy. (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-huang2024traditionalchinesemedicine-pages-4-5">huang2024traditionalchinesemedicine pages 4-5</a>)</p>
+<h3>6.2 Spatial transcriptomics (2024) and cell-type resolved mechanisms (high-authority primary research)</h3>
+<p>A 2024 Nature Communications study used spatial transcriptomics to resolve thyroid tissue architecture in AITD, including HT.</p>
+<p>Key mechanistic findings relevant to HT:
+- <strong>Damaged thyroid follicular cells (TFCs) and antigen presentation:</strong> TFCs show upregulated <strong>CD74</strong> and <strong>MIF</strong>, consistent with aberrant antigen presentation and immune communication. (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>)
+- <strong>Immune infiltration:</strong> HT tissue demonstrates rich lymphocytic infiltrates (T cells, B cells) and inflammatory macrophages; borderline infiltrate zones show T-cell gene expression (e.g., TRAC/TRBC1/CD3D) and B-cell markers (MS4A1/CR2). (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>)
+- <strong>Fibroblast programs and remodeling:</strong> inflammatory-associated fibroblasts (e.g., CXCL12+ and IGFBP6+ programs) are enriched in HT and linked to chemotaxis and extracellular matrix remodeling/destruction. (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-13-14">martinezhernandez2024unravelingthemolecular pages 13-14</a>)
+- <strong>Vascular remodeling:</strong> endothelial features that facilitate immune trafficking are described, including specialized vessels (ACKR1+ high endothelial venules in infiltrated regions). (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>)
+- <strong>Cytokine amplification:</strong> IFN-γ and TNF-α can upregulate CD74 in TFCs and infiltrating immune cells, potentially amplifying ligand–receptor interactions and antigen-presentation pathways. (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>)</p>
+<h4>Visual evidence (mechanistic schematic)</h4>
+<p>Figure 8 from Martínez-Hernández et al. summarizes an HT model with damaged CD74-high TFCs, a CD74/MIF loop, inflammatory fibroblast subtypes, and vascular/immune infiltration mechanisms. (martinezhernandez2024unravelingthemolecular media c4e4de12, martinezhernandez2024unravelingthemolecular media b04d5261)</p>
+<h3>6.3 Suggested ontology mappings for mechanisms</h3>
+<p>Examples aligned to evidence:
+- <strong>GO Biological Process (suggested):</strong> antigen processing and presentation via MHC class II; T cell activation; lymphocyte chemotaxis; extracellular matrix organization; regulation of vascular permeability. (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-13-14">martinezhernandez2024unravelingthemolecular pages 13-14</a>)
+- <strong>Cell Ontology (CL; suggested):</strong> thyroid follicular cell; T cell; B cell; macrophage; dendritic cell; fibroblast; endothelial cell. (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-13-14">martinezhernandez2024unravelingthemolecular pages 13-14</a>)</p>
+<h2>7. Anatomical structures affected</h2>
+<h3>7.1 Primary organ</h3>
+<ul>
+<li><strong>Thyroid gland</strong> (primary site of inflammation, immune infiltration, tissue remodeling, and follicular injury). (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>)</li>
+</ul>
+<h3>7.2 Tissue and cell level</h3>
+<p>Key implicated compartments/cell types in HT thyroid tissue include thyroid follicular epithelial cells, stromal fibroblast subtypes, endothelial cells, and infiltrating lymphocytes and macrophages. (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-13-14">martinezhernandez2024unravelingthemolecular pages 13-14</a>)</p>
+<h2>8. Temporal development</h2>
+<p>HT is typically chronic and insidious with variable progression, often culminating in hypothyroidism over time. (<a href="#ref-kolanu2024fromantibodiesto-pages-1-2">kolanu2024fromantibodiesto pages 1-2</a>, <a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</p>
+<h2>9. Inheritance and population</h2>
+<h3>9.1 Inheritance pattern</h3>
+<p>Evidence supports a <strong>polygenic/multifactorial</strong> inheritance architecture rather than single-gene Mendelian inheritance, based on large-scale GWAS results with many loci. (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</p>
+<h3>9.2 Epidemiology (statistics)</h3>
+<ul>
+<li><strong>Global burden:</strong> HT has been described as affecting approximately <strong>160 million</strong> people globally and is characterized as the most common cause of hypothyroidism in iodine-sufficient regions. (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</li>
+<li><strong>Sex ratio:</strong> women <strong>4–10×</strong> more susceptible than men. (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</li>
+<li><strong>Incidence:</strong> approximately <strong>0.3–1.5 per 1,000 persons</strong> reported in a 2024 review. (<a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</li>
+<li><strong>Prevalence:</strong> a 2024 diagnostic review reports global prevalence of <strong>7.5%</strong>, rising to <strong>11.4% in low- and middle-income countries</strong> (note: these are review-level estimates; confirm with population-based epidemiology during KB curation). (<a href="#ref-kolanu2024fromantibodiesto-pages-1-2">kolanu2024fromantibodiesto pages 1-2</a>)</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<h3>10.1 Standard diagnostic elements</h3>
+<p>Evidence supports a multi-component approach:
+- <strong>Laboratory:</strong> elevated TSH and low FT4/FT3 in overt hypothyroidism; <strong>anti-TPO</strong> and <strong>anti-thyroglobulin</strong> antibodies as key autoimmune markers. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)
+- <strong>Seronegative HT:</strong> antibody-negative disease can occur (~5–10% reported), complicating diagnosis. (<a href="#ref-kolanu2024fromantibodiesto-pages-1-2">kolanu2024fromantibodiesto pages 1-2</a>)
+- <strong>Ultrasound:</strong> heterogeneous echotexture and diffuse hypoechogenicity. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)
+- <strong>Histology/cytology:</strong> lymphocytic infiltrates and germinal centers may be observed; spatial transcriptomics confirms compartmentalized immune infiltration. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>)</p>
+<h3>10.2 Emerging diagnostics and technology</h3>
+<p>A 2024 diagnostic review describes emerging modalities (microRNA profiling, genetic markers, artificial intelligence approaches) as potential tools to improve diagnostic precision, particularly in complex or seronegative cases. (<a href="#ref-kolanu2024fromantibodiesto-pages-5-6">kolanu2024fromantibodiesto pages 5-6</a>)</p>
+<h2>11. Outcome / prognosis</h2>
+<p>The retrieved evidence emphasizes chronicity and progression to hypothyroidism requiring lifelong therapy, but does not provide direct survival/mortality metrics or long-term disability statistics within accessed excerpts. (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</p>
+<p>QoL: Persistent symptoms can occur despite biochemical normalization, motivating research into adjunctive strategies and patient-reported outcomes. (<a href="#ref-huang2024traditionalchinesemedicine-pages-4-5">huang2024traditionalchinesemedicine pages 4-5</a>)</p>
+<h2>12. Treatment</h2>
+<h3>12.1 Standard-of-care pharmacotherapy</h3>
+<p><strong>Levothyroxine (LT4) replacement</strong> is standard once hypothyroidism develops, typically lifelong, aiming to normalize serum TSH. (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-huang2024traditionalchinesemedicine-pages-4-5">huang2024traditionalchinesemedicine pages 4-5</a>)</p>
+<p><strong>Clinical/therapeutic gap:</strong> LT4 corrects hormone deficiency but does not directly address upstream autoimmunity, inflammation, or oxidative stress; some patients report ongoing symptoms/HRQoL impairment despite normalized thyroid labs. (<a href="#ref-huang2024traditionalchinesemedicine-pages-4-5">huang2024traditionalchinesemedicine pages 4-5</a>)</p>
+<h3>12.2 Selenium supplementation (evidence synthesis + RCT)</h3>
+<p><strong>2024 systematic review/meta-analysis (Thyroid; <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">DOI:10.1089/thy.2023.0556</a>; searched through Jan 2023; published Mar 2024):</strong>
+- TSH reduction in patients <strong>not</strong> on thyroid hormone replacement: SMD <strong>−0.21</strong> (95% CI <strong>−0.43 to −0.02</strong>; 7 cohorts; n=869). (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)
+- TPOAb reduction: SMD <strong>−0.96</strong> (95% CI <strong>−1.36 to −0.56</strong>; 29 cohorts; n=2,358). (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)
+- Adverse effects: OR <strong>0.89</strong> (95% CI <strong>0.46 to 1.75</strong>; 16 cohorts; n=1,339), suggesting no clear increase in adverse events vs controls. (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</p>
+<p><strong>Abstract quote (meta-analysis results):</strong> “Our meta-analysis found that selenium supplementation decreased TSH in patients without THRT (SMD −0.21 …) [and] TPOAb (SMD −0.96 …) … Adverse effects were comparable between the intervention and control groups (OR 0.89 …).” (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</p>
+<p><strong>2024 multicenter double-blind RCT (European Thyroid Journal; Jan 2024; <a href="https://doi.org/10.1530/etj-23-0175" target="_blank" rel="noopener noreferrer">DOI:10.1530/etj-23-0175</a>):</strong>
+- Population: 412 adults with autoimmune thyroiditis on LT4; 200 μg selenium/day vs placebo; 332 (81%) completed intervention. (<a href="#ref-larsen2024seleniumsupplementationand-pages-1-2">larsen2024seleniumsupplementationand pages 1-2</a>)
+- QoL: no between-group difference (ThyPRO-39 composite score 28.8 vs 28.0; P=0.602). (<a href="#ref-larsen2024seleniumsupplementationand-pages-1-2">larsen2024seleniumsupplementationand pages 1-2</a>)
+- Antibodies: lower TPOAb at 12 months in selenium group (1995 vs 2344 kIU/L; P=0.016). (<a href="#ref-larsen2024seleniumsupplementationand-pages-1-2">larsen2024seleniumsupplementationand pages 1-2</a>)</p>
+<p><strong>Interpretation (expert synthesis from evidence):</strong> Selenium supplementation appears to consistently lower antibody titers (biochemical effect), but high-quality RCT evidence indicates this does not necessarily translate to QoL benefit in LT4-treated hypothyroid autoimmune thyroiditis over 12 months, highlighting a biomarker–outcome dissociation relevant to clinical implementation. (<a href="#ref-larsen2024seleniumsupplementationand-pages-1-2">larsen2024seleniumsupplementationand pages 1-2</a>, <a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</p>
+<h3>12.3 Vitamin D (risk association and supplementation rationale)</h3>
+<p>A 2024 narrative review emphasizes vitamin D’s immunomodulatory role and reports that vitamin D levels are “significantly lower” in HT patients and that antibody titers “decreased significantly” after cholecalciferol supplementation in deficient patients, while calling for more randomized, placebo-controlled trials. (<a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</p>
+<p><strong>Abstract quote:</strong> “There is extensive literature confirming that vitamin D levels are significantly lower in HT patients compared to healthy people. On the other hand, after the supplementation with cholecalciferol in patients with HT and vitamin D deficiency, thyroid autoantibody titers decreased significantly.” (<a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</p>
+<h3>12.4 Experimental/registry-listed interventional strategies (ClinicalTrials.gov)</h3>
+<ul>
+<li><strong>Vitamin D as adjuvant (observational):</strong> NCT05871957; 30 female participants; vitamin D 2000 IU/day for 1 month; primary outcome TPOAb; secondary outcomes TgAb, FT3/FT4/TSH; registry indicates not-yet-recruiting at time of record. (NCT05871957 chunk 1)</li>
+<li><strong>Hydroxychloroquine (immunomodulation):</strong> NCT01760421; single-group interventional; 40 euthyroid adults; hydroxychloroquine 200 mg twice daily for 6 months; primary outcomes anti-TPO and anti-thyroglobulin antibodies; secondary outcomes include elastography and cytokines (IL-1/IL-6/TNF-α). (NCT01760421 chunk 1)</li>
+<li><strong>Dietary intervention:</strong> NCT05949671; compares gluten-free and Mediterranean dietary approaches over 12 weeks with dietitian support; enrollment reported as 40 in registry retrieval; primary outcome relates to autoimmune system effects. (NCT05949671 chunk 2)</li>
+<li><strong>Photobiomodulation therapy:</strong> NCT06735040; interventional study in HT patients on LT4; enrollment reported as 60; outcomes include depression/anxiety/fatigue measures over ~3 months. (NCT06735040 chunk 2)</li>
+</ul>
+<h2>13. Prevention</h2>
+<p>The retrieved evidence does not define an established primary prevention strategy for HT. Secondary prevention in practice centers on early detection of thyroid dysfunction and autoimmunity (TSH/FT4 and thyroid antibody testing) and timely management of hypothyroidism to prevent complications; this is implied by standard diagnostic/treatment paradigms rather than explicitly quantified in accessed excerpts. (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</p>
+<h2>14. Other species / natural disease</h2>
+<p>No cross-species naturally occurring HT evidence was available in the retrieved excerpts for this run.</p>
+<h2>15. Model organisms</h2>
+<p>The retrieved excerpts did not provide specific model organism systems for HT, though mechanistic frameworks (immune tolerance breakdown, oxidative stress) are compatible with commonly used experimental autoimmune thyroiditis models (not evidenced here; do not infer without retrieval).</p>
+<hr />
+<h2>High-yield structured summary table (for knowledge base ingestion)</h2>
 <details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
 <thead>
 <tr>
 <th>Category</th>
-<th>Entity/Term</th>
-<th style="text-align: right;">Standard ID</th>
-<th>Role in HT Pathophysiology</th>
-<th>Evidence</th>
-<th>Notes</th>
+<th>Item</th>
+<th>Details (include quantitative stats where available)</th>
+<th>Ontology/Identifier suggestions</th>
+<th>Key supporting sources</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Genes / Proteins</td>
-<td>TG; TPO; HLA-DRA; CTLA4; PTPN22; BACH2; GLIS3; IFIH1; IRF4; SH2B3; FAS; CD74; MIF</td>
-<td style="text-align: right;"><a href="https://bioregistry.io/HGNC:11764" target="_blank" rel="noopener noreferrer">HGNC:11764</a>; <a href="https://bioregistry.io/HGNC:12014" target="_blank" rel="noopener noreferrer">HGNC:12014</a>; <a href="https://bioregistry.io/HGNC:4947" target="_blank" rel="noopener noreferrer">HGNC:4947</a>; <a href="https://bioregistry.io/HGNC:2505" target="_blank" rel="noopener noreferrer">HGNC:2505</a>; <a href="https://bioregistry.io/HGNC:9656" target="_blank" rel="noopener noreferrer">HGNC:9656</a>; <a href="https://bioregistry.io/HGNC:935" target="_blank" rel="noopener noreferrer">HGNC:935</a>; <a href="https://bioregistry.io/HGNC:18128" target="_blank" rel="noopener noreferrer">HGNC:18128</a>; <a href="https://bioregistry.io/HGNC:18873" target="_blank" rel="noopener noreferrer">HGNC:18873</a>; <a href="https://bioregistry.io/HGNC:6118" target="_blank" rel="noopener noreferrer">HGNC:6118</a>; <a href="https://bioregistry.io/HGNC:30406" target="_blank" rel="noopener noreferrer">HGNC:30406</a>; <a href="https://bioregistry.io/HGNC:11920" target="_blank" rel="noopener noreferrer">HGNC:11920</a>; <a href="https://bioregistry.io/HGNC:1709" target="_blank" rel="noopener noreferrer">HGNC:1709</a>; <a href="https://bioregistry.io/HGNC:7097" target="_blank" rel="noopener noreferrer">HGNC:7097</a></td>
-<td>TG/TPO = primary autoantigens; HLA/antigen-presentation and immune-regulatory genes (CTLA4, PTPN22, BACH2, SH2B3) modulate tolerance; IFIH1/IRF4 linked to IFN/innate sensing; FAS mediates apoptosis; CD74/MIF in thyrocyte antigen-presentation</td>
-<td>Open Targets association for TG/CTLA4/PTPN22 (OpenTargets Search: Hashimoto's thyroiditis); spatial &amp; transcriptomic mechanistic localization (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>); transcriptome case-control (<a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">doi:10.48188/so.6.9</a>) (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>)</td>
-<td>Genetic + transcriptomic + spatial evidence supports autoantigen-driven, genetically modulated autoimmune response.</td>
+<td>Disease overview / identifiers / synonyms</td>
+<td>Definition</td>
+<td>Autoimmune thyroid disease characterized by chronic lymphocytic inflammation of the thyroid, thyroid autoantibodies, progressive follicular damage, and frequent progression to hypothyroidism; standard treatment after hypothyroidism develops is lifelong levothyroxine replacement (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-huang2024traditionalchinesemedicine-pages-4-5">huang2024traditionalchinesemedicine pages 4-5</a>)</td>
+<td>MeSH: <strong>Hashimoto Disease</strong>; ICD-10: <strong>E06.3 Autoimmune thyroiditis</strong>; ICD-11: autoimmune thyroiditis; MONDO: Hashimoto thyroiditis if mapped in KB; UBERON: <strong>thyroid gland</strong></td>
+<td>Huwiler 2024, <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">DOI: 10.1089/thy.2023.0556</a>; Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a>; Huang 2024, <a href="https://doi.org/10.3390/antiox13070868" target="_blank" rel="noopener noreferrer">DOI: 10.3390/antiox13070868</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>Thyroid follicular cell (thyrocyte)</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" rel="noopener noreferrer">CL:0002328</a></td>
-<td>Can express MHC-II/CD74 under IFN/TNF stimulation → local antigen presentation; source of autoantigen release and epithelial damage</td>
-<td>Spatial transcriptomics: CD74/MIF upregulation and antigen-presentation in TFCs (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>); bulk transcriptome immune signatures (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>)</td>
-<td>Thyrocytes act as active participants (not passive targets) in HT immunopathology.</td>
+<td>Disease overview / identifiers / synonyms</td>
+<td>Synonyms</td>
+<td>Common synonyms: <strong>chronic autoimmune thyroiditis</strong>, <strong>chronic lymphocytic thyroiditis</strong>, <strong>autoimmune thyroiditis</strong>, <strong>Hashimoto disease</strong> (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-kolanu2024fromantibodiesto-pages-1-2">kolanu2024fromantibodiesto pages 1-2</a>)</td>
+<td>MeSH synonym set; SNOMED/ICD cross-map as available</td>
+<td>Huwiler 2024, <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">DOI: 10.1089/thy.2023.0556</a>; Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>B cell</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a></td>
-<td>GC B cell differentiation, local antibody (TPOAb/TgAb) production in ectopic germinal centers</td>
-<td>Spatial localization of GC B cells and FDC markers (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>); ICI/clinical antibody correlations (<a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>)</td>
-<td>Local GC formation supports sustained autoantibody generation.</td>
+<td>Epidemiology</td>
+<td>Prevalence / incidence / sex</td>
+<td>Review sources report global prevalence about <strong>7.5%</strong>, rising to <strong>11.4% in LMICs</strong>; incidence about <strong>0.3–1.5 per 1,000 persons</strong>; women affected <strong>4–10×</strong> more often than men (<a href="#ref-kolanu2024fromantibodiesto-pages-1-2">kolanu2024fromantibodiesto pages 1-2</a>, <a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>, <a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</td>
+<td>HPO modifier: female predominance; epidemiology fields in KB</td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a>; Durá-Travé 2024, <a href="https://doi.org/10.3390/ijms25063154" target="_blank" rel="noopener noreferrer">DOI: 10.3390/ijms25063154</a>; Huwiler 2024, <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">DOI: 10.1089/thy.2023.0556</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>Plasma cell</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a></td>
-<td>Terminal antibody secretion (TPOAb/TgAb) within thyroid tissue and circulation</td>
-<td>Plasmablast/plasma cell dissemination in TFC areas (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>) and transcriptomic signatures (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>)</td>
-<td>Major effector source of autoantibodies.</td>
+<td>Epidemiology</td>
+<td>Age / natural history</td>
+<td>Often insidious, chronic, and progressive; incidence rises after childhood and commonly presents in adolescents/adults, with hypothyroidism emerging over time (<a href="#ref-kolanu2024fromantibodiesto-pages-1-2">kolanu2024fromantibodiesto pages 1-2</a>, <a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</td>
+<td>HPO onset modifiers: adult onset / childhood onset variable</td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a>; Durá-Travé 2024, <a href="https://doi.org/10.3390/ijms25063154" target="_blank" rel="noopener noreferrer">DOI: 10.3390/ijms25063154</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>T helper cell (CD4+)</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0000911" target="_blank" rel="noopener noreferrer">CL:0000911</a></td>
-<td>Th1/Th17 skewing provides cytokines (IFN-γ, IL‑17) that drive inflammation, B cell help and cytotoxic programs</td>
-<td>Th1/Th17 signatures and cytokine milieu described in transcriptome and ICI-related studies (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-7-8">mao2025immunecheckpointinhibitorinduced pages 7-8</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>)</td>
-<td>Helper subsets shape antibody class-switching and macrophage activation.</td>
+<td>Core diagnostic biomarkers</td>
+<td>Thyroid autoantibodies</td>
+<td><strong>Anti-TPO (TPOAb)</strong> and <strong>anti-thyroglobulin (TgAb)</strong> are core serologic markers; seronegative disease occurs in about <strong>5–10%</strong> of cases (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-kolanu2024fromantibodiesto-pages-1-2">kolanu2024fromantibodiesto pages 1-2</a>)</td>
+<td>LOINC/SNOMED for TPOAb and TgAb; HPO: <strong>Positive circulating thyroid autoantibody level</strong></td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>T follicular helper (Tfh)</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" rel="noopener noreferrer">CL:0002038</a></td>
-<td>Supports GC formation and B cell affinity maturation within ectopic GCs</td>
-<td>Enrichment of TCD4/Tfh in GC regions (spatial data) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>)</td>
-<td>Key for intrathyroidal humoral autoimmunity.</td>
+<td>Core diagnostic biomarkers</td>
+<td>Thyroid function tests</td>
+<td>Typical biochemical pattern: <strong>elevated TSH</strong> with <strong>low FT4/FT3</strong> in overt hypothyroid disease; TSH/FT4 central to diagnosis and follow-up (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-huang2024traditionalchinesemedicine-pages-4-5">huang2024traditionalchinesemedicine pages 4-5</a>)</td>
+<td>LOINC: TSH, free T4, free T3; HPO: <strong>Hypothyroidism</strong>, <strong>Abnormal thyroid-stimulating hormone level</strong></td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a>; Huang 2024, <a href="https://doi.org/10.3390/antiox13070868" target="_blank" rel="noopener noreferrer">DOI: 10.3390/antiox13070868</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>Dendritic cell</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a></td>
-<td>Professional antigen presentation, initiation of T cell responses and TLS support</td>
-<td>Myeloid APCs distributed around infiltrates; DC involvement in TLS/TLO formation (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>)</td>
-<td>DC heterogeneity may influence tolerance vs activation.</td>
+<td>Core diagnostic biomarkers</td>
+<td>Common symptoms / phenotype anchors</td>
+<td>Frequent symptoms include fatigue, weight gain, cold intolerance, dry skin, constipation; reflect hypothyroid physiology rather than disease-specific autoimmunity (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</td>
+<td>HPO: <strong>Fatigue</strong>, <strong>Weight gain</strong>, <strong>Cold intolerance</strong>, <strong>Dry skin</strong>, <strong>Constipation</strong>, <strong>Hypothyroidism</strong></td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>Macrophage</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></td>
-<td>Phagocytosis, cytokine production, tissue remodeling and presentation; CD163+ histiocytes noted in destructive thyroiditis</td>
-<td>Macrophage presence around infiltrates and in ICI-induced thyroiditis pathology (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>)</td>
-<td>Contributes to follicular cell clearance and fibrosis.</td>
+<td>Imaging / histopathology</td>
+<td>Ultrasound</td>
+<td>Typical ultrasonography: <strong>heterogeneous echotexture</strong> and <strong>diffuse hypoechogenicity</strong>; characteristic but not fully specific (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</td>
+<td>RadLex/SNOMED thyroid US findings; HPO: <strong>Abnormality of the thyroid gland</strong></td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a>; Huwiler 2024, <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">DOI: 10.1089/thy.2023.0556</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>Fibroblast / myofibroblast</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a></td>
-<td>Stromal remodeling, TGF‑β–driven myofibroblast transition and ECM deposition → fibrosis</td>
-<td>Perifollicular myofibroblasts and inflammatory fibroblasts identified by spatial data; ECM gene induction (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>)</td>
-<td>Stromal states support TLS niches and fibrosis.</td>
+<td>Imaging / histopathology</td>
+<td>Histopathology</td>
+<td>Fine-needle aspiration / pathology may show <strong>dense lymphocytic infiltrates</strong> and <strong>germinal centers</strong>; thyroid tissue in HT contains T cells, B cells, macrophages around follicles (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>)</td>
+<td>GO: <strong>lymphocyte activation</strong>, <strong>germinal center formation</strong>; CL: <strong>T cell</strong>, <strong>B cell</strong>, <strong>macrophage</strong></td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a>; Martínez-Hernández 2024, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41467-024-50192-5</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>Endothelial cell (including HEV)</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a></td>
-<td>Vascular remodeling, PLVAP+ vessels and HEV formation facilitate lymphocyte trafficking into thyroid</td>
-<td>PLVAP+ fenestrated vessels and ACKR1+/HEV localization in inflamed regions (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>)</td>
-<td>HEV-like vessels enable sustained lymphocyte recruitment.</td>
+<td>Genetics</td>
+<td>GWAS scale / susceptibility architecture</td>
+<td>Large AITD GWAS meta-analysis included <strong>110,945 cases</strong> and <strong>1,084,290 controls</strong> and identified <strong>290 variants at 225 loci</strong>, including <strong>115 previously unreported</strong>; highlights T-cell regulatory genes outside MHC (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</td>
+<td>GWAS Catalog entries; genes to prioritize: <strong>LAG3, ZAP70</strong>, HLA-region; disease inheritance: multifactorial/polygenic</td>
+<td>Saevarsdottir 2024, <a href="https://doi.org/10.1038/s41467-024-50007-7" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41467-024-50007-7</a></td>
 </tr>
 <tr>
-<td>Cell type</td>
-<td>Follicular dendritic cell (FDC)</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" rel="noopener noreferrer">CL:0000842</a></td>
-<td>Organizing GC microarchitecture and antigen retention within ectopic GCs</td>
-<td>FDC markers (FDCSP, TCL1A) concentrated in GC regions (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>)</td>
-<td>Supports local affinity maturation and persistent antibody responses.</td>
+<td>Genetics</td>
+<td>High-impact variant</td>
+<td>Rare <strong>LAG3 5′UTR/start-codon variant rs781745126-T</strong> had the largest reported effect, <strong>OR 3.42</strong>, <strong>P = 2.2×10⁻¹⁶</strong>; carrier effect linked to reduced LAG-3 mRNA/surface expression and ~<strong>half</strong> plasma LAG-3 in heterozygotes; all <strong>3 homozygotes</strong> had AITD (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</td>
+<td>HGNC: <strong>LAG3</strong>; variant: <strong>rs781745126-T</strong>; GO: <strong>negative regulation of T cell activation</strong></td>
+<td>Saevarsdottir 2024, <a href="https://doi.org/10.1038/s41467-024-50007-7" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41467-024-50007-7</a></td>
 </tr>
 <tr>
-<td>Pathway / Process</td>
-<td>Type I interferon signaling; Response to IFN‑gamma; JAK‑STAT cascade; NF‑kappaB signaling</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" rel="noopener noreferrer">GO:0060337</a>; <a href="http://purl.obolibrary.org/obo/GO_0034341" target="_blank" rel="noopener noreferrer">GO:0034341</a>; <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" rel="noopener noreferrer">GO:0007259</a>; <a href="http://purl.obolibrary.org/obo/GO_0043122" target="_blank" rel="noopener noreferrer">GO:0043122</a></td>
-<td>IFN signatures upregulate MHC-II/CD74 and chemokines, promoting APC activity and immune recruitment; NF‑κB/Inflammasome (NLRP3) link to epithelial pyroptosis</td>
-<td>Spatial and transcriptomic upregulation of IFN pathways and CD74 in TFCs (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>); inflammasome/NF‑κB evidence (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>)</td>
-<td>Central inflammatory drivers connecting innate sensing to adaptive autoimmunity.</td>
+<td>Genetics</td>
+<td>Classic susceptibility genes</td>
+<td>Reviews also cite <strong>HLA-DR</strong> and <strong>CTLA4</strong> among established susceptibility factors in HT/AITD (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</td>
+<td>HGNC: <strong>HLA-DR</strong>, <strong>CTLA4</strong></td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a></td>
 </tr>
 <tr>
-<td>Pathway / Process</td>
-<td>PI3K‑Akt signaling; Complement activation; Apoptosis via FAS</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/GO_0014065" target="_blank" rel="noopener noreferrer">GO:0014065</a>; <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a>; <a href="http://purl.obolibrary.org/obo/GO_0008625" target="_blank" rel="noopener noreferrer">GO:0008625</a></td>
-<td>PI3K‑Akt impacts cell survival/metabolism; complement and FAS-mediated apoptosis contribute to follicular cell loss</td>
-<td>Bulk transcriptome evidence of apoptosis/complement pathways and metabolic dysfunction (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-17-18">cikotic2025transcriptomeanalysisof pages 17-18</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>)</td>
-<td>Links metabolic/stress state to cell death and autoantigen release.</td>
+<td>Mechanisms / cell types</td>
+<td>Core immune mechanism</td>
+<td>HT is a <strong>T-cell-mediated</strong> autoimmune process with B-cell autoantibody production, thyroid lymphocytic infiltration, and progressive follicular injury leading to hypothyroidism (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</td>
+<td>GO: <strong>immune response</strong>, <strong>antigen processing and presentation</strong>, <strong>T cell activation</strong>; CL: <strong>CD4-positive T cell</strong>, <strong>B cell</strong></td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a>; Durá-Travé 2024, <a href="https://doi.org/10.3390/ijms25063154" target="_blank" rel="noopener noreferrer">DOI: 10.3390/ijms25063154</a></td>
 </tr>
 <tr>
-<td>Pathway / Process</td>
-<td>Chemokine-mediated signaling; Lymphoid organ development; ECM organization</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/GO_0070098" target="_blank" rel="noopener noreferrer">GO:0070098</a>; <a href="http://purl.obolibrary.org/obo/GO_0048535" target="_blank" rel="noopener noreferrer">GO:0048535</a>; <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a></td>
-<td>CXCL/CXCR axes recruit lymphocytes; lymphoid organogenesis supports ectopic GC/TLS formation; ECM remodeling → fibrosis and altered microarchitecture</td>
-<td>CXCL12‑CXCR4 enrichment, HEV/ACKR1 localization and ECM gene induction in spatial &amp; bulk data (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>)</td>
-<td>Chemokines + stromal changes enable persistent local immune niches.</td>
+<td>Mechanisms / cell types</td>
+<td>Thyroid follicular cells / antigen presentation</td>
+<td>Spatial transcriptomics identified damaged, de-differentiated <strong>thyroid follicular cells (TFCs)</strong> with increased <strong>CD74</strong> and <strong>MIF</strong> expression, consistent with aberrant MHC-II antigen presentation and a <strong>CD74/MIF autocrine loop</strong> promoting immune recruitment/repair signaling (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-13-14">martinezhernandez2024unravelingthemolecular pages 13-14</a>)</td>
+<td>CL: <strong>thyroid follicular cell</strong>; GO: <strong>antigen processing and presentation of peptide antigen via MHC class II</strong>, <strong>response to interferon-gamma</strong></td>
+<td>Martínez-Hernández 2024, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41467-024-50192-5</a></td>
 </tr>
 <tr>
-<td>Anatomy</td>
-<td>Thyroid gland; High endothelial venule (HEV); Germinal center; Extracellular matrix</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" rel="noopener noreferrer">UBERON:0002046</a>; <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a>; <a href="http://purl.obolibrary.org/obo/UBERON_0002358" target="_blank" rel="noopener noreferrer">UBERON:0002358</a>; <a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" rel="noopener noreferrer">GO:0031012</a></td>
-<td>Tissue compartments where antigen presentation, TLS/GC formation, and fibrosis occur</td>
-<td>Spatial mapping of GC regions, HEVs, TFC damage, ECM deposition (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>)</td>
-<td>Spatial context critical for understanding local autoimmunity and progression.</td>
+<td>Mechanisms / cell types</td>
+<td>Immune infiltrates</td>
+<td>HT tissue showed rich infiltrates with <strong>T cells, B lymphocytes, inflammatory macrophages</strong>, and myeloid cells; T-cell genes (<strong>TRAC, TRBC1, CD3D</strong>) and B-cell markers (<strong>MS4A1, CR2</strong>) were enriched in infiltrated zones (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>)</td>
+<td>CL: <strong>T cell</strong>, <strong>B cell</strong>, <strong>macrophage</strong>, <strong>dendritic cell</strong>; GO: <strong>lymphocyte chemotaxis</strong></td>
+<td>Martínez-Hernández 2024, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41467-024-50192-5</a></td>
 </tr>
 <tr>
-<td>Chemical / Mediator</td>
-<td>Iodide; TNF‑alpha; IFN‑gamma</td>
-<td style="text-align: right;"><a href="http://purl.obolibrary.org/obo/CHEBI_24859" target="_blank" rel="noopener noreferrer">CHEBI:24859</a>; <a href="http://purl.obolibrary.org/obo/CHEBI_52299" target="_blank" rel="noopener noreferrer">CHEBI:52299</a>; <a href="http://purl.obolibrary.org/obo/CHEBI_51275" target="_blank" rel="noopener noreferrer">CHEBI:51275</a></td>
-<td>Iodide can trigger oxidative stress/pyroptosis in thyrocytes; TNF/IFN drive CD74/MHC‑II expression and inflammation</td>
-<td>Iodide-triggered ROS/NLRP3 inflammasome and inflammatory cytokine roles (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>); cytokine-driven CD74 upregulation (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>)</td>
-<td>Environmental/biochemical modulators that amplify immune activation.</td>
+<td>Mechanisms / cell types</td>
+<td>Fibroblast subtypes</td>
+<td>Two fibroblast programs were emphasized: inflammatory-associated fibroblasts, including <strong>CXCL12+</strong> and <strong>IGFBP6+</strong> populations linked to immune chemotaxis/ECM remodeling, and myofibroblast-like populations in interfollicular areas (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-13-14">martinezhernandez2024unravelingthemolecular pages 13-14</a>)</td>
+<td>CL: <strong>fibroblast</strong>, <strong>myofibroblast</strong>; GO: <strong>extracellular matrix organization</strong>, <strong>chemokine-mediated signaling pathway</strong></td>
+<td>Martínez-Hernández 2024, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41467-024-50192-5</a></td>
+</tr>
+<tr>
+<td>Mechanisms / cell types</td>
+<td>Endothelial / vascular changes</td>
+<td>Spatial data showed increased vascular permeability and specialized endothelial structures, including <strong>ACKR1+ high endothelial venules</strong> in HT infiltrates; broader AITD work also noted <strong>PLVAP+ fenestrated vessels</strong> (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-13-14">martinezhernandez2024unravelingthemolecular pages 13-14</a>)</td>
+<td>CL: <strong>endothelial cell</strong>; GO: <strong>angiogenesis</strong>, <strong>regulation of vascular permeability</strong>; UBERON: <strong>thyroid vasculature</strong></td>
+<td>Martínez-Hernández 2024, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41467-024-50192-5</a></td>
+</tr>
+<tr>
+<td>Mechanisms / cell types</td>
+<td>Cytokine context</td>
+<td><strong>IFN-γ</strong> and <strong>TNF-α</strong> upregulate CD74 in TFCs and infiltrating immune cells, amplifying receptor-ligand interactions and antigen-presentation signaling (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>)</td>
+<td>CHEBI: interferon gamma, tumor necrosis factor alpha; GO: <strong>cellular response to interferon-gamma</strong>, <strong>inflammatory response</strong></td>
+<td>Martínez-Hernández 2024, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41467-024-50192-5</a></td>
+</tr>
+<tr>
+<td>Environmental / risk factors</td>
+<td>Environment and micronutrients</td>
+<td>Reviews cite environmental triggers including <strong>excess dietary iodine</strong> and possible toxicant exposures; vitamin D deficiency is repeatedly associated with HT, though causality/intervention evidence remains incomplete (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>, <a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</td>
+<td>CHEBI: iodine, cholecalciferol; exposure ontology terms as available</td>
+<td>Kolanu 2024, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">DOI: 10.7759/cureus.54393</a>; Durá-Travé 2024, <a href="https://doi.org/10.3390/ijms25063154" target="_blank" rel="noopener noreferrer">DOI: 10.3390/ijms25063154</a></td>
+</tr>
+<tr>
+<td>Standard treatment</td>
+<td>Levothyroxine replacement</td>
+<td>Standard of care for overt hypothyroidism due to HT is <strong>lifelong oral levothyroxine (LT4)</strong> to normalize TSH; therapy addresses hormone deficiency but not the upstream autoimmune process, inflammation, or oxidative stress (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-huang2024traditionalchinesemedicine-pages-4-5">huang2024traditionalchinesemedicine pages 4-5</a>)</td>
+<td>MAXO: <strong>thyroid hormone replacement therapy</strong>, <strong>administration of levothyroxine</strong>; CHEBI: <strong>levothyroxine</strong></td>
+<td>Huwiler 2024, <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">DOI: 10.1089/thy.2023.0556</a>; Huang 2024, <a href="https://doi.org/10.3390/antiox13070868" target="_blank" rel="noopener noreferrer">DOI: 10.3390/antiox13070868</a></td>
+</tr>
+<tr>
+<td>Adjunct / disease-modifying</td>
+<td>Selenium meta-analysis</td>
+<td>2024 systematic review/meta-analysis of <strong>35 studies</strong> found selenium lowered <strong>TSH</strong> in patients <strong>without</strong> thyroid hormone replacement (<strong>SMD −0.21, 95% CI −0.43 to −0.02; 7 cohorts, n=869</strong>), lowered <strong>TPOAb</strong> (<strong>SMD −0.96, 95% CI −1.36 to −0.56; 29 cohorts, n=2,358</strong>), lowered <strong>MDA</strong> (<strong>SMD −1.16; 3 cohorts, n=248</strong>), with adverse events similar to control (<strong>OR 0.89, 95% CI 0.46–1.75; 16 cohorts, n=1,339</strong>) (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>, <a href="#ref-huwiler2024seleniumsupplementationin-pages-8-9">huwiler2024seleniumsupplementationin pages 8-9</a>, <a href="#ref-huwiler2024seleniumsupplementationin-pages-11-12">huwiler2024seleniumsupplementationin pages 11-12</a>)</td>
+<td>MAXO: <strong>selenium supplementation</strong>; CHEBI: <strong>selenium</strong>, <strong>selenium-enriched yeast</strong></td>
+<td>Huwiler 2024, <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">DOI: 10.1089/thy.2023.0556</a></td>
+</tr>
+<tr>
+<td>Adjunct / disease-modifying</td>
+<td>Selenium QoL RCT</td>
+<td>CATALYST RCT: <strong>412</strong> patients with autoimmune thyroiditis on LT4, <strong>332 (81%)</strong> completed 12 months; <strong>200 μg/day selenium</strong> vs placebo improved QoL similarly in both groups with <strong>no between-group difference</strong> in ThyPRO-39 composite score (<strong>28.8 vs 28.0, P=0.602</strong>). TPOAb was lower with selenium after 12 months (<strong>1995 vs 2344 kIU/L, P=0.016</strong>); no meaningful TSH difference (<strong>P=0.688</strong>) and no serious safety signal (<a href="#ref-larsen2024seleniumsupplementationand-pages-1-2">larsen2024seleniumsupplementationand pages 1-2</a>, <a href="#ref-larsen2024seleniumsupplementationand-pages-6-8">larsen2024seleniumsupplementationand pages 6-8</a>, <a href="#ref-larsen2024seleniumsupplementationand-pages-8-10">larsen2024seleniumsupplementationand pages 8-10</a>)</td>
+<td>MAXO: <strong>selenium supplementation</strong>, <strong>patient-reported outcome assessment</strong></td>
+<td>Larsen 2024, <a href="https://doi.org/10.1530/etj-23-0175" target="_blank" rel="noopener noreferrer">DOI: 10.1530/etj-23-0175</a></td>
+</tr>
+<tr>
+<td>Adjunct / disease-modifying</td>
+<td>Vitamin D</td>
+<td>Review-level evidence: HT patients often have lower vitamin D levels; some studies show reduced thyroid autoantibody titers after cholecalciferol in vitamin D-deficient HT, but authors stress need for more randomized double-blind placebo-controlled trials (<a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</td>
+<td>MAXO: <strong>vitamin D supplementation</strong>; CHEBI: <strong>cholecalciferol</strong></td>
+<td>Durá-Travé 2024, <a href="https://doi.org/10.3390/ijms25063154" target="_blank" rel="noopener noreferrer">DOI: 10.3390/ijms25063154</a></td>
+</tr>
+<tr>
+<td>Experimental / ongoing trials</td>
+<td>Vitamin D adjuvant trial</td>
+<td><strong>NCT05871957</strong>: prospective observational cohort; <strong>30</strong> female participants (18–60 years) with HT and hypothyroidism; <strong>vitamin D drops 2000 IU/day for 1 month</strong>; primary outcome <strong>TPOAb</strong>, secondary <strong>TgAb, FT3, FT4, TSH</strong>; status in registry chunk: <strong>not yet recruiting</strong> (NCT05871957 chunk 1, NCT05871957 chunk 2)</td>
+<td>NCT: <strong>NCT05871957</strong>; MAXO: <strong>vitamin D supplementation</strong></td>
+<td>ClinicalTrials.gov, NCT05871957</td>
+</tr>
+<tr>
+<td>Experimental / ongoing trials</td>
+<td>Hydroxychloroquine trial</td>
+<td><strong>NCT01760421</strong>: completed single-group interventional study; <strong>40</strong> euthyroid adults; <strong>hydroxychloroquine 200 mg twice daily for 6 months</strong>; primary outcomes <strong>anti-TPO</strong> and <strong>anti-thyroglobulin</strong>; secondary outcomes included <strong>elastography</strong>, <strong>FT4/TSH</strong>, and inflammatory cytokines (<strong>IL-1, IL-6, TNF-α</strong>) (NCT01760421 chunk 1)</td>
+<td>NCT: <strong>NCT01760421</strong>; MAXO: <strong>hydroxychloroquine therapy</strong></td>
+<td>ClinicalTrials.gov, NCT01760421</td>
+</tr>
+<tr>
+<td>Experimental / ongoing trials</td>
+<td>Dietary intervention trial</td>
+<td><strong>NCT05949671</strong>: interventional diet study in women with confirmed HT; total registry search reported <strong>40 participants</strong>; compares <strong>gluten-free</strong> and <strong>Mediterranean diet</strong> approaches over <strong>12 weeks</strong> with personalized dietitian support; primary focus is effect on the autoimmune system (NCT05949671 chunk 2)</td>
+<td>NCT: <strong>NCT05949671</strong>; MAXO: <strong>dietary modification</strong>, <strong>gluten-free diet</strong>, <strong>Mediterranean diet</strong></td>
+<td>ClinicalTrials.gov, NCT05949671</td>
+</tr>
+<tr>
+<td>Experimental / ongoing trials</td>
+<td>Photobiomodulation trial</td>
+<td><strong>NCT06735040</strong>: interventional study in HT patients on LT4; registry search reported <strong>60 participants</strong>; outcomes over about <strong>3 months</strong> included <strong>depression, anxiety, and fatigue</strong> measures, reflecting symptom-focused adjunctive management (NCT06735040 chunk 2)</td>
+<td>NCT: <strong>NCT06735040</strong>; MAXO: <strong>photobiomodulation therapy</strong></td>
+<td>ClinicalTrials.gov, NCT06735040</td>
+</tr>
+<tr>
+<td>Visual / reference resource</td>
+<td>Mechanistic figure</td>
+<td>Figure 8 from the 2024 spatial transcriptomics study provides a concise mechanistic map of HT: damaged CD74-high TFCs, CD74/MIF loop, inflammatory fibroblasts, endothelial remodeling, and immune infiltration (martinezhernandez2024unravelingthemolecular media c4e4de12, martinezhernandez2024unravelingthemolecular media b04d5261)</td>
+<td>Evidence figure linkable in KB; GO/CL mapping support</td>
+<td>Martínez-Hernández 2024, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">DOI: 10.1038/s41467-024-50192-5</a></td>
 </tr>
 </tbody>
 </table></div></details>
-<p><em>Table: A concise mapping table of genes, cell types, pathways, anatomical terms and chemicals relevant to Hashimoto's thyroiditis with standardized IDs and evidence links from spatial and transcriptomic studies (context citations).</em></p>
-<h2>Gene/protein annotations with ontology terms</h2>
+<p><em>Table: This table summarizes high-yield disease-characteristic facts for a Hashimoto’s thyroiditis knowledge-base entry, emphasizing 2023–2024 evidence, ontology suggestions, quantitative findings, and trial identifiers.</em></p>
+<hr />
+<h2>URLs, publication dates, and authority notes (key 2024 sources used)</h2>
 <ul>
-<li>TG (<a href="https://bioregistry.io/HGNC:11764" target="_blank" rel="noopener noreferrer">HGNC:11764</a>) – autoantigen; processes: antigenicity, thyroid hormone precursor; components: colloid/lumen; evidence: OpenTargets genetics (URL: <a href="https://platform.opentargets.org" target="_blank" rel="noopener noreferrer">https://platform.opentargets.org</a>, accessed 2025) (OpenTargets Search: Hashimoto's thyroiditis).</li>
-<li>TPO (<a href="https://bioregistry.io/HGNC:12014" target="_blank" rel="noopener noreferrer">HGNC:12014</a>) – autoantigen; processes: thyroid hormone biosynthesis; components: apical membrane; evidence: bulk downregulation in HT with loss of biosynthetic program (<a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">doi:10.48188/so.6.9</a>; 2025) (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>).</li>
-<li>HLA-DRA (<a href="https://bioregistry.io/HGNC:4947" target="_blank" rel="noopener noreferrer">HGNC:4947</a>) – MHC-II; processes: antigen presentation; components: MHC-II complex; evidence: thyrocyte antigen-presentation machinery in AITD (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>; 2024) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-<li>CTLA4 (<a href="https://bioregistry.io/HGNC:2505" target="_blank" rel="noopener noreferrer">HGNC:2505</a>) – negative regulator of T cell activation; processes: T cell anergy; evidence: association with HT (OpenTargets) (OpenTargets Search: Hashimoto's thyroiditis).</li>
-<li>PTPN22 (<a href="https://bioregistry.io/HGNC:9656" target="_blank" rel="noopener noreferrer">HGNC:9656</a>), BACH2 (<a href="https://bioregistry.io/HGNC:935" target="_blank" rel="noopener noreferrer">HGNC:935</a>), GLIS3 (<a href="https://bioregistry.io/HGNC:18128" target="_blank" rel="noopener noreferrer">HGNC:18128</a>), IFIH1 (<a href="https://bioregistry.io/HGNC:18873" target="_blank" rel="noopener noreferrer">HGNC:18873</a>), IRF4 (<a href="https://bioregistry.io/HGNC:6118" target="_blank" rel="noopener noreferrer">HGNC:6118</a>), SH2B3 (<a href="https://bioregistry.io/HGNC:30406" target="_blank" rel="noopener noreferrer">HGNC:30406</a>), FAS (<a href="https://bioregistry.io/HGNC:11920" target="_blank" rel="noopener noreferrer">HGNC:11920</a>) – immune regulation, innate sensing/IFN pathways, apoptosis; evidence: genetics and mechanistic plausibility in HT (OpenTargets 2025; bulk transcriptomics 2025) (OpenTargets Search: Hashimoto's thyroiditis, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>).</li>
-<li>CD74 (<a href="https://bioregistry.io/HGNC:1709" target="_blank" rel="noopener noreferrer">HGNC:1709</a>), MIF (<a href="https://bioregistry.io/HGNC:7097" target="_blank" rel="noopener noreferrer">HGNC:7097</a>) – thyrocyte antigen-presentation cofactor and ligand; processes: MHC-II trafficking and MIF-CD74 signaling; evidence: spatial upregulation in thyrocytes and cell–cell interactions (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>; 2024) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
+<li>Martínez-Hernández et al., <strong>Nature Communications</strong>, <strong>July 2024</strong>. Spatial transcriptomics of AITD at tissue resolution. <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50192-5</a> (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-1-2">martinezhernandez2024unravelingthemolecular pages 1-2</a>)</li>
+<li>Saevarsdottir et al., <strong>Nature Communications</strong>, <strong>July 2024</strong>. AITD GWAS meta-analysis + functional multiomics; LAG3 variant. <a href="https://doi.org/10.1038/s41467-024-50007-7" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50007-7</a> (<a href="#ref-saevarsdottir2024startcodonvariant-pages-7-8">saevarsdottir2024startcodonvariant pages 7-8</a>)</li>
+<li>Huwiler et al., <strong>Thyroid</strong>, <strong>March 2024</strong>. Selenium systematic review/meta-analysis. <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">https://doi.org/10.1089/thy.2023.0556</a> (<a href="#ref-huwiler2024seleniumsupplementationin-pages-1-2">huwiler2024seleniumsupplementationin pages 1-2</a>)</li>
+<li>Larsen et al., <strong>European Thyroid Journal</strong>, <strong>January 2024</strong>. Selenium RCT (CATALYST) in autoimmune thyroiditis on LT4. <a href="https://doi.org/10.1530/etj-23-0175" target="_blank" rel="noopener noreferrer">https://doi.org/10.1530/etj-23-0175</a> (<a href="#ref-larsen2024seleniumsupplementationand-pages-1-2">larsen2024seleniumsupplementationand pages 1-2</a>)</li>
+<li>Durá-Travé &amp; Gallinas-Victoriano, <strong>International Journal of Molecular Sciences</strong>, <strong>March 2024</strong>. Vitamin D and autoimmune thyroiditis. <a href="https://doi.org/10.3390/ijms25063154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25063154</a> (<a href="#ref-duratrave2024autoimmunethyroiditisand-pages-1-2">duratrave2024autoimmunethyroiditisand pages 1-2</a>)</li>
+<li>Kolanu et al., <strong>Cureus</strong>, <strong>February 2024</strong>. Diagnostic challenges and emerging AI. <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.54393</a> (<a href="#ref-kolanu2024fromantibodiesto-pages-2-3">kolanu2024fromantibodiesto pages 2-3</a>)</li>
+<li>ClinicalTrials.gov entries: NCT05871957; NCT01760421; NCT05949671; NCT06735040. (NCT05871957 chunk 1, NCT01760421 chunk 1, NCT05949671 chunk 2, NCT06735040 chunk 2)</li>
 </ul>
-<h2>Phenotype associations (HP terms)</h2>
-<ul>
-<li>Hypothyroidism (<a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" rel="noopener noreferrer">HP:0000821</a>), Goiter (<a href="http://purl.obolibrary.org/obo/HP_0000853" target="_blank" rel="noopener noreferrer">HP:0000853</a>), Thyroiditis (<a href="http://purl.obolibrary.org/obo/HP_0000834" target="_blank" rel="noopener noreferrer">HP:0000834</a>), Positive anti-thyroid peroxidase antibody (<a href="http://purl.obolibrary.org/obo/HP_0030057" target="_blank" rel="noopener noreferrer">HP:0030057</a>), Positive anti-thyroglobulin antibody (<a href="http://purl.obolibrary.org/obo/HP_0030058" target="_blank" rel="noopener noreferrer">HP:0030058</a>), Fatigue (<a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a>), Cold intolerance (<a href="http://purl.obolibrary.org/obo/HP_0002045" target="_blank" rel="noopener noreferrer">HP:0002045</a>). Mechanistic correspondence: antibody-mediated and cytotoxic follicular injury with interferon/NF-κB signatures and fibrosis (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-</ul>
-<h2>Cell type involvement (CL terms)</h2>
-<ul>
-<li>Thyrocyte (<a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" rel="noopener noreferrer">CL:0002328</a>), B cell (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>), Plasma cell (<a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a>), T helper and Tfh (<a href="http://purl.obolibrary.org/obo/CL_0000911" target="_blank" rel="noopener noreferrer">CL:0000911</a>; <a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" rel="noopener noreferrer">CL:0002038</a>), Dendritic cell (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>), Macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), Fibroblast (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>), Endothelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>), FDC (<a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" rel="noopener noreferrer">CL:0000842</a>), with spatial localization of ectopic GCs and HEV-like vessels (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-</ul>
-<h2>Anatomical locations (UBERON terms)</h2>
-<ul>
-<li>Thyroid gland (<a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" rel="noopener noreferrer">UBERON:0002046</a>); Germinal center (<a href="http://purl.obolibrary.org/obo/UBERON_0002358" target="_blank" rel="noopener noreferrer">UBERON:0002358</a>) within intrathyroidal TLS; High endothelial venule (<a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a>); Extracellular matrix (<a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" rel="noopener noreferrer">GO:0031012</a>) deposition sites in fibrotic thyroid (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>).</li>
-</ul>
-<h2>Chemical entities (CHEBI terms)</h2>
-<ul>
-<li>Iodide (<a href="http://purl.obolibrary.org/obo/CHEBI_24859" target="_blank" rel="noopener noreferrer">CHEBI:24859</a>), IFN-γ (<a href="http://purl.obolibrary.org/obo/CHEBI_51275" target="_blank" rel="noopener noreferrer">CHEBI:51275</a>), TNF-α (<a href="http://purl.obolibrary.org/obo/CHEBI_52299" target="_blank" rel="noopener noreferrer">CHEBI:52299</a>) as upstream mediators of epithelial stress and antigen presentation (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-</ul>
-<h2>Current applications and real-world implementations</h2>
-<ul>
-<li>Diagnosis and monitoring: serologic assays for TPOAb/TgAb reflect intrathyroidal GC activity; ultrasound for echogenicity/fibrosis; recognition that interferon-rich destructive thyroiditis often follows a phase of transient thyrotoxicosis (<a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-7-8">mao2025immunecheckpointinhibitorinduced pages 7-8</a>).</li>
-<li>Management: levothyroxine replacement for hypothyroidism remains standard; insights from ICI-induced thyroiditis emphasize screening for thyroid autoantibodies to stratify irAE risk and close hormone monitoring during checkpoint blockade; mechanistic links to B cells support exploration of B-cell–modulating strategies in selected contexts (<a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">doi:10.3389/fendo.2025.1584675</a>; 2025) (<a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-7-8">mao2025immunecheckpointinhibitorinduced pages 7-8</a>).</li>
-<li>Research tools in practice: spatial transcriptomics and single-cell deconvolution identify thyrocyte CD74/HLA induction, ectopic GC architecture, and stromal/endothelial niches as candidate biomarkers and therapeutic targets (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>; 2024) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-</ul>
-<h2>Expert opinions and analysis (authoritative sources)</h2>
-<ul>
-<li>Spatial multi-omics perspective (Nature Communications, 2024): authors conclude that “thyroid epithelial cell subpopulations [are] potentially involved in pathogenesis,” with CD74/MIF and interferon–TNF axes integrating epithelial damage and local immune organization; this supports targeting stromal-immune–epithelial cross-talk in HT (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>; July 2024) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-<li>Clinical immuno-oncology perspective (Frontiers in Endocrinology, 2025): ICI-thyroiditis mechanisms “establish mechanistic connections between ICI pharmacodynamics and thyroid tissue immunopathology,” reinforcing Th1/Th17 bias, B cell involvement, and genetic predisposition as drivers of destructive thyroiditis and hypothyroidism (<a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">doi:10.3389/fendo.2025.1584675</a>; June 2025) (<a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-7-8">mao2025immunecheckpointinhibitorinduced pages 7-8</a>).</li>
-<li>Systems transcriptomics perspective (ST-OPEN, 2025): local expansion of cellular/humoral/innate immunity with dominant cell death and reciprocal loss of epithelial/endothelial identity; broad metabolic and ECM remodeling capture chronicity and fibrosis in HT (<a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">doi:10.48188/so.6.9</a>; Oct 2025) (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-17-18">cikotic2025transcriptomeanalysisof pages 17-18</a>).</li>
-</ul>
-<h2>Relevant statistics and data from recent studies</h2>
-<ul>
-<li>Spatial transcriptomics in AITD delineated GC regions enriched for FDC markers FDCSP and TCL1A, with proliferative/GC B cells and TCD4/Tfh localized to these domains, and plasmablasts disseminating into thyrocyte territories, providing in situ evidence for local antibody maturation and effector dissemination (<a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>; 2024) (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-<li>Bulk transcriptome of HT demonstrated concerted upregulation of antigen presentation, interferon/TNF signaling, complement, cytotoxicity and apoptosis signatures, alongside downregulation of thyroid biosynthetic genes (TG, TPO) and endothelial markers, and upregulation of ECM/fibrotic programs (<a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">doi:10.48188/so.6.9</a>; 2025) (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>).</li>
-<li>Genetics: OpenTargets aggregates multi-source evidence implicating TG (top disease–target score), CTLA4, PTPN22, BACH2, GLIS3, IFIH1, IRF4, SH2B3, and FAS in HT susceptibility and pathophysiology (Nucleic Acids Research, OpenTargets Platform; accessed 2025; URL: <a href="https://platform.opentargets.org" target="_blank" rel="noopener noreferrer">https://platform.opentargets.org</a>) (OpenTargets Search: Hashimoto's thyroiditis).</li>
-</ul>
-<h2>Evidence items (with PMIDs/DOIs/URLs)</h2>
-<ul>
-<li>Martínez-Hernández R, et al. Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution. Nature Communications. July 2024. <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>. URL: <a href="https://www.nature.com/articles/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://www.nature.com/articles/s41467-024-50192-5</a> (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>).</li>
-<li>Čikotić M, et al. Transcriptome analysis of thyroid tissue in patients with Hashimoto’s disease using next-generation sequencing: case–control study. ST-OPEN. Oct 2025. <a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">doi:10.48188/so.6.9</a>. URL: <a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">https://doi.org/10.48188/so.6.9</a> (<a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-17-18">cikotic2025transcriptomeanalysisof pages 17-18</a>).</li>
-<li>Mao X, et al. Immune checkpoint inhibitor-induced thyroiditis and its potential mechanisms. Frontiers in Endocrinology. June 2025. <a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">doi:10.3389/fendo.2025.1584675</a>. URL: <a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fendo.2025.1584675</a> (<a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-7-8">mao2025immunecheckpointinhibitorinduced pages 7-8</a>).</li>
-<li>OpenTargets Platform: Hashimoto’s thyroiditis disease–target associations (TG, CTLA4, PTPN22, BACH2, GLIS3, IFIH1, IRF4, SH2B3, FAS). 2025. URL: <a href="https://platform.opentargets.org" target="_blank" rel="noopener noreferrer">https://platform.opentargets.org</a> (OpenTargets Search: Hashimoto's thyroiditis).</li>
-</ul>
-<h2>Final synthesis</h2>
-<p>HT pathophysiology emerges from a confluence of genetic risk alleles (TG, CTLA4, PTPN22 and others), interferon/TNF-driven induction of antigen presentation within thyrocytes (CD74/HLA), professional APC activation, and organization of ectopic GCs that sustain local B cell maturation and autoantibody production. Effector death pathways (cytotoxicity, complement, FAS) and persistent stromal/vascular remodeling drive chronic tissue destruction, fibrosis, and hypothyroidism. Spatial and bulk transcriptomic data from 2024–2025 localize these processes within the thyroid microenvironment, and clinical ICI-thyroiditis provides a mechanistic “stress test” that mirrors the natural disease trajectory. These insights nominate interferon and chemokine axes, thyrocyte antigen-presentation pathways (CD74/MIF), and stromal–vascular niches as plausible therapeutic targets and biomarkers in HT (<a href="#ref-martinezhernandez2024unravelingthemolecular-pages-12-13">martinezhernandez2024unravelingthemolecular pages 12-13</a>, <a href="#ref-martinezhernandez2024unravelingthemolecular-pages-9-12">martinezhernandez2024unravelingthemolecular pages 9-12</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-10-13">cikotic2025transcriptomeanalysisof pages 10-13</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-13-15">cikotic2025transcriptomeanalysisof pages 13-15</a>, <a href="#ref-cikotic2025transcriptomeanalysisof-pages-17-18">cikotic2025transcriptomeanalysisof pages 17-18</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-2-4">mao2025immunecheckpointinhibitorinduced pages 2-4</a>, <a href="#ref-mao2025immunecheckpointinhibitorinduced-pages-7-8">mao2025immunecheckpointinhibitorinduced pages 7-8</a>, OpenTargets Search: Hashimoto's thyroiditis).</p>
 <p>References</p>
 <ol>
 <li>
-<p><a id="ref-martinezhernandez2024unravelingthemolecular-pages-12-13"></a>(martinezhernandez2024unravelingthemolecular pages 12-13): Rebeca Martínez-Hernández, Nuria Sánchez de la Blanca, Pablo Sacristán-Gómez, Ana Serrano-Somavilla, José Luis Muñoz De Nova, Fátima Sánchez Cabo, Holger Heyn, Miguel Sampedro-Núñez, and Mónica Marazuela. Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution. Nature Communications, Jul 2024. URL: <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50192-5</a>, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>. This article has 13 citations and is from a highest quality peer-reviewed journal.</p>
+<p><a id="ref-huwiler2024seleniumsupplementationin-pages-1-2"></a>(huwiler2024seleniumsupplementationin pages 1-2): Valentina V. Huwiler, Stephanie Maissen-Abgottspon, Zeno Stanga, Stefan Mühlebach, Roman Trepp, Lia Bally, and Arjola Bano. Selenium supplementation in patients with hashimoto thyroiditis: a systematic review and meta-analysis of randomized clinical trials. Mar 2024. URL: <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">https://doi.org/10.1089/thy.2023.0556</a>, <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">doi:10.1089/thy.2023.0556</a>. This article has 132 citations.</p>
 </li>
 <li>
-<p><a id="ref-martinezhernandez2024unravelingthemolecular-pages-9-12"></a>(martinezhernandez2024unravelingthemolecular pages 9-12): Rebeca Martínez-Hernández, Nuria Sánchez de la Blanca, Pablo Sacristán-Gómez, Ana Serrano-Somavilla, José Luis Muñoz De Nova, Fátima Sánchez Cabo, Holger Heyn, Miguel Sampedro-Núñez, and Mónica Marazuela. Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution. Nature Communications, Jul 2024. URL: <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50192-5</a>, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>. This article has 13 citations and is from a highest quality peer-reviewed journal.</p>
+<p><a id="ref-kolanu2024fromantibodiesto-pages-2-3"></a>(kolanu2024fromantibodiesto pages 2-3): Nikhil Deep Kolanu, Naimel Ansar Awan, Ayesha Imran Butt, Taufiqa Reza, Mohammed Khaleel I.KH. Almadhoun, Taher Janoowala, Syed Faqeer Hussain Bokhari, Zukhruf Zain, Tanzila Sharif, Lokesh Chauhan, and Jinal Choudhari. From antibodies to artificial intelligence: a comprehensive review of diagnostic challenges in hashimoto’s thyroiditis. Cureus, Feb 2024. URL: <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.54393</a>, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">doi:10.7759/cureus.54393</a>. This article has 19 citations.</p>
 </li>
 <li>
-<p><a id="ref-cikotic2025transcriptomeanalysisof-pages-10-13"></a>(cikotic2025transcriptomeanalysisof pages 10-13): Marija Čikotić, Marieta Bujak, Silvija Piškorjanac, and Mario Štefanić. Transcriptome analysis of thyroid tissue in patients with hashimoto’s disease using next-generation sequencing: case–control study. ST-OPEN, 6:1-19, Oct 2025. URL: <a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">https://doi.org/10.48188/so.6.9</a>, <a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">doi:10.48188/so.6.9</a>. This article has 0 citations.</p>
+<p><a id="ref-saevarsdottir2024startcodonvariant-pages-7-8"></a>(saevarsdottir2024startcodonvariant pages 7-8): Saedis Saevarsdottir, Kristbjörg Bjarnadottir, Thorsteinn Markusson, Jonas Berglund, Thorunn A. Olafsdottir, Gisli H. Halldorsson, Gudrun Rutsdottir, Kristbjorg Gunnarsdottir, Asgeir Orn Arnthorsson, Sigrun H. Lund, Lilja Stefansdottir, Julius Gudmundsson, Ari J. Johannesson, Arni Sturluson, Asmundur Oddsson, Bjarni Halldorsson, Björn R. Ludviksson, Egil Ferkingstad, Erna V. Ivarsdottir, Gardar Sveinbjornsson, Gerdur Grondal, Gisli Masson, Grimur Hjorleifsson Eldjarn, Gudmundur A. Thorisson, Katla Kristjansdottir, Kirk U. Knowlton, Kristjan H. S. Moore, Sigurjon A. Gudjonsson, Solvi Rognvaldsson, Stacey Knight, Lincoln D. Nadauld, Hilma Holm, Olafur T. Magnusson, Patrick Sulem, Daniel F. Gudbjartsson, Thorunn Rafnar, Gudmar Thorleifsson, Pall Melsted, Gudmundur L. Norddahl, Ingileif Jonsdottir, and Kari Stefansson. Start codon variant in lag3 is associated with decreased lag-3 expression and increased risk of autoimmune thyroid disease. Nature Communications, Jul 2024. URL: <a href="https://doi.org/10.1038/s41467-024-50007-7" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50007-7</a>, <a href="https://doi.org/10.1038/s41467-024-50007-7" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50007-7</a>. This article has 14 citations and is from a highest quality peer-reviewed journal.</p>
 </li>
 <li>
-<p><a id="ref-cikotic2025transcriptomeanalysisof-pages-13-15"></a>(cikotic2025transcriptomeanalysisof pages 13-15): Marija Čikotić, Marieta Bujak, Silvija Piškorjanac, and Mario Štefanić. Transcriptome analysis of thyroid tissue in patients with hashimoto’s disease using next-generation sequencing: case–control study. ST-OPEN, 6:1-19, Oct 2025. URL: <a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">https://doi.org/10.48188/so.6.9</a>, <a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">doi:10.48188/so.6.9</a>. This article has 0 citations.</p>
+<p><a id="ref-martinezhernandez2024unravelingthemolecular-pages-1-2"></a>(martinezhernandez2024unravelingthemolecular pages 1-2): Rebeca Martínez-Hernández, Nuria Sánchez de la Blanca, Pablo Sacristán-Gómez, Ana Serrano-Somavilla, José Luis Muñoz De Nova, Fátima Sánchez Cabo, Holger Heyn, Miguel Sampedro-Núñez, and Mónica Marazuela. Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution. Nature Communications, Jul 2024. URL: <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50192-5</a>, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>. This article has 35 citations and is from a highest quality peer-reviewed journal.</p>
 </li>
 <li>
-<p><a id="ref-cikotic2025transcriptomeanalysisof-pages-17-18"></a>(cikotic2025transcriptomeanalysisof pages 17-18): Marija Čikotić, Marieta Bujak, Silvija Piškorjanac, and Mario Štefanić. Transcriptome analysis of thyroid tissue in patients with hashimoto’s disease using next-generation sequencing: case–control study. ST-OPEN, 6:1-19, Oct 2025. URL: <a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">https://doi.org/10.48188/so.6.9</a>, <a href="https://doi.org/10.48188/so.6.9" target="_blank" rel="noopener noreferrer">doi:10.48188/so.6.9</a>. This article has 0 citations.</p>
+<p><a id="ref-martinezhernandez2024unravelingthemolecular-pages-9-12"></a>(martinezhernandez2024unravelingthemolecular pages 9-12): Rebeca Martínez-Hernández, Nuria Sánchez de la Blanca, Pablo Sacristán-Gómez, Ana Serrano-Somavilla, José Luis Muñoz De Nova, Fátima Sánchez Cabo, Holger Heyn, Miguel Sampedro-Núñez, and Mónica Marazuela. Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution. Nature Communications, Jul 2024. URL: <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50192-5</a>, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>. This article has 35 citations and is from a highest quality peer-reviewed journal.</p>
 </li>
 <li>
-<p><a id="ref-mao2025immunecheckpointinhibitorinduced-pages-2-4"></a>(mao2025immunecheckpointinhibitorinduced pages 2-4): Xueqian Mao, Chaoming Mao, Jiameng Liu, Xi Wang, and Yufei Mao. Immune checkpoint inhibitor-induced thyroiditis and its potential mechanisms. Frontiers in Endocrinology, Jun 2025. URL: <a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fendo.2025.1584675</a>, <a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">doi:10.3389/fendo.2025.1584675</a>. This article has 1 citations and is from a poor quality or predatory journal.</p>
+<p><a id="ref-martinezhernandez2024unravelingthemolecular-pages-13-14"></a>(martinezhernandez2024unravelingthemolecular pages 13-14): Rebeca Martínez-Hernández, Nuria Sánchez de la Blanca, Pablo Sacristán-Gómez, Ana Serrano-Somavilla, José Luis Muñoz De Nova, Fátima Sánchez Cabo, Holger Heyn, Miguel Sampedro-Núñez, and Mónica Marazuela. Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution. Nature Communications, Jul 2024. URL: <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50192-5</a>, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>. This article has 35 citations and is from a highest quality peer-reviewed journal.</p>
 </li>
 <li>
-<p><a id="ref-mao2025immunecheckpointinhibitorinduced-pages-7-8"></a>(mao2025immunecheckpointinhibitorinduced pages 7-8): Xueqian Mao, Chaoming Mao, Jiameng Liu, Xi Wang, and Yufei Mao. Immune checkpoint inhibitor-induced thyroiditis and its potential mechanisms. Frontiers in Endocrinology, Jun 2025. URL: <a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fendo.2025.1584675</a>, <a href="https://doi.org/10.3389/fendo.2025.1584675" target="_blank" rel="noopener noreferrer">doi:10.3389/fendo.2025.1584675</a>. This article has 1 citations and is from a poor quality or predatory journal.</p>
+<p><a id="ref-kolanu2024fromantibodiesto-pages-1-2"></a>(kolanu2024fromantibodiesto pages 1-2): Nikhil Deep Kolanu, Naimel Ansar Awan, Ayesha Imran Butt, Taufiqa Reza, Mohammed Khaleel I.KH. Almadhoun, Taher Janoowala, Syed Faqeer Hussain Bokhari, Zukhruf Zain, Tanzila Sharif, Lokesh Chauhan, and Jinal Choudhari. From antibodies to artificial intelligence: a comprehensive review of diagnostic challenges in hashimoto’s thyroiditis. Cureus, Feb 2024. URL: <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.54393</a>, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">doi:10.7759/cureus.54393</a>. This article has 19 citations.</p>
 </li>
 <li>
-<p><a id="ref-opentargets-search-hashimoto-s-thyroiditis"></a>(OpenTargets Search: Hashimoto's thyroiditis): Open Targets Query (Hashimoto's thyroiditis, 10 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+<p><a id="ref-nct05871957-chunk-1"></a>(NCT05871957 chunk 1):  Adjuvant Therapeutic Effect of Vitamin D on Hashimoto's Thyroiditis. Qianfoshan Hospital. 2023. ClinicalTrials.gov Identifier: NCT05871957</p>
+</li>
+<li>
+<p><a id="ref-duratrave2024autoimmunethyroiditisand-pages-1-2"></a>(duratrave2024autoimmunethyroiditisand pages 1-2): Teodoro Durá-Travé and Fidel Gallinas-Victoriano. Autoimmune thyroiditis and vitamin d. International Journal of Molecular Sciences, 25:3154, Mar 2024. URL: <a href="https://doi.org/10.3390/ijms25063154" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms25063154</a>, <a href="https://doi.org/10.3390/ijms25063154" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms25063154</a>. This article has 78 citations.</p>
+</li>
+<li>
+<p><a id="ref-huang2024traditionalchinesemedicine-pages-4-5"></a>(huang2024traditionalchinesemedicine pages 4-5): Sheng Huang, Panos G. Ziros, Dionysios V. Chartoumpekis, Georgios Psarias, Leonidas Duntas, Xinhe Zuo, Xinyi Li, Zhiguo Ding, and Gerasimos P. Sykiotis. Traditional chinese medicine for hashimoto’s thyroiditis: focus on selenium and antioxidant phytochemicals. Antioxidants, 13:868, Jul 2024. URL: <a href="https://doi.org/10.3390/antiox13070868" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/antiox13070868</a>, <a href="https://doi.org/10.3390/antiox13070868" target="_blank" rel="noopener noreferrer">doi:10.3390/antiox13070868</a>. This article has 14 citations.</p>
+</li>
+<li>
+<p><a id="ref-martinezhernandez2024unravelingthemolecular-pages-12-13"></a>(martinezhernandez2024unravelingthemolecular pages 12-13): Rebeca Martínez-Hernández, Nuria Sánchez de la Blanca, Pablo Sacristán-Gómez, Ana Serrano-Somavilla, José Luis Muñoz De Nova, Fátima Sánchez Cabo, Holger Heyn, Miguel Sampedro-Núñez, and Mónica Marazuela. Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution. Nature Communications, Jul 2024. URL: <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50192-5</a>, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>. This article has 35 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-martinezhernandez2024unravelingthemolecular-media-c4e4de12"></a>(martinezhernandez2024unravelingthemolecular media c4e4de12): Rebeca Martínez-Hernández, Nuria Sánchez de la Blanca, Pablo Sacristán-Gómez, Ana Serrano-Somavilla, José Luis Muñoz De Nova, Fátima Sánchez Cabo, Holger Heyn, Miguel Sampedro-Núñez, and Mónica Marazuela. Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution. Nature Communications, Jul 2024. URL: <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50192-5</a>, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>. This article has 35 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-martinezhernandez2024unravelingthemolecular-media-b04d5261"></a>(martinezhernandez2024unravelingthemolecular media b04d5261): Rebeca Martínez-Hernández, Nuria Sánchez de la Blanca, Pablo Sacristán-Gómez, Ana Serrano-Somavilla, José Luis Muñoz De Nova, Fátima Sánchez Cabo, Holger Heyn, Miguel Sampedro-Núñez, and Mónica Marazuela. Unraveling the molecular architecture of autoimmune thyroid diseases at spatial resolution. Nature Communications, Jul 2024. URL: <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41467-024-50192-5</a>, <a href="https://doi.org/10.1038/s41467-024-50192-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41467-024-50192-5</a>. This article has 35 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-kolanu2024fromantibodiesto-pages-5-6"></a>(kolanu2024fromantibodiesto pages 5-6): Nikhil Deep Kolanu, Naimel Ansar Awan, Ayesha Imran Butt, Taufiqa Reza, Mohammed Khaleel I.KH. Almadhoun, Taher Janoowala, Syed Faqeer Hussain Bokhari, Zukhruf Zain, Tanzila Sharif, Lokesh Chauhan, and Jinal Choudhari. From antibodies to artificial intelligence: a comprehensive review of diagnostic challenges in hashimoto’s thyroiditis. Cureus, Feb 2024. URL: <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">https://doi.org/10.7759/cureus.54393</a>, <a href="https://doi.org/10.7759/cureus.54393" target="_blank" rel="noopener noreferrer">doi:10.7759/cureus.54393</a>. This article has 19 citations.</p>
+</li>
+<li>
+<p><a id="ref-larsen2024seleniumsupplementationand-pages-1-2"></a>(larsen2024seleniumsupplementationand pages 1-2): Camilla Bøgelund Larsen, Kristian Hillert Winther, Per Karkov Cramon, Åse Krogh Rasmussen, Ulla Feldt-Rasmussen, Nils Jakob Knudsen, Jakob Bue Bjorner, Lutz Schomburg, Kamil Demircan, Thilo Samson Chillon, Jeppe Gram, Stinus Gadegaard Hansen, Frans Brandt, Birte Nygaard, Torquil Watt, Laszlo Hegedüs, and Steen Joop Bonnema. Selenium supplementation and placebo are equally effective in improving quality of life in patients with hypothyroidism. European Thyroid Journal, Jan 2024. URL: <a href="https://doi.org/10.1530/etj-23-0175" target="_blank" rel="noopener noreferrer">https://doi.org/10.1530/etj-23-0175</a>, <a href="https://doi.org/10.1530/etj-23-0175" target="_blank" rel="noopener noreferrer">doi:10.1530/etj-23-0175</a>. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct01760421-chunk-1"></a>(NCT01760421 chunk 1):  The Effect of Hydroxychloroquine Treatment in Hashimoto's Thyroiditis. National Taiwan University Hospital. 2011. ClinicalTrials.gov Identifier: NCT01760421</p>
+</li>
+<li>
+<p><a id="ref-nct05949671-chunk-2"></a>(NCT05949671 chunk 2):  Evaluation of the Effect of Gluten-Free Diet and Mediterranean Diet. Acibadem University. 2021. ClinicalTrials.gov Identifier: NCT05949671</p>
+</li>
+<li>
+<p><a id="ref-nct06735040-chunk-2"></a>(NCT06735040 chunk 2): Sümeyye TUNÇ. Effect of Photobiomodulation Therapy in Patients With Hashimoto's Thyroiditis. Istanbul Medipol University Hospital. 2021. ClinicalTrials.gov Identifier: NCT06735040</p>
+</li>
+<li>
+<p><a id="ref-huwiler2024seleniumsupplementationin-pages-8-9"></a>(huwiler2024seleniumsupplementationin pages 8-9): Valentina V. Huwiler, Stephanie Maissen-Abgottspon, Zeno Stanga, Stefan Mühlebach, Roman Trepp, Lia Bally, and Arjola Bano. Selenium supplementation in patients with hashimoto thyroiditis: a systematic review and meta-analysis of randomized clinical trials. Mar 2024. URL: <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">https://doi.org/10.1089/thy.2023.0556</a>, <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">doi:10.1089/thy.2023.0556</a>. This article has 132 citations.</p>
+</li>
+<li>
+<p><a id="ref-huwiler2024seleniumsupplementationin-pages-11-12"></a>(huwiler2024seleniumsupplementationin pages 11-12): Valentina V. Huwiler, Stephanie Maissen-Abgottspon, Zeno Stanga, Stefan Mühlebach, Roman Trepp, Lia Bally, and Arjola Bano. Selenium supplementation in patients with hashimoto thyroiditis: a systematic review and meta-analysis of randomized clinical trials. Mar 2024. URL: <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">https://doi.org/10.1089/thy.2023.0556</a>, <a href="https://doi.org/10.1089/thy.2023.0556" target="_blank" rel="noopener noreferrer">doi:10.1089/thy.2023.0556</a>. This article has 132 citations.</p>
+</li>
+<li>
+<p><a id="ref-larsen2024seleniumsupplementationand-pages-6-8"></a>(larsen2024seleniumsupplementationand pages 6-8): Camilla Bøgelund Larsen, Kristian Hillert Winther, Per Karkov Cramon, Åse Krogh Rasmussen, Ulla Feldt-Rasmussen, Nils Jakob Knudsen, Jakob Bue Bjorner, Lutz Schomburg, Kamil Demircan, Thilo Samson Chillon, Jeppe Gram, Stinus Gadegaard Hansen, Frans Brandt, Birte Nygaard, Torquil Watt, Laszlo Hegedüs, and Steen Joop Bonnema. Selenium supplementation and placebo are equally effective in improving quality of life in patients with hypothyroidism. European Thyroid Journal, Jan 2024. URL: <a href="https://doi.org/10.1530/etj-23-0175" target="_blank" rel="noopener noreferrer">https://doi.org/10.1530/etj-23-0175</a>, <a href="https://doi.org/10.1530/etj-23-0175" target="_blank" rel="noopener noreferrer">doi:10.1530/etj-23-0175</a>. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-larsen2024seleniumsupplementationand-pages-8-10"></a>(larsen2024seleniumsupplementationand pages 8-10): Camilla Bøgelund Larsen, Kristian Hillert Winther, Per Karkov Cramon, Åse Krogh Rasmussen, Ulla Feldt-Rasmussen, Nils Jakob Knudsen, Jakob Bue Bjorner, Lutz Schomburg, Kamil Demircan, Thilo Samson Chillon, Jeppe Gram, Stinus Gadegaard Hansen, Frans Brandt, Birte Nygaard, Torquil Watt, Laszlo Hegedüs, and Steen Joop Bonnema. Selenium supplementation and placebo are equally effective in improving quality of life in patients with hypothyroidism. European Thyroid Journal, Jan 2024. URL: <a href="https://doi.org/10.1530/etj-23-0175" target="_blank" rel="noopener noreferrer">https://doi.org/10.1530/etj-23-0175</a>, <a href="https://doi.org/10.1530/etj-23-0175" target="_blank" rel="noopener noreferrer">doi:10.1530/etj-23-0175</a>. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct05871957-chunk-2"></a>(NCT05871957 chunk 2):  Adjuvant Therapeutic Effect of Vitamin D on Hashimoto's Thyroiditis. Qianfoshan Hospital. 2023. ClinicalTrials.gov Identifier: NCT05871957</p>
 </li>
 </ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Hashimotos_Thyroiditis-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a>
+<img alt="## Context ID: pqac-00000025 Figure 8 provides a comprehensive schematic model of the cellular compartments and mechanisms involved in the pathogenesis of autoi" src="../../research/Hashimotos_Thyroiditis-deep-research-falcon_artifacts/image-1.png" /></li>
+</ul>
             </article>
 
             <nav class="report-nav" aria-label="Report navigation">

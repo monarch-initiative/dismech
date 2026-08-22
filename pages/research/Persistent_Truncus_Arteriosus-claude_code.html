@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persistent Truncus Arteriosus · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Persistent Truncus Arteriosus</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Persistent Truncus Arteriosus</h1>
+                
+                <p class="report-subtitle">Persistent Truncus Arteriosus (PTA) — Comprehensive Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-08-09</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0018072" target="_blank" rel="noopener noreferrer">MONDO:0018072</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">37 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Persistent Truncus Arteriosus (PTA) — Comprehensive Disease Characteristics Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview:</strong> Persistent truncus arteriosus (PTA), also called truncus arteriosus communis or common arterial trunk, is a rare, cyanotic conotruncal congenital heart defect present at birth in which the embryonic truncus arteriosus fails to septate into a separate aorta and pulmonary trunk. As a result, a <strong>single arterial trunk arising from the heart via a single (truncal) semilunar valve</strong> overrides a ventricular septal defect (VSD) and gives origin to the coronary arteries, one or more pulmonary arteries, and the systemic circulation, producing obligatory mixing of oxygenated and deoxygenated blood (Wikipedia; NORD; StatPearls, PMID not applicable — review source).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> 217095 (Conotruncal Heart Malformations, CTHM) — PTA is nosologically grouped under this entry along with tetralogy of Fallot, DORV, and interrupted aortic arch, reflecting a shared developmental field defect (<a href="https://omim.org/entry/217095" target="_blank" rel="noopener noreferrer">https://omim.org/entry/217095</a>)
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:3384" target="_blank" rel="noopener noreferrer">ORPHA:3384</a> (Common arterial trunk) (<a href="https://www.orpha.net/en/disease/detail/3384" target="_blank" rel="noopener noreferrer">https://www.orpha.net/en/disease/detail/3384</a>)
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0018072" target="_blank" rel="noopener noreferrer">MONDO:0018072</a>
+- <strong>ICD-10-CM:</strong> Q20.0 (Common arterial trunk)
+- <strong>MeSH:</strong> Truncus Arteriosus, Persistent
+- <strong>Related DiGeorge/22q11.2 deletion syndrome OMIM:</strong> 188400</p>
+<p><strong>Synonyms:</strong> Truncus arteriosus communis; common arterial trunk (CAT); persistent truncus arteriosus; truncus arteriosus (colloquial). Historically classified using the <strong>Collett and Edwards</strong> system (Types I–IV, based on pulmonary artery origin from the truncal root) and the <strong>Van Praagh</strong> system (Types A1–A4, which additionally incorporates VSD and aortic arch anomalies) — per StatPearls (NBK534774), Type A1/Type I (main pulmonary trunk arising from the left posterolateral truncal root, with a partially formed aorticopulmonary septum) is the most common, representing roughly half of cases; Type A2 (~21%) has separate, adjacent origins of the branch pulmonary arteries with an absent septum.</p>
+<p><strong>Evidence basis:</strong> Information is derived primarily from aggregated disease-level resources — clinical case series, single- and multi-center surgical outcome cohorts, autopsy/pathology series, and population-based birth-defect/epidemiological registries — rather than from a single large individual-patient EHR resource, reflecting the rarity of the condition.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors</h3>
+<p>PTA arises from <strong>failure of aorticopulmonary (conotruncal) septation</strong> during cardiac outflow tract (OFT) morphogenesis — i.e., failure of the conotruncal ridges/aorticopulmonary septum to form and divide the common trunk into aorta and pulmonary trunk (StatPearls NBK534774; ScienceDirect topic overview). It is fundamentally a <strong>defect of the cardiac neural crest (CNC)–second heart field developmental unit</strong>, with contributing genetic (chromosomal, monogenic) and environmental/teratogenic causes (see Mechanism section for the causal chain).</p>
+<h3>Genetic Risk Factors</h3>
+<ul>
+<li><strong>22q11.2 deletion syndrome (DiGeorge/velocardiofacial syndrome, OMIM 188400)</strong> is the single most important genetic association, identified in <strong>~12–35%</strong> of PTA cases across series, with several series citing ~25% (StatPearls; <a href="https://pubmed.ncbi.nlm.nih.gov/9316541/" target="_blank" rel="noopener noreferrer">PMID:9316541</a> "Truncus arteriosus communis associated with chromosome 22q11 deletion"). Congenital heart disease occurs in ~76% of 22q11.2-deletion patients overall, and conotruncal anomalies (TOF, interrupted aortic arch, PTA) predominate. TBX1 haploinsufficiency within the deleted region is considered the major driver of the cardiac outflow phenotype.</li>
+<li><strong>TMEM260</strong> — Recently identified (2024) as a major non-22q11.2 genetic cause, particularly in East Asian (Japanese/Korean) populations. Biallelic loss-of-function TMEM260 variants (notably a founder variant, c.1617del, allele frequency ~0.36% in Japan) cause <strong>Structural Heart Defects and Renal Anomalies syndrome (SHDRA)</strong>, and TMEM260 variants may account for over half of Japanese TA cases lacking a 22q11.2 deletion (<a href="https://pubmed.ncbi.nlm.nih.gov/38351237/" target="_blank" rel="noopener noreferrer">PMID:38351237</a>, "Genetic etiology of truncus arteriosus excluding 22q11.2 deletion syndrome and identification of c.1617del, a prevalent variant in TMEM260, in the Japanese population"; correction <a href="https://pubmed.ncbi.nlm.nih.gov/38548934/" target="_blank" rel="noopener noreferrer">PMID:38548934</a>; companion paper PMC11043032).</li>
+<li><strong>NKX2-6 (OMIM *611770)</strong> — Homozygous/biallelic homeodomain-disrupting variants (e.g., F151L) identified via autozygosity mapping in consanguineous families with common arterial trunk (<a href="https://pubmed.ncbi.nlm.nih.gov/15649947/" target="_blank" rel="noopener noreferrer">PMID:15649947</a>, Heathcote et al., <em>Hum Mol Genet</em> 2005; also <a href="https://pubmed.ncbi.nlm.nih.gov/32198970/" target="_blank" rel="noopener noreferrer">PMID:32198970</a>/Ritter et al. 2020, biallelic NKX2-6 variants and truncus arteriosus).</li>
+<li><strong>NKX2-5 (OMIM 600584)</strong> — Variants reported in patients with PTA and interrupted aortic arch, reflecting a broader NKX2-5-associated conotruncal spectrum.</li>
+<li><strong>FOXC1/FOXC2</strong> — Conditional inactivation in neural-crest cells produces cardiac outflow abnormalities in mouse models, implicating this pathway in human conotruncal disease.</li>
+<li><strong>GATA6</strong> and other GATA-family transcription factors — implicated in conotruncal malformation spectrum.</li>
+<li>A comprehensive 2024 review, "<strong>Human Genetics of Truncus Arteriosus</strong>" (<a href="https://pubmed.ncbi.nlm.nih.gov/38884753/" target="_blank" rel="noopener noreferrer">PMID:38884753</a>), summarizes that beyond 22q11.2, "other congenital malformation syndromes and variants in genes encoding TBX, GATA, and NKX transcription factors and some signaling proteins have also been reported as its etiology."</li>
+<li><strong>Suggested HGNC/gene identifiers:</strong> TBX1 (<a href="https://bioregistry.io/HGNC:11592" target="_blank" rel="noopener noreferrer">HGNC:11592</a>), NKX2-6 (<a href="https://bioregistry.io/HGNC:2673" target="_blank" rel="noopener noreferrer">HGNC:2673</a>), NKX2-5 (<a href="https://bioregistry.io/HGNC:2488" target="_blank" rel="noopener noreferrer">HGNC:2488</a>), TMEM260 (<a href="https://bioregistry.io/HGNC:26160" target="_blank" rel="noopener noreferrer">HGNC:26160</a>), FOXC1 (<a href="https://bioregistry.io/HGNC:3800" target="_blank" rel="noopener noreferrer">HGNC:3800</a>), FOXC2 (<a href="https://bioregistry.io/HGNC:3801" target="_blank" rel="noopener noreferrer">HGNC:3801</a>), GATA6 (<a href="https://bioregistry.io/HGNC:4174" target="_blank" rel="noopener noreferrer">HGNC:4174</a>).</li>
+</ul>
+<h3>Environmental Risk Factors</h3>
+<ul>
+<li><strong>Maternal pregestational diabetes mellitus</strong>: fetuses of diabetic pregnancies show a <strong>&gt;3-fold increased risk</strong> of transposition of the great arteries, truncus arteriosus, and tricuspid atresia relative to non-diabetic pregnancies (PMC10671602, "Maternal Pre-Existing Diabetes: A Non-Inherited Risk Factor for Congenital Cardiopathies"). Diabetic embryopathy models show altered retinoic acid catabolism and dysregulated expression of cardiovascular developmental genes (PMC10449132).</li>
+<li><strong>Retinoic acid / isotretinoin exposure</strong>: retinoic-acid pathway dysregulation is a recognized teratogenic route to conotruncal and aortic arch anomalies; isotretinoin (a synthetic retinoic acid analog) carries an elevated CHD risk via this mechanism.</li>
+<li><strong>Gene-environment interaction</strong>: Maternal diabetic embryos show a synergistic increase in retinoic-acid-induced malformation susceptibility relative to euglycemic embryos, suggesting a "second hit" model relevant to human diabetic pregnancies (<a href="https://pubmed.ncbi.nlm.nih.gov/12196475/" target="_blank" rel="noopener noreferrer">PMID:12196475</a> context, caudal regression/RA-diabetes interaction).</li>
+<li>No consistent sex or racial predilection is reported (StatPearls); some series note a slight male predominance without statistical significance.</li>
+</ul>
+<h3>Protective Factors</h3>
+<p>No specific genetic or environmental protective factors for PTA are well-documented in the literature reviewed; periconceptional folic acid supplementation is broadly protective against congenital heart defects generally but is not specifically quantified for PTA in the sources reviewed.</p>
+<h3>Gene-Environment Interactions</h3>
+<p>The clearest documented interaction is the <strong>maternal diabetes × retinoic acid signaling</strong> axis: hyperglycemia alters embryonic retinoic acid catabolism, sensitizing the conotruncal developmental field to teratogen-induced (and likely intrinsic) septation failure (PMC10449132).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Cardiac structural phenotype (congenital/present at birth; category: physical malformation)</h3>
+<ul>
+<li><strong>Single arterial trunk with a single semilunar (truncal) valve</strong> overriding a large, typically non-restrictive <strong>VSD</strong> (StatPearls). — Suggested term: <strong><a href="http://purl.obolibrary.org/obo/HP_0001719" target="_blank" rel="noopener noreferrer">HP:0001719</a></strong> <em>Truncus arteriosus</em> (note: cross-check exact HPO CURIE against the local OAK cache before committing; some search indices returned inconsistent HP codes for this exact term and it should be verified with <code>runoak</code>).</li>
+<li><strong>Truncal valve abnormality</strong>: valve may be bicuspid, tricuspid, quadricuspid, or (rarely) pentacuspid; quadricuspid morphology is itself a risk factor for later reoperation.</li>
+<li><strong>Truncal valve regurgitation</strong> — present in <strong>~50%</strong> of patients, ranging mild to severe; a major driver of ventricular volume overload and heart failure (Martínez-Quintana, <em>Transl Pediatr</em>; StatPearls).</li>
+<li><strong>Truncal valve stenosis</strong> — less common (~25%), but poorly tolerated because it raises afterload on both ventricles simultaneously.</li>
+<li><strong>Right-sided or interrupted aortic arch</strong> — right aortic arch in ~21–36% of series; aortic arch interruption defines Van Praagh Type A4.</li>
+<li><strong>Coarctation of the aorta</strong> — critical coarctation reported in ~10% of cases.</li>
+<li><strong>Coronary artery anomalies of origin</strong> — reported in <strong>37–80%</strong> of cases depending on series (ostial anomalies most common ~37–49%); no single consistent pattern, though the left coronary tends to arise more posteriorly than normal and the right coronary tends to arise from the anterior-right quadrant; single coronary artery in up to 18% of an autopsy series (<a href="https://pubmed.ncbi.nlm.nih.gov/837493/" target="_blank" rel="noopener noreferrer">PMID:837493</a>, "Coronary arterial origin in persistent truncus arteriosus"). Coronary anomalies are an independent mortality risk factor after repair (Annals of Thoracic Surgery, S0003-4975(20)31908-1).</li>
+<li><strong>Non-confluent or absent (atretic) branch pulmonary artery</strong> — Van Praagh Type A3.</li>
+<li>Additional common associated defects: secundum ASD, PDA, persistent left superior vena cava.</li>
+</ul>
+<h3>Clinical/physiologic phenotype (neonatal presentation)</h3>
+<ul>
+<li><strong>Cyanosis</strong> (typically mild, due to complete intracardiac mixing) — often unresponsive to supplemental oxygen.</li>
+<li><strong>Signs of congestive heart failure</strong>: tachypnea with retractions/grunting, poor feeding, failure to thrive, lethargy, hepatomegaly, jugular venous distension — emerging as pulmonary vascular resistance (PVR) physiologically falls after birth and pulmonary overcirculation develops.</li>
+<li><strong>Bounding peripheral pulses</strong> (from diastolic runoff into the low-resistance pulmonary circuit and/or truncal regurgitation).</li>
+<li><strong>Harsh holosystolic murmur, ejection click, single loud S2</strong> ± diastolic murmur if truncal regurgitation present.</li>
+<li><strong>Clubbing</strong> of extremities (later/chronic finding if unrepaired).</li>
+<li><strong>22q11.2-associated extracardiac phenotype</strong> (when syndromic): hypocalcemia/hypoparathyroidism (from parathyroid hypoplasia), thymic hypoplasia/aplasia with T-cell deficiency (profound athymia in ~1%), characteristic facial dysmorphism, cleft palate/velopharyngeal insufficiency, developmental delay/learning difficulties (&gt;90%), and later-life psychiatric risk (autism spectrum disorder, schizophrenia).</li>
+</ul>
+<h3>Phenotype characteristics</h3>
+<ul>
+<li><strong>Age of onset</strong>: congenital (present from birth); physiologic decompensation (CHF) typically manifests over the first days-to-weeks of life as PVR physiologically falls.</li>
+<li><strong>Severity/progression</strong>: Without surgical correction, essentially <strong>uniformly progressive and fatal in infancy</strong> — mortality before 2 months of life is common, with <strong>&lt;20% one-year survival</strong> without surgery (StatPearls). By roughly 6 months–4 years of unrepaired pulmonary overcirculation, irreversible pulmonary vascular obstructive disease (Eisenmenger physiology) typically precludes safe surgical correction.</li>
+<li><strong>Frequency of key associated findings</strong> (population within PTA cohorts): truncal regurgitation ~50%; truncal stenosis ~25%; coronary anomalies 37–80%; 22q11.2 deletion 12–35% (up to ~27% in prenatally ascertained cohorts); right aortic arch ~21–36%; critical coarctation ~10%.</li>
+</ul>
+<h3>Quality of life impact</h3>
+<p>Adult long-term survivors of repaired PTA report <strong>quality of life (SF-6D) comparable to age-matched population controls</strong> and comparable to arterial-switch-operation survivors of transposition of the great arteries, despite a higher lifetime reoperation burden (<a href="https://pubmed.ncbi.nlm.nih.gov/31587054/" target="_blank" rel="noopener noreferrer">PMID:31587054</a>, "Long-term quality of life in adults following truncus arteriosus repair"). However, objective <strong>exercise capacity is mildly reduced</strong> in long-term survivors — peak VO2 averaging ~70% of predicted in one 12-patient cohort followed a median 19.7 years post-repair, correlating with truncal root/neo-aortic root dilation.</p>
+<h3>Suggested HPO terms</h3>
+<ul>
+<li>Truncus arteriosus (single arterial trunk) — verify exact CURIE via local OAK/HPO lookup</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0001636" target="_blank" rel="noopener noreferrer">HP:0001636</a> Tetralogy of Fallot (for broader conotruncal-spectrum comparison, not PTA itself)</li>
+<li>Truncal valve regurgitation / semilunar valve insufficiency — map to the closest HPO valve-regurgitation term</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a> Congestive heart failure</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" rel="noopener noreferrer">HP:0000969</a> Edema / <a href="http://purl.obolibrary.org/obo/HP_0001947" target="_blank" rel="noopener noreferrer">HP:0001947</a> Hepatomegaly (CHF signs)</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a> Failure to thrive (or the age-specific FTT term)</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a> Microcephaly / <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a> Developmental delay (22q11.2-associated)</li>
+<li><a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" rel="noopener noreferrer">HP:0002616</a> Aortic root aneurysm-type terms for late root dilation, if curated at disorder level</li>
+</ul>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<h3>Causal genes/loci</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene/Locus</th>
+<th>OMIM</th>
+<th>Role</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>22q11.2 deletion region (TBX1)</strong></td>
+<td>188400 (DiGeorge)</td>
+<td>Haploinsufficiency of TBX1, a T-box transcription factor expressed in pharyngeal/anterior heart field mesoderm, is the leading candidate for the outflow-tract phenotype</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9316541/" target="_blank" rel="noopener noreferrer">PMID:9316541</a>; mouse Tbx1-null phenocopies human 22q11.2DS cardiac defects</td>
+</tr>
+<tr>
+<td><strong>NKX2-6</strong></td>
+<td>*611770</td>
+<td>Homeodomain transcription factor in pharyngeal endoderm/OFT myocardium; biallelic homeodomain-disrupting variants cause autosomal recessive conotruncal disease including PTA</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15649947/" target="_blank" rel="noopener noreferrer">PMID:15649947</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32198970/" target="_blank" rel="noopener noreferrer">PMID:32198970</a></td>
+</tr>
+<tr>
+<td><strong>NKX2-5</strong></td>
+<td>600584</td>
+<td>Cardiac transcription factor; variants found in PTA and interrupted aortic arch patients</td>
+<td>cited in OMIM 217095</td>
+</tr>
+<tr>
+<td><strong>TMEM260</strong></td>
+<td>— (SHDRA)</td>
+<td>Transmembrane protein of unknown precise mechanism; biallelic LOF variants (esp. East Asian founder c.1617del) cause structural heart defects + renal anomalies syndrome, with PTA as the most severe cardiac phenotype</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38351237/" target="_blank" rel="noopener noreferrer">PMID:38351237</a>; PMC11043032; PMC11043042</td>
+</tr>
+<tr>
+<td><strong>FOXC1/FOXC2</strong></td>
+<td>—</td>
+<td>Forkhead transcription factors; conditional neural-crest inactivation → outflow tract defects in mice</td>
+<td>review context</td>
+</tr>
+<tr>
+<td><strong>GATA6</strong></td>
+<td>—</td>
+<td>GATA-family transcription factor implicated in conotruncal malformation spectrum</td>
+<td>review context</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Pathogenic variant characteristics</h3>
+<ul>
+<li><strong>Variant classes</strong>: 22q11.2 deletions are typically ~1.5–3 Mb microdeletions (detected by FISH/CMA/MLPA); NKX2-6 and TMEM260 disease-causing variants are largely <strong>biallelic loss-of-function/missense homeodomain-disrupting</strong> changes, consistent with <strong>autosomal recessive</strong> inheritance for these single-gene causes (in contrast to the typically <strong>de novo autosomal dominant</strong> 22q11.2 deletion).</li>
+<li><strong>Allele frequency</strong>: TMEM260 c.1617del carrier frequency ~0.36% in the Japanese population (a founder-type variant), essentially absent outside East Asian populations.</li>
+<li><strong>Somatic vs germline</strong>: All known causal variants for PTA are <strong>germline</strong>; 22q11.2 deletions are &gt;90% de novo, with a minority inherited from a mildly-to-moderately affected parent (autosomal dominant, highly variable expressivity).</li>
+<li><strong>Functional consequence</strong>: predominantly <strong>loss of function / haploinsufficiency</strong> (TBX1, NKX2-6, TMEM260), consistent with a developmental dosage-sensitivity model for outflow-tract septation genes.</li>
+</ul>
+<h3>Modifier genes</h3>
+<p>Canonical <strong>Wnt/β-catenin signaling</strong> modifies Tbx1-driven outflow tract phenotypes: reduced β-catenin dosage significantly rescues cardiac outflow tract anomalies in a Tbx1 conditional-null 22q11.2DS mouse model, indicating Wnt/β-catenin acts genetically upstream of or in parallel with Tbx1 (<a href="https://pubmed.ncbi.nlm.nih.gov/28346476/" target="_blank" rel="noopener noreferrer">PMID:28346476</a>, PMC5386301).</p>
+<h3>Chromosomal abnormalities</h3>
+<ul>
+<li><strong>22q11.2 microdeletion</strong> (most common) — the disease-defining structural variant of DiGeorge/velocardiofacial syndrome.</li>
+<li>No other recurrent CNV is established as a major PTA cause in the literature reviewed, though isolated case reports of other conotruncal-associated microdeletions/duplications exist.</li>
+</ul>
+<h3>Epigenetic information</h3>
+<p>No PTA-specific DNA methylation or chromatin-state studies were identified in this search; this is an evidence gap.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Toxin/teratogen exposure</strong>: retinoic acid pathway agonists (isotretinoin) implicated in conotruncal defect risk via dysregulation of RA signaling central to cardiac neural crest and OFT morphogenesis.</li>
+<li><strong>Maternal metabolic factors</strong>: pregestational (Type 1/Type 2) diabetes mellitus is the best-documented modifiable maternal risk factor, conferring &gt;3-fold increased risk of PTA/TGA/tricuspid atresia (PMC10671602).</li>
+<li><strong>Infectious agents</strong>: no infectious etiology is established for PTA in the literature surveyed (unlike, e.g., congenital rubella syndrome's association with PDA/pulmonary stenosis).</li>
+<li><strong>Lifestyle factors</strong>: no PTA-specific lifestyle risk factor (smoking, alcohol) data were identified in this search; general CHD teratogen literature (e.g., alcohol, smoking) may apply non-specifically but was not directly quantified for PTA.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain: embryology → structural defect → hemodynamic consequence</h3>
+<p><strong>Upstream (molecular/cellular, weeks 5–8 of human gestation):</strong>
+1. <strong>Cardiac neural crest cell (CNCC) specification and migration</strong> from the dorsal neural tube through pharyngeal arches III, IV, and VI into the cardiac outflow tract, where CNCCs differentiate into the elastogenic smooth muscle of the aorticopulmonary (AP) septum.
+2. <strong>Second heart field (SHF)</strong> mesodermal cells add to the elongating outflow tract myocardium; SHF–CNCC crosstalk (FGF8, BMP, Wnt/β-catenin signaling; transcription factors TBX1, NKX2-5, NKX2-6, GATA6) patterns conotruncal septation.
+3. The two spiraling streams of outflow blood flow physically influence conal and truncal septal growth; the conotruncal ridges must fuse and spiral to form the definitive aortic and pulmonary valves plus the distal AP septum.</p>
+<p><strong>Point of failure:</strong>
+4. <strong>Failure of AP septum formation / conotruncal ridge fusion</strong> — due to CNCC ablation/dysfunction (ablation experiments in chick models directly produce PTA and outflow tract elongation failure with defective cardiac looping), TBX1 haploinsufficiency in anterior heart field mesoderm (causing premature pro-differentiation gene expression), or loss of PDGFRα/PDGFRβ signaling in Pax3+ CNCCs (disrupting cell polarity/condensation into the OFT septum) — results in <strong>persistence of a single common arterial trunk</strong> rather than septation into separate aorta and pulmonary trunk (PMC9601305, "Single Cell Sequencing Reveals Mechanisms of Persistent Truncus Arteriosus Formation after PDGFRα and PDGFRβ Double Knockout in Cardiac Neural Crest Cells").
+5. The unseptated trunk necessarily <strong>overrides the ventricular septal defect</strong> because the conal septum (which normally also contributes to VSD closure) is likewise absent/malformed.</p>
+<p><strong>Downstream (organ/organism-level pathophysiology, postnatal):</strong>
+6. At birth, <strong>complete mixing of pulmonary and systemic venous return</strong> occurs at the single ventricular-level VSD/truncal root, producing mild-to-moderate arterial desaturation (cyanosis) largely independent of any anatomic shunt restriction.
+7. Because there is <strong>no pulmonary outflow obstruction</strong> in most cases, the ratio of pulmonary to systemic blood flow (Qp:Qs) is governed by the relative resistances of the pulmonary and systemic vascular beds. In the immediate newborn period, elevated PVR limits pulmonary flow; as <strong>PVR physiologically falls over the first days to weeks</strong>, pulmonary blood flow rises (pulmonary overcirculation), producing <strong>volume-overload congestive heart failure</strong> (tachypnea, poor feeding, hepatomegaly).
+8. <strong>Truncal valve dysfunction</strong> — regurgitation (~50%) directly adds to ventricular volume load, compounding heart failure; stenosis (~25%) adds pressure overload/afterload to both ventricles simultaneously (since both ventricles eject through the single truncal valve), a more poorly tolerated lesion.
+9. If uncorrected, chronic pulmonary overcirculation at systemic pressure (because the pulmonary bed is exposed to unrestricted systemic-level pressure via the single trunk) drives <strong>progressive pulmonary vascular remodeling and pulmonary hypertension</strong>, culminating in irreversible pulmonary vascular obstructive disease (Eisenmenger-type physiology) typically by early childhood, at which point surgical correction becomes contraindicated.
+10. <strong>Coronary artery anomalies</strong> (present in a large minority-to-majority of cases due to the abnormal single-trunk geometry altering the normal aortic sinus template for coronary ostial development) create an additional substrate for perioperative and long-term myocardial ischemia/mortality risk.</p>
+<h3>Suggested GO / CL / UBERON terms</h3>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/GO_0003151" target="_blank" rel="noopener noreferrer">GO:0003151</a> outflow tract septum morphogenesis</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0003148" target="_blank" rel="noopener noreferrer">GO:0003148</a> outflow tract septum morphogenesis (aorticopulmonary septation specifically — verify exact GO ID)</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" rel="noopener noreferrer">GO:0014032</a> neural crest cell development; <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" rel="noopener noreferrer">GO:0001755</a> neural crest cell migration</li>
+<li><a href="http://purl.obolibrary.org/obo/GO_0060575" target="_blank" rel="noopener noreferrer">GO:0060575</a> intestinal epithelial cell differentiation (n/a — not relevant; omit)</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0002350" target="_blank" rel="noopener noreferrer">CL:0002350</a> cardiac neural crest cell (verify exact CL identifier)</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a> cardiac muscle cell</li>
+<li><a href="http://purl.obolibrary.org/obo/UBERON_0004151" target="_blank" rel="noopener noreferrer">UBERON:0004151</a> outflow tract; <a href="http://purl.obolibrary.org/obo/UBERON_0002612" target="_blank" rel="noopener noreferrer">UBERON:0002612</a> aorticopulmonary septum (verify against local ontology); <a href="http://purl.obolibrary.org/obo/UBERON_0002012" target="_blank" rel="noopener noreferrer">UBERON:0002012</a> pulmonary trunk; <a href="http://purl.obolibrary.org/obo/UBERON_0001496" target="_blank" rel="noopener noreferrer">UBERON:0001496</a> aortic valve / UBERON term for truncal/semilunar valve</li>
+<li><a href="http://purl.obolibrary.org/obo/CHEBI_50648" target="_blank" rel="noopener noreferrer">CHEBI:50648</a> retinoic acid (teratogen)</li>
+<li>CHEBI reference for prostaglandin E1/alprostadil: <a href="http://purl.obolibrary.org/obo/CHEBI_28464" target="_blank" rel="noopener noreferrer">CHEBI:28464</a> (alprostadil) — verify exact ID</li>
+</ul>
+<h3>Molecular profiling</h3>
+<p>No large-scale disease-specific transcriptomic/proteomic/metabolomic human PTA dataset was identified in this search (expected given the rarity and typical neonatal surgical urgency of the condition); the strongest "omics" evidence base is <strong>single-cell sequencing of mouse CNCC-conditional-knockout models</strong> (PMC9601305), which characterizes the CNCC condensation-failure mechanism at single-cell resolution, and <strong>whole-genome/whole-exome sequencing cohorts</strong> underlying the TMEM260 and other monogenic discoveries (<a href="https://pubmed.ncbi.nlm.nih.gov/38351237/" target="_blank" rel="noopener noreferrer">PMID:38351237</a>).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ level</h3>
+<ul>
+<li><strong>Primary:</strong> Heart — specifically the cardiac outflow tract/truncal root, truncal (semilunar) valve, interventricular septum (VSD), and great-vessel origins (aorta, main/branch pulmonary arteries, coronary arteries).</li>
+<li><strong>Secondary/complication-driven:</strong> Lungs (pulmonary vascular bed — overcirculation, pulmonary hypertension, pulmonary vascular obstructive disease); liver (hepatomegaly from right heart failure); systemic circulation broadly (volume overload).</li>
+<li><strong>Body systems involved:</strong> Cardiovascular (primary); when syndromic (22q11.2DS) — immune system (thymic hypoplasia/T-cell deficiency), endocrine (parathyroid hypoplasia/hypocalcemia), craniofacial/palatal, and neurodevelopmental/psychiatric systems.</li>
+</ul>
+<h3>Tissue and cell level</h3>
+<ul>
+<li><strong>Cardiac neural crest-derived elastogenic smooth muscle</strong> of the (absent/malformed) aorticopulmonary septum.</li>
+<li><strong>Second heart field-derived myocardium</strong> of the outflow tract.</li>
+<li><strong>Truncal (semilunar) valve leaflet tissue</strong> — often dysplastic, with variable cusp number (bi-, tri-, or quadricuspid).</li>
+<li><strong>Coronary ostial/endothelial tissue</strong> — anomalous origin patterns.</li>
+<li><strong>Pulmonary vascular smooth muscle/endothelium</strong> — target of secondary remodeling in pulmonary hypertension.</li>
+</ul>
+<h3>Subcellular level</h3>
+<p>Not a classical subcellular/organelle disease; relevant subcellular biology is at the level of transcription factor nuclear function (TBX1, NKX2-5/2-6 as <a href="http://purl.obolibrary.org/obo/GO_0005667" target="_blank" rel="noopener noreferrer">GO:0005667</a> transcription factor complex components) and membrane protein trafficking (TMEM260 as a transmembrane protein of incompletely defined subcellular role).</p>
+<h3>Localization</h3>
+<p>Structurally, the malformation is inherently <strong>midline/unilateral single structure</strong> (one trunk rather than two separate great vessels) rather than laterally paired; associated anomalies (e.g., right vs. left aortic arch) do carry laterality significance and are separately classified.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Congenital</strong> — the structural lesion is fully established by the end of the embryonic period (~8 weeks gestation) as a failure of conotruncal septation.</li>
+<li><strong>Clinical onset of symptoms</strong>: typically within the first days to weeks of postnatal life, as physiologic PVR decline unmasks pulmonary overcirculation and heart failure; some degree of cyanosis may be evident immediately at birth.</li>
+<li><strong>Prenatal detectability</strong>: fetal echocardiography can detect PTA as early as 13 weeks, with routine second-trimester anomaly scanning (~18–22 weeks) as the typical diagnostic window; diagnostic accuracy for prenatal echocardiography is reported as high as 87%, though PTA can be confused with severe tetralogy of Fallot or pulmonary atresia with VSD on prenatal imaging.</li>
+</ul>
+<h3>Progression (natural history, unrepaired)</h3>
+<ul>
+<li><strong>Early infancy</strong>: progressive congestive heart failure as PVR falls and pulmonary overcirculation develops.</li>
+<li><strong>Untreated mortality</strong>: death in infancy is probable without surgery; &lt;20% one-year survival without repair; most deaths occur before 2 months of age.</li>
+<li><strong>By ~4 years of age</strong> (highly variable), irreversible pulmonary vascular obstructive disease (Eisenmenger physiology) typically develops in survivors, precluding safe corrective surgery — defining a <strong>critical treatment window</strong> in early infancy.</li>
+<li><strong>Course pattern</strong>: essentially <strong>uniformly progressive</strong> without intervention (not relapsing-remitting); with surgical correction, the course becomes one of <strong>staged/lifelong reintervention</strong> (conduit growth mismatch, valve degeneration) rather than cure.</li>
+</ul>
+<h3>Patterns / critical periods</h3>
+<ul>
+<li>The <strong>neonatal-to-early-infancy period</strong> is the critical therapeutic window: single-stage complete repair within the first month of life is now the preferred strategy (StatPearls), balancing operative risk against the risk of progressive pulmonary vascular disease if repair is delayed.</li>
+<li><strong>Late postoperative "critical periods"</strong>: right ventricle-to-pulmonary-artery (RV-PA) conduits do not grow with the child, so <strong>somatic growth itself is a driver of reintervention need</strong>, concentrating reoperations in childhood/adolescence.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Incidence</strong>: ~7 per 100,000 live births annually (range cited 7–21/100,000 across sources).</li>
+<li><strong>Proportion of CHD</strong>: &lt;1% of all congenital heart lesions; ~4% of <em>critical</em> congenital heart defects.</li>
+<li><strong>22q11.2 deletion syndrome background prevalence</strong>: ~1/2,150 live births generally (of which only a subset have PTA specifically).</li>
+</ul>
+<h3>Inheritance pattern</h3>
+<ul>
+<li><strong>22q11.2 deletion (the dominant genetic cause)</strong>: <strong>autosomal dominant</strong>, but <strong>&gt;90% de novo</strong>; when inherited, transmission is dominant from an often mildly/variably affected parent. <strong>Variable expressivity and incomplete/variable penetrance for specific organ phenotypes</strong> (including the cardiac phenotype) is well documented — not every deletion carrier has a conotruncal cardiac defect.</li>
+<li><strong>NKX2-6-related and TMEM260-related (SHDRA) forms</strong>: <strong>autosomal recessive</strong> (biallelic variants identified in consanguineous families for NKX2-6; biallelic LOF for TMEM260).</li>
+<li><strong>Isolated/non-syndromic PTA</strong>: largely presumed multifactorial (polygenic + environmental), consistent with the broader "second/third-hit" model of CHD genetics.</li>
+<li><strong>Founder effect</strong>: TMEM260 c.1617del is a population-specific founder-type variant essentially restricted to Japanese/Korean populations.</li>
+<li><strong>Consanguinity</strong>: relevant specifically to the recessive NKX2-6-associated families, in which autozygosity mapping was used for gene discovery.</li>
+</ul>
+<h3>Population demographics</h3>
+<ul>
+<li><strong>Sex ratio</strong>: no significant sex predilection established; some series note a slight, non-significant male predominance.</li>
+<li><strong>Race/ethnicity</strong>: no broad racial predilection reported for PTA overall, though the TMEM260 founder variant creates an ethnicity-specific (East Asian) genetic subgroup.</li>
+<li><strong>Geographic distribution</strong>: no endemic geographic clustering beyond the population-genetic TMEM260 founder effect in Japan/Korea.</li>
+<li><strong>Termination-of-pregnancy rates after prenatal diagnosis</strong>: substantial — one series reported 68% of fetuses diagnosed before 24 weeks did not survive to birth (spontaneous fetal death or elective termination); another reported 41.2% elective termination rate, reflecting the severity of prenatal counseling discussions.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Prenatal</h3>
+<ul>
+<li><strong>Fetal echocardiography</strong> — primary prenatal diagnostic modality; detects the single arterial trunk, large VSD, and pulmonary artery origin pattern; feasible from as early as 13 weeks, routinely by 18–22 weeks; diagnostic accuracy up to 87%, with differential challenges vs. severe tetralogy of Fallot and pulmonary atresia with VSD.</li>
+<li><strong>Prenatal genetic testing</strong> — 22q11.2 deletion testing (e.g., via chromosomal microarray, FISH, or NIPT-adjacent approaches) recommended whenever PTA is suspected prenatally, given the ~12–35% (up to 27% in prenatal cohorts) 22q11.2DS association.</li>
+</ul>
+<h3>Postnatal clinical/imaging tests</h3>
+<ul>
+<li><strong>Transthoracic echocardiography</strong> — primary postnatal diagnostic and surveillance modality (truncal valve morphology/function, VSD, branch PA origins, coronary origins where visualizable).</li>
+<li><strong>Cardiac MRI or CT angiography (CTA)</strong> — used to delineate coronary anatomy, branch pulmonary artery anatomy, and aortic arch anomalies (interruption/coarctation) not fully resolved by echo.</li>
+<li><strong>Cardiac catheterization</strong> — generally reserved for interventional procedures (e.g., balloon angioplasty/stenting of branch PA or conduit stenosis) rather than primary diagnosis.</li>
+<li><strong>Physical exam findings supporting diagnosis</strong>: harsh holosystolic murmur, ejection click, single loud S2, ± diastolic murmur (truncal regurgitation), bounding pulses, cyanosis/clubbing, hepatomegaly.</li>
+</ul>
+<h3>Genetic testing</h3>
+<ul>
+<li><strong>Chromosomal microarray (CMA) / FISH for 22q11.2 deletion</strong> — first-line genetic test given the high pretest probability; FISH historically used for targeted 22q11.2 detection, now largely supplanted/complemented by CMA for genome-wide resolution.</li>
+<li><strong>Gene panel / exome sequencing</strong> — indicated when 22q11.2 deletion testing is negative, particularly to identify NKX2-6, NKX2-5, TMEM260 (especially in patients of East Asian ancestry, where TMEM260 targeted testing or panel inclusion is specifically warranted), or other monogenic conotruncal-disease genes.</li>
+<li><strong>Karyotyping</strong> — of historical/adjunctive value for detecting other chromosomal abnormalities.</li>
+</ul>
+<h3>Clinical diagnostic criteria / differential diagnosis</h3>
+<p>No formal DSM/ICD-style clinical scoring criteria exist beyond echocardiographic/anatomic definition. Key differentials: <strong>severe tetralogy of Fallot with pulmonary atresia</strong>, and <strong>pulmonary atresia with VSD and major aortopulmonary collateral arteries (MAPCAs)</strong> — both can closely mimic PTA, especially prenatally, and require careful distinction of pulmonary arterial origin (from the common trunk vs. from the descending aorta/collaterals).</p>
+<h3>Screening</h3>
+<p>No population-level newborn screening test specifically targets PTA; however, <strong>pulse oximetry-based critical congenital heart disease (CCHD) newborn screening</strong>, now standard in many health systems, will typically flag PTA (and other critical CHDs) via low peripheral oxygen saturation, prompting urgent echocardiography.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>Survival without treatment</h3>
+<ul>
+<li>Mortality is probable in infancy without surgical correction; <strong>&lt;20% survive to one year</strong> unrepaired (StatPearls).</li>
+</ul>
+<h3>Survival with surgical repair</h3>
+<ul>
+<li><strong>Perioperative/hospital mortality</strong>: ~6% in a representative single-center series (3/50 patients) — two deaths from pulmonary hypertensive crisis, one from pneumonia (PLOS ONE, PMC4713837).</li>
+<li><strong>Actuarial survival</strong>: 87.7% at both 1 and 5 years post-repair in that series; other multicenter series report <strong>20-year survival &gt;80%</strong> after primary repair (StatPearls).</li>
+<li><strong>Very long-term (30-year) survival</strong>: reported at <strong>68.5%</strong> in one long-term single-center cohort, with truncal valve regurgitation identified as a key risk factor for both mortality and reoperation.</li>
+<li><strong>Freedom from reoperation</strong>: ~92.9% at 5 years in one series; another reports freedom from RV-PA conduit/branch-PA reoperation of only <strong>59% at 5 years and 28% at 10 years</strong>, and ~75% of patients require reintervention by 10 postoperative years — reoperation is essentially inevitable given somatic outgrowth of non-growing conduits.</li>
+</ul>
+<h3>Prognostic/risk factors</h3>
+<ul>
+<li><strong>Significant preoperative truncal valve regurgitation</strong> — independent risk factor for mortality.</li>
+<li><strong>Quadricuspid truncal valve morphology, truncal valve insufficiency at diagnosis, and truncal valve intervention at index repair</strong> — associated with increased reoperation risk.</li>
+<li><strong>RV-PA conduit size ≤11 mm</strong> — associated with higher risk of early catheter-based reintervention/reoperation.</li>
+<li><strong>Coronary artery anomalies</strong> (ostial stenosis, intramural course, juxtacommissural origin) — independently associated with increased mortality after repair.</li>
+<li><strong>Late referral / delayed repair</strong> — associated with higher risk of postoperative pulmonary hypertensive crisis.</li>
+</ul>
+<h3>Functional/quality-of-life outcomes</h3>
+<ul>
+<li>Nearly all long-term survivors are in <strong>NYHA functional class I–II</strong>.</li>
+<li>Adult QOL (SF-6D) is <strong>comparable to general-population controls</strong> and to arterial-switch-operation (TGA) survivors, despite the higher truncus reoperation burden.</li>
+<li><strong>Exercise capacity is mildly reduced</strong> long-term (peak VO2 ~70% of predicted in one cohort), correlating with truncal/neo-aortic root dilation.</li>
+</ul>
+<h3>Complications</h3>
+<p>Early postoperative: pulmonary hypertensive crisis, low cardiac output syndrome, right bundle branch block, supraventricular tachycardia, mediastinal bleeding, pleural effusion, pneumothorax, cardiac tamponade. Late: conduit stenosis/regurgitation requiring replacement, truncal (neo-aortic) valve regurgitation/stenosis requiring repair or replacement, arrhythmia, and (in unrepaired or late-presenting patients) irreversible pulmonary vascular disease.</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Medical stabilization (pre-/peri-operative)</h3>
+<ul>
+<li><strong>Diuretics</strong> (loop diuretics, thiazides) for congestive heart failure control. — Suggested NCIT: NCIT:C15986 (Pharmacotherapy) + therapeutic_agent class (diuretic).</li>
+<li><strong>Avoidance of supplemental oxygen</strong> where possible, since it lowers PVR and worsens pulmonary overcirculation.</li>
+<li><strong>Prostaglandin E1 (alprostadil)</strong> — used selectively when ductal patency is needed to support systemic perfusion (e.g., in the presence of critical coarctation or interrupted arch); dosed 0.01–0.1 mcg/kg/min IV; ~82% of infants show effective clinical improvement at the initial 0.1 mcg/kg/min dose, with effect maintained at reduced maintenance doses; key adverse effects include apnea, peripheral vasodilation, and hypotension (StatPearls: Alprostadil, NBK542217). — Suggested NCIT: NCIT:C15986 Pharmacotherapy; therapeutic_agent CHEBI (alprostadil/prostaglandin E1, verify exact CHEBI ID e.g. <a href="http://purl.obolibrary.org/obo/CHEBI_28464" target="_blank" rel="noopener noreferrer">CHEBI:28464</a>).</li>
+<li><strong>Correction of metabolic/electrolyte derangements.</strong></li>
+</ul>
+<h3>Surgical repair (definitive treatment)</h3>
+<ul>
+<li><strong>Single-stage complete primary repair</strong>, preferably within the <strong>first month of life</strong>, comprising: separation of the pulmonary arterial supply from the truncal root; <strong>VSD patch closure</strong> (baffling the truncal/aortic outflow to the left ventricle); <strong>RV-to-PA conduit</strong> (homograft, valved or non-valved conduit) reconstruction of the right ventricular outflow tract; and concurrent repair of any truncal valve regurgitation/stenosis and aortic arch anomaly (coarctation repair/arch reconstruction) as needed. — Suggested NCIT: NCIT:C15329 (Surgical Procedure) / NCIT:C16186 (Orthopedic — N/A) → more specifically a cardiac surgical repair term; therapeutic_modality: SURGERY.</li>
+<li><strong>Staged repair</strong> (e.g., pulmonary artery banding followed by delayed correction) is <strong>not routinely recommended</strong> due to higher morbidity/mortality compared with primary single-stage repair.</li>
+<li><strong>Truncal valve repair or replacement</strong> — performed at index repair or later, for significant regurgitation/stenosis; a documented risk factor for reoperation when performed at index surgery (reflecting valve severity rather than a causal effect of the intervention itself).</li>
+<li><strong>Reintervention</strong>: transcatheter balloon angioplasty/stenting of conduit or branch pulmonary artery stenosis; surgical conduit replacement as the child outgrows the original conduit — an expected, near-universal component of lifelong management (freedom from reintervention only 28% at 10 years in some series).</li>
+</ul>
+<h3>Genetic counseling / multidisciplinary supportive care</h3>
+<ul>
+<li><strong>Genetic counseling</strong> strongly recommended given the 22q11.2 deletion association (recurrence risk implications, extracardiac surveillance needs). — NCIT:C15240 Genetic Counseling.</li>
+<li><strong>Supportive/multidisciplinary care</strong>: pediatric cardiology, cardiac surgery, intensive care, genetics, radiology, nursing, respiratory therapy, social work, and (with age) transition to adult congenital heart disease (ACHD) specialty care; mental health support given the psychosocial burden of chronic cardiac disease and repeated procedures.</li>
+<li><strong>Immunologic/endocrine management</strong> in 22q11.2DS-associated cases: calcium/vitamin D management for hypoparathyroidism-driven hypocalcemia; immunologic monitoring/prophylaxis for T-cell deficiency; avoidance of live vaccines in significant T-cell immunodeficiency.</li>
+</ul>
+<h3>Experimental / emerging</h3>
+<p>No PTA-specific gene therapy, cell therapy, or targeted molecular therapeutic was identified in this search — treatment remains fundamentally surgical/structural, consistent with the anatomic nature of the defect. A computational modeling study (arXiv:2601.08932, "Simulations Predict Improved Valve Performance Without Direct Leaflet Intervention After Neonatal Truncus Arteriosus Repair") represents an emerging in-silico approach to optimizing surgical valve/conduit strategy rather than a new therapeutic modality per se.</p>
+<h3>Treatment outcomes</h3>
+<p>See Section 11 (Outcome/Prognosis) for detailed survival, reoperation, and functional-outcome statistics associated with each treatment strategy.</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<ul>
+<li><strong>Optimization of pregestational maternal glycemic control</strong> in diabetic mothers is the most directly actionable primary-prevention lever identified in this literature, given the &gt;3-fold increased conotruncal-defect risk associated with maternal pregestational diabetes.</li>
+<li><strong>Avoidance of retinoic acid/isotretinoin exposure during pregnancy</strong> (established teratogen avoidance, standard obstetric practice — isotretinoin carries FDA pregnancy category X / iPLEDGE program restrictions generally, not PTA-specific).</li>
+<li>General periconceptional folic acid supplementation is standard CHD-risk-reduction practice, though not specifically quantified for PTA in the literature surveyed.</li>
+</ul>
+<h3>Secondary prevention / screening</h3>
+<ul>
+<li><strong>Prenatal ultrasound anomaly screening</strong> (routine second-trimester fetal echocardiography) enables early detection, allowing informed counseling, delivery planning at a cardiac surgical center, and prostaglandin availability at birth if arch anomalies are present.</li>
+<li><strong>22q11.2 deletion testing</strong> upon prenatal or postnatal PTA diagnosis enables early identification of associated hypocalcemia, immunodeficiency, and syndromic features, allowing proactive endocrine/immunologic management.</li>
+<li><strong>Newborn pulse oximetry CCHD screening</strong> provides a postnatal safety net for cases not detected prenatally.</li>
+</ul>
+<h3>Tertiary prevention</h3>
+<ul>
+<li><strong>Timely single-stage neonatal surgical repair</strong> (within the first month of life) is itself the principal tertiary-prevention strategy — preventing the otherwise inevitable progression to irreversible pulmonary vascular obstructive disease.</li>
+<li><strong>Structured lifelong cardiology follow-up</strong> (serial echocardiography, conduit/valve surveillance) to detect and intervene on conduit stenosis, valve regurgitation, and arrhythmia before they cause irreversible ventricular dysfunction.</li>
+</ul>
+<h3>Genetic counseling / reproductive planning</h3>
+<p>Recommended for families of an affected child, particularly given the identifiable 22q11.2 deletion (autosomal dominant, variable expressivity, ~50% recurrence risk if a parent carries the deletion) and the autosomal recessive NKX2-6/TMEM260 forms (25% recurrence risk per pregnancy, elevated with consanguinity).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Naturally occurring PTA-like disease</strong> is not well-documented as a spontaneous veterinary clinical entity in the sources surveyed (unlike, e.g., patent ductus arteriosus, which is common in dogs); this literature search did not identify OMIA entries or veterinary case series specifically for spontaneous PTA in companion or production animals. This is likely because complete conotruncal septation failure is generally not compatible with survival to veterinary presentation in most species, or is under-reported. (This should be flagged as an evidence gap requiring dedicated OMIA/veterinary-literature search if the KB entry requires this section populated.)</li>
+<li><strong>Comparative embryology</strong> is well studied experimentally (see Model Organisms below) even though spontaneous natural disease reports are sparse.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Mouse models</h3>
+<ul>
+<li><strong>Tbx1 conditional/null mutant mice</strong> — the primary genetic model of 22q11.2DS-associated PTA. Tbx1-null mice show neonatal lethality with cleft palate, abnormal inner ears, absent thymus and parathyroid glands, and <strong>persistent truncus arteriosus</strong>, closely phenocopying the human 22q11.2 deletion syndrome cardiac phenotype. Graded hypomorphic Tbx1 dosage (100%→2%) across allelic series produces a <strong>dosage-dependent spectrum</strong> of outflow tract defects — PTA at the most severe end, through tetralogy of Fallot and double-outlet right ventricle at intermediate dosage — directly modeling human phenotypic variability from a single haploinsufficient locus.</li>
+<li><strong>Tbx1 conditional-null + reduced β-catenin dosage</strong> — genetic rescue experiment demonstrating that lowering Wnt/β-catenin pathway dosage significantly rescues Tbx1-mutant outflow tract anomalies, establishing an epistatic/modifier relationship (<a href="https://pubmed.ncbi.nlm.nih.gov/28346476/" target="_blank" rel="noopener noreferrer">PMID:28346476</a>).</li>
+<li><strong>Pax3 Splotch (Sp1H) mutant mice</strong> — classic neural-crest-deficient model; homozygotes show failure of truncus arteriosus septation and aortic arch-derived vessel anomalies, historically one of the first genetic confirmations of the CNCC-dependence of conotruncal septation (<a href="https://pubmed.ncbi.nlm.nih.gov/2619088/" target="_blank" rel="noopener noreferrer">PMID:2619088</a>, "Persistent truncus arteriosus in the Splotch mutant mouse").</li>
+<li><strong>PDGFRα/PDGFRβ double-knockout in Pax3+ cardiac neural crest cells</strong> — recent (single-cell RNA-seq-characterized) model showing that combined loss of platelet-derived growth factor receptor signaling in CNCCs disrupts CNCC condensation/polarity within the outflow tract septum, producing PTA and elucidating a cell-biological (cytoskeletal/adhesion) mechanism distinct from pure transcription-factor loss (PMC9601305).</li>
+<li><strong>Cardiac neural crest surgical ablation (chick, extrapolated conceptually to mammalian models)</strong> — ablation of the CNC in chick embryos directly produces PTA with failed outflow tract elongation and defective cardiac looping, establishing the foundational CNCC-dependence paradigm for conotruncal septation.</li>
+</ul>
+<h3>Comparative/cross-species notes</h3>
+<ul>
+<li><strong>Chick embryo</strong> — the classical experimental model for CNC ablation studies of outflow tract septation; closely models the mammalian (including human) requirement for CNC-directed septation.</li>
+<li><strong>Xenopus</strong> — notably, cardiac neural crest is <em>dispensable</em> for outflow tract septation in Xenopus, a striking cross-species divergence from chick/mouse/human biology, underscoring that CNCC-dependence of septation is not universally conserved across vertebrates and that Xenopus is a poor model for PTA specifically.</li>
+<li><strong>Zebrafish</strong> — the zebrafish outflow tract <strong>does not become remodeled or septated</strong> at all (unlike higher vertebrates), so zebrafish cannot model true PTA; zebrafish CNC ablation instead alters ventricular myocardial cardiomyocyte number rather than septation. Zebrafish remain useful for dissecting general second-heart-field/outflow-tract progenitor biology (e.g., nkx2.5+ anterior lateral plate mesoderm-derived progenitors), but this is a clear <strong>human-model-mismatch</strong> consideration: zebrafish outflow tract biology should not be over-extrapolated to human septation-failure mechanisms without chick/mouse cross-validation.</li>
+</ul>
+<h3>Applications and limitations</h3>
+<ul>
+<li>Mouse Tbx1-dosage allelic series is the best-validated model for <strong>dosage-dependent phenotypic severity</strong>, directly relevant to the variable cardiac penetrance seen in human 22q11.2 deletion carriers.</li>
+<li>Chick CNC-ablation remains the classical model for <strong>mechanistic dissection of CNCC contribution to septation</strong> but is less genetically tractable than mouse for modern single-cell/genomic approaches.</li>
+<li>No model organism to date fully recapitulates the human TMEM260-SHDRA phenotype (renal + cardiac); this represents an open modeling gap.</li>
+</ul>
+<hr />
+<h2>Summary of Key Ontology Term Suggestions for KB Curation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Suggested term(s) — verify exact CURIE/label via OAK before committing</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0018072" target="_blank" rel="noopener noreferrer">MONDO:0018072</a> (Persistent truncus arteriosus / common arterial trunk)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:3384" target="_blank" rel="noopener noreferrer">ORPHA:3384</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>217095 (Conotruncal Heart Malformations); 188400 (DiGeorge syndrome, comorbid)</td>
+</tr>
+<tr>
+<td>ICD-10-CM</td>
+<td>Q20.0</td>
+</tr>
+<tr>
+<td>HGNC genes</td>
+<td>TBX1, NKX2-6, NKX2-5, TMEM260, FOXC1, FOXC2, GATA6</td>
+</tr>
+<tr>
+<td>GO (process)</td>
+<td>outflow tract septum morphogenesis; neural crest cell migration; canonical Wnt signaling pathway</td>
+</tr>
+<tr>
+<td>CL (cell type)</td>
+<td>cardiac neural crest cell; second heart field cardiomyocyte progenitor</td>
+</tr>
+<tr>
+<td>UBERON (anatomy)</td>
+<td>outflow tract; aorticopulmonary septum; truncal/semilunar valve; pulmonary trunk</td>
+</tr>
+<tr>
+<td>CHEBI (chemical)</td>
+<td>retinoic acid; alprostadil (prostaglandin E1)</td>
+</tr>
+<tr>
+<td>NCIT (treatment)</td>
+<td>Surgical Procedure; Pharmacotherapy; Genetic Counseling</td>
+</tr>
+<tr>
+<td>HPO (phenotype)</td>
+<td>Truncus arteriosus (verify exact CURIE); Congestive heart failure; Failure to thrive; Developmental delay (22q11.2-associated)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Notable Evidence Gaps (flag for curators)</h2>
+<ol>
+<li><strong>No spontaneous veterinary/natural-disease literature</strong> was located for PTA specifically — Section 14 is thin and should be treated as a gap pending dedicated OMIA search.</li>
+<li><strong>No PTA-specific epigenomic/methylation dataset</strong> was identified.</li>
+<li><strong>Exact HPO CURIE</strong> for "truncus arteriosus" returned inconsistent results across search sources and must be confirmed directly via <code>runoak -i sqlite:obo:hp</code> before use.</li>
+<li><strong>Human transcriptomic/single-cell data</strong> for PTA cardiac tissue itself (as opposed to mouse CNCC knockout models) does not appear to be well represented in the literature surveyed — mechanistic single-cell evidence is currently MODEL_ORGANISM-only, a relevant <code>HUMAN_MODEL_MISMATCH</code> consideration for pathophysiology curation.</li>
+</ol>
+<h2>Sources</h2>
+<ul>
+<li><a href="https://omim.org/entry/217095">OMIM #217095 — Conotruncal Heart Malformations</a></li>
+<li><a href="https://www.omim.org/entry/188400">OMIM #188400 — DiGeorge Syndrome</a></li>
+<li><a href="https://omim.org/entry/611770">OMIM *611770 — NKX2-6</a></li>
+<li><a href="https://www.orpha.net/en/disease/detail/3384">Orphanet — Common arterial trunk (ORPHA:3384)</a></li>
+<li><a href="https://rarediseases.info.nih.gov/diseases/16627/persistent-truncus-arteriosus">GARD — Persistent truncus arteriosus</a></li>
+<li><a href="https://rarediseases.org/rare-diseases/truncus-arteriosus/">NORD — Truncus Arteriosus</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK534774/">StatPearls — Truncus Arteriosus (NBK534774)</a></li>
+<li><a href="https://emedicine.medscape.com/article/892489-overview">Medscape — Truncus Arteriosus: Background, Etiology, Pathophysiology</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38884753/">PubMed 38884753 — Human Genetics of Truncus Arteriosus</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38351237/">PubMed 38351237 — Genetic etiology of truncus arteriosus excluding 22q11.2 deletion syndrome; TMEM260</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38548934/">PubMed 38548934 — Correction notice</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11043032/">PMC11043032 — TMEM260 c.1617del, Journal of Human Genetics</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11043042/">PMC11043042 — TMEM260 in truncus arteriosus, Japanese population</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/9316541/">PubMed 9316541 — Truncus arteriosus communis associated with chromosome 22q11 deletion</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5386301/">PMC5386301 / PubMed 28346476 — β-catenin dosage rescue in Tbx1 conditional null mouse model</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/15649947/">PubMed 15649947 — Common arterial trunk associated with a homeodomain mutation of NKX2.6</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32198970/">PubMed 32198970 — NKX2-6 related congenital heart disease: biallelic variants</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/2619088/">PubMed 2619088 — Persistent truncus arteriosus in the Splotch mutant mouse</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9601305/">PMC9601305 — Single Cell Sequencing Reveals Mechanisms of PTA Formation after PDGFRα/β Double Knockout in Cardiac Neural Crest Cells</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/837493/">PubMed 837493 — Coronary arterial origin in persistent truncus arteriosus</a></li>
+<li><a href="https://www.annalsthoracicsurgery.org/article/S0003-4975(20)31908-1/pdf">Annals of Thoracic Surgery — Coronary Artery Anomalies Are Associated With Increased Mortality After Truncus Arteriosus Repair</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4713837/">PLOS ONE — Outcomes of Surgical Repair for Persistent Truncus Arteriosus from Neonates to Adults (PMC4713837)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33726908/">PubMed 33726908 — Long-term outcomes of truncus arteriosus repair: modulated renewal competing risks analysis</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27126954/">PubMed 27126954 — Long-term Outcomes after Truncus Arteriosus Repair: Single-center 40-year experience</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31587054/">PubMed 31587054 — Long-term quality of life in adults following truncus arteriosus repair</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10328806/">PMC10328806 — Death, reoperation, and late cardiopulmonary function after truncus repair</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11508351/">PMC11508351 — Diagnosis, Management and Outcome of Truncus Arteriosus Communis Diagnosed during Fetal Life</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/34028563/">PubMed 34028563 — Prenatal diagnosis, associated findings and postnatal outcome of fetuses with truncus arteriosus communis</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19015910/">PubMed 19015910 — Truncus arteriosus: diagnostic accuracy, outcomes, and impact of prenatal diagnosis</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10671602/">PMC10671602 — Maternal Pre-Existing Diabetes: A Non-Inherited Risk Factor for Congenital Cardiopathies</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10449132/">PMC10449132 — Hyperglycemia alters retinoic acid catabolism in embryos exposed to maternal diabetic milieu</a></li>
+<li><a href="https://tkl.uptodate.com/contents/digeorge-22q11-2-deletion-syndrome-clinical-features-and-diagnosis/print">UpToDate — DiGeorge (22q11.2 deletion) syndrome: Clinical features and diagnosis</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK542217/">StatPearls — Alprostadil (NBK542217)</a></li>
+<li><a href="https://tp.amegroups.org/article/view/24211/html">Translational Pediatrics — Truncus arteriosus and truncal valve regurgitation</a></li>
+<li><a href="https://journals.biologists.com/dev/article/138/10/2025/44388/Cardiac-neural-crest-is-dispensable-for-outflow">Development (Journal of Biologists) — Cardiac neural crest is dispensable for outflow tract septation in Xenopus</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK500310/">NCBI Bookshelf — Utilizing Zebrafish to Understand Second Heart Field Development</a></li>
+<li><a href="https://www.icd10data.com/ICD10CM/Codes/Q00-QA0/Q20-Q28/Q20-/Q20.0">ICD10Data.com — Q20.0 Common arterial trunk</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Perrault_Syndrome-falcon.html">← Perrault Syndrome (Falcon)</a>
+                
+                
+                <a href="Pertussis-falcon.html">Pertussis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Persistent_Truncus_Arteriosus.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Persistent_Truncus_Arteriosus-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

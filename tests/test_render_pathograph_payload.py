@@ -17,6 +17,21 @@ def _extract_graph_data(html: str) -> dict:
     return json.loads(json.loads(match.group(1)))
 
 
+def _visible_text(html: str) -> str:
+    """Strip tooltip content so assertions see only what the page displays.
+
+    Ontology term pills carry a plain-language tooltip (issue #8310) that spells
+    the annotation out, CURIE and all. It is revealed only on hover or focus
+    (issue #8355), so guards against a CURIE appearing in the body must not trip
+    over it. The text lives in a `.pill-tip` element rather than a `title`
+    attribute; both forms are dropped here so the helper keeps working either way.
+    """
+    without_tips = re.sub(
+        r'<span class="pill-tip".*?</span>', "", html, flags=re.DOTALL
+    )
+    return re.sub(r'\stitle="[^"]*"', "", without_tips)
+
+
 def _connected_component_count(graph_data: dict) -> int:
     """Return the number of connected components in an undirected view of the graph."""
     adjacency: dict[str, set[str]] = defaultdict(set)
@@ -169,7 +184,7 @@ def test_rendered_aip_page_shows_structured_genetic_fields(tmp_path: Path) -> No
     assert "Gene: AIP" in html
     assert "curie-chip-hgnc" in html
     assert ">hgnc:358</a>" in html
-    assert "(hgnc:358)" not in html
+    assert "(hgnc:358)" not in _visible_text(html)
     assert ">link</a>" not in html
     assert "relationship_type: SUSCEPTIBILITY" in html
     assert "variant_origin: GERMLINE_AND_SOMATIC" in html
@@ -178,7 +193,7 @@ def test_rendered_aip_page_shows_structured_genetic_fields(tmp_path: Path) -> No
     assert "allelic_event: DELETION" in html
     assert "allelic_event: LOSS_OF_HETEROZYGOSITY" in html
     assert "functional_impact_category: LOSS_OF_FUNCTION" in html
-    assert "Reduced AIP AHR/HSP90 co-chaperone binding function" in html
+    assert "Reduced AIP-AHR co-chaperone binding function" in html
     assert ">hgnc:348</a>" in html
     assert "AHR-dependent transcriptional response" in html
     assert "Dysregulated AHR target-gene transcriptional response" in html
@@ -206,9 +221,7 @@ def test_rendered_aip_page_shows_structured_genetic_fields(tmp_path: Path) -> No
         "allelic_events": ["DELETION", "LOSS_OF_HETEROZYGOSITY"],
         "gene_terms": [{"label": "AIP", "id": "hgnc:358"}],
     }
-    assert node_meta["Reduced AIP AHR/HSP90 co-chaperone binding function"][
-        "gene_terms"
-    ] == [
+    assert node_meta["Reduced AIP-AHR co-chaperone binding function"]["gene_terms"] == [
         {"label": "AIP", "id": "hgnc:358"},
         {"label": "AHR", "id": "hgnc:348"},
     ]
@@ -338,6 +351,9 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         "MED13",
         "MED13L",
         "MED12",
+        "MED12L",
+        "CDK8",
+        "CDK19",
     ]
     assert node_meta["Tail Module Disruption and Immediate Early Gene Dysregulation"][
         "subtypes"
@@ -591,19 +607,19 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             {
                 (
                     "GFAP Gain-of-Function Mutations",
-                    "GFAP Aggregation and Rosenthal Fiber Formation",
+                    "Mutant GFAP Proteotoxicity",
                 ),
                 (
                     "GFAP Gain-of-Function Mutations",
-                    "GFAP Post-Translational Modifications and Aggregation",
+                    "Oxidative GFAP Crosslinking",
                 ),
             },
             {"GFAP Gain-of-Function Mutations": "genetic"},
             {
-                "GFAP Aggregation and Rosenthal Fiber Formation": [
+                "Mutant GFAP Proteotoxicity": [
                     "structural constituent of cytoskeleton"
                 ],
-                "GFAP Post-Translational Modifications and Aggregation": [
+                "Oxidative GFAP Crosslinking": [
                     "structural constituent of cytoskeleton"
                 ],
             },

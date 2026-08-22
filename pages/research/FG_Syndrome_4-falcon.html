@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FG Syndrome 4 · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>FG Syndrome 4</span>
+            </div>
+
+            <header class="report-header">
+                <h1>FG Syndrome 4</h1>
+                
+                <p class="report-subtitle">FG Syndrome 4: Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-08-05</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010318" target="_blank" rel="noopener noreferrer">MONDO:0010318</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">25 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>FG Syndrome 4: Disease Characteristics Research Report</h1>
+<p><strong>Scope and critical curation note.</strong> FG syndrome 4 (FGS4) is an exceptionally sparsely documented historical FG-syndrome subtype. Current disease databases map it to <strong><a href="http://purl.obolibrary.org/obo/MONDO_0010318" target="_blank" rel="noopener noreferrer">MONDO:0010318</a></strong> and associate it with <strong>CASK</strong>. However, most modern clinical and mechanistic evidence concerns the broader spectrum of <strong>CASK-related disorders</strong>, not cohorts explicitly diagnosed as FGS4. Accordingly, this report labels evidence as either <strong>direct FGS4 evidence</strong> or <strong>broader CASK-spectrum evidence</strong>; frequencies from the latter should not be entered as FGS4-specific frequencies without qualification. Open Targets identifies CASK as the sole associated target, with an association score of 0.80 and predominantly genetic support. (OpenTargets Search: FG syndrome 4)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>FG syndrome 4-specific finding</th>
+<th>Broader CASK-spectrum context (clearly labeled)</th>
+<th>Suggested ontology/identifier</th>
+<th>Evidence caveat</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease entity</td>
+<td>FG syndrome 4 is a rare Mendelian/X-linked neurodevelopmental disorder entity linked to <strong>CASK</strong>; Open Targets maps <strong>FG syndrome 4</strong> to <strong><a href="http://purl.obolibrary.org/obo/MONDO_0010318" target="_blank" rel="noopener noreferrer">MONDO:0010318</a></strong> with one associated target, <strong>CASK</strong> (OpenTargets Search: FG syndrome 4)</td>
+<td><strong>Broader CASK spectrum:</strong> CASK-related disorders include MICPCH, X-linked intellectual disability, epilepsy, congenital nystagmus, hearing impairment, and other neurodevelopmental phenotypes (<a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0010318" target="_blank" rel="noopener noreferrer">MONDO:0010318</a></strong>; <strong>CASK / ENSG00000147044</strong></td>
+<td>Direct FG syndrome 4-specific literature is sparse; much modern interpretation relies on broader CASK-disorder evidence (OpenTargets Search: FG syndrome 4, <a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td>Historical FGS4 locus was mapped to <strong>Xp11.4-p11.3</strong> and is now supported as a <strong>CASK</strong>-associated entity (OpenTargets Search: FG syndrome 4)</td>
+<td><strong>Broader CASK spectrum:</strong> CASK is an X-chromosomal gene at <strong>Xp11.4</strong> encoding a MAGUK-family multidomain scaffold/atypical kinase (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>, <a href="#ref-tibbe2021functionalanalysisof-pages-1-2">tibbe2021functionalanalysisof pages 1-2</a>)</td>
+<td><strong>CASK / ENSG00000147044</strong>; locus label <strong>Xp11.4-p11.3</strong></td>
+<td>Gene assignment is strong at disease-platform level, but FGS4 nosology historically overlapped with other FG syndromes (OpenTargets Search: FG syndrome 4)</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td><strong>X-linked inheritance</strong> is the best-supported inheritance model for FG syndrome 4 via CASK (OpenTargets Search: FG syndrome 4)</td>
+<td><strong>Broader CASK spectrum:</strong> severe phenotypes often occur in hemizygous males; heterozygous females more commonly survive with variable severity influenced by X-inactivation; many cases are de novo (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</td>
+<td>Inheritance label: <strong>X-linked</strong></td>
+<td>Sex-specific expression and severity are inferred largely from broader CASK cohorts rather than FG syndrome 4-only case series (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype</td>
+<td>FG syndrome 4 is best understood as a syndromic neurodevelopmental disorder with intellectual/developmental impairment and neurologic abnormalities due to CASK dysfunction (OpenTargets Search: FG syndrome 4)</td>
+<td><strong>Broader CASK spectrum:</strong> intellectual disability in 96.1% of males and 93.5% of females; microcephaly/MICPCH in 76.0% of males and 87.7% of females; epilepsy in 54.1% of males vs 36.1% of females (<a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</td>
+<td>HPO suggestions: <strong>Intellectual disability</strong>, <strong>Global developmental delay</strong>, <strong>Microcephaly</strong>, <strong>Seizure</strong>, <strong>Nystagmus</strong></td>
+<td>These percentages are from aggregated CASK-related disorder reviews, not FG syndrome 4-specific cohorts (<a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</td>
+</tr>
+<tr>
+<td>Neuroimaging/anatomy</td>
+<td>FG syndrome 4 likely belongs within the CASK-linked hindbrain/pontocerebellar phenotype spectrum rather than a purely dysmorphic FG syndrome concept (OpenTargets Search: FG syndrome 4, <a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>)</td>
+<td><strong>Broader CASK spectrum:</strong> pontocerebellar hypoplasia on MRI is common; in one 41-patient MICPCH cohort, brain MRI confirmed pontocerebellar hypoplasia in all patients studied; progressive microcephaly is characteristic (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-8-9">mori2023diverseclinicalphenotypes pages 8-9</a>)</td>
+<td>UBERON suggestions: <strong>cerebellum</strong>, <strong>pons</strong>, <strong>brainstem</strong></td>
+<td>MRI findings are firmly established for CASK-related MICPCH, but not necessarily reported in every FG syndrome 4-labeled case (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-8-9">mori2023diverseclinicalphenotypes pages 8-9</a>)</td>
+</tr>
+<tr>
+<td>Additional phenotypes</td>
+<td>FG syndrome 4 can include ophthalmologic and movement-related manifestations under the CASK-linked phenotype umbrella (OpenTargets Search: FG syndrome 4, <a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>)</td>
+<td><strong>Broader CASK spectrum:</strong> dystonia, scoliosis, growth retardation, optic atrophy, deafness/hearing loss, hypotonia, and congenital nystagmus are recurrent findings; in a 13-patient series, phenotype included psychomotor retardation, severe intellectual disability, progressive microcephaly, dystonia, mild dysmorphism, scoliosis, and frequent ophthalmologic anomalies/deafness/epilepsy (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>)</td>
+<td>HPO suggestions: <strong>Hypotonia</strong>, <strong>Dystonia</strong>, <strong>Scoliosis</strong>, <strong>Sensorineural hearing impairment</strong>, <strong>Optic atrophy</strong></td>
+<td>Feature frequencies vary by cohort composition and sex; direct FG syndrome 4 frequency estimates are unavailable (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-martin2025theneurodevelopmentalspectrum-pages-1-2">martin2025theneurodevelopmentalspectrum pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Variant classes</td>
+<td>FG syndrome 4 is associated with pathogenic <strong>germline CASK variants</strong>; altered gene product sequence is the current platform-level consequence annotation (OpenTargets Search: FG syndrome 4)</td>
+<td><strong>Broader CASK spectrum:</strong> nonsense, frameshift, missense, splice, and copy-number variants are all reported; one MICPCH cohort identified 23 point mutations and 9 copy-number variants among 41 patients; all tested parental samples but one were de novo (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</td>
+<td>Variant class labels: <strong>missense</strong>, <strong>frameshift</strong>, <strong>nonsense</strong>, <strong>splice-site</strong>, <strong>copy-number variant</strong></td>
+<td>No single recurrent FG syndrome 4 founder variant is established from current retrieved evidence (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</td>
+</tr>
+<tr>
+<td>Molecular mechanism</td>
+<td>FG syndrome 4 is mechanistically attributable to loss or disruption of <strong>CASK</strong> function in neuronal development and synaptic systems (OpenTargets Search: FG syndrome 4)</td>
+<td><strong>Broader CASK spectrum:</strong> CASK is a multidomain scaffold/atypical kinase with CaMK, L27, PDZ, SH3, and GuK domains; it binds neurexin, liprin-α, SAP97, Tbr1, CINAP and others; disease-associated missense variants can impair neurexin binding/oligomerization and alter transcriptional or receptor-trafficking functions (<a href="#ref-mukherjee2022thenonlinearpath-pages-8-9">mukherjee2022thenonlinearpath pages 8-9</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>, <a href="#ref-pan2021missensemutationsin-pages-4-6">pan2021missensemutationsin pages 4-6</a>, <a href="#ref-pan2021missensemutationsin-pages-9-11">pan2021missensemutationsin pages 9-11</a>, <a href="#ref-tibbe2021functionalanalysisof-pages-1-2">tibbe2021functionalanalysisof pages 1-2</a>)</td>
+<td>GO suggestions: <strong>synapse organization</strong>, <strong>protein localization to synapse</strong>, <strong>regulation of transcription</strong>, <strong>receptor trafficking</strong></td>
+<td>Mechanistic conclusions derive mainly from broader CASK molecular studies rather than FGS4-labeled patient studies (<a href="#ref-mukherjee2022thenonlinearpath-pages-8-9">mukherjee2022thenonlinearpath pages 8-9</a>, <a href="#ref-pan2021missensemutationsin-pages-4-6">pan2021missensemutationsin pages 4-6</a>, <a href="#ref-tibbe2021functionalanalysisof-pages-1-2">tibbe2021functionalanalysisof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Pathophysiology chain</td>
+<td>Upstream event: pathogenic CASK variant; intermediate effects: altered scaffolding/protein interactions and neuronal growth regulation; downstream manifestations: developmental delay, microcephaly, pontocerebellar hypoplasia, seizures, visual/oculomotor abnormalities (OpenTargets Search: FG syndrome 4, <a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>)</td>
+<td><strong>Broader CASK spectrum:</strong> evidence supports non-cell-autonomous postnatal brain growth defects, cerebellar granule-cell vulnerability, altered excitatory/inhibitory balance, and possible metabolic/mitochondrial stress contributions (<a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-8-9">mukherjee2022thenonlinearpath pages 8-9</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-5-6">mukherjee2022thenonlinearpath pages 5-6</a>)</td>
+<td>GO suggestions: <strong>postnatal brain development</strong>, <strong>neuron death</strong>, <strong>synaptic signaling</strong>; CL suggestions: <strong>cerebellar granule cell</strong>, <strong>Purkinje cell</strong>, <strong>retinal ganglion cell</strong></td>
+<td>Causal chain remains incompletely resolved; synaptic dysfunction alone may be insufficient to explain degeneration (<a href="#ref-mukherjee2022thenonlinearpath-pages-8-9">mukherjee2022thenonlinearpath pages 8-9</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Suspect FG syndrome 4 in individuals with X-linked/syndromic neurodevelopmental disorder features and confirm by <strong>molecular testing of CASK</strong> (OpenTargets Search: FG syndrome 4)</td>
+<td><strong>Broader CASK spectrum:</strong> diagnosis commonly uses exome/genome sequencing or copy-number analysis; CASK screening is especially relevant in microcephaly with pontocerebellar hypoplasia; MRI is supportive; parental testing helps establish de novo status and counseling (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>, <a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>)</td>
+<td>Testing identifiers: <strong>CASK sequencing</strong>, <strong>copy-number analysis</strong>, <strong>brain MRI</strong></td>
+<td>No disease-specific consensus diagnostic criteria for FG syndrome 4 were identified in retrieved evidence (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>, <a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Differential diagnosis</td>
+<td>FG syndrome 4 should be distinguished from other historically named FG syndromes and from other pontocerebellar hypoplasia disorders (OpenTargets Search: FG syndrome 4)</td>
+<td><strong>Broader CASK spectrum:</strong> differential diagnosis includes other genetic causes of MICPCH/PCH and neurodevelopmental disorders with microcephaly, seizures, or nystagmus; genetic heterogeneity in MICPCH includes non-CASK genes such as ITPR1, RELN, DYNC1H1, DCTN1, HDAC2, MARCKS, HS3ST5 (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>)</td>
+<td>Disease labels: <strong>FG syndrome 1 (MED12-related)</strong> vs <strong>FG syndrome 4 (CASK-related)</strong>; broader label <strong>pontocerebellar hypoplasia</strong></td>
+<td>Historical nomenclature can mislead; older FG labels do not always map cleanly to current molecular nosology (OpenTargets Search: FG syndrome 4, <a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Treatment/management</td>
+<td>No FG syndrome 4-specific disease-modifying therapy was identified in retrieved evidence</td>
+<td><strong>Broader CASK spectrum:</strong> management is supportive/symptomatic and multidisciplinary, including developmental therapies, seizure management, hearing/vision support, orthopedic monitoring (e.g., scoliosis), nutrition, and genetic counseling; PCH reviews state treatment is still symptomatic (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-martin2025theneurodevelopmentalspectrum-pages-1-2">martin2025theneurodevelopmentalspectrum pages 1-2</a>)</td>
+<td>NCIT suggestions by label: <strong>Physical Therapy</strong>, <strong>Occupational Therapy</strong>, <strong>Speech Therapy</strong>, <strong>Anticonvulsant Therapy</strong>, <strong>Genetic Counseling</strong></td>
+<td>Management recommendations are inferred from CASK/PCH practice patterns; no controlled FG syndrome 4 treatment trials were found (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-martin2025theneurodevelopmentalspectrum-pages-1-2">martin2025theneurodevelopmentalspectrum pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>FG syndrome 4 prognosis is undefined due to rarity and sparse direct follow-up data</td>
+<td><strong>Broader CASK spectrum:</strong> severity is highly variable; hemizygous males with null variants may be very severe or lethal, whereas heterozygous females can survive with lifelong disability; one cohort showed only 6/41 could walk and 3/41 could speak, underscoring substantial morbidity (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>)</td>
+<td>Outcome labels: <strong>lifelong neurodevelopmental disability</strong>, <strong>variable severity</strong></td>
+<td>No robust disease-specific survival curves, life expectancy estimates, or mortality rates were identified (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>)</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td>No reliable prevalence or incidence estimate for <strong>FG syndrome 4</strong> was identified in retrieved evidence</td>
+<td><strong>Broader CASK spectrum:</strong> disease is rare and likely under-ascertained; published cohorts are small and enriched for severe neurodevelopmental referral populations (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>, <a href="#ref-martin2025theneurodevelopmentalspectrum-pages-1-2">martin2025theneurodevelopmentalspectrum pages 1-2</a>)</td>
+<td>MONDO entity: <strong><a href="http://purl.obolibrary.org/obo/MONDO_0010318" target="_blank" rel="noopener noreferrer">MONDO:0010318</a></strong></td>
+<td>Absence of epidemiologic estimates should be treated as a knowledge gap, not evidence of extreme rarity thresholding (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>, <a href="#ref-martin2025theneurodevelopmentalspectrum-pages-1-2">martin2025theneurodevelopmentalspectrum pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Environment/prevention</td>
+<td>No established environmental risk, protective factor, infectious trigger, or gene-environment interaction was identified for FG syndrome 4</td>
+<td><strong>Broader CASK spectrum:</strong> prevention is primarily genetic/reproductive—family testing when indicated, recurrence-risk counseling, and consideration of prenatal or preimplantation testing after familial variant identification (supported by de novo but occasionally inherited/mosaic contexts) (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>)</td>
+<td>Prevention labels: <strong>genetic counseling</strong>, <strong>prenatal testing</strong> (label only)</td>
+<td>This is a Mendelian disorder; non-genetic prevention evidence was not found in retrieved sources (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>)</td>
+</tr>
+<tr>
+<td>Clinical trials / real-world implementation</td>
+<td>No FG syndrome 4- or CASK-specific interventional therapeutic trial was retrieved</td>
+<td><strong>Broader CASK spectrum:</strong> a broad observational genotype-first registry, <strong>Simons Searchlight</strong> (<strong>NCT01238250</strong>), is recruiting and may capture natural-history/phenotype data across rare neurodevelopmental genetic disorders</td>
+<td><strong>NCT01238250</strong></td>
+<td>Observational registry participation is not evidence of efficacy for any therapy (OpenTargets Search: FG syndrome 4)</td>
+</tr>
+<tr>
+<td>Model organisms</td>
+<td>No FG syndrome 4-specific animal model named as such was identified</td>
+<td><strong>Broader CASK spectrum:</strong> Cask-null mice die within hours of birth; Cask heterozygous females recapitulate microcephaly, cerebellar hypoplasia, optic nerve hypoplasia, scoliosis, and occasional seizures; post-developmental deletion causes cerebellar degeneration and ataxia; Drosophila and C. elegans models show conserved but partial phenotypes (<a href="#ref-mukherjee2022thenonlinearpath-pages-5-6">mukherjee2022thenonlinearpath pages 5-6</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>)</td>
+<td>Model labels: <strong>mouse</strong>, <strong>Drosophila</strong>, <strong>C. elegans</strong></td>
+<td>Models capture major neurodevelopmental aspects but incompletely reproduce human phenotypic breadth and sex-specific mosaic biology (<a href="#ref-mukherjee2022thenonlinearpath-pages-5-6">mukherjee2022thenonlinearpath pages 5-6</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>)</td>
+</tr>
+<tr>
+<td>Recent developments (2023-2024)</td>
+<td>For FG syndrome 4 specifically, recent advances mainly come through the broader CASK literature rather than disease-specific series</td>
+<td><strong>Broader CASK spectrum:</strong> 2023 review quantified sex-stratified phenotype frequencies and domain–phenotype relationships; 2024 work highlighted splicing-dependent structural plasticity and vertebrate-specific exon effects; 2024 reviews summarized broader CASK mechanisms (<a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</td>
+<td>Recent-source markers: <strong>2023 review</strong>, <strong>2024 mechanistic study</strong></td>
+<td>These are important for interpretation, but not direct therapeutic breakthroughs for FG syndrome 4 (<a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table condenses high-yield knowledge-base facts for FG syndrome 4, clearly separating direct FG syndrome 4 evidence from broader CASK-related disorder evidence. It is useful for curation because the disease-specific literature is sparse and much current understanding is inferred from the larger CASK clinical and mechanistic spectrum.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition</h3>
+<p>FGS4 is a rare, Mendelian, X-linked syndromic neurodevelopmental disorder historically mapped to <strong>Xp11.4–p11.3</strong> and now linked to pathogenic variation in <strong>CASK</strong>, encoding calcium/calmodulin-dependent serine protein kinase. The modern molecular interpretation places FGS4 within the broader CASK-related neurodevelopmental spectrum, which includes X-linked intellectual disability, congenital nystagmus, epilepsy, and microcephaly with pontine and cerebellar hypoplasia (MICPCH). (OpenTargets Search: FG syndrome 4, <a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>)</p>
+<p>It must not be conflated with <strong>classic FG syndrome/FG syndrome 1</strong>, which is MED12-related. Historical FG-syndrome classification was phenotype based and genetically heterogeneous; consequently, older FGS labels do not always map cleanly to current molecular diagnoses.</p>
+<h3>Identifiers and synonyms</h3>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010318" target="_blank" rel="noopener noreferrer">MONDO:0010318</a>.</li>
+<li><strong>Causal gene association:</strong> <strong>CASK</strong>, Ensembl <strong>ENSG00000147044</strong>, chromosome Xp11.4. (OpenTargets Search: FG syndrome 4)</li>
+<li><strong>Common names:</strong> FG syndrome 4; FGS4; FG syndrome type 4; CASK-related FG syndrome.</li>
+<li><strong>Broader—but not strictly synonymous—terms:</strong> CASK-related disorder; CASK-related intellectual disability; X-linked intellectual disability with or without nystagmus; MICPCH.</li>
+<li><strong>OMIM/Orphanet/MeSH/ICD-10/ICD-11:</strong> No independently verified FGS4-specific entries or codes were recovered in the retrieved evidence. Generic intellectual-disability, congenital-malformation, microcephaly, epilepsy, or pontocerebellar-hypoplasia codes may be used clinically, but they are not specific identifiers for FGS4.</li>
+</ul>
+<p>The evidence summarized here is <strong>aggregated disease-level literature and database evidence</strong>, not individual EHR data. Some primary studies report individual patients or small cohorts.</p>
+<h2>2. Etiology</h2>
+<h3>Causal factors and genetic risk</h3>
+<p>The primary cause is a <strong>germline pathogenic CASK variant</strong>. Reported CASK disease alleles across the broader spectrum include nonsense, frameshift, splice-site, missense, intragenic deletion/duplication, and larger Xp11.4 copy-number variants. Loss-of-function alleles generally reduce or eliminate functional protein; missense alleles may be hypomorphic or selectively disrupt particular molecular interactions. (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</p>
+<p>In a 2017 study of 41 patients selected for intellectual disability and MICPCH, 32 had CASK abnormalities—23 point variants and nine copy-number variants. The paper reports a <strong>90.2% overall molecular identification rate</strong>, including non-CASK candidate diagnoses, rather than a 90.2% CASK rate. Parental testing showed that all assessed variants except one were de novo. (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>, <a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>)</p>
+<p>Sex and X-chromosome constitution strongly influence severity. Hemizygous males have all cells exposed to the variant and severe null alleles may be perinatal lethal. Heterozygous females are mosaics through X-chromosome inactivation and often survive with variable disease. Somatic mosaicism can attenuate disease in males. (<a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</p>
+<h3>Environmental, lifestyle, infectious, and protective factors</h3>
+<p>No reproducible environmental toxin, infection, diet, lifestyle exposure, or occupational factor is known to cause or materially modify FGS4. No validated protective CASK allele, modifier gene, protective exposure, or gene–environment interaction was identified. Family history is relevant only through inheritance or parental germline/somatic mosaicism. These negative findings are consistent with a highly penetrant Mendelian developmental disorder, but formal gene–environment studies are lacking.</p>
+<h2>3. Phenotypes</h2>
+<p>Direct FGS4 frequency data are unavailable. The following estimates derive from aggregated <strong>CASK-related disorder</strong> literature and should be curated with that qualifier.</p>
+<ul>
+<li><strong>Intellectual disability/global developmental delay:</strong> 96.1% of males and 93.5% of females in the 2023 review. Severity ranges from mild to profound, but severe impairment predominates in MICPCH cohorts. Suggested HPO: <em>Intellectual disability</em>, <em>Global developmental delay</em>, <em>Delayed speech and language development</em>. (<a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</li>
+<li><strong>Microcephaly/MICPCH:</strong> 76.0% of males and 87.7% of females in the same review. Head growth may be normal or mildly reduced at birth and become progressively abnormal postnatally; prenatal onset is reported in some patients. Suggested HPO: <em>Microcephaly</em>, <em>Progressive microcephaly</em>, <em>Pontocerebellar hypoplasia</em>, <em>Cerebellar hypoplasia</em>, <em>Pontine hypoplasia</em>. (<a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-8-9">mori2023diverseclinicalphenotypes pages 8-9</a>)</li>
+<li><strong>Epilepsy:</strong> 54.1% of males versus 36.1% of females, a reported sex difference of p=0.0198. Onset and seizure type are variable; severe males may have early refractory epilepsy. Suggested HPO: <em>Seizure</em>, <em>Epileptic encephalopathy</em>, with seizure-subtype terms assigned case by case. (<a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</li>
+<li><strong>Motor impairment:</strong> hypotonia, dystonia, impaired coordination, delayed or absent walking, and sometimes later spasticity. In the 41-person MICPCH cohort, only 6 walked and 3 spoke, illustrating severe functional morbidity in an ascertainment-enriched cohort. Suggested HPO: <em>Muscular hypotonia</em>, <em>Dystonia</em>, <em>Motor delay</em>, <em>Gait abnormality</em>. (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>)</li>
+<li><strong>Ophthalmologic/oculomotor disease:</strong> congenital nystagmus, optic atrophy or optic-nerve hypoplasia, glaucoma, megalocornea, and cerebral visual impairment are reported. Nystagmus has incomplete penetrance and has been associated mechanistically with C-terminal CASK–FRMD7 interactions. Suggested HPO: <em>Congenital nystagmus</em>, <em>Optic atrophy</em>, <em>Optic nerve hypoplasia</em>, <em>Glaucoma</em>, <em>Megalocornea</em>. (<a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>)</li>
+<li><strong>Hearing impairment:</strong> sensorineural hearing loss is recurrent. Suggested HPO: <em>Sensorineural hearing impairment</em>. (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-martin2025theneurodevelopmentalspectrum-pages-1-2">martin2025theneurodevelopmentalspectrum pages 1-2</a>)</li>
+<li><strong>Growth and musculoskeletal findings:</strong> growth retardation, scoliosis, and occasionally contractures or FG-like congenital anomalies. Suggested HPO: <em>Growth delay</em>, <em>Scoliosis</em>.</li>
+<li><strong>Behavioral/neuropsychiatric phenotype:</strong> autistic traits or autism-spectrum diagnoses and sleep difficulties occur in the broader CASK spectrum. Quantitative FGS4-specific data are unavailable. Suggested HPO: <em>Autistic behavior</em>, <em>Sleep disturbance</em>. (<a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>, <a href="#ref-martin2025theneurodevelopmentalspectrum-pages-1-2">martin2025theneurodevelopmentalspectrum pages 1-2</a>)</li>
+<li><strong>Facial dysmorphism:</strong> generally mild and variable in CASK cohorts; historical FG-like gestalt is insufficient for molecular diagnosis.</li>
+</ul>
+<p>Symptoms are congenital or begin in infancy/childhood. The condition is lifelong. Developmental disability is generally stable, while head-growth deceleration and cerebellar degeneration can be progressive. Epilepsy may be episodic or chronic. No validated FGS4-specific EQ-5D, SF-36, PROMIS, or other quality-of-life study was found; nevertheless, impaired communication, mobility, vision, hearing, feeding, and seizure burden can substantially limit daily functioning.</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Gene and variants</h3>
+<p><strong>CASK</strong> encodes an X-linked multidomain membrane-associated guanylate kinase-family protein. Its principal domains are an N-terminal atypical CaMK domain, two L27 domains, PDZ, SH3, and guanylate-kinase-like domains. (<a href="#ref-mukherjee2022thenonlinearpath-pages-5-6">mukherjee2022thenonlinearpath pages 5-6</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>, <a href="#ref-tibbe2021functionalanalysisof-pages-1-2">tibbe2021functionalanalysisof pages 1-2</a>)</p>
+<p>Broader CASK studies support the following genotype–phenotype tendencies:</p>
+<ul>
+<li>Nonsense and frameshift alleles usually cause loss of function and are overrepresented among affected females; severe constitutive null alleles are poorly tolerated in males.</li>
+<li>Missense alleles can disrupt selected binding partners and may permit survival in males. Five experimentally studied variants were <strong>p.Arg489Trp, p.Met507Ile, p.Gly521Val, p.Asn798Tyr, and p.Val849Ala</strong>. (<a href="#ref-pan2021missensemutationsin-pages-4-6">pan2021missensemutationsin pages 4-6</a>)</li>
+<li>Missense variants associated with intellectual disability and epilepsy occur throughout the protein, whereas variants associated with microcephaly/MICPCH appear more domain restricted. (<a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>)</li>
+<li>Copy-number variants can remove part or all of CASK and sometimes neighboring genes, complicating attribution.</li>
+</ul>
+<p>Variants are principally <strong>germline</strong>, although somatic mosaic variants occur. Population allele frequencies for individual FGS4 alleles were not recovered; fully penetrant severe variants are expected to be absent or extremely rare in population databases. No founder allele, anticipation, or established modifier gene is known. Female expression is influenced by X-inactivation, but no validated disease-specific methylation episignature was identified.</p>
+<p><strong>HGNC ID, ClinVar accessions, exact HGVS sequence for the reported FGS4 splice variant, and allele frequencies should be added only after direct ClinVar/HGNC transcript verification.</strong> They were not available in the retrieved full-text evidence and should not be inferred.</p>
+<h2>5. Environmental information</h2>
+<p>No causal environmental exposure, lifestyle factor, or infectious agent applies. Smoking, alcohol, diet, exercise, pollution, radiation, and occupational exposure have not been shown to determine disease occurrence. Maternal exposures could independently affect neurodevelopment but are not recognized causes of FGS4. CTD-like chemical–gene associations should not be promoted to disease-risk factors without human evidence.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Upstream-to-downstream causal model</h3>
+<ol>
+<li><strong>Pathogenic CASK variation</strong> causes haploinsufficiency, complete loss, or selective impairment of a functional domain.</li>
+<li><strong>Protein interaction and localization defects</strong> disturb CASK scaffolding at presynaptic and postsynaptic sites and in the nucleus/cytoplasm. Important partners include neurexin, liprin-α, Mint1, Veli/Lin7, SAP97, syndecan, SynCAM, TBR1, CINAP, FRMD7, and CNTNAP2. (<a href="#ref-mukherjee2022thenonlinearpath-pages-8-9">mukherjee2022thenonlinearpath pages 8-9</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>, <a href="#ref-tibbe2021functionalanalysisof-pages-1-2">tibbe2021functionalanalysisof pages 1-2</a>)</li>
+<li><strong>Synaptic and transcriptional consequences</strong> include impaired neurexin binding and neurexin-induced CASK oligomerization, altered active-zone organization, NMDA/AMPA receptor trafficking, and altered TBR1-associated regulation of <strong>RELN</strong> and <strong>GRIN2B/NR2B</strong>. (<a href="#ref-mukherjee2022thenonlinearpath-pages-5-6">mukherjee2022thenonlinearpath pages 5-6</a>, <a href="#ref-pan2021missensemutationsin-pages-4-6">pan2021missensemutationsin pages 4-6</a>, <a href="#ref-pan2021missensemutationsin-pages-9-11">pan2021missensemutationsin pages 9-11</a>)</li>
+<li><strong>Network/cellular consequences</strong> include altered excitatory–inhibitory balance, impaired postnatal brain growth, and vulnerability of cerebellar granule cells. Heterozygous mouse proteomics found more than 500 differentially expressed proteins, including 99 mitochondrial proteins, supporting additional cytoskeletal, translational/chaperone, and metabolic components. (<a href="#ref-mukherjee2022thenonlinearpath-pages-8-9">mukherjee2022thenonlinearpath pages 8-9</a>)</li>
+<li><strong>Tissue-level effects</strong> include disproportionate hindbrain and cerebellar injury, optic-nerve hypoplasia, microcephaly, and—in severe males—brainstem dysfunction affecting respiration and swallowing. These produce developmental disability, ataxia/motor impairment, epilepsy, nystagmus, and sensory deficits. (<a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-8-9">mukherjee2022thenonlinearpath pages 8-9</a>)</li>
+</ol>
+<h3>Important expert interpretation</h3>
+<p>A simple “loss of synaptic CASK function causes maldevelopment” model is inadequate. Cask-null mice can show largely normal initial brain lamination and synaptic ultrastructure, while heterozygous animals develop postnatal abnormalities. Cell-specific deletion from Purkinje cells, retinal ganglion cells, or granule-cell precursors does not independently reproduce degeneration. This supports <strong>non-cell-autonomous, tissue-level pathogenesis</strong> and later neurodegeneration rather than a pure neuronal migration defect. (<a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-5-6">mukherjee2022thenonlinearpath pages 5-6</a>)</p>
+<p>The 2022 review’s central caution is that CASK molecular functions and clinical pathology have a “highly complex relationship”; mechanistic annotations should therefore separate demonstrated interactions from proven disease-causal pathways. (<a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>)</p>
+<h3>Ontology suggestions</h3>
+<ul>
+<li><strong>GO biological process:</strong> synapse organization; regulation of synaptic vesicle exocytosis; receptor localization to synapse; regulation of transcription by RNA polymerase II; postnatal brain development; regulation of neuron death; regulation of mitochondrial metabolism.</li>
+<li><strong>GO molecular function:</strong> protein-domain-specific binding; scaffold protein binding; protein serine/threonine kinase activity; neurexin binding.</li>
+<li><strong>GO cellular component:</strong> presynaptic active zone; postsynaptic density; neuronal nucleus; cytosol; plasma membrane.</li>
+<li><strong>Cell Ontology labels:</strong> neuron; cerebellar granule cell; Purkinje cell; retinal ganglion cell; excitatory neuron; inhibitory neuron. Exact CL identifiers should be ontology-validated before ingestion.</li>
+</ul>
+<p>No validated FGS4-specific single-cell, spatial-transcriptomic, lipidomic, or metabolomic signature was found. Human induced cortical excitatory-neuron models exist in the broader CASK field, but no clinical omics biomarker is established.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The <strong>central nervous system</strong> is primary, especially:</p>
+<ul>
+<li>cerebellum, particularly the granule-cell layer;</li>
+<li>pons and brainstem;</li>
+<li>cerebral cortex and broader forebrain networks;</li>
+<li>optic nerve and visual pathways;</li>
+<li>auditory pathways.</li>
+</ul>
+<p>Secondary systems include skeletal muscle/motor apparatus, spine, eyes, ears, and—depending on phenotype—feeding and respiratory systems. MRI may show pontocerebellar hypoplasia, with cerebellar involvement generally greater than pontine involvement. In the 2017 selected MICPCH cohort, all patients had MRI-confirmed pontocerebellar hypoplasia. (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>)</p>
+<p>Suggested UBERON labels are <em>brain</em>, <em>cerebral cortex</em>, <em>cerebellum</em>, <em>cerebellar granule layer</em>, <em>pons</em>, <em>brainstem</em>, <em>optic nerve</em>, <em>retina</em>, <em>inner ear</em>, and <em>spinal column</em>. No consistent lateralization is established; findings are generally bilateral or diffuse.</p>
+<h2>8. Temporal development</h2>
+<p>Onset is congenital or early pediatric. Microcephaly may be prenatal but often becomes more conspicuous postnatally. Developmental delay, hypotonia, hearing loss, or nystagmus may be evident in infancy; seizures can begin in infancy or childhood. (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-8-9">mori2023diverseclinicalphenotypes pages 8-9</a>)</p>
+<p>The course is chronic and lifelong. Head growth deceleration and cerebellar injury may progress, whereas many congenital structural abnormalities remain stable. Experimental post-developmental deletion causes granule-layer atrophy beginning around two months in mice, supporting a continuing requirement for CASK and a degenerative component. (<a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>)</p>
+<p>No accepted FGS4 staging system, remission pattern, or sharply defined intervention window exists. Early childhood is nonetheless a practical critical period for hearing/vision correction, seizure control, communication support, nutrition, and habilitative therapy.</p>
+<h2>9. Inheritance and population</h2>
+<p>Inheritance is <strong>X-linked</strong>. Hemizygous males are often more severely affected by loss-of-function alleles, while heterozygous females show variable expressivity because of cellular mosaicism from X-inactivation. In the 2023 aggregation, intellectual-disability frequencies were similar by sex, but epilepsy was significantly more common in males. (<a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</p>
+<p>Many cases are de novo. Recurrence risk is usually low after a proven de novo event but is not zero because parental germline or low-level somatic mosaicism may be missed. In inherited families, a heterozygous mother may transmit the allele to 50% of pregnancies; outcome differs by fetal sex, variant effect, and X-inactivation. Female penetrance and severity are variable rather than predictably complete. Anticipation and consanguinity are not characteristic. (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>)</p>
+<p>No reliable FGS4 prevalence, incidence, carrier frequency, geographic concentration, founder effect, ethnic enrichment, or population sex ratio is available. Referral cohorts are not suitable for population estimation.</p>
+<h2>10. Diagnostics</h2>
+<h3>Recommended approach</h3>
+<ol>
+<li><strong>Clinical assessment:</strong> developmental history, three-generation pedigree, growth and serial head circumference, neurologic examination, dysmorphology, vision/hearing, feeding, and musculoskeletal examination.</li>
+<li><strong>Brain MRI:</strong> assess pons, cerebellar hemispheres/vermis, cortex, white matter, ventricles, and optic structures.</li>
+<li><strong>EEG</strong> for seizures or regression; audiology/ABR and formal ophthalmology regardless of obvious symptoms.</li>
+<li><strong>Genetic testing:</strong> trio exome or genome sequencing is efficient because of phenotypic and locus heterogeneity. Analysis must include CASK single-nucleotide and indel variants and copy-number calling.</li>
+<li>If phenotype strongly indicates CASK disease, use <strong>CASK sequencing plus deletion/duplication analysis</strong>. Chromosomal microarray is useful for Xp11.4 deletions/duplications but misses most sequence variants.</li>
+<li>Confirm variants orthogonally when needed and test parents, including mosaic-sensitive testing where recurrence counseling depends on it.</li>
+</ol>
+<p>Karyotyping and FISH have limited resolution and are appropriate mainly for a suspected large rearrangement. Mitochondrial DNA and repeat-expansion testing are not first-line. RNA sequencing can clarify a suspected splice variant or VUS but is not a routine validated diagnostic biomarker. No enzyme assay, blood metabolite, biopsy feature, liquid biopsy, or disease-specific biochemical marker is diagnostic.</p>
+<h3>Differential diagnosis</h3>
+<ul>
+<li>MED12-related FG syndrome 1 and other historical FG syndromes;</li>
+<li>other pontocerebellar hypoplasias, including TSEN54-related disease;</li>
+<li>ITPR1-, RELN-, DYNC1H1-, and DCTN1-related disorders;</li>
+<li>other causes of syndromic X-linked intellectual disability, congenital nystagmus, microcephaly, epilepsy, or cerebellar hypoplasia. The 2017 study also identified or considered HDAC2, MARCKS, and HS3ST5 among non-CASK candidates, illustrating MICPCH heterogeneity. (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>)</li>
+</ul>
+<p>No standardized FGS4 clinical diagnostic criteria were found; molecular confirmation is preferred. There is no population or newborn screening program. Cascade testing is appropriate after identifying a familial variant.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>FGS4-specific survival curves, mortality rates, and life-expectancy estimates do not exist. Prognosis is highly variable and depends on variant class, sex, mosaicism, brainstem involvement, epilepsy, feeding/respiratory complications, and degree of developmental impairment.</p>
+<p>Severe hemizygous null alleles may cause fetal or neonatal death or profound encephalopathy. Brainstem thinning can impair respiratory and swallowing reflexes, increasing risk of central respiratory failure, aspiration, airway infection, and pneumonia. An autopsied male with a p.Arg27Ter allele had a brain approximately 60% of expected weight and an extremely hypoplastic hindbrain. (<a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>)</p>
+<p>Surviving females and males with hypomorphic or mosaic variants may live into adulthood but commonly require lifelong support. Morbidity includes limited speech and mobility, epilepsy, visual/hearing impairment, scoliosis, feeding difficulties, and dependence in activities of daily living. No validated prognostic biomarker or prediction model exists.</p>
+<h2>12. Treatment and real-world implementation</h2>
+<p>There is <strong>no approved disease-modifying, gene, RNA, cell, or targeted therapy</strong> for FGS4/CASK-related disease. Treatment is individualized and supportive:</p>
+<ul>
+<li>antiseizure medication selected by seizure type and EEG;</li>
+<li>early physical, occupational, speech/language, feeding, and augmentative-communication therapy;</li>
+<li>hearing aids or cochlear evaluation as indicated;</li>
+<li>ophthalmologic treatment and visual-access interventions;</li>
+<li>nutritional and swallowing assessment, aspiration prevention, and gastrostomy when clinically required;</li>
+<li>orthopedic surveillance and treatment of scoliosis/contractures;</li>
+<li>management of sleep, constipation, respiratory problems, and behavioral distress;</li>
+<li>palliative/supportive planning in severe brainstem disease;</li>
+<li>clinical genetics and reproductive counseling.</li>
+</ul>
+<p>Suggested NCIt intervention labels include <em>Anticonvulsant Therapy</em>, <em>Physical Therapy</em>, <em>Occupational Therapy</em>, <em>Speech Therapy</em>, <em>Hearing Aid</em>, <em>Gastrostomy</em>, and <em>Genetic Counseling</em>; exact NCIt codes should be terminology-validated before database loading.</p>
+<p>No response rates, comparative treatment trials, CASK-specific pharmacogenomic recommendations, or treatment algorithm supported by controlled evidence were found. A search identified no FGS4/CASK-specific interventional trial. <strong>Simons Searchlight, NCT01238250</strong>, is a recruiting observational genotype-first registry relevant to rare neurodevelopmental disorders; it does not test therapeutic efficacy.</p>
+<h2>13. Prevention</h2>
+<p>Primary prevention by lifestyle modification, vaccination, environmental remediation, or medication is not applicable. Secondary and tertiary prevention consist of:</p>
+<ul>
+<li>early molecular diagnosis;</li>
+<li>seizure recognition and treatment;</li>
+<li>hearing and vision screening;</li>
+<li>feeding/aspiration, respiratory, and scoliosis surveillance;</li>
+<li>early developmental intervention.</li>
+</ul>
+<p>After identifying a familial pathogenic variant, reproductive options include prenatal diagnosis and preimplantation genetic testing. Counseling must discuss variable female expression, potentially severe male disease, and residual recurrence risk from parental mosaicism. Population carrier screening and newborn screening are not established.</p>
+<h2>14. Other species and natural disease</h2>
+<p>No naturally occurring veterinary disease that is a validated homolog of human FGS4 was identified. CASK is evolutionarily conserved across vertebrates and invertebrates, but experimental ortholog disruption should not be described as naturally occurring FG syndrome. There is no infectious transmission, zoonotic potential, or cross-species contagion.</p>
+<p>Relevant experimental taxa include:</p>
+<ul>
+<li><em>Mus musculus</em>—NCBI Taxonomy 10090;</li>
+<li><em>Drosophila melanogaster</em>—7227;</li>
+<li><em>Caenorhabditis elegans</em>—6239.</li>
+</ul>
+<p>Exact orthologous NCBI Gene IDs and any OMIA/VBO entries require dedicated database validation.</p>
+<h2>15. Model organisms and advanced models</h2>
+<h3>Mouse</h3>
+<p>Constitutive <strong>Cask-null mice</strong> die within hours of birth, exhibit central respiratory failure, increased thalamic neuronal death, and cleft palate with approximately 80% penetrance. Initial brain lamination and synaptic ultrastructure are comparatively preserved, highlighting limitations of equating early structure with later disease. (<a href="#ref-mukherjee2022thenonlinearpath-pages-5-6">mukherjee2022thenonlinearpath pages 5-6</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>)</p>
+<p><strong>Cask+/− female mice</strong> express approximately 50% of normal CASK and reproduce major human features: postnatal microcephaly, cerebellar and optic-nerve hypoplasia, scoliosis, impaired coordination, and occasional seizures. They are useful for studying female mosaic disease but show milder behavioral and electrophysiologic phenotypes than many severely affected humans. (<a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-5-6">mukherjee2022thenonlinearpath pages 5-6</a>)</p>
+<p>Conditional and cell-specific deletions demonstrate that loss from Purkinje cells or retinal ganglion cells alone is insufficient to cause their death, whereas post-developmental broad deletion eventually causes cerebellar granule-cell degeneration and ataxia. These models support a non-cell-autonomous mechanism and continuing postnatal requirement for CASK. (<a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>)</p>
+<h3>Invertebrates</h3>
+<p>CASK-null <em>C. elegans</em> show vulval abnormalities through the LET-23/EGF pathway but little neuronal phenotype. <em>Drosophila</em> CASK loss reduces locomotion without major neuromuscular-junction, motor-neuron, or premotor-neuropil abnormalities. These models reveal conserved functions but incompletely recapitulate human hindbrain disease. (<a href="#ref-mukherjee2022thenonlinearpath-pages-3-5">mukherjee2022thenonlinearpath pages 3-5</a>)</p>
+<h3>Cellular and structural models</h3>
+<p>Co-immunoprecipitation, bimolecular fluorescence complementation, molecular modeling, and patient-variant expression studies show that disease-associated variants can disrupt SAP97, TBR1/CINAP, and neurexin interactions. One study concluded that cooperative PDZ–SH3–GK activity is required for neurexin binding and oligomerization. (<a href="#ref-pan2021missensemutationsin-pages-4-6">pan2021missensemutationsin pages 4-6</a>, <a href="#ref-pan2021missensemutationsin-pages-9-11">pan2021missensemutationsin pages 9-11</a>)</p>
+<p>Human fetal brain expresses at least seven CASK transcript variants, four not then represented as known GenBank variants; alternative splicing changes partner affinity, particularly SAP97 binding. This makes transcript choice an important consideration for functional variant assays. (<a href="#ref-tibbe2021functionalanalysisof-pages-1-2">tibbe2021functionalanalysisof pages 1-2</a>)</p>
+<h2>Recent developments, 2023–2024</h2>
+<p>The most informative 2023 synthesis quantified sex-stratified manifestations and emphasized domain–phenotype relationships: intellectual disability affected approximately 94–96%, microcephaly/MICPCH 76–88%, and epilepsy 36% of females versus 54% of males in aggregated CASK reports. Its abstract states that CASK disorders are characterized by “MICPCH, epilepsy, congenital nystagmus, and neurodevelopmental disorders.” Published August 2023; DOI: <a href="https://doi.org/10.3390/genes14081656" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes14081656</a>. (<a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>, <a href="#ref-mori2023diverseclinicalphenotypes-pages-5-7">mori2023diverseclinicalphenotypes pages 5-7</a>)</p>
+<p>A 2024 study, published online in April, used conditional mouse deletion and human variants to show that adult Cask loss can produce progressive cerebellar degeneration and that alternatively spliced vertebrate-specific exons may create region-dependent structural and functional plasticity. DOI: <a href="https://doi.org/10.1136/jmg-2023-109747" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/jmg-2023-109747</a>. This advances mechanism and variant interpretation, but it is not yet a therapeutic breakthrough.</p>
+<h2>Evidence limitations and curation recommendations</h2>
+<ol>
+<li>Preserve <strong>FGS4</strong> as the MONDO entity but attach a strong note that modern evidence is largely CASK-spectrum evidence.</li>
+<li>Do not assign MICPCH cohort frequencies directly to FGS4 without an evidence qualifier.</li>
+<li>Record variant-level assertions only after transcript-specific ClinVar/HGVS verification.</li>
+<li>Mark prevalence, incidence, life expectancy, validated biomarkers, environmental risks/protectors, disease-specific clinical criteria, and controlled treatment outcomes as <strong>unknown/not available</strong>, rather than zero.</li>
+<li>Treat CASK–neurexin, CASK–TBR1/GRIN2B, receptor trafficking, mitochondrial/metabolic stress, and non-cell-autonomous degeneration as complementary hypotheses with different evidence levels—not as one fully proven linear pathway.</li>
+</ol>
+<h3>Key publications</h3>
+<ul>
+<li>Mori T, Zhou M, Tabuchi K. <em>Diverse Clinical Phenotypes of CASK-Related Disorders and Multiple Functional Domains of CASK Protein</em>. <strong>Genes</strong>. Published August 2023. DOI: <a href="https://doi.org/10.3390/genes14081656" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes14081656</a>. (<a href="#ref-mori2023diverseclinicalphenotypes-pages-1-2">mori2023diverseclinicalphenotypes pages 1-2</a>)</li>
+<li>Hayashi S, et al. <em>Comprehensive investigation of CASK mutations and other genetic etiologies in 41 patients with intellectual disability and MICPCH</em>. <strong>PLOS ONE</strong>. Published August 2017. DOI: <a href="https://doi.org/10.1371/journal.pone.0181791" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0181791</a>. (<a href="#ref-hayashi2017comprehensiveinvestigationof-pages-1-2">hayashi2017comprehensiveinvestigationof pages 1-2</a>, <a href="#ref-hayashi2017comprehensiveinvestigationof-pages-2-3">hayashi2017comprehensiveinvestigationof pages 2-3</a>)</li>
+<li>Pan YE, et al. <em>Missense mutations in CASK…interfere with neurexin binding and neurexin-induced oligomerization</em>. <strong>Journal of Neurochemistry</strong>. Published May 2021. DOI: <a href="https://doi.org/10.1111/jnc.15215" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/jnc.15215</a>. (<a href="#ref-pan2021missensemutationsin-pages-4-6">pan2021missensemutationsin pages 4-6</a>)</li>
+<li>Tibbe D, et al. <em>Functional analysis of CASK transcript variants expressed in human brain</em>. <strong>PLOS ONE</strong>. Published June 2021. DOI: <a href="https://doi.org/10.1371/journal.pone.0253223" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0253223</a>. (<a href="#ref-tibbe2021functionalanalysisof-pages-1-2">tibbe2021functionalanalysisof pages 1-2</a>)</li>
+<li>Mukherjee K, LaConte LEW, Srivastava S. <em>The Non-Linear Path from Gene Dysfunction to Genetic Disease: Lessons from the MICPCH Mouse Model</em>. <strong>Cells</strong>. Published March 2022. DOI: <a href="https://doi.org/10.3390/cells11071131" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells11071131</a>. (<a href="#ref-mukherjee2022thenonlinearpath-pages-6-8">mukherjee2022thenonlinearpath pages 6-8</a>, <a href="#ref-mukherjee2022thenonlinearpath-pages-8-9">mukherjee2022thenonlinearpath pages 8-9</a>)</li>
+<li>Patel PA, et al. <em>Genetic evidence for splicing-dependent structural and functional plasticity in CASK protein</em>. <strong>Journal of Medical Genetics</strong>. Published April 2024. DOI: <a href="https://doi.org/10.1136/jmg-2023-109747" target="_blank" rel="noopener noreferrer">https://doi.org/10.1136/jmg-2023-109747</a>.</li>
+</ul>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-opentargets-search-fg-syndrome-4"></a>(OpenTargets Search: FG syndrome 4): Open Targets Query (FG syndrome 4, 1 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-mori2023diverseclinicalphenotypes-pages-1-2"></a>(mori2023diverseclinicalphenotypes pages 1-2): Takuma Mori, Mengyun Zhou, and Katsuhiko Tabuchi. Diverse clinical phenotypes of cask-related disorders and multiple functional domains of cask protein. Genes, 14:1656, Aug 2023. URL: <a href="https://doi.org/10.3390/genes14081656" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes14081656</a>, <a href="https://doi.org/10.3390/genes14081656" target="_blank" rel="noopener noreferrer">doi:10.3390/genes14081656</a>. This article has 17 citations.</p>
+</li>
+<li>
+<p><a id="ref-hayashi2017comprehensiveinvestigationof-pages-1-2"></a>(hayashi2017comprehensiveinvestigationof pages 1-2): Shin Hayashi, Daniela Tiaki Uehara, Kousuke Tanimoto, Seiji Mizuno, Yasutsugu Chinen, Shinobu Fukumura, Jun-ichi Takanashi, Hitoshi Osaka, Nobuhiko Okamoto, and Johji Inazawa. Comprehensive investigation of cask mutations and other genetic etiologies in 41 patients with intellectual disability and microcephaly with pontine and cerebellar hypoplasia (micpch). PLOS ONE, 12:e0181791, Aug 2017. URL: <a href="https://doi.org/10.1371/journal.pone.0181791" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0181791</a>, <a href="https://doi.org/10.1371/journal.pone.0181791" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0181791</a>. This article has 81 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tibbe2021functionalanalysisof-pages-1-2"></a>(tibbe2021functionalanalysisof pages 1-2): Debora Tibbe, Yingzhou Edward Pan, Carsten Reißner, Frederike L. Harms, and Hans-Jürgen Kreienkamp. Functional analysis of cask transcript variants expressed in human brain. PLoS ONE, 16:e0253223, Jun 2021. URL: <a href="https://doi.org/10.1371/journal.pone.0253223" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0253223</a>, <a href="https://doi.org/10.1371/journal.pone.0253223" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0253223</a>. This article has 16 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mukherjee2022thenonlinearpath-pages-3-5"></a>(mukherjee2022thenonlinearpath pages 3-5): Konark Mukherjee, Leslie E. W. LaConte, and Sarika Srivastava. The non-linear path from gene dysfunction to genetic disease: lessons from the micpch mouse model. Cells, 11:1131, Mar 2022. URL: <a href="https://doi.org/10.3390/cells11071131" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells11071131</a>, <a href="https://doi.org/10.3390/cells11071131" target="_blank" rel="noopener noreferrer">doi:10.3390/cells11071131</a>. This article has 7 citations.</p>
+</li>
+<li>
+<p><a id="ref-mori2023diverseclinicalphenotypes-pages-5-7"></a>(mori2023diverseclinicalphenotypes pages 5-7): Takuma Mori, Mengyun Zhou, and Katsuhiko Tabuchi. Diverse clinical phenotypes of cask-related disorders and multiple functional domains of cask protein. Genes, 14:1656, Aug 2023. URL: <a href="https://doi.org/10.3390/genes14081656" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes14081656</a>, <a href="https://doi.org/10.3390/genes14081656" target="_blank" rel="noopener noreferrer">doi:10.3390/genes14081656</a>. This article has 17 citations.</p>
+</li>
+<li>
+<p><a id="ref-hayashi2017comprehensiveinvestigationof-pages-2-3"></a>(hayashi2017comprehensiveinvestigationof pages 2-3): Shin Hayashi, Daniela Tiaki Uehara, Kousuke Tanimoto, Seiji Mizuno, Yasutsugu Chinen, Shinobu Fukumura, Jun-ichi Takanashi, Hitoshi Osaka, Nobuhiko Okamoto, and Johji Inazawa. Comprehensive investigation of cask mutations and other genetic etiologies in 41 patients with intellectual disability and microcephaly with pontine and cerebellar hypoplasia (micpch). PLOS ONE, 12:e0181791, Aug 2017. URL: <a href="https://doi.org/10.1371/journal.pone.0181791" target="_blank" rel="noopener noreferrer">https://doi.org/10.1371/journal.pone.0181791</a>, <a href="https://doi.org/10.1371/journal.pone.0181791" target="_blank" rel="noopener noreferrer">doi:10.1371/journal.pone.0181791</a>. This article has 81 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mori2023diverseclinicalphenotypes-pages-8-9"></a>(mori2023diverseclinicalphenotypes pages 8-9): Takuma Mori, Mengyun Zhou, and Katsuhiko Tabuchi. Diverse clinical phenotypes of cask-related disorders and multiple functional domains of cask protein. Genes, 14:1656, Aug 2023. URL: <a href="https://doi.org/10.3390/genes14081656" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/genes14081656</a>, <a href="https://doi.org/10.3390/genes14081656" target="_blank" rel="noopener noreferrer">doi:10.3390/genes14081656</a>. This article has 17 citations.</p>
+</li>
+<li>
+<p><a id="ref-martin2025theneurodevelopmentalspectrum-pages-1-2"></a>(martin2025theneurodevelopmentalspectrum pages 1-2): Jessica Martin, Alkistis Mavrogalou-Foti, Josefine Eck, Laura Hattersley, and Kate Baker. The neurodevelopmental spectrum of cask-related disorder. Journal of Neurodevelopmental Disorders, Oct 2025. URL: <a href="https://doi.org/10.1186/s11689-025-09643-3" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s11689-025-09643-3</a>, <a href="https://doi.org/10.1186/s11689-025-09643-3" target="_blank" rel="noopener noreferrer">doi:10.1186/s11689-025-09643-3</a>. This article has 6 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mukherjee2022thenonlinearpath-pages-8-9"></a>(mukherjee2022thenonlinearpath pages 8-9): Konark Mukherjee, Leslie E. W. LaConte, and Sarika Srivastava. The non-linear path from gene dysfunction to genetic disease: lessons from the micpch mouse model. Cells, 11:1131, Mar 2022. URL: <a href="https://doi.org/10.3390/cells11071131" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells11071131</a>, <a href="https://doi.org/10.3390/cells11071131" target="_blank" rel="noopener noreferrer">doi:10.3390/cells11071131</a>. This article has 7 citations.</p>
+</li>
+<li>
+<p><a id="ref-mukherjee2022thenonlinearpath-pages-6-8"></a>(mukherjee2022thenonlinearpath pages 6-8): Konark Mukherjee, Leslie E. W. LaConte, and Sarika Srivastava. The non-linear path from gene dysfunction to genetic disease: lessons from the micpch mouse model. Cells, 11:1131, Mar 2022. URL: <a href="https://doi.org/10.3390/cells11071131" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells11071131</a>, <a href="https://doi.org/10.3390/cells11071131" target="_blank" rel="noopener noreferrer">doi:10.3390/cells11071131</a>. This article has 7 citations.</p>
+</li>
+<li>
+<p><a id="ref-pan2021missensemutationsin-pages-4-6"></a>(pan2021missensemutationsin pages 4-6): Yingzhou Edward Pan, Debora Tibbe, Frederike Leonie Harms, Carsten Reißner, Kerstin Becker, Bri Dingmann, Ghayda Mirzaa, Anja A. Kattentidt‐Mouravieva, Moneef Shoukier, Shagun Aggarwal, Markus Missler, Kerstin Kutsche, and Hans‐Jürgen Kreienkamp. Missense mutations in cask, coding for the calcium‐/calmodulin‐dependent serine protein kinase, interfere with neurexin binding and neurexin‐induced oligomerization. Journal of Neurochemistry, 157:1331-1350, May 2021. URL: <a href="https://doi.org/10.1111/jnc.15215" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/jnc.15215</a>, <a href="https://doi.org/10.1111/jnc.15215" target="_blank" rel="noopener noreferrer">doi:10.1111/jnc.15215</a>. This article has 25 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-pan2021missensemutationsin-pages-9-11"></a>(pan2021missensemutationsin pages 9-11): Yingzhou Edward Pan, Debora Tibbe, Frederike Leonie Harms, Carsten Reißner, Kerstin Becker, Bri Dingmann, Ghayda Mirzaa, Anja A. Kattentidt‐Mouravieva, Moneef Shoukier, Shagun Aggarwal, Markus Missler, Kerstin Kutsche, and Hans‐Jürgen Kreienkamp. Missense mutations in cask, coding for the calcium‐/calmodulin‐dependent serine protein kinase, interfere with neurexin binding and neurexin‐induced oligomerization. Journal of Neurochemistry, 157:1331-1350, May 2021. URL: <a href="https://doi.org/10.1111/jnc.15215" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/jnc.15215</a>, <a href="https://doi.org/10.1111/jnc.15215" target="_blank" rel="noopener noreferrer">doi:10.1111/jnc.15215</a>. This article has 25 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-mukherjee2022thenonlinearpath-pages-5-6"></a>(mukherjee2022thenonlinearpath pages 5-6): Konark Mukherjee, Leslie E. W. LaConte, and Sarika Srivastava. The non-linear path from gene dysfunction to genetic disease: lessons from the micpch mouse model. Cells, 11:1131, Mar 2022. URL: <a href="https://doi.org/10.3390/cells11071131" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/cells11071131</a>, <a href="https://doi.org/10.3390/cells11071131" target="_blank" rel="noopener noreferrer">doi:10.3390/cells11071131</a>. This article has 7 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/FG_Syndrome_4-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="FG_Syndrome_1-falcon.html">← FG Syndrome 1 (Falcon)</a>
+                
+                
+                <a href="FGF12-Related_Developmental_and_Epileptic_Encephalopathy-claude_code.html">FGF12-Related Developmental and Epileptic Encephalopathy (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/FG_Syndrome_4.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/FG_Syndrome_4-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

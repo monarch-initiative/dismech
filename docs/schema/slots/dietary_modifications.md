@@ -22,7 +22,7 @@ Alias: dietary_modifications
 
 | Name | Description | Modifies Slot |
 | --- | --- | --- |
-| [TreatmentDescriptor](../classes/TreatmentDescriptor.md) | A descriptor for treatments/medical actions, bindable to MAXO or NCIT clinica... |  yes  |
+| [TreatmentDescriptor](../classes/TreatmentDescriptor.md) | A descriptor for treatments/medical actions, bindable to NCIT clinical interv... |  yes  |
 
 
 

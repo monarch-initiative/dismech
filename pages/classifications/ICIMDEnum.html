@@ -50,6 +50,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -304,6 +423,49 @@
 </head>
 <body>
     
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -457,6 +619,10 @@ Provenance note: the category set and group membership are transcribed from the 
                     
                     <li><a class="disorder-link" href="../disorders/Ethylmalonic_Encephalopathy.html">Ethylmalonic Encephalopathy</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Isolated_Sulfite_Oxidase_Deficiency.html">Isolated Sulfite Oxidase Deficiency</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/S-Adenosylhomocysteine_Hydrolase_Deficiency.html">S-Adenosylhomocysteine Hydrolase Deficiency</a></li>
+                    
                 </ul>
                 
 
@@ -510,6 +676,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Hyperprolinemia_Type_1.html">Hyperprolinemia Type 1</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Hyperprolinemia_Type_2.html">Hyperprolinemia Type 2</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -532,6 +707,13 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Pyridoxine-Dependent_Epilepsy.html">Pyridoxine-Dependent Epilepsy</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -553,6 +735,17 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Disorders of glutamate/glutamine and aspartate/asparagine metabolism.</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Global_Developmental_Delay,_Progressive_Ataxia,_and_Elevated_Glutamine.html">Global Developmental Delay, Progressive Ataxia, and Elevated Glutamine</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Infantile_Cataract,_Skin_Abnormalities,_Glutamate_Excess,_and_Impaired_Intellectual_Development.html">Infantile Cataract, Skin Abnormalities, Glutamate Excess, and Impaired Intellectual Development</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Neonatal_Epileptic_Encephalopathy_Due_to_Glutaminase_Deficiency.html">Neonatal Epileptic Encephalopathy Due to Glutaminase Deficiency</a></li>
+                    
+                </ul>
                 
 
                 
@@ -659,6 +852,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Disorders of amino acid transport.</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Cystinosis.html">Cystinosis</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Taurine_transporter_deficiency.html">Taurine transporter deficiency</a></li>
+                    
+                </ul>
                 
 
                 
@@ -803,6 +1005,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Bachmann-Bupp_Syndrome.html">Bachmann-Bupp Syndrome</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Snyder-Robinson_Syndrome.html">Snyder-Robinson Syndrome</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -932,6 +1143,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Disorders of glycogen metabolism (glycogen storage diseases).</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/PGM1-congenital_disorder_of_glycosylation.html">PGM1-congenital disorder of glycosylation</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/PRKAG2_Cardiac_Syndrome.html">PRKAG2 Cardiac Syndrome</a></li>
+                    
+                </ul>
                 
 
                 
@@ -1332,6 +1552,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Mitochondrial_Complex_II_Deficiency,_Nuclear_Type_1.html">Mitochondrial Complex II Deficiency, Nuclear Type 1</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/SDHA-Related_Neurodegeneration_With_Ataxia_and_Optic_Atrophy.html">SDHA-Related Neurodegeneration With Ataxia and Optic Atrophy</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -1378,6 +1607,12 @@ Provenance note: the category set and group membership are transcribed from the 
                 
                 <div class="section-title">Tagged Disorders</div>
                 <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/COX18-Related_COX_Deficiency.html">COX18-Related COX Deficiency</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/COX20-Related_COX_Deficiency.html">COX20-Related COX Deficiency</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/SCO1-Related_COX_Deficiency.html">SCO1-Related COX Deficiency</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/SURF1-Related_Leigh_Syndrome.html">SURF1-Related Leigh Syndrome</a></li>
                     
@@ -1574,6 +1809,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Autosomal_Dominant_Progressive_External_Ophthalmoplegia.html">Autosomal Dominant Progressive External Ophthalmoplegia</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Autosomal_Recessive_Progressive_External_Ophthalmoplegia_1.html">Autosomal Recessive Progressive External Ophthalmoplegia 1</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -1622,6 +1866,13 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/MTO1_Deficiency.html">MTO1 Deficiency</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -1665,6 +1916,13 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Disorders of the mitoribosome.</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/MRPL44_Deficiency.html">MRPL44 Deficiency</a></li>
+                    
+                </ul>
                 
 
                 
@@ -1713,6 +1971,13 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Disorders of mitochondrial shuttles and carriers.</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome.html">Cardiomyopathy-Hypotonia-Lactic Acidosis Syndrome</a></li>
+                    
+                </ul>
                 
 
                 
@@ -2049,6 +2314,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Dorfman-Chanarin_Disease.html">Dorfman-Chanarin Disease</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Neutral_Lipid_Storage_Myopathy.html">Neutral Lipid Storage Myopathy</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -2070,6 +2344,13 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Disorders of glycerophospholipid metabolism.</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Neurodevelopmental_Disorder_with_Microcephaly,_Movement_Abnormalities,_and_Seizures.html">Neurodevelopmental Disorder with Microcephaly, Movement Abnormalities, and Seizures</a></li>
+                    
+                </ul>
                 
 
                 
@@ -2114,6 +2395,13 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Disorders of sterol metabolism.</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/MSMO1_Deficiency.html">MSMO1 Deficiency</a></li>
+                    
+                </ul>
                 
 
                 
@@ -2184,6 +2472,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Hypercholesterolemias.</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Familial_Defective_Apolipoprotein_B-100.html">Familial Defective Apolipoprotein B-100</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/LDLR-Related_Familial_Hypercholesterolemia.html">LDLR-Related Familial Hypercholesterolemia</a></li>
+                    
+                </ul>
                 
 
                 
@@ -2376,6 +2673,13 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/DTYMK-Related_Neurodegeneration.html">DTYMK-Related Neurodegeneration</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -2429,6 +2733,10 @@ Provenance note: the category set and group membership are transcribed from the 
                 
                 <div class="section-title">Tagged Disorders</div>
                 <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Neurodevelopmental_Disorder_with_Microcephaly,_Seizures,_and_Cortical_Atrophy.html">Neurodevelopmental Disorder with Microcephaly, Seizures, and Cortical Atrophy</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/SARS1-Related_Neurodevelopmental_Disorder.html">SARS1-Related Neurodevelopmental Disorder</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/THUMPD1-Related_Neurodevelopmental_Disorder_with_Speech_Delay_and_Variable_Ocular_Anomalies.html">THUMPD1-Related Neurodevelopmental Disorder with Speech Delay and Variable Ocular Anomalies</a></li>
                     
@@ -2574,6 +2882,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/PGM1-congenital_disorder_of_glycosylation.html">PGM1-congenital disorder of glycosylation</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/UGGT1-congenital_disorder_of_glycosylation.html">UGGT1-congenital disorder of glycosylation</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -2595,6 +2912,21 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Disorders of O-linked protein glycosylation (including glycosaminoglycan synthesis).</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Dystroglycanopathy.html">Dystroglycanopathy</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Immunoskeletal_Dysplasia_with_Neurodevelopmental_Abnormalities.html">Immunoskeletal Dysplasia with Neurodevelopmental Abnormalities</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Larsen-like_Syndrome_B3GAT3_Type.html">Larsen-like Syndrome B3GAT3 Type</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Peters_plus_syndrome.html">Peters plus syndrome</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/UGDH-related_developmental_and_epileptic_encephalopathy_84.html">UGDH-related developmental and epileptic encephalopathy 84</a></li>
+                    
+                </ul>
                 
 
                 
@@ -2643,9 +2975,7 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="section-title">Tagged Disorders</div>
                 <ul class="disorders">
                     
-                    <li><a class="disorder-link" href="../disorders/UGDH-related_developmental_and_epileptic_encephalopathy_84.html">UGDH-related developmental and epileptic encephalopathy 84</a></li>
-                    
-                    <li><a class="disorder-link" href="../disorders/UGGT1-congenital_disorder_of_glycosylation.html">UGGT1-congenital disorder of glycosylation</a></li>
+                    <li><a class="disorder-link" href="../disorders/DPM2-congenital_disorder_of_glycosylation.html">DPM2-congenital disorder of glycosylation</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/UGP2-related_developmental_and_epileptic_encephalopathy_83.html">UGP2-related developmental and epileptic encephalopathy 83</a></li>
                     
@@ -2845,6 +3175,8 @@ Provenance note: the category set and group membership are transcribed from the 
                     
                     <li><a class="disorder-link" href="../disorders/GOLGA2-Related_Golgin_A2_Deficiency.html">GOLGA2-Related Golgin A2 Deficiency</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Mucopolysaccharidosis-Plus_Syndrome.html">Mucopolysaccharidosis-Plus Syndrome</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/RAB33B-Related_Smith-McCort_Dysplasia_2.html">RAB33B-Related Smith-McCort Dysplasia 2</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/RAB5C-Related_Neurodevelopmental_Disorder_with_Macrocephaly.html">RAB5C-Related Neurodevelopmental Disorder with Macrocephaly</a></li>
@@ -2906,6 +3238,8 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="section-title">Tagged Disorders</div>
                 <ul class="disorders">
                     
+                    <li><a class="disorder-link" href="../disorders/GM1_Gangliosidosis_Type_3.html">GM1 Gangliosidosis Type 3</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/Gaucher_Disease.html">Gaucher Disease</a></li>
                     
                 </ul>
@@ -2961,6 +3295,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 
 
                 
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Glycoprotein_Storage_Disease.html">Glycoprotein Storage Disease</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/NAGA_Deficiency_Type_3.html">NAGA Deficiency Type 3</a></li>
+                    
+                </ul>
+                
 
                 
             </div>
@@ -2982,6 +3325,15 @@ Provenance note: the category set and group membership are transcribed from the 
                 <div class="node-desc">Neuronal ceroid lipofuscinoses.</div>
                 
 
+                
+                <div class="section-title">Tagged Disorders</div>
+                <ul class="disorders">
+                    
+                    <li><a class="disorder-link" href="../disorders/Juvenile_Neuronal_Ceroid_Lipofuscinosis.html">Juvenile Neuronal Ceroid Lipofuscinosis</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Neuronal_Ceroid_Lipofuscinosis_3.html">Neuronal Ceroid Lipofuscinosis 3</a></li>
+                    
+                </ul>
                 
 
                 

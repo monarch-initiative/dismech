@@ -75,13 +75,91 @@ uv run runoak -i sqlite:obo:cl info CL:0000540 -O obo
 ```
 
 ### Common Ontology Prefixes
-| Ontology | Prefix | Adapter | Use For |
-|----------|--------|---------|---------|
+| Ontology | Prefix | CLI adapter | Use For |
+|----------|--------|-------------|---------|
 | Human Phenotype | HP | sqlite:obo:hp | phenotype_term |
 | Cell Ontology | CL | sqlite:obo:cl | cell_types |
 | Gene Ontology | GO | sqlite:obo:go | biological_processes |
 | MONDO Disease | MONDO | sqlite:obo:mondo | disease_term |
 | Uberon Anatomy | UBERON | sqlite:obo:uberon | anatomical locations |
+
+**These are CLI conveniences, not a mirror of `conf/oak_config.yaml`.** That file
+configures *automated term validation*, where these prefixes are all served over
+`ols:` to avoid large local downloads. The `sqlite:obo:*` adapters above are for
+your own ad-hoc `runoak` lookups, and are deliberate:
+
+- `-O obo` output is **not implemented** for `ols:` adapters (it raises
+  `NotImplementedError`), so any example using it needs a local build.
+- Plain `info` and `search` do work over `ols:` — e.g.
+  `uv run runoak -i ols:hp info HP:0002014`. Prefer that for a one-off lookup if
+  you would rather not download the build (`hp` is ~1.1 GB, `chebi` ~3.7 GB).
+
+Either way, what a lookup tells you is the same **for these five prefixes** —
+`just validate-terms` remains the authority on whether a binding is valid.
+
+### ECTO and XCO are the exception: search the LOCAL build, not OLS
+
+For the prefixes above, `conf/oak_config.yaml` serves validation over `ols:`, so
+an OLS lookup and the validator see the same ontology. **ECTO and XCO are
+configured as `sqlite:obo:ecto` / `sqlite:obo:xco` — pinned local builds.** OLS
+serves a *newer* ECTO, so an OLS search will happily hand you terms the validator
+cannot see.
+
+This is not a hypothetical. In #8430 the OLS ECTO offered a whole
+`ECTO:30000xx` organism-exposure branch — `exposure to Campylobacter jejuni`,
+`... Staphylococcus aureus`, `... Pseudomonas aeruginosa`, `... Zika virus` and
+more. Every one of them:
+
+- returned HTTP 200 from the OLS API, non-obsolete, `is_defining_ontology: true`
+- resolved under `runoak -i ols:ecto info`
+- was correctly reachable from `ExO:0000002`, the `ExposureTerm` enum root
+
+…and every one failed `just validate-terms`, because the local build stops at
+`ECTO:3000009`. Same for `ECTO:9002228` (allopurinol) and `ECTO:9002593`
+(sertraline). Fourteen bindings had to be reverted.
+
+So for an exposure term, check the build the validator actually reads:
+
+```bash
+uv run runoak -i sqlite:obo:ecto info ECTO:0000006 -O obo   # not ols:ecto
+uv run runoak -i sqlite:obo:ecto search 'l~exposure to dust'
+```
+
+To see what a branch actually contains locally before planning a tranche:
+
+```bash
+uv run runoak -i sqlite:obo:ecto descendants ECTO:3000000 -p i
+```
+
+**General rule:** before trusting any lookup, check which adapter
+`conf/oak_config.yaml` maps that prefix to, and search *that*. A term that
+"exists" in an ontology the validator does not read is not a term you can bind.
+`just environmental-term-audit` sizes the exposure-binding gap.
+
+### XCO terms flagged `Not4Curation`
+
+RGD keeps XCO terms for hierarchy that it does **not** want annotated with, and
+marks them with a related synonym reading `Not4Curation` — a synonym, not an
+obsoletion axiom. Such a term exists, has a matching label, and is reachable
+from `XCO:0000000` (the XCO root among the `ExposureTerm` enum's `source_nodes`;
+`ExO:0000002` is the ECTO one), so `just validate-terms` passes it. Twenty-four XCO terms
+carry the marker, and three of them (`XCO:0000294` estrogen/estrogen analog,
+`XCO:0000950` anticonvulsant, `XCO:0000561` antidepressant) got into the #8430
+tranches before a reviewer noticed (#8472).
+
+`just check-not4curation` gates this in `just qc` and CI, so you do not have to
+remember — but if you are choosing an XCO term by hand, check it first, because
+the flagged ones are exactly the broad drug-class terms an exposure binding
+reaches for:
+
+```bash
+just check-not4curation --list-flagged --prefix XCO   # the whole deny-list
+uv run runoak -i sqlite:obo:xco info XCO:0000294      # synonyms include Not4Curation
+```
+
+All three found so far had proper ECTO equivalents (`XCO:0000294` →
+`ECTO:9000010` exposure to estrogens), so a flag is a prompt to look in ECTO
+rather than a dead end.
 
 ## Specificity Guidelines
 
@@ -200,3 +278,82 @@ qualifier in these dedicated slots.
 2. Verify specificity
 3. Add `term:` block under the cell_type entry
 4. Validate
+
+## ECTO Exposure Terms: Disconnected Branches, Not Specificity Ladders
+
+Smoking and alcohol each have **two** ECTO terms in use in the KB. It is tempting to
+read each pair as a specificity ladder — a general term and a narrower one — but that
+is not what the ontology says. In each pair the two terms sit in **disconnected
+branches**, so neither is a refinement of the other, and "promoting" or "demoting"
+between them is not a meaningful operation.
+
+Look up a term two ways before reasoning about it, because they answer different
+questions. `ancestors -p i` gives the branch it lives in; `info -O obo` gives its
+`RO:0002309` ("involving") anchor, which is what the term is actually *about*:
+
+```bash
+uv run runoak -i sqlite:obo:ecto ancestors ECTO:9000027 -p i   # branch
+uv run runoak -i sqlite:obo:ecto info      ECTO:9000027 -O obo # direct is_a + anchor
+```
+
+Unlike the prefixes in the table above, ECTO and XCO are served from the local build
+for automated validation too (`conf/oak_config.yaml`: `ECTO: sqlite:obo:ecto`),
+because the builds are small — so there is no `ols:` alternative to fall back on here.
+
+| CURIE | Label | Direct `is_a` | "Involving" anchor | Anchor kind |
+|---|---|---|---|---|
+| `ECTO:6000029` | exposure to tobacco smoking | `ECTO:6000013` exposure to smoking | `NCIT:C17934` Tobacco Smoking | behaviour |
+| `ECTO:0001082` | exposure to alcohol consumption | `ECTO:6000016` exposure to personal behavior | `NCIT:C16273` Alcohol Consumption | behaviour |
+| `ECTO:0100003` | exposure to cigarette smoking | `ECTO:0100002` exposure to smoking nicotine | *anonymous class* | behaviour (product-specific) |
+| `ECTO:9000027` | exposure to ethanol | `ECTO:9001334` exposure to primary alcohol; `ECTO:9001621` exposure to volatile organic compound | `CHEBI:16236` ethanol | chemical |
+
+**The two pairs are not disconnected for the same reason, and it matters.**
+
+- **Alcohol** genuinely splits behaviour vs. substance: `ECTO:0001082` involves an
+  NCIT *behaviour* class, `ECTO:9000027` involves a *CHEBI chemical*.
+- **Smoking does not.** Both members are behaviours — `ECTO:0100003`'s own definition
+  reads *"An exposure event involving nicotine cigarette smoking **behavior**"*. It is
+  a **product-specific** behaviour term stranded in an isolated branch: its parent
+  `ECTO:0100002` hangs directly off `ExO:0000002` (exposure event) rather than under
+  `ECTO:6000016` (exposure to personal behavior) where the other behaviour terms live,
+  and its "involving" anchor is an anonymous class rather than a named NCIT or CHEBI
+  entity. So the two smoking terms share no ECTO ancestor below `ExO:0000002`, and
+  `ECTO:0100003` is **not** a narrower `ECTO:6000029`.
+
+Do not describe `ECTO:0100003` as "substance-anchored" or as the chemical member of
+its pair — it is neither. Nothing in the binding rule below depends on this, but the
+structure is worth stating correctly, since misreading it as a ladder is what
+produced the original mis-binding.
+
+### The binding rule (one rule, both pairs)
+
+**Bind the term the entry's own `name` states.** The name is the curated signal;
+the description and evidence are not, because they routinely mention a product or
+substance in passing while making a behavioural claim (a study of *smokers* will
+still say "cigarette").
+
+| Entry `name` states… | Bind |
+|---|---|
+| smoking as a habit — "Smoking", "Tobacco Smoking", "Tobacco Use" | `ECTO:6000029` |
+| cigarettes specifically — "Cigarette Smoking" | `ECTO:0100003` |
+| drinking as a habit — "Alcohol Consumption", "Chronic Heavy Alcohol Consumption" | `ECTO:0001082` |
+| the chemical — "Ethanol Exposure", "Alcohol (Ethanol) Exposure" | `ECTO:9000027` |
+
+**If the name and the mechanism disagree, fix the name, not just the CURIE.** An
+entry whose mechanism is genuinely about ethanol chemistry (acetaldehyde, ALDH2,
+DNA adducts) but is named "Alcohol Consumption" should be *renamed* to state the
+chemical, then bound to `ECTO:9000027`. Keeping the chemical CURIE under a
+behaviour-shaped name is what produced the duplicate-name conflicts in #8469: the
+binding stops being derivable from the curated text, and no audit can tell a
+deliberate distinction from a mistake.
+
+Conversely, an entry that only says the exposure "contributes to risk", with no
+chemical mechanism, is a behavioural claim — bind the behaviour term even if
+sibling entries in nearby disorders bind the chemical.
+
+Record *why* a binding was chosen in the entry's `notes:`, not in `description:`.
+The description says what the exposure is; the reasoning behind the CURIE choice is
+curation provenance and belongs in the slot meant for it.
+
+Do not migrate an entry between the terms in a pair without checking that its name
+and its mechanistic claim agree with the destination.

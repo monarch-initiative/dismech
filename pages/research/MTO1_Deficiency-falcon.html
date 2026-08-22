@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MTO1 Deficiency · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>MTO1 Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>MTO1 Deficiency</h1>
+                
+                <p class="report-subtitle">MTO1 Deficiency: Comprehensive Disease-Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-01</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0013865" target="_blank" rel="noopener noreferrer">MONDO:0013865</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">18 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>MTO1 Deficiency: Comprehensive Disease-Characteristics Report</h1>
+<h2>Executive summary</h2>
+<p><strong>MTO1 deficiency</strong> is an ultra-rare, autosomal-recessive mitochondrial translation disorder caused by biallelic pathogenic variants in <strong>MTO1</strong>. It is classically termed <strong>combined oxidative phosphorylation deficiency 10 (COXPD10)</strong> or <strong>mitochondrial hypertrophic cardiomyopathy with lactic acidosis due to MTO1 deficiency</strong>. The central defect is impaired modification and maturation of mitochondrial tRNAs, reducing mitochondrial protein synthesis and oxidative-phosphorylation (OXPHOS) capacity. The heart and nervous system are especially vulnerable.</p>
+<p>The largest disease-specific synthesis comprised only <strong>35 affected individuals from 26 families</strong>, illustrating both the rarity of the disorder and the limited precision of current frequency and prognostic estimates. In that cohort, eventual frequencies included lactic acidosis in 100%, developmental delay/intellectual disability in 97%, hypertrophic cardiomyopathy in 79%, hypotonia in 63%, optic atrophy in 52%, feeding difficulty in 49%, seizures in 34%, and ataxia in 21%. Overall mortality was 34%, concentrated among patients with neonatal presentation and severe genotypes. No curative or disease-modifying therapy, validated biomarker, formal diagnostic criteria, or MTO1-specific interventional clinical trial was identified. Management is multidisciplinary and supportive. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>, <a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>)</p>
+<p>The following table provides a compact knowledge-base representation; the narrative sections then document each requested domain.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Key facts</th>
+<th>Suggested ontology IDs</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identity / identifiers</td>
+<td>MTO1 deficiency is a rare Mendelian mitochondrial disease, commonly described as combined oxidative phosphorylation deficiency-10 (COXPD10) and also as mitochondrial hypertrophic cardiomyopathy with lactic acidosis due to MTO1 deficiency; evidence here is aggregated from published case reports/series rather than EHR-only resources.</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0013865" target="_blank" rel="noopener noreferrer">MONDO:0013865</a>; OMIM for MTO1 deficiency/COXPD10: not confidently verified here; Orphanet/MeSH/ICD: unavailable or not confidently verified here</td>
+<td>(OpenTargets Search: combined oxidative phosphorylation deficiency 10-MTO1, <a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>, <a href="#ref-obyrne2018thegenotypicand-pages-5-9">obyrne2018thegenotypicand pages 5-9</a>)</td>
+</tr>
+<tr>
+<td>Genetics / inheritance</td>
+<td>Cause: biallelic pathogenic variants in <strong>MTO1</strong> (mitochondrial tRNA translation optimization 1), autosomal recessive. Largest compiled cohort: 35 patients from 26 unrelated families, 17 male/18 female, across 11 countries. Variant spectrum in that cohort: 19 pathogenic variants total (15 missense, 3 frameshift, 1 splice-site); no confirmed biallelic truncating genotypes, suggesting complete loss of function may be incompatible with human survival. Consanguinity reported in 34% of cases.</td>
+<td>Gene: <strong>MTO1</strong>; inheritance term: autosomal recessive (ontology ID not asserted here); GO process suggestions: mitochondrial translational elongation/translation <strong><a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" rel="noopener noreferrer">GO:0032543</a></strong> (mitochondrial translation), oxidative phosphorylation <strong><a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" rel="noopener noreferrer">GO:0006119</a></strong></td>
+<td>(<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>)</td>
+</tr>
+<tr>
+<td>Core phenotype frequencies</td>
+<td>Frequent clinical features in the 35-patient series: lactic acidosis 100% eventually; hypertrophic cardiomyopathy 79% eventually (44% presenting feature); developmental delay/intellectual disability 97%; hypotonia 63% eventually; feeding difficulties 49%; optic atrophy 52%; seizures 34%; failure to thrive 34%; ataxia 21%.</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" rel="noopener noreferrer">HP:0003128</a> lactic acidosis; <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" rel="noopener noreferrer">HP:0001639</a> hypertrophic cardiomyopathy; <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> global developmental delay; <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a> hypotonia; <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> seizures; <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" rel="noopener noreferrer">HP:0000648</a> optic atrophy; ataxia: HPO ID not confidently asserted here; failure to thrive: HPO ID not confidently asserted here</td>
+<td>(<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>, <a href="#ref-obyrne2018thegenotypicand-pages-5-9">obyrne2018thegenotypicand pages 5-9</a>)</td>
+</tr>
+<tr>
+<td>Biochemical signature</td>
+<td>Peak plasma lactate averaged 13.6 mmol/L (range 3.4-57.8). Elevated plasma alanine in 88% of tested patients. Muscle respiratory-chain enzymology commonly showed combined deficiencies, especially complex IV deficiency in 28/30 muscle samples (93%); combined complex I+IV deficiency was most common (20/30). Fibroblast testing can be falsely normal.</td>
+<td>CHEBI lactate/alanine: not asserted here; <a href="http://purl.obolibrary.org/obo/GO_0006120" target="_blank" rel="noopener noreferrer">GO:0006120</a> mitochondrial electron transport, NADH to ubiquinone; <a href="http://purl.obolibrary.org/obo/GO_0006123" target="_blank" rel="noopener noreferrer">GO:0006123</a> mitochondrial electron transport, cytochrome c to oxygen; <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" rel="noopener noreferrer">GO:0006119</a> oxidative phosphorylation</td>
+<td>(<a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>, <a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>)</td>
+</tr>
+<tr>
+<td>Mechanism / causal chain</td>
+<td>Upstream defect: impaired MTO1-dependent wobble U34 taurine-related modification of specific mt-tRNAs (reported for mt-tRNA(Glu), mt-tRNA(Gln), mt-tRNA(Lys), mt-tRNA(Trp), mt-tRNA(Leu(UUR))). Intermediate effects: abnormal mt-tRNA structure/stability and aminoacylation, impaired mitochondrial transcript maturation/polyadenylation, reduced mitochondrial translation, defective OXPHOS complex assembly/activity. Downstream effects: bioenergetic failure, increased anaerobic glycolysis/lactic acidosis, altered fatty-acid metabolism with lipid droplet accumulation, cardiomyocyte hypertrophy and multisystem disease. Human fibroblasts further support HIF-1 activation with PPARγ/UCP2/AMPK-axis dysregulation.</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" rel="noopener noreferrer">GO:0032543</a> mitochondrial translation; <a href="http://purl.obolibrary.org/obo/GO_0000959" target="_blank" rel="noopener noreferrer">GO:0000959</a> mitochondrial RNA metabolic process; <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" rel="noopener noreferrer">GO:0006119</a> oxidative phosphorylation; <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" rel="noopener noreferrer">GO:0006635</a> fatty acid beta-oxidation; <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" rel="noopener noreferrer">GO:0001666</a> response to hypoxia; <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a> mitochondrion</td>
+<td>(<a href="#ref-zhang2021ablationofmto1-pages-11-12">zhang2021ablationofmto1 pages 11-12</a>, <a href="#ref-boutoual2018defectsinthe-pages-1-2">boutoual2018defectsinthe pages 1-2</a>, <a href="#ref-boutoual2018defectsinthe-pages-2-3">boutoual2018defectsinthe pages 2-3</a>, <a href="#ref-kazuhito2020posttranscriptionalmodificationsin-pages-14-15">kazuhito2020posttranscriptionalmodificationsin pages 14-15</a>)</td>
+</tr>
+<tr>
+<td>Affected anatomy / cells / compartments</td>
+<td>Organs/systems: heart, brain/CNS, skeletal muscle, eye/optic nerve; multisystem disease with high-energy tissues preferentially affected. Imaging abnormalities reported in &gt;70% with involvement of claustrum, thalami, white matter, cerebellar peduncles, and corpus callosum. Cell types implicated include cardiomyocytes and fibroblasts; subcellular localization centers on mitochondria/mitochondrial matrix and inner-membrane respiratory-chain machinery.</td>
+<td>UBERON heart/brain/skeletal muscle/eye terms: not confidently asserted here; CL: cardiomyocyte and fibroblast IDs not confidently asserted here; <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a> mitochondrion; <a href="http://purl.obolibrary.org/obo/GO_0005759" target="_blank" rel="noopener noreferrer">GO:0005759</a> mitochondrial matrix; <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" rel="noopener noreferrer">GO:0005743</a> mitochondrial inner membrane</td>
+<td>(<a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-zhang2021ablationofmto1-pages-5-6">zhang2021ablationofmto1 pages 5-6</a>)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Best-confirming test strategy is genomic: WES or comprehensive mitochondrial/nuclear gene sequencing, because phenotype is nonspecific and fibroblast respiratory-chain testing may miss cases. Supportive findings: elevated lactate/alanine, urinary mitochondrial markers, brain MRI abnormalities, and reduced muscle complex I/III/IV activities. Muscle biopsy with respiratory-chain enzyme analysis is more sensitive than fibroblasts but not specific. Differential diagnosis includes other nuclear mitochondrial-translation disorders causing infantile cardiomyopathy/lactic acidosis (for example GTPBP3, TRMU/MTU1, MTFMT, MRPL44, FARS2, RARS2-related disease).</td>
+<td>Diagnostic ontology IDs: not asserted here; GO terms as above may support annotation of functional assays</td>
+<td>(<a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-obyrne2018thegenotypicand-pages-37-40">obyrne2018thegenotypicand pages 37-40</a>, <a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>)</td>
+</tr>
+<tr>
+<td>Treatment evidence</td>
+<td>No evidence-based disease-specific therapy established. Supportive regimens used include L-carnitine, coenzyme Q10, riboflavin, vitamins, dichloroacetate, and antiseizure therapies; most had little or no appreciable objective benefit. Ketogenic diet showed subjective or seizure-related benefit in a minority (2/5 cases in one summary; 1/5 improved in another extract), so evidence remains limited and individualized. Experimental mechanistic suggestions from cell work include PPARγ agonism/AMPK activation and N-acetyl-cysteine, but these are not established clinical therapies for MTO1 deficiency. No disease-specific interventional clinical trial was retrieved in the tool search.</td>
+<td>NCIT intervention IDs: not confidently asserted here; diet/drug ontologies not asserted here</td>
+<td>(<a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>, <a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>)</td>
+</tr>
+<tr>
+<td>Prognosis / natural history</td>
+<td>Onset ranged from day 1 of life to 8 years (average ~10.2 months); 44% presented within first 2 days of life. Mortality in the 35-patient series was 34% overall, mean age at death 2.67 years; early neonatal presentation predicted worse outcome, and patients with one truncating plus one missense allele had particularly severe disease. Cardiomyopathy is common but not obligatory, and a minority survive into adolescence/adulthood, demonstrating variable expressivity.</td>
+<td>Natural-history ontology IDs: not asserted here</td>
+<td>(<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>)</td>
+</tr>
+<tr>
+<td>Models</td>
+<td><strong>Zebrafish mto1 knockout</strong> recapitulates human hypertrophic cardiomyopathy, showing heart-looping defects, cardiomyocyte hypertrophy, myofiber disarray, mitochondrial fragmentation/cristae loss, impaired mt-tRNA maturation, altered mRNA polyadenylation, and reduced OXPHOS activity. <strong>Mouse models:</strong> partial knockdown yields mild cardiac phenotype with reduced mitochondrial translation/respiration; complete knockout causes &gt;80% loss of mitochondrial translation and embryonic lethality around E8. <strong>Yeast models:</strong> conserved MTO1 ortholog supports pathogenicity testing and links U34 hypomodification to mitochondrial translation defects. No clearly established naturally occurring veterinary disease was identified here.</td>
+<td>NCBI Taxon suggestions: Danio rerio 7955; Mus musculus 10090; Saccharomyces cerevisiae 4932</td>
+<td>(<a href="#ref-zhang2021ablationofmto1-pages-11-12">zhang2021ablationofmto1 pages 11-12</a>, <a href="#ref-magistrati2023modopathiescausedby-pages-8-9">magistrati2023modopathiescausedby pages 8-9</a>, <a href="#ref-zhang2021ablationofmto1-pages-5-6">zhang2021ablationofmto1 pages 5-6</a>, <a href="#ref-kazuhito2020posttranscriptionalmodificationsin-pages-14-15">kazuhito2020posttranscriptionalmodificationsin pages 14-15</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This compact table summarizes high-value knowledge-base facts for MTO1 deficiency, including identifiers, genetics, phenotype frequencies, mechanism, diagnosis, treatment evidence, prognosis, and model systems. It also suggests ontology mappings where the identifier is confidently supported and flags unavailable or uncertain IDs rather than inventing them.</em></p>
+<hr />
+<h2>1. Disease information</h2>
+<h3>Definition and classification</h3>
+<p>MTO1 deficiency is a <strong>primary nuclear-encoded mitochondrial disease</strong> in which defective mitochondrial RNA modification compromises translation of the 13 mtDNA-encoded OXPHOS polypeptides. It is a Mendelian, multisystem, combined respiratory-chain disorder rather than an isolated sarcomeric cardiomyopathy. Clinical expression ranges from fatal neonatal lactic acidosis and hypertrophic cardiomyopathy to later-onset neurodevelopmental, optic-nerve, or predominantly neurologic disease. Cardiomyopathy is common but not obligatory. (<a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>, <a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>)</p>
+<h3>Identifiers and names</h3>
+<ul>
+<li><strong>MONDO:</strong> <strong><a href="http://purl.obolibrary.org/obo/MONDO_0013865" target="_blank" rel="noopener noreferrer">MONDO:0013865</a></strong>, “mitochondrial hypertrophic cardiomyopathy with lactic acidosis due to MTO1 deficiency.” Open Targets links this entity to MTO1/ENSG00000135297 and supporting literature including PMIDs <strong>22608499, 23929671, 27604308, 34547275, 34990597, and 39472908</strong>. (OpenTargets Search: combined oxidative phosphorylation deficiency 10-MTO1)</li>
+<li><strong>Disease OMIM:</strong> commonly reported as <strong>COXPD10, OMIM #614702</strong>; the O’Byrne paper’s extracted text also associates MTO1 deficiency with OMIM #614667, which is likely a gene/disease-record ambiguity. The identifiers should therefore be checked directly against the current OMIM release before database ingestion.</li>
+<li><strong>Gene:</strong> <strong>MTO1</strong>, mitochondrial tRNA translation optimization 1; HGNC symbol MTO1; Ensembl <strong>ENSG00000135297</strong>. (OpenTargets Search: combined oxidative phosphorylation deficiency 10-MTO1)</li>
+<li><strong>Synonyms:</strong> MTO1-related disorder; MTO1 deficiency; combined oxidative phosphorylation deficiency 10; COXPD10; mitochondrial hypertrophic cardiomyopathy with lactic acidosis due to MTO1 deficiency; MTO1-related mitochondrial translation disorder.</li>
+<li><strong>Orphanet, MeSH, ICD-10/ICD-11:</strong> a confidently disease-specific code was not recovered. In clinical coding, the condition may fall under broader mitochondrial-metabolism or cardiomyopathy categories, but these should not be treated as equivalent disease identifiers.</li>
+</ul>
+<p>The evidence is predominantly <strong>aggregated disease-level literature</strong>—case reports, retrospective international case series, and laboratory/model studies—not longitudinal EHR-derived population data. The principal cohort included 35 patients from 11 countries. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>)</p>
+<hr />
+<h2>2. Etiology, risk, protective factors, and gene–environment interaction</h2>
+<h3>Causal factor</h3>
+<p>The established cause is <strong>biallelic germline pathogenic or likely pathogenic variation in MTO1</strong>, inherited in an autosomal-recessive manner. MTO1 encodes a mitochondrial tRNA-modifying protein required for efficient wobble-uridine decoding and mitochondrial transcript maturation. Loss of sufficient activity leads to mt-tRNA hypomodification, impaired mitochondrial translation, defective OXPHOS, ATP deficiency, and compensatory glycolysis with lactate accumulation. (<a href="#ref-zhang2021ablationofmto1-pages-11-12">zhang2021ablationofmto1 pages 11-12</a>, <a href="#ref-boutoual2018defectsinthe-pages-1-2">boutoual2018defectsinthe pages 1-2</a>, <a href="#ref-boutoual2018defectsinthe-pages-2-3">boutoual2018defectsinthe pages 2-3</a>)</p>
+<h3>Genetic risk</h3>
+<p>In the 35-patient cohort, investigators found <strong>19 variants: 15 missense, three frameshift, and one splice-site variant</strong>. Genotypes included homozygous and compound-heterozygous combinations. No patient carried two clearly truncating alleles; patients with one truncating and one missense allele tended to have earlier, more severe disease. Complete MTO1 loss is consequently inferred to be developmentally lethal, consistent with complete mouse knockout. (<a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>, <a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>, <a href="#ref-kazuhito2020posttranscriptionalmodificationsin-pages-14-15">kazuhito2020posttranscriptionalmodificationsin pages 14-15</a>)</p>
+<p>Examples include <strong>c.1451G&gt;A (p.Arg484Gln)</strong> and <strong>c.1273G&gt;A (p.Gly425Arg)</strong> in compound heterozygosity, and <strong>c.1392C&gt;T (p.Arg464Cys)</strong> in a mechanistically studied patient fibroblast line. Variants reported in affected families are germline, not somatic. Exact ClinVar classifications and current gnomAD frequencies must be assessed variant by variant; the retrieved cohort described the alleles as rare and damaging but does not support a single aggregate carrier-frequency estimate. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-boutoual2018defectsinthe-pages-1-2">boutoual2018defectsinthe pages 1-2</a>)</p>
+<h3>Non-genetic risk and protective factors</h3>
+<p>No toxin, infection, occupation, sex-specific exposure, smoking behavior, diet, or lifestyle factor is established as a primary cause. Because this is a recessive congenital disorder, <strong>family history, parental carrier status, and consanguinity</strong> are the relevant risk factors. Consanguinity was reported in approximately <strong>34%</strong> of the 35 cases. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>)</p>
+<p>No validated protective human allele or environmental protective factor has been established. Residual MTO1 function is plausibly protective: survival with missense or hypomorphic alleles, together with the absence of biallelic null human genotypes, supports a functional threshold. This is a genotype–function inference rather than a clinically validated protective-variant association. (<a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>)</p>
+<p>Illness, fasting, and catabolic stress can worsen mitochondrial energy imbalance in principle, but an MTO1-specific gene–environment interaction has not been quantified. Ketogenic metabolism may benefit selected patients with epilepsy, yet evidence is sparse and adverse effects are possible; it is not an established environmental modifier of MTO1 penetrance. There are no validated modifier genes, GWAS loci, epigenetic modifiers, or protective pharmacogenomic alleles.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The best frequency estimates come from a heterogeneous, retrospectively assembled 35-person cohort and are susceptible to ascertainment, missing-data, and survival biases. (<a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>)</p>
+<h3>Major clinical and laboratory phenotypes</h3>
+<ul>
+<li><strong>Lactic acidosis — <a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" rel="noopener noreferrer">HP:0003128</a>; laboratory abnormality/clinical sign.</strong> Present initially in 62% and eventually in <strong>100%</strong>. Peak plasma lactate averaged <strong>13.6 mmol/L</strong>, range <strong>3.4–57.8 mmol/L</strong>. It may be neonatal, persistent, episodically exacerbated, and life-threatening. (<a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>)</li>
+<li><strong>Hypertrophic cardiomyopathy — <a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" rel="noopener noreferrer">HP:0001639</a>; clinical/imaging sign.</strong> Presenting feature in <strong>44%</strong> and eventually present in <strong>79%</strong>. Severity ranges from asymptomatic hypertrophy to heart failure and death. It is often early-onset but is not required for diagnosis. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>)</li>
+<li><strong>Global developmental delay/intellectual disability — <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>/<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>; developmental phenotype.</strong> Reported in <strong>97% of evaluable patients</strong>. Severity is variable and usually chronic; it substantially affects education, communication, independence, and caregiver burden. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>)</li>
+<li><strong>Hypotonia — <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a>; neurologic sign.</strong> Eventually present in <strong>63%</strong>; contributes to delayed motor development, feeding difficulty, and mobility impairment. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>)</li>
+<li><strong>Optic atrophy — <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" rel="noopener noreferrer">HP:0000648</a>; ophthalmic sign.</strong> Reported in <strong>52%</strong>, potentially causing progressive visual impairment and loss of independence. (<a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>)</li>
+<li><strong>Feeding difficulty — <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a>; symptom/functional manifestation.</strong> Reported in <strong>49%</strong>, with aspiration and nutritional risks; some children require intensive feeding support. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>)</li>
+<li><strong>Seizures — <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>; neurologic sign.</strong> Reported in <strong>34%</strong>; severity ranges from controllable epilepsy to refractory seizures requiring multiple antiseizure medicines or ketogenic therapy. (<a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>, <a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>)</li>
+<li><strong>Failure to thrive — <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a>; growth sign.</strong> Reported in <strong>34%</strong>, generally secondary to feeding problems and high metabolic demands. (<a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>)</li>
+<li><strong>Ataxia — <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a>; neurologic sign.</strong> Reported in <strong>21%</strong>, affecting balance, gait, and activities of daily living. (<a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>)</li>
+<li><strong>Elevated alanine — <a href="http://purl.obolibrary.org/obo/HP_0031987" target="_blank" rel="noopener noreferrer">HP:0031987</a> may be considered; laboratory abnormality.</strong> Present in <strong>88% of tested cases</strong>, consistent with chronic pyruvate/lactate disequilibrium. (<a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>)</li>
+<li><strong>Respiratory-chain deficiency — laboratory/pathology phenotype.</strong> Complex IV deficiency occurred in <strong>28/30 muscle samples (93%)</strong>; 27/30 had combined deficiencies, most commonly complexes I and IV together (<strong>20/30</strong>). (<a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>)</li>
+</ul>
+<p>Brain MRI was abnormal in approximately <strong>70% or more</strong> of reported cases, with lesions or signal abnormalities involving white matter, thalami, claustra, corpus callosum, cerebellar peduncles, and other structures; lactate may be detected by MR spectroscopy. The pattern is not disease-specific. (<a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>)</p>
+<p>No MTO1-specific EQ-5D, SF-36, PROMIS, or validated caregiver-burden study was identified. Quality-of-life impact must therefore be inferred from developmental disability, vision loss, epilepsy, feeding dependence, impaired mobility, repeated metabolic/cardiac surveillance, and risk of heart failure.</p>
+<hr />
+<h2>4. Genetic and molecular information</h2>
+<h3>Gene and variant architecture</h3>
+<p><strong>MTO1</strong> is a nuclear gene whose protein product is imported into mitochondria. The disease mechanism is predominantly <strong>loss of function or severe reduction of function</strong>, not gain of function or dominant-negative activity. Pathogenic classes include missense, frameshift, and splice-altering alleles. Germline biallelic inheritance is established; large rearrangements, chromosomal aneuploidies, repeat expansions, and somatic mutations are not characteristic. (<a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>, <a href="#ref-boutoual2018defectsinthe-pages-1-2">boutoual2018defectsinthe pages 1-2</a>)</p>
+<p>Variant interpretation should follow ACMG/AMP criteria using segregation, rarity, computational evidence, RNA effects for splice variants, and functional complementation or mitochondrial-translation assays. A VUS should not be considered diagnostic without appropriate evidence. Patient fibroblasts may show a subtle phenotype; muscle or engineered yeast/zebrafish assays can improve functional interpretation. (<a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>, <a href="#ref-magistrati2023modopathiescausedby-pages-8-9">magistrati2023modopathiescausedby pages 8-9</a>)</p>
+<p>No confirmed MTO1-specific modifier gene or disease-associated methylation signature is established. The reported association with EEF1A1 in Open Targets appears to reflect variant-record or evidence integration and does <strong>not</strong> establish EEF1A1 as a causal or modifier gene for MTO1 deficiency. (OpenTargets Search: combined oxidative phosphorylation deficiency 10-MTO1)</p>
+<hr />
+<h2>5. Environmental, lifestyle, and infectious information</h2>
+<p>No infectious agent, toxin, radiation exposure, pollution source, occupational factor, alcohol exposure, smoking behavior, or exercise pattern is known to cause MTO1 deficiency. Environmental interventions cannot correct the underlying recessive genotype.</p>
+<p>Practical mitochondrial care generally seeks to avoid prolonged fasting, dehydration, and untreated fever or infection because catabolic stress can increase energy demand and lactic acidosis; however, this is extrapolated from mitochondrial medicine rather than demonstrated in an MTO1 trial. Diet changes, particularly ketogenic therapy, require specialist supervision because potential seizure benefit must be balanced against hypoglycemia, acidosis, dyslipidemia, growth effects, and cardiometabolic risk.</p>
+<hr />
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<ol>
+<li><strong>Upstream genetic trigger:</strong> biallelic MTO1 variants reduce functional mitochondrial MTO1 protein.</li>
+<li><strong>Primary molecular lesion:</strong> deficient modification of wobble uridine 34 in selected mitochondrial tRNAs, particularly mt-tRNA^Glu, mt-tRNA^Gln, mt-tRNA^Lys, mt-tRNA^Trp, and mt-tRNA^Leu(UUR). Suggested annotations include mitochondrial RNA modification and <strong><a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" rel="noopener noreferrer">GO:0032543</a>, mitochondrial translation</strong>. (<a href="#ref-zhang2021ablationofmto1-pages-11-12">zhang2021ablationofmto1 pages 11-12</a>, <a href="#ref-boutoual2018defectsinthe-pages-1-2">boutoual2018defectsinthe pages 1-2</a>)</li>
+<li><strong>RNA-level consequences:</strong> altered tRNA conformation, reduced stability, increased nuclease sensitivity, and decreased aminoacylation. Zebrafish additionally demonstrate altered MTO1–MTPAP-associated mitochondrial mRNA polyadenylation; the ND1 poly(A) tail fell from about 47 to 33 nucleotides after mto1 ablation. (<a href="#ref-zhang2021ablationofmto1-pages-11-12">zhang2021ablationofmto1 pages 11-12</a>)</li>
+<li><strong>Translation/OXPHOS consequences:</strong> impaired synthesis of mtDNA-encoded respiratory-chain subunits, disturbed OXPHOS complex stoichiometry and assembly, and combined complex I/III/IV dysfunction. Complete mouse knockout reduces mitochondrial translation by more than 80% and causes catastrophic respiratory-complex disassembly. Suggested terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" rel="noopener noreferrer">GO:0006119</a> oxidative phosphorylation</strong>, <strong><a href="http://purl.obolibrary.org/obo/GO_0006120" target="_blank" rel="noopener noreferrer">GO:0006120</a> mitochondrial electron transport, NADH to ubiquinone</strong>, and <strong><a href="http://purl.obolibrary.org/obo/GO_0006123" target="_blank" rel="noopener noreferrer">GO:0006123</a> mitochondrial electron transport, cytochrome c to oxygen</strong>. (<a href="#ref-boutoual2018defectsinthe-pages-2-3">boutoual2018defectsinthe pages 2-3</a>, <a href="#ref-kazuhito2020posttranscriptionalmodificationsin-pages-14-15">kazuhito2020posttranscriptionalmodificationsin pages 14-15</a>)</li>
+<li><strong>Metabolic compensation:</strong> ATP deficit promotes glycolytic reliance and lactate accumulation. In patient fibroblasts, MTO1 deficiency inactivates AMPK, decreases PPARγ and UCP2, activates HIF-1, disrupts fatty-acid oxidation, and causes lipid-droplet accumulation. This distinguishes MTO1 from the related GTPBP3 defect and suggests functions beyond tRNA modification. (<a href="#ref-boutoual2018defectsinthe-pages-1-2">boutoual2018defectsinthe pages 1-2</a>, <a href="#ref-boutoual2018defectsinthe-pages-2-3">boutoual2018defectsinthe pages 2-3</a>)</li>
+<li><strong>Cell/tissue injury:</strong> high-energy postmitotic cells—especially cardiomyocytes, neurons, skeletal myofibers, and optic-nerve cells—cannot meet energetic demands. Mitochondrial fragmentation, cristae loss, altered proteostasis (including increased LONP1), cardiomyocyte hypertrophy, fiber disarray, and neural dysfunction follow. (<a href="#ref-boutoual2018defectsinthe-pages-2-3">boutoual2018defectsinthe pages 2-3</a>, <a href="#ref-zhang2021ablationofmto1-pages-5-6">zhang2021ablationofmto1 pages 5-6</a>)</li>
+<li><strong>Clinical outcome:</strong> hypertrophic cardiomyopathy/heart failure, lactic acidosis, developmental impairment, hypotonia, seizures, optic atrophy, and multisystem morbidity.</li>
+</ol>
+<h3>Suggested ontology annotations</h3>
+<ul>
+<li><strong>GO biological processes:</strong> <a href="http://purl.obolibrary.org/obo/GO_0032543" target="_blank" rel="noopener noreferrer">GO:0032543</a> mitochondrial translation; <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" rel="noopener noreferrer">GO:0006119</a> oxidative phosphorylation; <a href="http://purl.obolibrary.org/obo/GO_0000959" target="_blank" rel="noopener noreferrer">GO:0000959</a> mitochondrial RNA metabolic process; <a href="http://purl.obolibrary.org/obo/GO_0006635" target="_blank" rel="noopener noreferrer">GO:0006635</a> fatty-acid beta-oxidation; <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" rel="noopener noreferrer">GO:0001666</a> response to hypoxia.</li>
+<li><strong>GO cellular components:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a> mitochondrion; <a href="http://purl.obolibrary.org/obo/GO_0005759" target="_blank" rel="noopener noreferrer">GO:0005759</a> mitochondrial matrix; <a href="http://purl.obolibrary.org/obo/GO_0005743" target="_blank" rel="noopener noreferrer">GO:0005743</a> mitochondrial inner membrane.</li>
+<li><strong>Cell types:</strong> cardiomyocyte, neuron, skeletal muscle cell, fibroblast; exact CL identifiers should be ontology-release validated before ingestion.</li>
+<li><strong>Chemicals:</strong> lactate, alanine, ATP, taurine-containing uridine modifications, coenzyme Q10, riboflavin, levocarnitine, and dichloroacetate; CHEBI identifiers should likewise be release validated.</li>
+</ul>
+<h3>Molecular profiling and advanced technologies</h3>
+<p>Disease-specific transcriptomic and metabolic evidence is limited. Fibroblast studies define HIF–PPARγ–UCP2–AMPK reprogramming, while zebrafish heart analyses identify RNA-processing, ribonucleoside-biosynthesis, mRNA-catabolism, and mitochondrial-biogenesis changes. No validated single-cell atlas, spatial transcriptomic study, patient-tissue proteomic signature, lipidomic diagnostic classifier, organoid study, or genome-wide CRISPR therapeutic screen was found. (<a href="#ref-zhang2021ablationofmto1-pages-11-12">zhang2021ablationofmto1 pages 11-12</a>, <a href="#ref-boutoual2018defectsinthe-pages-1-2">boutoual2018defectsinthe pages 1-2</a>)</p>
+<p>A 2023 review characterized these disorders as mitochondrial RNA <strong>“modopathies”</strong> and emphasized that many variants are private, making conserved yeast systems valuable for pathogenicity testing. (Publication: January 2023; DOI: <a href="https://doi.org/10.3390/ijms24032178." target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24032178.</a>) (<a href="#ref-magistrati2023modopathiescausedby-pages-8-9">magistrati2023modopathiescausedby pages 8-9</a>)</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<h3>Organ and tissue levels</h3>
+<ul>
+<li><strong>Heart:</strong> myocardium, especially ventricular cardiomyocytes; hypertrophy, fiber disarray, impaired respiration, and possible heart failure. Suggested UBERON concepts: heart, myocardium, ventricle.</li>
+<li><strong>Central nervous system:</strong> cerebral white matter, thalamus, claustrum, corpus callosum, cerebellar pathways, and potentially broader neuronal networks.</li>
+<li><strong>Eye/visual pathway:</strong> optic nerve and retinal ganglion-cell pathway, reflected by optic atrophy.</li>
+<li><strong>Skeletal muscle:</strong> mitochondrial myopathy, hypotonia, weakness, and combined respiratory-chain deficiency.</li>
+<li><strong>Gastrointestinal/nutritional system:</strong> feeding dysfunction and poor growth are often secondary functional consequences.</li>
+</ul>
+<p>Disease is generally bilateral/systemic rather than consistently unilateral. No characteristic lateralization is reported. The principal subcellular compartments are the mitochondrial matrix, where RNA modification/translation occurs, and the inner mitochondrial membrane, where OXPHOS complexes reside. (<a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-zhang2021ablationofmto1-pages-5-6">zhang2021ablationofmto1 pages 5-6</a>)</p>
+<hr />
+<h2>8. Temporal development and natural history</h2>
+<p>Onset in the principal cohort ranged from <strong>day 1 to 8 years</strong>, averaging approximately <strong>10.2 months</strong>; <strong>44% presented during the first two days of life</strong>. Onset may be acute with neonatal lactic acidosis or cardiopulmonary decompensation, or insidious with developmental delay, hypotonia, visual loss, or seizures. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>)</p>
+<p>The disease is chronic and lifelong in survivors, with a highly variable course. Cardiac and neurologic involvement can emerge after the initial presentation, as illustrated by cardiomyopathy increasing from 44% at presentation to 79% eventually and hypotonia becoming evident in 63%. There is no accepted staging system. Neonatal presentation is a critical vulnerability period: approximately half of neonatal presenters died by two years in the cohort analysis. Conversely, some patients without cardiomyopathy survived into their twenties, demonstrating substantial variable expressivity. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>)</p>
+<p>No spontaneous molecular remission is established. Symptomatic improvement—particularly seizure control—does not represent correction of the underlying mitochondrial translation defect.</p>
+<hr />
+<h2>9. Inheritance and population characteristics</h2>
+<p>Inheritance is <strong>autosomal recessive</strong>. For two confirmed carrier parents, each pregnancy conventionally carries a 25% probability of an affected child, 50% probability of an unaffected carrier, and 25% probability of an unaffected non-carrier, assuming no unusual mosaicism or uniparental mechanism.</p>
+<p>Penetrance appears high for pathogenic biallelic genotypes, but expressivity is markedly variable. There is no evidence for genetic anticipation. Germline mosaicism has not emerged as a defining feature, though residual recurrence risk after an apparently de novo event should be discussed according to standard genetic-counseling principles.</p>
+<p>The 35-person cohort contained <strong>17 males and 18 females</strong>, providing no evidence of a major sex-incidence imbalance. Male mortality was higher in that small cohort—47% at a mean 0.96 years versus 22% at a mean 6.1 years in females—but this observation is underpowered and should not be treated as a proven sex modifier. Cases were reported from 11 countries, supporting a pan-ethnic distribution. No robust prevalence, incidence, carrier frequency, founder effect, endemic region, or population-specific sex ratio is known. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>)</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical and biochemical evaluation</h3>
+<p>Suspect MTO1 deficiency in an infant or child with otherwise unexplained combinations of hypertrophic cardiomyopathy, lactic acidosis, developmental delay, hypotonia, seizures, optic atrophy, feeding failure, or combined respiratory-chain deficiency.</p>
+<p>Recommended evaluation includes:</p>
+<ul>
+<li>Plasma lactate, blood gas, pyruvate, lactate:pyruvate ratio, alanine, glucose, liver and renal indices, CK, acylcarnitines, plasma amino acids, and urine organic acids.</li>
+<li>ECG, echocardiography, and rhythm monitoring; cardiac MRI when clinically appropriate.</li>
+<li>Brain MRI with diffusion and MR spectroscopy; EEG for seizures.</li>
+<li>Ophthalmologic examination, visual electrophysiology where indicated, hearing assessment, developmental evaluation, and nutritional/swallow assessment.</li>
+<li>Respiratory-chain enzyme analysis and histology if biopsy is clinically justified. Muscle is more informative than fibroblasts, but combined complex I/IV deficiency is supportive rather than specific. Normal fibroblast enzymology does not exclude MTO1 deficiency. (<a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>)</li>
+</ul>
+<h3>Genetic testing strategy</h3>
+<ol>
+<li><strong>Preferred:</strong> trio WES or WGS with nuclear mitochondrial-gene analysis and copy-number/splice-aware calling.</li>
+<li><strong>Alternative:</strong> a comprehensive mitochondrial cardiomyopathy/mitochondrial translation panel including MTO1.</li>
+<li><strong>Single-gene sequencing:</strong> appropriate when familial variants are known or the biochemical phenotype is strongly suggestive; deletion/duplication analysis should be included if sequencing is negative.</li>
+<li><strong>RNA sequencing:</strong> useful for unresolved splice variants or cryptic splicing, preferably in an informative tissue.</li>
+<li><strong>Functional studies:</strong> mitochondrial translation, oxygen consumption, respiratory-chain assembly, tRNA modification/stability, or complementation may clarify VUSs.</li>
+</ol>
+<p>Karyotyping, FISH, repeat-expansion testing, and isolated mtDNA testing do not directly detect ordinary biallelic MTO1 sequence variants. Chromosomal microarray may detect a rare deletion involving MTO1 but is not a sensitive first-line test for this single-gene disorder.</p>
+<h3>Differential diagnosis</h3>
+<p>Important mimics include <strong>GTPBP3</strong>, <strong>TRMU</strong>, <strong>MTFMT</strong>, <strong>MRPL44</strong>, <strong>TSFM</strong>, <strong>TUFM</strong>, <strong>FARS2</strong>, <strong>AARS2</strong>, and <strong>RARS2</strong> disorders; mtDNA tRNA diseases such as MELAS; pyruvate dehydrogenase deficiency; primary complex I/IV assembly disorders; Pompe disease; fatty-acid oxidation defects; Barth syndrome; and sarcomeric or RASopathy-associated hypertrophic cardiomyopathy. Molecular confirmation is essential because the clinical and biochemical findings are nonspecific. (<a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>, <a href="#ref-obyrne2018thegenotypicand-pages-37-40">obyrne2018thegenotypicand pages 37-40</a>)</p>
+<p>No validated clinical scoring criteria, disease-specific newborn screen, or liquid-biopsy assay exists. Cascade testing is appropriate for relatives after familial variants are established.</p>
+<hr />
+<h2>11. Outcome and prognosis</h2>
+<p>In the 35-person series, <strong>34% had died</strong>, at an average age of <strong>2.67 years</strong>. Early neonatal presentation and a truncating-plus-missense genotype were associated with particularly poor outcomes; reported mean survival for the severe frameshift-containing group was approximately <strong>0.24 years</strong>. Complete loss of function is likely embryonically lethal. (<a href="#ref-obyrne2018thegenotypicand-pages-9-12">obyrne2018thegenotypicand pages 9-12</a>, <a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>)</p>
+<p>No reliable five- or ten-year survival curve exists. Potential causes of morbidity and death include severe lactic acidosis, progressive cardiomyopathy/heart failure, arrhythmia, neurologic deterioration, refractory epilepsy, aspiration, and nutritional compromise. Survivors may have lifelong cognitive, visual, motor, and feeding disability. Formal disease-specific quality-of-life and disability-adjusted-life-year data are unavailable.</p>
+<p>Useful prognostic indicators are age at presentation, cardiac severity and ventricular function, magnitude/persistence of lactic acidosis, neurologic burden, feeding/respiratory dependence, and genotype class. These are cohort-derived associations, not validated prognostic biomarkers or calculators. (<a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>)</p>
+<hr />
+<h2>12. Treatment and current applications</h2>
+<h3>Current clinical implementation</h3>
+<p>There is <strong>no approved MTO1-specific disease-modifying treatment</strong>. Care should be coordinated through mitochondrial medicine, metabolic genetics, cardiology, neurology, nutrition, ophthalmology, rehabilitation, and palliative-care services as appropriate.</p>
+<ul>
+<li><strong>Cardiac care:</strong> guideline-based surveillance and treatment of cardiomyopathy, heart failure, and arrhythmias. Advanced disease may prompt evaluation for mechanical support or transplantation on an individualized basis; MTO1-specific transplant outcomes are unavailable.</li>
+<li><strong>Lactic acidosis/metabolic crises:</strong> treat precipitating illness, maintain glucose and hydration, monitor acid–base status, and avoid prolonged fasting. Bicarbonate or renal support is reserved for clinically indicated severe acidosis.</li>
+<li><strong>Epilepsy:</strong> standard antiseizure medications selected with mitochondrial safety in mind; ketogenic therapy may be considered for refractory epilepsy only in an experienced team.</li>
+<li><strong>Nutrition/feeding:</strong> dietitian support, swallow evaluation, calorie optimization, and enteral feeding when necessary.</li>
+<li><strong>Rehabilitation:</strong> physical, occupational, speech, vision, and developmental therapies; exercise should be individualized to avoid exhaustion while preventing deconditioning.</li>
+</ul>
+<h3>Evidence for specific agents</h3>
+<p>Cohort treatments included coenzyme Q10 in 68%, levocarnitine in 56%, riboflavin in 44%, dichloroacetate in 32%, and ketogenic diet in 23%, alongside vitamins and other “mitochondrial cocktails.” Most produced <strong>“no appreciable effect.”</strong> Dichloroacetate was associated with improvement of lactic acidosis and cardiomyopathy in one case, but neuropathy and other toxicity concerns preclude assuming general efficacy. Ketogenic therapy showed seizure-related benefit in only a minority—reported as 2/5 in one analysis—and remains low-quality evidence. (<a href="#ref-obyrne2018thegenotypicand-pages-12-16">obyrne2018thegenotypicand pages 12-16</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>, <a href="#ref-obyrne2018thegenotypicand-pages-1-5">obyrne2018thegenotypicand pages 1-5</a>)</p>
+<p>Mechanistic cell work found partial reversal with the PPARγ agonist rosiglitazone or AMPK activator AICAR, while N-acetylcysteine has been proposed to support mitochondrial translation. These are <strong>preclinical hypotheses</strong>, not recommended MTO1 treatments. (<a href="#ref-boutoual2018defectsinthe-pages-2-3">boutoual2018defectsinthe pages 2-3</a>, <a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>)</p>
+<p>No MTO1-specific gene replacement, CRISPR therapy, RNA therapy, cell therapy, immunotherapy, or approved targeted therapy is available. The ClinicalTrials.gov search retrieved no relevant disease-specific interventional trial or NCT identifier. NCIt annotations may include supportive-care, anticonvulsant therapy, cardiac monitoring, physical therapy, occupational therapy, and genetic counseling, but term IDs should be validated against the current NCIt release.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>The phenotype cannot presently be prevented after an affected individual inherits two pathogenic alleles. Primary prevention is therefore reproductive:</p>
+<ul>
+<li>genetic counseling and parental segregation testing;</li>
+<li>cascade carrier testing for adult relatives;</li>
+<li>preimplantation genetic testing for monogenic disease;</li>
+<li>prenatal diagnosis by chorionic-villus sampling or amniocentesis for known familial variants;</li>
+<li>donor gametes or other reproductive options according to family preferences.</li>
+</ul>
+<p>Secondary prevention consists of early molecular diagnosis, baseline cardiac and neurologic assessment, and prospective surveillance before overt organ failure. Tertiary prevention includes vaccination and prompt infection treatment, avoidance of prolonged fasting/dehydration, seizure control, nutritional and aspiration management, and guideline-directed cardiomyopathy care. No vaccine, medication prophylaxis, population newborn-screening program, or behavioral intervention prevents the inherited disorder.</p>
+<hr />
+<h2>14. Other species and naturally occurring disease</h2>
+<p>No well-established, naturally occurring companion-animal, livestock, or wildlife syndrome caused by biallelic MTO1 variation was identified. Accordingly, there is no demonstrated zoonotic potential or cross-species transmission; the disease is genetic and noninfectious.</p>
+<p>The mechanism is strongly evolutionarily conserved. Relevant taxa include <strong>Homo sapiens (NCBI Taxon 9606), Mus musculus (10090), Danio rerio (7955), and Saccharomyces cerevisiae (4932)</strong>. Conserved yeast Mto1 function permits functional testing of human missense alleles, especially when clinical variants are private. (<a href="#ref-magistrati2023modopathiescausedby-pages-8-9">magistrati2023modopathiescausedby pages 8-9</a>)</p>
+<hr />
+<h2>15. Model organisms and experimental systems</h2>
+<h3>Zebrafish</h3>
+<p>CRISPR/Cas9 <strong>mto1-knockout Danio rerio</strong> are viable and reproduce major human cardiac and mitochondrial phenotypes. Mutants show defective heart looping—no-loop morphology in <strong>58% versus 16% of wild-type embryos</strong>—cardiomyocyte hypertrophy, myocardial-fiber disarray, mitochondrial fragmentation and cristae loss, impaired tRNA aminoacylation, altered mRNA polyadenylation, reduced mitochondrial translation, and diminished OXPHOS activity. (<a href="#ref-zhang2021ablationofmto1-pages-11-12">zhang2021ablationofmto1 pages 11-12</a>, <a href="#ref-zhang2021ablationofmto1-pages-5-6">zhang2021ablationofmto1 pages 5-6</a>)</p>
+<p>The primary report’s abstract states: <strong>“These cardiac defects in the mto1KO zebrafish recapitulated the clinical phenotypes in HCM patients carrying the MTO1 mutation(s).”</strong> This is strong mechanistic evidence for cardiac causality, although zebrafish do not reproduce the full human neurodevelopmental course. Publication: April 2021; DOI: <a href="https://doi.org/10.1093/nar/gkab228" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/nar/gkab228</a>. (<a href="#ref-zhang2021ablationofmto1-pages-11-12">zhang2021ablationofmto1 pages 11-12</a>)</p>
+<h3>Mouse</h3>
+<p>Partial Mto1 knockdown produces mild cardiac dilation/fibrosis, decreased mitochondrial translation and complex-I assembly, and impaired cardiac mitochondrial respiration. Complete knockout causes <strong>&gt;80% reduction in mitochondrial translation</strong>, severe respiratory-complex disassembly, increased anaerobic glycolysis, and embryonic death around E8. This supports a dosage threshold and the inferred nonviability of human biallelic null genotypes. The limitation is that complete knockout models embryonic lethality rather than survivable hypomorphic human disease. (<a href="#ref-kazuhito2020posttranscriptionalmodificationsin-pages-14-15">kazuhito2020posttranscriptionalmodificationsin pages 14-15</a>)</p>
+<h3>Yeast and human cellular models</h3>
+<p>Saccharomyces cerevisiae MTO1-pathway mutants exhibit respiratory growth and mitochondrial-translation defects and can test pathogenicity of humanized alleles. Species-specific mitochondrial genetic-code and respiratory differences limit direct clinical extrapolation. (<a href="#ref-magistrati2023modopathiescausedby-pages-8-9">magistrati2023modopathiescausedby pages 8-9</a>)</p>
+<p>Patient fibroblasts and MTO1-silenced cell lines demonstrate substrate-specific tRNA hypomodification, altered angiogenin sensitivity, OXPHOS/proteostasis imbalance, HIF-1 activation, PPARγ/UCP2/AMPK suppression, defective fatty-acid oxidation, and lipid accumulation. Fibroblasts are experimentally tractable but may underrepresent heart, brain, and muscle disease and can yield normal clinical respiratory-chain assays. (<a href="#ref-boutoual2018defectsinthe-pages-1-2">boutoual2018defectsinthe pages 1-2</a>, <a href="#ref-boutoual2018defectsinthe-pages-2-3">boutoual2018defectsinthe pages 2-3</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>)</p>
+<hr />
+<h2>Recent developments and expert assessment, 2023–2024</h2>
+<p>Recent literature has mainly refined the conceptual framework rather than delivered an MTO1-specific therapy. The 2023 mitochondrial RNA-modopathy review emphasized conserved model systems for interpreting private variants and linked loss of RNA modification to inefficient or inaccurate mitochondrial translation. Its abstract summarizes the field: <strong>“Most of these mutations are sporadic or private, thus it is fundamental that their pathogenicity is confirmed through the use of a model system.”</strong> Publication: January 2023; DOI: <a href="https://doi.org/10.3390/ijms24032178" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24032178</a>. (<a href="#ref-magistrati2023modopathiescausedby-pages-8-9">magistrati2023modopathiescausedby pages 8-9</a>)</p>
+<p>A 2024 review of defective mitochondrial protein synthesis emphasized that such disorders are commonly multisystemic and preferentially affect high-energy tissues; it highlighted mouse and zebrafish MTO1 knockouts as cardiac-disease models. A parallel 2024 mouse-model review argued that organ-specific models are essential because mitochondrial-translation disorders show marked tissue specificity. These recent authoritative syntheses support integrated genomic, transcriptomic, proteomic, and tissue-functional approaches, but they do not change current MTO1 clinical management.</p>
+<p>The principal expert conclusions are therefore:</p>
+<ol>
+<li><strong>Genomic diagnosis should be early and broad</strong>, usually WES/WGS rather than phenotype-restricted single-gene testing.</li>
+<li><strong>Residual MTO1 activity is a major biological determinant</strong>; complete loss appears incompatible with mammalian development.</li>
+<li><strong>Cardiomyopathy and lactic acidosis are signature features but not obligatory at presentation</strong>, so absence of either should not exclude testing.</li>
+<li><strong>Muscle functional testing is more sensitive than fibroblast respiratory-chain enzymology</strong>, although molecular confirmation remains decisive.</li>
+<li><strong>Therapeutic evidence is insufficient</strong> for routine disease-targeted pharmacotherapy; cell-based pathway rescue is hypothesis-generating only. (<a href="#ref-obyrne2018thegenotypicand-pages-18-22">obyrne2018thegenotypicand pages 18-22</a>, <a href="#ref-kazuhito2020posttranscriptionalmodificationsin-pages-14-15">kazuhito2020posttranscriptionalmodificationsin pages 14-15</a>, <a href="#ref-obyrne2018thegenotypicand-pages-16-18">obyrne2018thegenotypicand pages 16-18</a>)</li>
+</ol>
+<h2>Evidence limitations and knowledge gaps</h2>
+<p>The evidence base is dominated by one 35-person retrospective synthesis, individual cases, and preclinical models. There are no population-based incidence studies, prospective natural-history registry, validated patient-reported outcome, randomized treatment trial, disease-specific clinical guideline, standardized biomarker, single-cell human tissue atlas, or established gene therapy. Variant frequencies and classifications evolve and should be refreshed directly from ClinVar and gnomAD. Phenotype percentages should not be interpreted as precise population risks because referral and survival biases probably enrich severe pediatric disease.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-obyrne2018thegenotypicand-pages-9-12"></a>(obyrne2018thegenotypicand pages 9-12): James J. O'Byrne, Maja Tarailo-Graovac, Aisha Ghani, Michael Champion, Charu Deshpande, Ali Dursun, Riza K. Ozgul, Peter Freisinger, Ian Garber, Tobias B. Haack, Rita Horvath, Ivo Barić, Ralf A. Husain, Leo A.J. Kluijtmans, Urania Kotzaeridou, Andrew A. Morris, Colin J. Ross, Saikat Santra, Jan Smeitink, Mark Tarnopolsky, Saskia B. Wortmann, Johannes A. Mayr, Michaela Brunner-Krainz, Holger Prokisch, Wyeth W. Wasserman, Ron A. Wevers, Udo F. Engelke, Richard J. Rodenburg, Teck Wah Ting, Robert McFarland, Robert W. Taylor, Ramona Salvarinova, and Clara D.M. van Karnebeek. The genotypic and phenotypic spectrum of mto1 deficiency. Molecular Genetics and Metabolism, 123:28-42, Jan 2018. URL: <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ymgme.2017.11.003</a>, <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ymgme.2017.11.003</a>. This article has 43 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-obyrne2018thegenotypicand-pages-1-5"></a>(obyrne2018thegenotypicand pages 1-5): James J. O'Byrne, Maja Tarailo-Graovac, Aisha Ghani, Michael Champion, Charu Deshpande, Ali Dursun, Riza K. Ozgul, Peter Freisinger, Ian Garber, Tobias B. Haack, Rita Horvath, Ivo Barić, Ralf A. Husain, Leo A.J. Kluijtmans, Urania Kotzaeridou, Andrew A. Morris, Colin J. Ross, Saikat Santra, Jan Smeitink, Mark Tarnopolsky, Saskia B. Wortmann, Johannes A. Mayr, Michaela Brunner-Krainz, Holger Prokisch, Wyeth W. Wasserman, Ron A. Wevers, Udo F. Engelke, Richard J. Rodenburg, Teck Wah Ting, Robert McFarland, Robert W. Taylor, Ramona Salvarinova, and Clara D.M. van Karnebeek. The genotypic and phenotypic spectrum of mto1 deficiency. Molecular Genetics and Metabolism, 123:28-42, Jan 2018. URL: <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ymgme.2017.11.003</a>, <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ymgme.2017.11.003</a>. This article has 43 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-obyrne2018thegenotypicand-pages-12-16"></a>(obyrne2018thegenotypicand pages 12-16): James J. O'Byrne, Maja Tarailo-Graovac, Aisha Ghani, Michael Champion, Charu Deshpande, Ali Dursun, Riza K. Ozgul, Peter Freisinger, Ian Garber, Tobias B. Haack, Rita Horvath, Ivo Barić, Ralf A. Husain, Leo A.J. Kluijtmans, Urania Kotzaeridou, Andrew A. Morris, Colin J. Ross, Saikat Santra, Jan Smeitink, Mark Tarnopolsky, Saskia B. Wortmann, Johannes A. Mayr, Michaela Brunner-Krainz, Holger Prokisch, Wyeth W. Wasserman, Ron A. Wevers, Udo F. Engelke, Richard J. Rodenburg, Teck Wah Ting, Robert McFarland, Robert W. Taylor, Ramona Salvarinova, and Clara D.M. van Karnebeek. The genotypic and phenotypic spectrum of mto1 deficiency. Molecular Genetics and Metabolism, 123:28-42, Jan 2018. URL: <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ymgme.2017.11.003</a>, <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ymgme.2017.11.003</a>. This article has 43 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-combined-oxidative-phosphorylation-deficiency-10-mto1"></a>(OpenTargets Search: combined oxidative phosphorylation deficiency 10-MTO1): Open Targets Query (combined oxidative phosphorylation deficiency 10-MTO1, 5 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-obyrne2018thegenotypicand-pages-5-9"></a>(obyrne2018thegenotypicand pages 5-9): James J. O'Byrne, Maja Tarailo-Graovac, Aisha Ghani, Michael Champion, Charu Deshpande, Ali Dursun, Riza K. Ozgul, Peter Freisinger, Ian Garber, Tobias B. Haack, Rita Horvath, Ivo Barić, Ralf A. Husain, Leo A.J. Kluijtmans, Urania Kotzaeridou, Andrew A. Morris, Colin J. Ross, Saikat Santra, Jan Smeitink, Mark Tarnopolsky, Saskia B. Wortmann, Johannes A. Mayr, Michaela Brunner-Krainz, Holger Prokisch, Wyeth W. Wasserman, Ron A. Wevers, Udo F. Engelke, Richard J. Rodenburg, Teck Wah Ting, Robert McFarland, Robert W. Taylor, Ramona Salvarinova, and Clara D.M. van Karnebeek. The genotypic and phenotypic spectrum of mto1 deficiency. Molecular Genetics and Metabolism, 123:28-42, Jan 2018. URL: <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ymgme.2017.11.003</a>, <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ymgme.2017.11.003</a>. This article has 43 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-obyrne2018thegenotypicand-pages-16-18"></a>(obyrne2018thegenotypicand pages 16-18): James J. O'Byrne, Maja Tarailo-Graovac, Aisha Ghani, Michael Champion, Charu Deshpande, Ali Dursun, Riza K. Ozgul, Peter Freisinger, Ian Garber, Tobias B. Haack, Rita Horvath, Ivo Barić, Ralf A. Husain, Leo A.J. Kluijtmans, Urania Kotzaeridou, Andrew A. Morris, Colin J. Ross, Saikat Santra, Jan Smeitink, Mark Tarnopolsky, Saskia B. Wortmann, Johannes A. Mayr, Michaela Brunner-Krainz, Holger Prokisch, Wyeth W. Wasserman, Ron A. Wevers, Udo F. Engelke, Richard J. Rodenburg, Teck Wah Ting, Robert McFarland, Robert W. Taylor, Ramona Salvarinova, and Clara D.M. van Karnebeek. The genotypic and phenotypic spectrum of mto1 deficiency. Molecular Genetics and Metabolism, 123:28-42, Jan 2018. URL: <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ymgme.2017.11.003</a>, <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ymgme.2017.11.003</a>. This article has 43 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-obyrne2018thegenotypicand-pages-18-22"></a>(obyrne2018thegenotypicand pages 18-22): James J. O'Byrne, Maja Tarailo-Graovac, Aisha Ghani, Michael Champion, Charu Deshpande, Ali Dursun, Riza K. Ozgul, Peter Freisinger, Ian Garber, Tobias B. Haack, Rita Horvath, Ivo Barić, Ralf A. Husain, Leo A.J. Kluijtmans, Urania Kotzaeridou, Andrew A. Morris, Colin J. Ross, Saikat Santra, Jan Smeitink, Mark Tarnopolsky, Saskia B. Wortmann, Johannes A. Mayr, Michaela Brunner-Krainz, Holger Prokisch, Wyeth W. Wasserman, Ron A. Wevers, Udo F. Engelke, Richard J. Rodenburg, Teck Wah Ting, Robert McFarland, Robert W. Taylor, Ramona Salvarinova, and Clara D.M. van Karnebeek. The genotypic and phenotypic spectrum of mto1 deficiency. Molecular Genetics and Metabolism, 123:28-42, Jan 2018. URL: <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ymgme.2017.11.003</a>, <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ymgme.2017.11.003</a>. This article has 43 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zhang2021ablationofmto1-pages-11-12"></a>(zhang2021ablationofmto1 pages 11-12): Qinghai Zhang, Xiao He, Shihao Yao, Tianxiang Lin, Luwen Zhang, Danni Chen, Chao Chen, Qingxian Yang, Feng Li, Yi-Min Zhu, and Min-Xin Guan. Ablation of mto1 in zebrafish exhibited hypertrophic cardiomyopathy manifested by mitochondrion rna maturation deficiency. Nucleic Acids Research, 49:4689-4704, Apr 2021. URL: <a href="https://doi.org/10.1093/nar/gkab228" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/nar/gkab228</a>, <a href="https://doi.org/10.1093/nar/gkab228" target="_blank" rel="noopener noreferrer">doi:10.1093/nar/gkab228</a>. This article has 28 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-boutoual2018defectsinthe-pages-1-2"></a>(boutoual2018defectsinthe pages 1-2): Rachid Boutoual, Salvador Meseguer, Magda Villarroya, Elena Martín-Hernández, Mohammed Errami, Miguel A. Martín, Marta Casado, and M.-Eugenia Armengod. Defects in the mitochondrial-trna modification enzymes mto1 and gtpbp3 promote different metabolic reprogramming through a hif-pparγ-ucp2-ampk axis. Scientific Reports, Jan 2018. URL: <a href="https://doi.org/10.1038/s41598-018-19587-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-018-19587-5</a>, <a href="https://doi.org/10.1038/s41598-018-19587-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-018-19587-5</a>. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-boutoual2018defectsinthe-pages-2-3"></a>(boutoual2018defectsinthe pages 2-3): Rachid Boutoual, Salvador Meseguer, Magda Villarroya, Elena Martín-Hernández, Mohammed Errami, Miguel A. Martín, Marta Casado, and M.-Eugenia Armengod. Defects in the mitochondrial-trna modification enzymes mto1 and gtpbp3 promote different metabolic reprogramming through a hif-pparγ-ucp2-ampk axis. Scientific Reports, Jan 2018. URL: <a href="https://doi.org/10.1038/s41598-018-19587-5" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-018-19587-5</a>, <a href="https://doi.org/10.1038/s41598-018-19587-5" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-018-19587-5</a>. This article has 40 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-kazuhito2020posttranscriptionalmodificationsin-pages-14-15"></a>(kazuhito2020posttranscriptionalmodificationsin pages 14-15): Tomizawa Kazuhito and Fan-Yan Wei. Posttranscriptional modifications in mitochondrial trna and its implication in mitochondrial translation and disease. Journal of biochemistry, 168:435-444, Aug 2020. URL: <a href="https://doi.org/10.1093/jb/mvaa098" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/jb/mvaa098</a>, <a href="https://doi.org/10.1093/jb/mvaa098" target="_blank" rel="noopener noreferrer">doi:10.1093/jb/mvaa098</a>. This article has 28 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-zhang2021ablationofmto1-pages-5-6"></a>(zhang2021ablationofmto1 pages 5-6): Qinghai Zhang, Xiao He, Shihao Yao, Tianxiang Lin, Luwen Zhang, Danni Chen, Chao Chen, Qingxian Yang, Feng Li, Yi-Min Zhu, and Min-Xin Guan. Ablation of mto1 in zebrafish exhibited hypertrophic cardiomyopathy manifested by mitochondrion rna maturation deficiency. Nucleic Acids Research, 49:4689-4704, Apr 2021. URL: <a href="https://doi.org/10.1093/nar/gkab228" target="_blank" rel="noopener noreferrer">https://doi.org/10.1093/nar/gkab228</a>, <a href="https://doi.org/10.1093/nar/gkab228" target="_blank" rel="noopener noreferrer">doi:10.1093/nar/gkab228</a>. This article has 28 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-obyrne2018thegenotypicand-pages-37-40"></a>(obyrne2018thegenotypicand pages 37-40): James J. O'Byrne, Maja Tarailo-Graovac, Aisha Ghani, Michael Champion, Charu Deshpande, Ali Dursun, Riza K. Ozgul, Peter Freisinger, Ian Garber, Tobias B. Haack, Rita Horvath, Ivo Barić, Ralf A. Husain, Leo A.J. Kluijtmans, Urania Kotzaeridou, Andrew A. Morris, Colin J. Ross, Saikat Santra, Jan Smeitink, Mark Tarnopolsky, Saskia B. Wortmann, Johannes A. Mayr, Michaela Brunner-Krainz, Holger Prokisch, Wyeth W. Wasserman, Ron A. Wevers, Udo F. Engelke, Richard J. Rodenburg, Teck Wah Ting, Robert McFarland, Robert W. Taylor, Ramona Salvarinova, and Clara D.M. van Karnebeek. The genotypic and phenotypic spectrum of mto1 deficiency. Molecular Genetics and Metabolism, 123:28-42, Jan 2018. URL: <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ymgme.2017.11.003</a>, <a href="https://doi.org/10.1016/j.ymgme.2017.11.003" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ymgme.2017.11.003</a>. This article has 43 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-magistrati2023modopathiescausedby-pages-8-9"></a>(magistrati2023modopathiescausedby pages 8-9): Martina Magistrati, Alexandru Ionut Gilea, Camilla Ceccatelli Berti, Enrico Baruffini, and Cristina Dallabona. Modopathies caused by mutations in genes encoding for mitochondrial rna modifying enzymes: molecular mechanisms and yeast disease models. International Journal of Molecular Sciences, 24:2178, Jan 2023. URL: <a href="https://doi.org/10.3390/ijms24032178" target="_blank" rel="noopener noreferrer">https://doi.org/10.3390/ijms24032178</a>, <a href="https://doi.org/10.3390/ijms24032178" target="_blank" rel="noopener noreferrer">doi:10.3390/ijms24032178</a>. This article has 14 citations.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/MTO1_Deficiency-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="MT-ATP6_MT-ATP8-Related_Infantile_Hypertrophic_Cardiomyopathy-falcon.html">← MT-ATP6/MT-ATP8-Related Infantile Hypertrophic Cardiomyopathy (Falcon)</a>
+                
+                
+                <a href="Mucoepidermoid_Carcinoma-falcon.html">Mucoepidermoid Carcinoma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/MTO1_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/MTO1_Deficiency-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -904,7 +1066,7 @@
 </ul>
 <hr />
 <h2>12. Treatment</h2>
-<p><strong>No cure; management is multidisciplinary and largely disease-modifying-modest + supportive.</strong> Multidisciplinary ALS-clinic care itself improves survival and QoL (<a href="http://purl.obolibrary.org/obo/MAXO_0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a> supportive care; multidisciplinary care).</p>
+<p><strong>No cure; management is multidisciplinary and largely disease-modifying-modest + supportive.</strong> Multidisciplinary ALS-clinic care itself improves survival and QoL (<a href="https://bioregistry.io/MAXO:0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a> supportive care; multidisciplinary care).</p>
 <p><strong>Disease-modifying pharmacotherapy.</strong>
 - <strong>Riluzole</strong> (<a href="http://purl.obolibrary.org/obo/CHEBI_8863" target="_blank" rel="noopener noreferrer">CHEBI:8863</a>) — anti-glutamatergic (Na⁺-channel/glutamate-release inhibitor). First and only globally licensed drug; prolongs survival/time-to-tracheostomy by <strong>~2–3 months</strong> (Bensimon et al., <em>N Engl J Med</em> 1994, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/8302340/" target="_blank" rel="noopener noreferrer">PMID:8302340</a></strong>). Oral tablet, liquid, and film formulations. MAXO: pharmacotherapy.
 - <strong>Edaravone</strong> (<a href="http://purl.obolibrary.org/obo/CHEBI_31530" target="_blank" rel="noopener noreferrer">CHEBI:31530</a>) — free-radical scavenger; IV and oral; slowed ALSFRS-R decline in a defined early-stage subgroup (Writing Group/Edaravone ALS-19 Study Group, <em>Lancet Neurol</em> 2017, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/28522181/" target="_blank" rel="noopener noreferrer">PMID:28522181</a></strong>). Benefit debated; approved in US/Japan/others, <strong>not</strong> by EMA.
@@ -918,11 +1080,11 @@
 - <strong>Other trials:</strong> HERV-K antiretrovirals (Triumeq), CuATSM, pridopidine, DNL343 (integrated stress-response inhibitor), tofersen presymptomatic (ATLAS), masitinib, ANX005, and platform trials (<strong>HEALEY ALS Platform Trial</strong>, <strong>MND-SMART</strong>, <strong>TRICALS</strong>).</p>
 <p><strong>Symptomatic / supportive care (core of management).</strong>
 - <strong>Respiratory:</strong> <strong>non-invasive ventilation (NIV)</strong> improves survival and QoL (Bourke et al., <em>Lancet Neurol</em> 2006, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/16488378/" target="_blank" rel="noopener noreferrer">PMID:16488378</a></strong>); tracheostomy/invasive ventilation as chosen; cough-assist/secretion management. MAXO: mechanical ventilation / respiratory therapy.
-- <strong>Nutrition:</strong> <strong>percutaneous endoscopic gastrostomy (PEG)</strong> for dysphagia/weight maintenance; high-calorie diet (MAXO: gastrostomy / dietary intervention <a href="http://purl.obolibrary.org/obo/MAXO_0000088" target="_blank" rel="noopener noreferrer">MAXO:0000088</a>).
+- <strong>Nutrition:</strong> <strong>percutaneous endoscopic gastrostomy (PEG)</strong> for dysphagia/weight maintenance; high-calorie diet (MAXO: gastrostomy / dietary intervention <a href="https://bioregistry.io/MAXO:0000088" target="_blank" rel="noopener noreferrer">MAXO:0000088</a>).
 - <strong>Sialorrhea:</strong> anticholinergics, botulinum toxin, salivary-gland radiotherapy.
 - <strong>Spasticity/cramps:</strong> baclofen, tizanidine, mexiletine (cramps).
 - <strong>Pseudobulbar affect:</strong> dextromethorphan/quinidine (Nuedexta).
-- <strong>Rehabilitation:</strong> physical (<a href="http://purl.obolibrary.org/obo/MAXO_0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a>), occupational, and <strong>speech therapy / AAC</strong> communication devices; mobility aids.
+- <strong>Rehabilitation:</strong> physical (<a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a>), occupational, and <strong>speech therapy / AAC</strong> communication devices; mobility aids.
 - <strong>Palliative &amp; advance-care planning:</strong> hospice, symptom control, respect for ventilation/withdrawal decisions.</p>
 <p><strong>Treatment outcomes.</strong> Approved drugs yield <strong>modest</strong> slowing (months), not reversal; combination riluzole + edaravone + supportive care is common. Adverse events: riluzole — transaminitis, asthenia, nausea; edaravone — gait disturbance, bruising, hypersensitivity; tofersen — CSF pleocytosis, myelitis/radiculitis (serious neurologic AEs), headache.</p>
 <hr />
@@ -965,7 +1127,7 @@
 <li><strong>UBERON (anatomy):</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001384" target="_blank" rel="noopener noreferrer">UBERON:0001384</a>, <a href="http://purl.obolibrary.org/obo/UBERON_0002026" target="_blank" rel="noopener noreferrer">UBERON:0002026</a>, <a href="http://purl.obolibrary.org/obo/UBERON_0002718" target="_blank" rel="noopener noreferrer">UBERON:0002718</a>, <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a>, <a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a>, <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a>.</li>
 <li><strong>CHEBI (chemicals):</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_8863" target="_blank" rel="noopener noreferrer">CHEBI:8863</a> (riluzole), <a href="http://purl.obolibrary.org/obo/CHEBI_31530" target="_blank" rel="noopener noreferrer">CHEBI:31530</a> (edaravone), <a href="http://purl.obolibrary.org/obo/CHEBI_14321" target="_blank" rel="noopener noreferrer">CHEBI:14321</a> (glutamate), <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a> (calcium), <a href="http://purl.obolibrary.org/obo/CHEBI_18421" target="_blank" rel="noopener noreferrer">CHEBI:18421</a> (superoxide), <a href="http://purl.obolibrary.org/obo/CHEBI_16240" target="_blank" rel="noopener noreferrer">CHEBI:16240</a> (hydrogen peroxide).</li>
 <li><strong>HGNC (genes):</strong> hgnc:11179 (SOD1), hgnc:28337 (C9orf72), hgnc:11571 (TARDBP), hgnc:4010 (FUS), hgnc:11584 (TBK1), hgnc:6323 (KIF5A). <em>(Verify all with OAK — lowercase <code>hgnc:</code> per repo convention.)</em></li>
-<li><strong>MAXO (treatments):</strong> pharmacotherapy (riluzole/edaravone/tofersen), mechanical/non-invasive ventilation, gastrostomy, physical therapy (<a href="http://purl.obolibrary.org/obo/MAXO_0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a>), dietary intervention (<a href="http://purl.obolibrary.org/obo/MAXO_0000088" target="_blank" rel="noopener noreferrer">MAXO:0000088</a>), supportive/palliative care (<a href="http://purl.obolibrary.org/obo/MAXO_0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a>).</li>
+<li><strong>MAXO (treatments):</strong> pharmacotherapy (riluzole/edaravone/tofersen), mechanical/non-invasive ventilation, gastrostomy, physical therapy (<a href="https://bioregistry.io/MAXO:0000011" target="_blank" rel="noopener noreferrer">MAXO:0000011</a>), dietary intervention (<a href="https://bioregistry.io/MAXO:0000088" target="_blank" rel="noopener noreferrer">MAXO:0000088</a>), supportive/palliative care (<a href="https://bioregistry.io/MAXO:0000950" target="_blank" rel="noopener noreferrer">MAXO:0000950</a>).</li>
 </ul>
 <hr />
 <h2>Key Landmark Citations (verified real; snippets to be re-fetched before KB commit)</h2>

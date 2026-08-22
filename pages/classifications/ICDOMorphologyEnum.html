@@ -50,6 +50,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -304,6 +423,49 @@
 </head>
 <body>
     
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    
 
     <nav class="site-nav">
         <div class="nav-inner">
@@ -381,6 +543,8 @@
                     
                     <li><a class="disorder-link" href="../disorders/ALK-Rearranged_Non-Small_Cell_Lung_Cancer.html">ALK-Rearranged Non-Small Cell Lung Cancer</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Adenoid_Cystic_Carcinoma.html">Adenoid Cystic Carcinoma</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/Aflatoxin-Related_Hepatocellular_Carcinoma.html">Aflatoxin-Related Hepatocellular Carcinoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Anal_Canal_Carcinoma.html">Anal Canal Carcinoma</a></li>
@@ -399,13 +563,19 @@
                     
                     <li><a class="disorder-link" href="../disorders/Cervical_Cancer.html">Cervical Cancer</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Choriocarcinoma.html">Choriocarcinoma</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/Choroid_Plexus_Carcinoma.html">Choroid Plexus Carcinoma</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Chromophobe_Renal_Cell_Carcinoma.html">Chromophobe Renal Cell Carcinoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Clear_Cell_Renal_Cell_Carcinoma.html">Clear Cell Renal Cell Carcinoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/EGFR-Mutant_Non-Small_Cell_Lung_Cancer.html">EGFR-Mutant Non-Small Cell Lung Cancer</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/FGFR-Altered_Urothelial_Carcinoma.html">FGFR-Altered Urothelial Carcinoma</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Familial_Nonmedullary_Thyroid_Carcinoma.html">Familial Nonmedullary Thyroid Carcinoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Hepatocellular_Carcinoma.html">Hepatocellular Carcinoma</a></li>
                     
@@ -419,6 +589,8 @@
                     
                     <li><a class="disorder-link" href="../disorders/Merkel_Cell_Carcinoma.html">Merkel Cell Carcinoma</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Metastatic_Renal_Cell_Carcinoma.html">Metastatic Renal Cell Carcinoma</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/NTRK_Fusion-Positive_Cancer.html">NTRK Fusion-Positive Cancer</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Non-Small_Cell_Lung_Cancer.html">Non-Small Cell Lung Cancer</a></li>
@@ -431,7 +603,11 @@
                     
                     <li><a class="disorder-link" href="../disorders/ROS1-Rearranged_Non-Small_Cell_Lung_Cancer.html">ROS1-Rearranged Non-Small Cell Lung Cancer</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Salivary_Gland_Polymorphous_Adenocarcinoma.html">Salivary Gland Polymorphous Adenocarcinoma</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/Small_Cell_Lung_Cancer.html">Small Cell Lung Cancer</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Thymic_Neuroendocrine_Carcinoma.html">Thymic Neuroendocrine Carcinoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Thyroid_Follicular_Carcinoma.html">Thyroid Follicular Carcinoma</a></li>
                     
@@ -470,6 +646,10 @@
                     
                     <li><a class="disorder-link" href="../disorders/BRCA-Mutant_Prostate_Cancer.html">BRCA-Mutant Prostate Cancer</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Cervical_Adenocarcinoma.html">Cervical Adenocarcinoma</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Cholangiocarcinoma.html">Cholangiocarcinoma</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/EBV-Associated_Gastric_Cancer.html">EBV-Associated Gastric Cancer</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/ER-Positive_Breast_Cancer.html">ER-Positive Breast Cancer</a></li>
@@ -481,6 +661,8 @@
                     <li><a class="disorder-link" href="../disorders/FGFR-Altered_Cholangiocarcinoma.html">FGFR-Altered Cholangiocarcinoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Gallbladder_Cancer.html">Gallbladder Cancer</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Gastric_Adenocarcinoma.html">Gastric Adenocarcinoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Gastric_Cancer_H._pylori_Associated.html">Gastric Cancer H. pylori Associated</a></li>
                     
@@ -535,11 +717,17 @@
                 <div class="section-title">Tagged Disorders</div>
                 <ul class="disorders">
                     
+                    <li><a class="disorder-link" href="../disorders/Cervical_Squamous_Cell_Carcinoma.html">Cervical Squamous Cell Carcinoma</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Cutaneous_Squamous_Cell_Carcinoma.html">Cutaneous Squamous Cell Carcinoma</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/Esophageal_Squamous_Cell_Carcinoma.html">Esophageal Squamous Cell Carcinoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/HPV-Negative_Head_and_Neck_Cancer.html">HPV-Negative Head and Neck Cancer</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/HPV-Positive_Head_and_Neck_Cancer.html">HPV-Positive Head and Neck Cancer</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Laryngeal_Squamous_Cell_Carcinoma.html">Laryngeal Squamous Cell Carcinoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Nasopharyngeal_Carcinoma.html">Nasopharyngeal Carcinoma</a></li>
                     
@@ -587,6 +775,10 @@
                     <li><a class="disorder-link" href="../disorders/Desmoplastic_Small_Round_Cell_Tumor.html">Desmoplastic Small Round Cell Tumor</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Embryonal_Rhabdomyosarcoma.html">Embryonal Rhabdomyosarcoma</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Epithelioid_Hemangioendothelioma.html">Epithelioid Hemangioendothelioma</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Epithelioid_Sarcoma.html">Epithelioid Sarcoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Ewing_Sarcoma.html">Ewing Sarcoma</a></li>
                     
@@ -659,6 +851,8 @@
                     
                     <li><a class="disorder-link" href="../disorders/Juvenile_Myelomonocytic_Leukemia.html">Juvenile Myelomonocytic Leukemia</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Mixed_Phenotype_Acute_Leukemia.html">Mixed Phenotype Acute Leukemia</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/Polycythemia_Vera.html">Polycythemia Vera</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Primary_Myelofibrosis.html">Primary Myelofibrosis</a></li>
@@ -702,6 +896,10 @@
                     
                     <li><a class="disorder-link" href="../disorders/Follicular_Lymphoma.html">Follicular Lymphoma</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Gastrointestinal_Lymphoma.html">Gastrointestinal Lymphoma</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Heavy_Chain_Disease.html">Heavy Chain Disease</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/Mantle_Cell_Lymphoma.html">Mantle Cell Lymphoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Peripheral_T-Cell_Lymphoma.html">Peripheral T-Cell Lymphoma</a></li>
@@ -709,6 +907,8 @@
                     <li><a class="disorder-link" href="../disorders/Primary_Tonsillar_Lymphoma.html">Primary_Tonsillar_Lymphoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Sezary_Syndrome.html">Sezary Syndrome</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Splenic_Marginal_Zone_Lymphoma.html">Splenic Marginal Zone Lymphoma</a></li>
                     
                 </ul>
                 
@@ -773,7 +973,11 @@
                     
                     <li><a class="disorder-link" href="../disorders/Melanoma_in_Congenital_Melanocytic_Nevus.html">Melanoma_in_Congenital_Melanocytic_Nevus</a></li>
                     
+                    <li><a class="disorder-link" href="../disorders/Metastatic_Melanoma.html">Metastatic Melanoma</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/NRAS_Mutant_Melanoma.html">NRAS Mutant Melanoma</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Ocular_Melanoma.html">Ocular Melanoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Uveal_Melanoma.html">Uveal Melanoma</a></li>
                     
@@ -849,7 +1053,13 @@
                 <div class="section-title">Tagged Disorders</div>
                 <ul class="disorders">
                     
+                    <li><a class="disorder-link" href="../disorders/Embryonal_Carcinoma.html">Embryonal Carcinoma</a></li>
+                    
                     <li><a class="disorder-link" href="../disorders/Hepatoblastoma.html">Hepatoblastoma</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Malignant_Germ_Cell_Tumor_of_Ovary.html">Malignant Germ Cell Tumor of Ovary</a></li>
+                    
+                    <li><a class="disorder-link" href="../disorders/Medulloblastoma.html">Medulloblastoma</a></li>
                     
                     <li><a class="disorder-link" href="../disorders/Medulloblastoma,_SHH-Activated.html">Medulloblastoma, SHH-Activated</a></li>
                     

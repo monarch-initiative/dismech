@@ -56,6 +56,125 @@
             --banner-border: #f59e0b;
             --banner-text: #92400e;
         }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
 
         body {
             font-family: var(--font);
@@ -494,6 +613,49 @@
     </style>
 </head>
 <body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
     <nav>
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -819,22 +981,22 @@
 <p>In pediatric pseudo-obstruction cohorts, treatment is commonly structured around:
 * <strong>Nutritional support</strong> (enteral when possible; PN in severe cases) and <strong>surgical interventions</strong> as “cornerstones” of care. (<a href="#ref-demirok2025incidencediagnosticstherapeutic-pages-1-2">demirok2025incidencediagnosticstherapeutic pages 1-2</a>)</p>
 <p><strong>MAXO suggestions:</strong>
-* Parenteral nutrition (<a href="http://purl.obolibrary.org/obo/MAXO_0000878" target="_blank" rel="noopener noreferrer">MAXO:0000878</a>)
-* Enteral nutrition (<a href="http://purl.obolibrary.org/obo/MAXO_0000879" target="_blank" rel="noopener noreferrer">MAXO:0000879</a>)</p>
+* Parenteral nutrition (<a href="https://bioregistry.io/MAXO:0000878" target="_blank" rel="noopener noreferrer">MAXO:0000878</a>)
+* Enteral nutrition (<a href="https://bioregistry.io/MAXO:0000879" target="_blank" rel="noopener noreferrer">MAXO:0000879</a>)</p>
 <h3>12.2 Pharmacotherapy</h3>
 <p>Evidence for CIPO (general, not FLNA-specific) includes use of prokinetics and other agents:
 * Adult review cites studies of <strong>cisapride</strong>, <strong>erythromycin</strong> (positive response in small case series), and <strong>octreotide</strong> effects on motility/bacterial overgrowth; antibiotic management of SIBO (e.g., rifaximin) is also referenced. (<a href="#ref-giorgio2011chronicintestinalpseudoobstruction-pages-20-21">giorgio2011chronicintestinalpseudoobstruction pages 20-21</a>)</p>
 <p>Pediatric review emphasizes that there is <strong>no universally recommended prokinetic regimen</strong> for most pediatric PIPO patients and highlights supportive goals. (<a href="#ref-turcotte2022pediatricintestinalpseudoobstruction-pages-5-6">turcotte2022pediatricintestinalpseudoobstruction pages 5-6</a>)</p>
 <p><strong>MAXO suggestions:</strong>
-* Prokinetic therapy (<a href="http://purl.obolibrary.org/obo/MAXO_0001020" target="_blank" rel="noopener noreferrer">MAXO:0001020</a>)
-* Antibiotic therapy (<a href="http://purl.obolibrary.org/obo/MAXO_0000648" target="_blank" rel="noopener noreferrer">MAXO:0000648</a>)</p>
+* Prokinetic therapy (<a href="https://bioregistry.io/MAXO:0001020" target="_blank" rel="noopener noreferrer">MAXO:0001020</a>)
+* Antibiotic therapy (<a href="https://bioregistry.io/MAXO:0000648" target="_blank" rel="noopener noreferrer">MAXO:0000648</a>)</p>
 <h3>12.3 Surgical and interventional options</h3>
 <p>Reported and referenced options in general CIPO/PIPO literature include:
 * Stomas/ileostomy and other diversion or decompressive surgeries in severe cases (also seen in FLNA-XIPO pathology cohorts). (<a href="#ref-kapur2010diffuseabnormallayering-pages-13-14">kapur2010diffuseabnormallayering pages 13-14</a>)
 * Intestinal transplantation / multivisceral transplantation in advanced intestinal failure (general CIPO references include a series of “100 multivisceral transplants at a single center”). (<a href="#ref-giorgio2011chronicintestinalpseudoobstruction-pages-20-21">giorgio2011chronicintestinalpseudoobstruction pages 20-21</a>)</p>
 <p><strong>MAXO suggestions:</strong>
-* Ileostomy (<a href="http://purl.obolibrary.org/obo/MAXO_0001060" target="_blank" rel="noopener noreferrer">MAXO:0001060</a>)
-* Intestinal transplantation (<a href="http://purl.obolibrary.org/obo/MAXO_0001109" target="_blank" rel="noopener noreferrer">MAXO:0001109</a>)</p>
+* Ileostomy (<a href="https://bioregistry.io/MAXO:0001060" target="_blank" rel="noopener noreferrer">MAXO:0001060</a>)
+* Intestinal transplantation (<a href="https://bioregistry.io/MAXO:0001109" target="_blank" rel="noopener noreferrer">MAXO:0001109</a>)</p>
 <h3>12.4 Real-world implementation / systems of care</h3>
 <p>A 2024 FLNA LOF cohort emphasizes that <strong>systematic multidisciplinary follow-up</strong> (notably cardiology screening) was often lacking and that less overt symptoms (e.g., constipation) may be underreported, arguing for standardized surveillance in FLNA deficiency. (<a href="#ref-rijckmans2024counselingindividualswith-pages-1-3">rijckmans2024counselingindividualswith pages 1-3</a>)</p>
 <h3>12.5 Clinical trials (FLNA-specific)</h3>
@@ -848,8 +1010,8 @@
 <p>No primary prevention is currently established for monogenic FLNA intestinal pseudo-obstruction.</p>
 <p><strong>Key prevention strategy is genetic counseling and surveillance</strong> in families with pathogenic FLNA variants, given X-linked inheritance and multisystem risks; recent cohort evidence emphasizes the need for multidisciplinary follow-up and absence of uniform guidelines. (<a href="#ref-rijckmans2024counselingindividualswith-pages-1-3">rijckmans2024counselingindividualswith pages 1-3</a>)</p>
 <p><strong>MAXO suggestions:</strong>
-* Genetic counseling (<a href="http://purl.obolibrary.org/obo/MAXO_0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a>)
-* Cascade genetic testing (<a href="http://purl.obolibrary.org/obo/MAXO_0000754" target="_blank" rel="noopener noreferrer">MAXO:0000754</a>)</p>
+* Genetic counseling (<a href="https://bioregistry.io/MAXO:0000079" target="_blank" rel="noopener noreferrer">MAXO:0000079</a>)
+* Cascade genetic testing (<a href="https://bioregistry.io/MAXO:0000754" target="_blank" rel="noopener noreferrer">MAXO:0000754</a>)</p>
 <hr />
 <h2>14. Other species / natural disease</h2>
 <p>No evidence of FLNA-driven intestinal pseudo-obstruction in non-human species was retrieved.</p>
@@ -926,7 +1088,7 @@
 
             <nav class="report-nav" aria-label="Report navigation">
                 
-                <a href="FICUS_syndrome-falcon.html">← FICUS syndrome (Falcon)</a>
+                <a href="Finnish_Type_Amyloidosis-claude_code.html">← Finnish Type Amyloidosis (Claude Code)</a>
                 
                 
                 <a href="Floating-Harbor_syndrome-asta.html">Floating-Harbor syndrome (Asta) →</a>

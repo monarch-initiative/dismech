@@ -1,0 +1,2253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hemimegalencephaly · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Hemimegalencephaly</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Hemimegalencephaly</h1>
+                
+                <p class="report-subtitle">Hemimegalencephaly (HME) — Comprehensive Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-08-05</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0020492" target="_blank" rel="noopener noreferrer">MONDO:0020492</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Hemimegalencephaly (HME) — Comprehensive Disease Characteristics Research Report</h1>
+<p><strong>Prepared:</strong> 2026-08-05 · <strong>Target MONDO:</strong> <code>MONDO:0020492</code> · <strong>Category:</strong> somatic mosaic / malformation of cortical development</p>
+<p><strong>A note on evidence provenance before anything else.</strong> Where I quote below, I flag each quote as either <strong>[verbatim-verified]</strong> (I have the full abstract or full text in hand, either from this repo's <code>references_cache/</code> or from a raw PubMed E-utilities fetch) or <strong>[secondhand — RE-VERIFY]</strong> (the quoted fragment came back through a summarizing fetch layer and has <em>not</em> been checked character-for-character against the real abstract). Anything in the second bucket must be run through <code>just fetch-reference PMID:X</code> and <code>just validate-references</code> before it is allowed anywhere near an evidence <code>snippet:</code>. Treating a summarizer's paraphrase as a quote is exactly the failure mode the dismech SOP exists to catch.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>Hemimegalencephaly is a congenital, non-progressive-in-substrate but clinically devastating malformation of cortical development in which all or part of <strong>one</strong> cerebral hemisphere overgrows and is simultaneously <em>mis-built</em>. Think of it less as "one side got extra fertilizer" and more as a developmental program that lost its stop codon in one clone of progenitor cells: the affected hemisphere is bigger, but its cortex is thick, poorly layered, populated by grotesquely enlarged cells, and profoundly epileptogenic. The overgrowth and the dysplasia are two faces of one lesion, not two lesions.</p>
+<p>The clinical triad that follows is near-obligate: <strong>drug-resistant epilepsy beginning in the newborn period or early infancy, contralateral hemiparesis, and global developmental delay.</strong></p>
+<blockquote>
+<p>"Hemimegalencephaly (HME) is a rare diffuse malformation of cortical development characterized by unihemispheric hypertrophy, drug-resistant epilepsy (DRE), hemiparesis, and developmental delay." — Goel et al., <em>Neurosurgery</em> 2024, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/37975663/" target="_blank" rel="noopener noreferrer">PMID:37975663</a></strong> <strong>[verbatim-verified]</strong></p>
+<p>"Hemimegalencephaly (HMG) is a developmental brain disorder characterized by an enlarged, malformed cerebral hemisphere, typically causing epilepsy that requires surgical resection." — Poduri et al., <em>Neuron</em> 2012, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/22500628/" target="_blank" rel="noopener noreferrer">PMID:22500628</a></strong> <strong>[verbatim-verified via raw efetch]</strong></p>
+</blockquote>
+<p>The MONDO definition (inherited from Orphanet) is the fullest single-sentence statement available:</p>
+<blockquote>
+<p>"Hemimegalencephaly is a rare cerebral malformation characterized by overgrowth of all or part of a cerebral hemisphere, often with ipsilateral severe cortical dysplasia or dysgenesis, white matter hypertrophy and dilated lateral ventricle, presenting in early infancy with progressive hemiparesis, severe psychomotor retardation and intractable seizures." — <a href="http://purl.obolibrary.org/obo/MONDO_0020492" target="_blank" rel="noopener noreferrer">MONDO:0020492</a> <code>def</code>, sourced to <code>Orphanet:99802</code> <strong>[verbatim-verified from local <code>sqlite:obo:mondo</code>]</strong></p>
+</blockquote>
+<h3>Key identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO</strong></td>
+<td><code>MONDO:0020492</code></td>
+<td>label <code>hemimegalencephaly</code>; <code>is_a MONDO:0100283</code> (overgrowth syndrome and/or cerebral malformations due to abnormalities in MTOR pathway genes) — this parent is a gift for dismech, it encodes the mechanism in the taxonomy</td>
+</tr>
+<tr>
+<td><strong>Orphanet</strong></td>
+<td><code>ORPHA:99802</code></td>
+<td>source of the MONDO definition; citable directly as <code>ORPHA:99802</code> via the repo's structured-source cache</td>
+</tr>
+<tr>
+<td><strong>HPO (as a phenotype)</strong></td>
+<td><code>HP:0007206</code> "Hemimegalencephaly", def. "Enlargement of all or parts of one cerebral hemisphere." <code>is_a HP:0001355</code> Megalencephaly <strong>[verbatim-verified from local <code>sqlite:obo:hp</code>]</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>MeSH</strong></td>
+<td><code>D065705</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>ICD-9</strong></td>
+<td><code>742.4</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>ICD-11 (foundation)</strong></td>
+<td><code>961229160</code></td>
+<td>no distinct linearization stem code; usually coded under malformations of the brain</td>
+</tr>
+<tr>
+<td><strong>SNOMED CT</strong></td>
+<td><code>253170008</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>UMLS</strong></td>
+<td><code>C0431391</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>MedGen</strong></td>
+<td><code>140910</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>GARD</strong></td>
+<td><code>0002637</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>NORD</strong></td>
+<td><code>1220</code></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>NCIt</strong></td>
+<td>MONDO xrefs <code>NCIT:C177779</code> — <strong>⚠️ this xref appears wrong.</strong> Querying <code>sqlite:obo:ncit</code> returns <code>NCIT:C177779 = "MCAP Syndrome"</code> (Megalencephaly-Capillary Malformation, <code>is_a NCIT:C178285 PROS Syndrome</code>), which is a <em>different</em> entity — a PIK3CA-related overgrowth syndrome, not hemimegalencephaly. Do not propagate this xref into a dismech <code>mappings:</code> block without re-checking against live NCIt; consider filing upstream.</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Synonyms and alternative names</h3>
+<ul>
+<li><strong>unilateral megalencephaly</strong> (EXACT, per Orphanet and ICD-11 foundation)</li>
+<li><strong>macrencephaly</strong> (RELATED, per GARD — imprecise, avoid)</li>
+<li><strong>HME</strong>, <strong>HMG</strong>, <strong>HMEG</strong> (literature abbreviations; note the older literature uses HMG, which now collides badly with the HMG-CoA gene family — prefer <strong>HME</strong>)</li>
+<li><strong>hemimegalencephaly variant of epidermal nevus syndrome</strong> (for the syndromic form)</li>
+<li>Historical: "unilateral hemispheric dysplasia"; first described by <strong>Sims in 1835</strong> (per D'Gama &amp; Poduri, <a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a> <strong>[verbatim-verified from full text in cache]</strong>: "Hemimegalencephaly (HME), first reported by Sims in 1835, is a rare MCD characterized by abnormal enlargement of a cerebral hemisphere")</li>
+</ul>
+<h3>Nature of the evidence base</h3>
+<p>Overwhelmingly <strong>aggregated, small-N, surgical-series derived</strong>. There is no HME registry. Nearly everything mechanistic comes from <strong>resected brain tissue obtained at hemispherectomy</strong> — a peculiar and important epistemic fact: HME is one of the very few brain malformations where the diseased organ is routinely removed and handed to a molecular biologist. The 2012 landmark paper says the quiet part out loud:</p>
+<blockquote>
+<p>"The intractable epilepsy that is associated with HME can be relieved by the surgical treatment hemispherectomy, allowing sampling of diseased tissue." — Lee et al., <em>Nat Genet</em> 2012, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/22729223/" target="_blank" rel="noopener noreferrer">PMID:22729223</a></strong> <strong>[verbatim-verified from cache]</strong></p>
+</blockquote>
+<p>Consequence for curation: <strong>the entire genetic literature is ascertainment-biased toward severe, surgical HME.</strong> Mild or non-operated HME is essentially unsampled molecularly. Flag this as a knowledge gap.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary cause — postzygotic somatic activation of PI3K–AKT–mTOR</h3>
+<p>HME is, in the modern framing, a <strong>mosaic mTORopathy</strong>. A single postzygotic mutation in a dorsal telencephalic progenitor cell, occurring after gastrulation (often after neurulation), constitutively switches on mTORC1 in that cell's entire clonal descent. That clone builds a hemisphere that is too big and wired wrong.</p>
+<p>The three landmark 2012 papers established this in the same year:</p>
+<p><strong>(a) Poduri et al., <em>Neuron</em> 2012 (<a href="https://pubmed.ncbi.nlm.nih.gov/22500628/" target="_blank" rel="noopener noreferrer">PMID:22500628</a>)</strong> — copy-number and point-mutation evidence:</p>
+<blockquote>
+<p>"We found that two out of eight HMG samples showed trisomy of chromosome 1q, which encompasses many genes, including AKT3, a gene known to regulate brain size. A third case showed a known activating mutation in AKT3 (c.49G→A, creating p.E17K) that was not present in the patient's blood cells." <strong>[verbatim-verified]</strong>
+"Our data suggest that somatic mutations limited to the brain could represent an important cause of complex neurogenetic disease." <strong>[verbatim-verified]</strong></p>
+</blockquote>
+<p><strong>(b) Lee et al., <em>Nat Genet</em> 2012 (<a href="https://pubmed.ncbi.nlm.nih.gov/22729223/" target="_blank" rel="noopener noreferrer">PMID:22729223</a>)</strong> — exome sequencing of paired brain–blood:</p>
+<blockquote>
+<p>"Exome sequencing and mass spectrometry analysis in paired brain-blood samples from individuals with HME (n = 20 cases) identified de novo somatic mutations in 30% of affected individuals in the PIK3CA, AKT3 and MTOR genes. A recurrent PIK3CA c.1633G&gt;A mutation was found in four separate cases. Identified mutations were present in 8-40% of sequenced alleles in various brain regions and were associated with increased neuronal S6 protein phosphorylation in the brains of affected individuals, indicating aberrant activation of mammalian target of rapamycin (mTOR) signaling. Thus HME is probably a genetically mosaic disease caused by gain of function in phosphatidylinositol 3-kinase (PI3K)-AKT3-mTOR signaling." <strong>[verbatim-verified from cache]</strong></p>
+</blockquote>
+<p><strong>(c) Rivière et al., <em>Nat Genet</em> 2012 (<a href="https://pubmed.ncbi.nlm.nih.gov/22729224/" target="_blank" rel="noopener noreferrer">PMID:22729224</a>)</strong> — the sibling megalencephaly syndromes MCAP and MPPH, establishing <code>AKT3</code>/<code>PIK3R2</code>/<code>PIK3CA</code> as a germline-and-postzygotic continuum. <strong>[secondhand — RE-VERIFY]</strong></p>
+<p>Subsequent cohorts nailed down yield and the two-hit branch:</p>
+<p><strong>D'Gama et al., <em>Ann Neurol</em> 2015 (<a href="https://pubmed.ncbi.nlm.nih.gov/25599672/" target="_blank" rel="noopener noreferrer">PMID:25599672</a>)</strong> <strong>[verbatim-verified from raw efetch]</strong>:</p>
+<blockquote>
+<p>"Using targeted and exome sequencing on DNA from resected brain samples and nonbrain samples from 53 patients with FCD or HME, we identified pathogenic germline and mosaic mutations in multiple PI3K/AKT pathway genes in 9 patients, and a likely pathogenic variant in 1 additional patient. Our data confirm the association of DEPDC5 with sporadic FCD but also implicate this gene for the first time in HME."</p>
+</blockquote>
+<p><strong>D'Gama et al., <em>Cell Reports</em> 2017 (<a href="https://pubmed.ncbi.nlm.nih.gov/29281825/" target="_blank" rel="noopener noreferrer">PMID:29281825</a>)</strong> — the "continuum" paper, and the single most useful mechanistic citation for a dismech pathograph <strong>[secondhand — RE-VERIFY, though quoted consistently across sources]</strong>:</p>
+<blockquote>
+<p>"Deep sequencing of these genes in FCD/HME brain tissue identified an etiology in 27 of 66 cases (41%). Radiographically indistinguishable lesions are caused by somatic activating mutations in AKT3, MTOR, and PIK3CA and germline loss-of-function mutations in DEPDC5, NPRL2, and TSC1/2, including TSC2 mutations in isolated HME demonstrating a 'two-hit' model. Mutations in the same gene cause a disease continuum from FCD to HME to bilateral brain overgrowth, reflecting the progenitor cell and developmental time when the mutation occurred."</p>
+</blockquote>
+<p><strong>Baldassari et al., <em>Acta Neuropathol</em> 2019 (<a href="https://pubmed.ncbi.nlm.nih.gov/31444548/" target="_blank" rel="noopener noreferrer">PMID:31444548</a>)</strong> — the cleanest yield statistics and the sharpest genotype–histology split <strong>[verbatim-verified from raw efetch]</strong>:</p>
+<blockquote>
+<p>"We were able to elucidate 29% of mMCD/FCD1 patients and 63% of FCD2/HME patients. Somatic loss-of-function variants in the N-glycosylation pathway-associated SLC35A2 gene were found in mMCD/FCD1 cases. Somatic gain-of-function variants in MTOR and its activators (AKT3, PIK3CA, RHEB), as well as germline, somatic and two-hit loss-of-function variants in its repressors (DEPDC5, TSC1, TSC2) were found exclusively in FCD2/HME cases."
+"Analysis of microdissected cells demonstrated that DNs and BCs carry the pathogenic variants. We further observed a correlation between the density of pathological cells and the variant-detection likelihood."</p>
+</blockquote>
+<p><strong>Macdonald-Laurs et al., <em>Brain Commun</em> 2025 (<a href="https://pubmed.ncbi.nlm.nih.gov/39926610/" target="_blank" rel="noopener noreferrer">PMID:39926610</a>)</strong> — most recent large integrated cohort (IESS-with-FMCD, n=59) <strong>[verbatim-verified from raw efetch]</strong>:</p>
+<blockquote>
+<p>"A genetic diagnosis was achieved in 47 children (80% of cohort)."
+"Somatic mosaicism was a major cause of focal cortical dysplasia type II/hemimegalencephaly (81%) and mild malformation of cortical development with oligodendroglial hyperplasia (100%)."</p>
+</blockquote>
+<h3>2.2 Risk factors</h3>
+<p><strong>Genetic risk factors.</strong>
+- <em>Causal (see §4 for full detail):</em> somatic gain-of-function in <code>MTOR</code>, <code>PIK3CA</code>, <code>AKT3</code>, <code>AKT1</code>, <code>RHEB</code>; loss-of-function (germline, somatic, or two-hit) in <code>TSC1</code>, <code>TSC2</code>, <code>DEPDC5</code>, <code>NPRL2</code>, <code>NPRL3</code>, <code>PTEN</code>.
+- <em>Germline predisposition:</em> a germline <code>TSC1</code>/<code>TSC2</code> or GATOR1 (<code>DEPDC5</code>/<code>NPRL2</code>/<code>NPRL3</code>) variant creates a <strong>field of vulnerability</strong> — one somatic second hit anywhere in a telencephalic progenitor produces HME. This is the only setting in which HME carries a meaningful familial recurrence risk, and it matters enormously for counselling.
+- <em>Susceptibility loci / GWAS:</em> <strong>none.</strong> HME is not a complex-trait disease; there is no GWAS Catalog signal, and there should not be.
+- <em>Modifier genes:</em> not established. The candidate "modifier" is really <strong>variant allele fraction and clone geography</strong>, not a second gene (see §4).</p>
+<p><strong>Environmental risk factors.</strong> <strong>None established.</strong> No toxin, infection, maternal exposure, parity, or socioeconomic factor is reproducibly associated. The mutational events are the spontaneous-replication-error kind, not the exposure-driven kind. Two nuances worth curating as <em>negative</em> or <em>unresolved</em>:
+- Advanced paternal age is a known driver of <em>germline</em> de novo mutation but has <strong>not</strong> been shown to drive postzygotic somatic mutation in HME.
+- Crino (<a href="https://pubmed.ncbi.nlm.nih.gov/26060899/" target="_blank" rel="noopener noreferrer">PMID:26060899</a>, <strong>[verbatim-verified from full text in cache]</strong>) raises a viral hypothesis for FCD II, not HME, and is explicitly agnostic: "Alternatively, human papilloma virus may have no pathogenic role in FCD." Do <strong>not</strong> import this into HME as a risk factor.</p>
+<p><strong>Sex.</strong> No consistent sex bias reported. Laterality: a <strong>left-sided predominance</strong> was reported in the 2025 single-centre Seizure series (n=14) <strong>[secondhand — RE-VERIFY, <a href="https://pubmed.ncbi.nlm.nih.gov/41033188/" target="_blank" rel="noopener noreferrer">PMID:41033188</a>]</strong>, but this is not a robust finding across series and should not be curated as a <code>frequency</code>-bearing claim.</p>
+<h3>2.3 Protective factors</h3>
+<p>None known, genetic or environmental — as expected for a somatic-mutation disease of embryogenesis. There is no meaningful "protection" concept here; the closest analogue is <strong>early surgical intervention as secondary prevention of epileptic encephalopathy</strong> (§13).</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p><strong>Not applicable / none demonstrated.</strong> The only genuine "interaction" in HME is genetic × developmental-timing: the <em>same</em> mutation produces FCD, HME, or bilateral megalencephaly depending on <strong>when</strong> in corticogenesis and <strong>in which progenitor pool</strong> it arises (D'Gama 2017). That is a gene × developmental-clock interaction, not a gene × environment one, and it is the single most important structural insight to encode in the pathograph.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Frequency bands below follow the HPO <code>FrequencyEnum</code> convention. <strong>Caution for curation:</strong> most HME literature is small surgical series; frequency figures reported here that lack a quantitative denominator should be curated <strong>without</strong> a <code>frequency:</code> value rather than with a fabricated band (per <code>docs/frequency-evidence-guidelines.md</code>).</p>
+<h3>3.1 Core neurological phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HP term</th>
+<th>Onset</th>
+<th>Severity</th>
+<th>Course</th>
+<th>Frequency</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Hemimegalencephaly (the structural lesion itself)</strong></td>
+<td><code>HP:0007206</code> Hemimegalencephaly</td>
+<td>congenital / antenatal</td>
+<td>—</td>
+<td>static substrate</td>
+<td>Obligate (definitional)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0020492" target="_blank" rel="noopener noreferrer">MONDO:0020492</a> def; <a href="https://pubmed.ncbi.nlm.nih.gov/37975663/" target="_blank" rel="noopener noreferrer">PMID:37975663</a></td>
+</tr>
+<tr>
+<td><strong>Drug-resistant epilepsy</strong></td>
+<td><code>HP:0001250</code> Seizure (+ specify drug-resistance)</td>
+<td>neonatal to &lt;6 mo, frequently <strong>day 1 of life</strong></td>
+<td>severe</td>
+<td>intractable, multiple daily seizures</td>
+<td>Very frequent → obligate ("virtually all")</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41033188/" target="_blank" rel="noopener noreferrer">PMID:41033188</a></td>
+</tr>
+<tr>
+<td><strong>Epileptic (infantile) spasms</strong></td>
+<td><code>HP:0011097</code> Epileptic spasm</td>
+<td>3–12 mo</td>
+<td>severe</td>
+<td>often evolves from focal seizures</td>
+<td>Frequent</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39926610/" target="_blank" rel="noopener noreferrer">PMID:39926610</a> (whole cohort is IESS+FMCD); TAE series <a href="https://pubmed.ncbi.nlm.nih.gov/42208165/" target="_blank" rel="noopener noreferrer">PMID:42208165</a></td>
+</tr>
+<tr>
+<td><strong>Focal impaired-awareness seizures with motor features</strong></td>
+<td><code>HP:0002384</code> Focal impaired awareness seizure</td>
+<td>neonatal</td>
+<td>severe</td>
+<td></td>
+<td>Very frequent (75% in one TAE series)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42208165/" target="_blank" rel="noopener noreferrer">PMID:42208165</a> <strong>[secondhand]</strong></td>
+</tr>
+<tr>
+<td><strong>Epilepsia partialis continua</strong></td>
+<td><code>HP:0012847</code> Epilepsia partialis continua</td>
+<td>infancy–childhood</td>
+<td>severe</td>
+<td>continuous</td>
+<td>Occasional — and a <strong>negative prognostic marker</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37873610/" target="_blank" rel="noopener noreferrer">PMID:37873610</a></td>
+</tr>
+<tr>
+<td><strong>Contralateral hemiparesis / spastic hemiplegia</strong></td>
+<td><code>HP:0002301</code> Hemiplegia (or <code>HP:0001269</code> Hemiparesis)</td>
+<td>infancy</td>
+<td>moderate–severe</td>
+<td>non-progressive but functionally worsens with growth</td>
+<td>Very frequent</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37975663/" target="_blank" rel="noopener noreferrer">PMID:37975663</a>; MONDO def ("progressive hemiparesis")</td>
+</tr>
+<tr>
+<td><strong>Contralateral homonymous hemianopia</strong></td>
+<td><code>HP:0000580</code> Hemianopia (verify subtype term)</td>
+<td>infancy (often detected late)</td>
+<td>—</td>
+<td>static</td>
+<td>Frequent</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a> ("contralateral hemiparesis and hemianopia are commonly reported") <strong>[verbatim-verified from cache]</strong></td>
+</tr>
+<tr>
+<td><strong>Global developmental delay</strong></td>
+<td><code>HP:0001263</code> Global developmental delay</td>
+<td>infancy</td>
+<td>severe</td>
+<td>plateau or regression</td>
+<td>Very frequent</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37975663/" target="_blank" rel="noopener noreferrer">PMID:37975663</a></td>
+</tr>
+<tr>
+<td><strong>Intellectual disability</strong></td>
+<td><code>HP:0001249</code> Intellectual disability</td>
+<td>childhood</td>
+<td>typically severe</td>
+<td>static/plateau</td>
+<td>Very frequent</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28377884/" target="_blank" rel="noopener noreferrer">PMID:28377884</a></td>
+</tr>
+<tr>
+<td><strong>Developmental regression (epileptic encephalopathy)</strong></td>
+<td><code>HP:0002376</code> Developmental regression</td>
+<td>infancy, with seizure onset</td>
+<td>severe</td>
+<td></td>
+<td>Frequent</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a></td>
+</tr>
+<tr>
+<td><strong>Absent or severely limited speech</strong></td>
+<td><code>HP:0001344</code> Absent speech</td>
+<td>childhood</td>
+<td>severe</td>
+<td></td>
+<td>Frequent</td>
+<td>Puka 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/34608636/" target="_blank" rel="noopener noreferrer">PMID:34608636</a></td>
+</tr>
+<tr>
+<td><strong>Macrocephaly / cranial asymmetry</strong></td>
+<td><code>HP:0000256</code> Macrocephaly</td>
+<td>congenital–infancy</td>
+<td>mild–moderate</td>
+<td></td>
+<td>Frequent (not universal — a big <em>hemisphere</em> does not always give a big <em>head</em>)</td>
+<td>MONDO def; Orphanet</td>
+</tr>
+<tr>
+<td><strong>Ventriculomegaly / colpocephaly (ipsilateral)</strong></td>
+<td><code>HP:0002119</code> Ventriculomegaly</td>
+<td>congenital</td>
+<td>—</td>
+<td>static</td>
+<td>Very frequent</td>
+<td>MONDO def; imaging literature</td>
+</tr>
+<tr>
+<td><strong>Abnormality of neuronal migration</strong></td>
+<td><code>HP:0002269</code> Abnormality of neuronal migration</td>
+<td>prenatal</td>
+<td>—</td>
+<td>static</td>
+<td>Very frequent</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36325654/" target="_blank" rel="noopener noreferrer">PMID:36325654</a></td>
+</tr>
+<tr>
+<td><strong>Corpus callosum dysgenesis</strong></td>
+<td><code>HP:0007370</code> Aplasia/Hypoplasia of the corpus callosum</td>
+<td>prenatal</td>
+<td>variable</td>
+<td>static</td>
+<td>Occasional–frequent</td>
+<td>imaging literature</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>3.2 Systemic / syndromic phenotypes (in syndromic HME only)</h3>
+<ul>
+<li><strong>Epidermal nevus / linear sebaceous nevus</strong> (<code>HP:0001051</code> or a more specific nevus term) — epidermal nevus syndrome is the classic HME-associated neurocutaneous disorder; one review identified 57 previously reported ENS+HME cases in which "the most frequent associated features were severe epilepsy, in about half of cases with neonatal onset, mental retardation/developmental delay, ocular/visual involvement, and facial abnormalities" <strong>[secondhand — RE-VERIFY]</strong></li>
+<li><strong>Hypopigmented streaks along Blaschko lines</strong> (hypomelanosis of Ito) — <code>HP:0001010</code>/<code>HP:0011358</code>; note MTOR-related hypomelanosis of Ito is now molecularly linked to HME</li>
+<li><strong>Capillary/vascular malformation, hemihypertrophy</strong> (Klippel-Trénaunay / MCAP overlap) — <code>HP:0001028</code>, <code>HP:0001528</code> Hemihypertrophy</li>
+<li><strong>Facial infiltrating lipomatosis with contralateral HME</strong> — a recognized (and mechanistically informative: PIK3CA-driven) association, <a href="https://pubmed.ncbi.nlm.nih.gov/39454530/" target="_blank" rel="noopener noreferrer">PMID:39454530</a></li>
+<li><strong>TSC stigmata</strong> in TSC-associated HME (cardiac rhabdomyoma, hypomelanotic macules, renal angiomyolipoma) — <a href="https://pubmed.ncbi.nlm.nih.gov/33387903/" target="_blank" rel="noopener noreferrer">PMID:33387903</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26231267/" target="_blank" rel="noopener noreferrer">PMID:26231267</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/35022853/" target="_blank" rel="noopener noreferrer">PMID:35022853</a></li>
+<li><strong>Hemihypertrophy of the ipsilateral body</strong> — reported; note laterality: body hypertrophy is typically <strong>ipsilateral</strong> to the big hemisphere</li>
+</ul>
+<h3>3.3 Electrophysiological phenotype (a phenotype in its own right for HME)</h3>
+<ul>
+<li><strong>Hemihypsarrhythmia</strong> — the near-pathognomonic infantile EEG signature: asymmetric, lateralized hypsarrhythmia</li>
+<li><strong>Unilateral suppression-burst</strong>, especially in sleep</li>
+<li><strong>Depressed background voltage over the involved hemisphere with bursts of numerous spikes in wakefulness</strong> <strong>[secondhand — RE-VERIFY]</strong></li>
+<li>Suggested term: <code>HP:0011182</code> Interictal epileptiform activity (HPO lacks a hemihypsarrhythmia term — a genuine ontology gap worth noting)</li>
+<li><strong>Bilateral ictal EEG abnormality</strong> is the single strongest adverse surgical predictor (§11)</li>
+</ul>
+<h3>3.4 Quality-of-life impact</h3>
+<p>Per-phenotype QoL data are thin. What exists:
+- Post-hemispherectomy QoL "depends not only on seizure outcome but also on developmental and functional outcomes, such as motor and language impairments," and HME as a substrate "is associated with worse motor and language outcomes" <strong>[secondhand — RE-VERIFY]</strong>
+- <strong>Caregiver burden did not improve</strong> after surgery in at least one series, attributed to the chronic nature of the condition <strong>[secondhand — RE-VERIFY]</strong> — a striking and curation-worthy dissociation: seizures improve, family burden does not.
+- No EQ-5D, SF-36, PROMIS, or HME-specific PRO instrument data exist. <strong>This is a real gap.</strong></p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal genes</h3>
+<p>All converge on <strong>mTORC1 hyperactivation</strong>. Two arms:</p>
+<p><strong>Arm A — somatic GAIN-of-function in mTOR pathway activators</strong> (the dominant mechanism in HME, "single-hit"):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>HGNC</th>
+<th>Canonical HME variants</th>
+<th>Consequence</th>
+<th>Key PMIDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MTOR</code></td>
+<td><code>hgnc:3942</code></td>
+<td>p.Cys1483Tyr, p.Ser2215Phe/Tyr, p.Leu2427Pro/Gln, p.Ala1459Pro</td>
+<td>GOF — constitutive kinase activity</td>
+<td>22729223; 31444548; 30514132</td>
+</tr>
+<tr>
+<td><code>PIK3CA</code></td>
+<td><code>hgnc:8975</code></td>
+<td><strong>c.1633G&gt;A p.Glu545Lys (recurrent, 4/20 in Lee 2012)</strong>; p.His1047Arg/Leu; p.Glu542Lys</td>
+<td>GOF — catalytic p110α</td>
+<td>22729223; 25722288; 36325654</td>
+</tr>
+<tr>
+<td><code>AKT3</code></td>
+<td><code>hgnc:393</code></td>
+<td><strong>c.49G&gt;A p.Glu17Lys</strong>; also mosaic <strong>trisomy 1q</strong> encompassing the AKT3 locus</td>
+<td>GOF — PH-domain lock to membrane</td>
+<td>22500628; 22729223</td>
+</tr>
+<tr>
+<td><code>AKT1</code></td>
+<td><code>hgnc:391</code></td>
+<td>p.Glu17Lys (Proteus-type)</td>
+<td>GOF</td>
+<td>36325654 (fetal HME case)</td>
+</tr>
+<tr>
+<td><code>RHEB</code></td>
+<td><code>hgnc:10011</code></td>
+<td>p.Tyr35Leu/Asn</td>
+<td>GOF — constitutive mTORC1 activator</td>
+<td>31444548; 34608615</td>
+</tr>
+<tr>
+<td><code>PIK3R2</code></td>
+<td><code>hgnc:8980</code></td>
+<td>p.Gly373Arg</td>
+<td>GOF (loss of p85β inhibition of p110) — chiefly MPPH, HME-adjacent</td>
+<td>22729224</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Arm B — LOSS-of-function in mTOR repressors</strong> (germline, somatic, or classic two-hit):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>HGNC</th>
+<th>Mechanism in HME</th>
+<th>Key PMIDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TSC2</code></td>
+<td><code>hgnc:12363</code></td>
+<td>two-hit (germline + somatic second hit) in <em>isolated</em> HME; also TSC-associated HME</td>
+<td>29281825; 31444548; 33387903</td>
+</tr>
+<tr>
+<td><code>TSC1</code></td>
+<td><code>hgnc:12362</code></td>
+<td>as above</td>
+<td>31444548; 35022853</td>
+</tr>
+<tr>
+<td><code>DEPDC5</code></td>
+<td><code>hgnc:18423</code></td>
+<td>GATOR1 LOF; <strong>first implicated in HME by D'Gama 2015</strong></td>
+<td>25599672; 31444548</td>
+</tr>
+<tr>
+<td><code>NPRL2</code></td>
+<td><code>hgnc:24969</code></td>
+<td>GATOR1 LOF</td>
+<td>29281825</td>
+</tr>
+<tr>
+<td><code>NPRL3</code></td>
+<td><code>hgnc:20558</code></td>
+<td>GATOR1 LOF; reported in neonatal HME with intractable seizures</td>
+<td>33749980</td>
+</tr>
+<tr>
+<td><code>PTEN</code></td>
+<td><code>hgnc:9588</code></td>
+<td>LOF; a 2026 fetal case showed <strong>biallelic</strong> PTEN alteration in affected tissue, hemisphere-restricted</td>
+<td>25722288; <a href="https://pubmed.ncbi.nlm.nih.gov/42024976/" target="_blank" rel="noopener noreferrer">PMID:42024976</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The 2026 PTEN fetal report is worth quoting for the mechanism it rules <em>out</em> <strong>[secondhand — RE-VERIFY, <a href="https://pubmed.ncbi.nlm.nih.gov/42024976/" target="_blank" rel="noopener noreferrer">PMID:42024976</a>]</strong>: hemispheric overgrowth caused by "biallelic PTEN alteration in affected brain tissue, while the unaffected hemisphere carried only heterozygous variant," with outer-subventricular-zone nodular heterotopias composed exclusively of "SATB2+ glutamatergic projection neurons," and the conclusion that "the PTEN mutation is not a dominant-negative variant."</p>
+<h3>4.2 Variant characteristics</h3>
+<ul>
+<li><strong>Origin:</strong> predominantly <strong>somatic / postzygotic</strong>, brain-restricted. D'Gama &amp; Poduri (<a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a>, <strong>[verbatim-verified from cache]</strong>): "In general, when blood samples are available, the somatic mosaic variants identified in brain tissue are not detected in blood, suggesting that the mutational events that result in these variants arise relatively late in embryonic development, after gastrulation or in some cases after neurulation."</li>
+<li><strong>Variant allele fraction (VAF):</strong> the defining quantitative feature. Lee 2012: "present in 8-40% of sequenced alleles in various brain regions." D'Gama &amp; Poduri: "The alternate allele frequency (AAF) of detected somatic mutations in FCD and HME ranges from approximately 1 to 30%… The average AAF for variants associated with FCD is lower than the average AAF for variants associated with HME; while there is some overlap, there appears to be a relationship between the allele frequency and the severity of the phenotype." <strong>[verbatim-verified from cache]</strong> — <strong>VAF is effectively the dose-response variable of this disease.</strong></li>
+<li><strong>Variant class:</strong> almost entirely <strong>missense</strong> in the activator arm (recurrent hotspot residues, largely shared with the cancer somatic-mutation catalogue); <strong>truncating/frameshift/splice + LOH</strong> in the repressor arm; plus <strong>somatic copy-number gain</strong> (mosaic trisomy 1q → AKT3).</li>
+<li><strong>Allele frequency in population databases:</strong> <strong>absent from gnomAD</strong> as constitutional variants (they are embryonic-lethal or syndromic in germline form; the PIK3CA and AKT hotspots are COSMIC-catalogued oncogenic drivers instead). For KB purposes: gnomAD frequency is <strong>not applicable</strong> — do not curate a "0.00" as if it were a measured population frequency.</li>
+<li><strong>ACMG classification:</strong> the recurrent activators (PIK3CA E545K, AKT3 E17K, MTOR S2215F) are Pathogenic; the framework strains at somatic mosaic variants, and ACMG/AMP germline rules apply awkwardly. Note this as a methodological caveat.</li>
+<li><strong>Cell-of-origin:</strong> dysmorphic neurons and balloon cells <strong>carry</strong> the variant — Baldassari 2019, "Analysis of microdissected cells demonstrated that DNs and BCs carry the pathogenic variants." <strong>[verbatim-verified]</strong></li>
+</ul>
+<h3>4.3 Modifier genes</h3>
+<p>None established. The functional "modifier" is <strong>mutation timing + clone size + cell lineage</strong>, per D'Gama 2017.</p>
+<h3>4.4 Epigenetics</h3>
+<p>No disease-defining methylation or chromatin signature has been established for HME. One methodologically relevant use of epigenomics: <strong>whole-genome bisulfite sequencing of CSF cell-free DNA</strong> was used alongside ddPCR to assign brain origin to mosaic variants (<a href="https://pubmed.ncbi.nlm.nih.gov/33738444/" target="_blank" rel="noopener noreferrer">PMID:33738444</a>) — epigenomics as a <em>tissue-of-origin tracer</em>, not as a disease mechanism. Curate accordingly.</p>
+<h3>4.5 Chromosomal abnormalities</h3>
+<p><strong>Mosaic trisomy 1q</strong> (encompassing <code>AKT3</code> at 1q43-q44) in 2/8 HME samples — Poduri 2012, "the estimated copy number for 1q in one patient (HMG-1) was 2.41 (SD 0.12), consistent with mosaic trisomy 1q" <strong>[secondhand — RE-VERIFY]</strong>. This is the reason chromosomal microarray on <strong>brain tissue</strong> (not blood) retains a role. Otherwise: no recurrent karyotypic abnormality; blood karyotype and blood CMA are normal in isolated HME.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> none established. No CTD-catalogued chemical association. Nothing in TOXNET/EPA that survives scrutiny.</li>
+<li><strong>Lifestyle factors:</strong> not applicable — a prenatal somatic-mutation disease.</li>
+<li><strong>Infectious agents:</strong> <strong>not applicable for HME.</strong> Congenital CMV can produce cortical malformation (pachygyria, polymicrogyria) and belongs in the <strong>differential</strong>, not the etiology. The HPV/CMV/HHV-6 literature in FCD II (discussed by Crino, <a href="https://pubmed.ncbi.nlm.nih.gov/26060899/" target="_blank" rel="noopener noreferrer">PMID:26060899</a>) has not been extended to HME and remains contested even for FCD.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 The causal chain (proposed dismech pathograph)</h3>
+<p>This is the spine of the entry. Each arrow is a curatable <code>downstream</code> edge.</p>
+<pre><code>[1] Postzygotic somatic mutation in a dorsal telencephalic progenitor
+    (GOF: MTOR/PIK3CA/AKT3/AKT1/RHEB  |  LOF ± 2nd hit: TSC1/TSC2/DEPDC5/NPRL2/NPRL3/PTEN)
+    biological_scale: MOLECULAR
+↓
+[2] Constitutive mTORC1 activation in the mutant clone
+    (readout: phospho-S6 Ser240/244, phospho-p70S6K, phospho-4E-BP1)
+    biological_scale: MOLECULAR
+↓
+[3] Unrestrained cap-dependent translation, ribosome biogenesis, and cell growth;
+    suppressed autophagy
+    biological_scale: CELLULAR
+↓  ↓  ↓  (three parallel consequences)
+[4a] Progenitor over-proliferation / failed apoptosis → clonal hemispheric overgrowth
+[4b] Cytomegaly → dysmorphic (cytomegalic) neurons and balloon cells
+[4c] Impaired radial migration and lineage specification → cortical dyslamination,
+     polymicrogyria, subcortical/periventricular/subarachnoid heterotopia
+    biological_scale: CELLULAR / TISSUE
+↓
+[5] Hemispheric megalencephaly with severe cortical dysplasia, white matter
+    hypertrophy with abnormal myelination, and ipsilateral ventriculomegaly
+    biological_scale: TISSUE
+↓
+[6] Excitation–inhibition imbalance and intrinsic hyperexcitability of dysmorphic
+    neurons (reduced GABA_A subunit expression, fewer GABAergic interneurons,
+    altered glutamate receptor composition)
+    biological_scale: CELLULAR   ← conforms_to: epilepsy_excitation_inhibition_imbalance
+↓
+[7] Hemispheric ictogenesis and epileptogenesis (hemihypsarrhythmia, suppression-burst,
+    epilepsia partialis continua)
+    biological_scale: ORGANISM
+↓
+[8] Epileptic encephalopathy: seizure burden + malformed network → arrest and
+    regression of development, contralateral hemiparesis/hemianopia from the
+    structurally deficient hemisphere
+    biological_scale: ORGANISM
+↓
+[9] Secondary contralateral dysfunction (&quot;the good hemisphere is not innocent&quot;):
+    contralateral hemimicrencephaly in some cases; uncrossed cerebellar diaschisis
+    biological_scale: ORGANISM
+</code></pre>
+<p><strong>Key branch to encode:</strong> step [1] has <em>two mechanistically opposite</em> entry routes (activator GOF vs. repressor LOF) that converge on the identical node [2]. This is a textbook convergent-node structure and belongs in the pathograph explicitly.</p>
+<p><strong>Key modulating variable:</strong> the <em>timing</em> of [1] determines whether you get FCD (late, small clone), HME (earlier, hemisphere-sized clone), or bilateral megalencephaly (earliest). Curate this as a <code>mechanistic_hypotheses</code>/annotation rather than as three separate diseases.</p>
+<h3>6.2 Molecular pathways</h3>
+<ul>
+<li><strong>PI3K–AKT–mTORC1</strong> — the whole story. GO: <code>GO:0031929</code> TOR signaling; <code>GO:0032008</code> positive regulation of TOR signaling; <code>GO:0038202</code> TORC1 signaling; <code>GO:0032006</code> regulation of TOR signaling; <code>GO:0043491</code> phosphatidylinositol 3-kinase/protein kinase B signal transduction (<strong>note: <code>GO:0014065</code> "phosphatidylinositol 3-kinase signaling" is OBSOLETE — do not use</strong>).</li>
+<li>Two upstream sensing arms converge on mTORC1 and are <em>not</em> interchangeable — D'Gama &amp; Poduri, <strong>[verbatim-verified from cache]</strong>: "activation of the energy-sensing pathway (PI3K-PTEN-AKT-TSC-RHEB) versus the amino-acid sensing pathway (GATOR-RAG) that converge on mTOR shows some differences in in vitro studies and animal models, suggesting that the effects of a given activating mTOR pathway mutation will depend on both general hyperactivation of the mTOR pathway and potentially specific effects of the mutated protein." This is a genuine, curatable nuance: <strong>DEPDC5-HME and PIK3CA-HME are not the same disease at the molecular level, even though both are "mTOR."</strong></li>
+<li>KEGG <code>hsa04150</code> (mTOR signaling pathway); Reactome R-HSA-165159 (mTOR signalling), R-HSA-1257604 (PIP3 activates AKT signaling).</li>
+</ul>
+<h3>6.3 Cellular processes</h3>
+<ul>
+<li><strong>Cell growth</strong> <code>GO:0016049</code> — INCREASED (the cytomegaly node)</li>
+<li><strong>Cell population proliferation</strong> <code>GO:0008283</code> — INCREASED (progenitor over-proliferation)</li>
+<li><strong>Neuron migration</strong> <code>GO:0001764</code> — DECREASED/ABERRANT</li>
+<li><strong>Cell motility involved in cerebral cortex radial glia guided migration</strong> <code>GO:0021814</code> — DECREASED</li>
+<li><strong>Cerebral cortex development</strong> <code>GO:0021987</code> / <strong>brain development</strong> <code>GO:0007420</code> — ABNORMAL</li>
+<li><strong>Translation</strong> <code>GO:0006412</code> — INCREASED</li>
+<li><strong>Autophagy</strong> <code>GO:0006914</code> — DECREASED (mTORC1 suppresses it; note Crino's observation of autophagic vacuoles and p62 in FCD IIb/TSC, i.e. <em>blocked flux</em>)</li>
+<li><strong>Regulation of cell differentiation</strong> <code>GO:0045595</code> — ABNORMAL (balloon cells express progenitor markers SOX2, nestin, vimentin, c-myc — "suggesting a failure to differentiate before migration into the cortex," Crino <a href="https://pubmed.ncbi.nlm.nih.gov/26060899/" target="_blank" rel="noopener noreferrer">PMID:26060899</a> <strong>[verbatim-verified from cache]</strong>)</li>
+<li><strong>Neuronal ciliogenesis</strong> — a mechanistically distinct downstream effect of MTOR somatic variants leading to dyslamination (Park et al., <em>Neuron</em> 2018); worth an EMERGING hypothesis node.</li>
+</ul>
+<h3>6.4 Protein dysfunction</h3>
+<ul>
+<li><strong>AKT3 p.E17K</strong>: PH-domain charge reversal → pathological plasma-membrane recruitment independent of PIP3 → constitutive activation. Exactly paralogous to the AKT1/AKT2 E17K substitutions in somatic overgrowth syndromes (Poduri 2012).</li>
+<li><strong>PIK3CA p.E545K</strong> (helical domain): abolishes p85 inhibitory contact → constitutive p110α lipid-kinase activity. <strong>p.H1047R</strong> (kinase domain): membrane-binding/conformational activation. Both are canonical COSMIC oncogenic hotspots — the same lesions, in a different tissue and a different developmental window, that drive carcinoma. HME is, in a real sense, <strong>oncogenic signalling without oncogenesis</strong>: the clone grows and differentiates badly but does not become malignant.</li>
+<li><strong>MTOR kinase-domain substitutions</strong> (S2215F/Y, L2427P): relieve autoinhibition.</li>
+<li><strong>TSC1/TSC2/TBC1D7 complex</strong> LOF: loss of GAP activity toward RHEB → RHEB stays GTP-bound → mTORC1 on.</li>
+<li><strong>GATOR1 (DEPDC5/NPRL2/NPRL3)</strong> LOF: loss of GAP activity toward RAG GTPases → amino-acid-independent mTORC1 activation.</li>
+<li><strong>PTEN</strong> LOF: PIP3 not dephosphorylated → sustained AKT activation.</li>
+<li>UniProt anchors: <code>P42345</code> MTOR, <code>P42336</code> PIK3CA, <code>Q9Y243</code> AKT3, <code>P31749</code> AKT1, <code>Q92974</code>→ use <code>Q15382</code> RHEB, <code>Q92574</code> TSC1, <code>P49815</code> TSC2, <code>O60484</code> DEPDC5, <code>P60484</code> PTEN.</li>
+</ul>
+<h3>6.5 Metabolic changes</h3>
+<p>mTORC1 is a master anabolic switch, so the mutant clone shows increased glycolytic and lipogenic flux, increased nucleotide and protein synthesis. Direct human HME metabolomics is essentially absent. One indirect clinical observation is mechanistically suggestive: the ketogenic diet reduces phospho-S6 and phospho-Akt in fed rats, "suggesting inhibition of the mTOR pathway, potentially due to an amino acid deprivation-like environment" (Crino/D'Gama &amp; Poduri, <a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a> <strong>[verbatim-verified from cache]</strong>) — i.e. a dietary intervention acting on the <em>same node</em> as the targeted drug.</p>
+<h3>6.6 Immune system involvement</h3>
+<p>Not primary. Innate and adaptive immune activation is described in FCD II tissue and may be reactive/secondary to seizures. Do <strong>not</strong> curate HME as an immune-mediated disease. The clinically relevant immune issue is <strong>iatrogenic</strong>: mTOR inhibitors are immunosuppressants (stomatitis, recurrent URIs, pneumonitis).</p>
+<h3>6.7 Tissue damage mechanisms</h3>
+<p>There is no primary degeneration or necrosis. The "damage" is <strong>maldevelopment plus seizure-driven network injury</strong>, with two secondary threads worth noting:
+- Neurodegeneration-adjacent changes: "abnormal activation of mTOR may contribute to apoptosis signaling pathways and premature activation of neurodegeneration cascades," including hyperphosphorylated tau in pS6-positive dysmorphic neurons (Crino, <strong>[verbatim-verified from cache]</strong>).
+- <strong>Uncrossed cerebellar diaschisis</strong> — remote functional deafferentation demonstrated by FDG-PET and DTI tractography (<a href="https://pubmed.ncbi.nlm.nih.gov/40344425/" target="_blank" rel="noopener noreferrer">PMID:40344425</a>), a nice illustration that the lesion's footprint exceeds its anatomy.</p>
+<h3>6.8 Biochemical abnormalities</h3>
+<ul>
+<li><strong>The diagnostic biochemical readout is phospho-S6 ribosomal protein (Ser240/244 or Ser235/236) immunoreactivity</strong> in dysmorphic neurons and balloon cells. Itoh 2023, <strong>[secondhand — RE-VERIFY, <a href="https://pubmed.ncbi.nlm.nih.gov/36325654/" target="_blank" rel="noopener noreferrer">PMID:36325654</a>]</strong>: "Scattered cell nests immunoreactive for phosphorylated-S6 ribosomal protein (P-RPS6) (Ser240/244) were observed in the polymicrogyria-like cortical plate, intermediate zone, and arachnoid space, suggesting that the PI3K-AKT-MTOR pathway was actually activated in these cells."</li>
+<li>Jansen 2015 (<a href="https://pubmed.ncbi.nlm.nih.gov/25722288/" target="_blank" rel="noopener noreferrer">PMID:25722288</a>) found "elevated levels of phosphorylated S6 ribosomal protein were identified in both neurons and astrocytes" <strong>[secondhand — RE-VERIFY]</strong> — note the glial component.</li>
+<li>Baldassari 2019 <strong>[verbatim-verified]</strong>: "panel-negative FCD2 cases display strong pS6-immunostaining, stressing that all FCD2 are mTORopathies." The pathway is on even when sequencing fails to find the culprit.</li>
+<li>Ion channels / receptors: reduced GABA_A receptor subunit expression, fewer GABAergic interneurons, altered glutamate receptor subunit composition; a specific mechanism reported for MTOR-FCD is hyperexcitability "via overactivation of neuronal GluN2C NMDA receptors" (preprint-stage; do not curate as established).</li>
+</ul>
+<h3>6.9 Molecular profiling</h3>
+<ul>
+<li><strong>Single-cell:</strong> D'Gama 2017 — "Single-cell sequencing demonstrated mTOR activation in neurons in all lesions" <strong>[secondhand — RE-VERIFY]</strong>; Baldassari 2019 microdissection assigned variants to DNs and BCs and found "a somatic second-hit loss-of-heterozygosity in a DEPDC5 germline case" <strong>[verbatim-verified]</strong>.</li>
+<li><strong>Lineage restriction — the sharpest single mechanistic claim in the literature:</strong> D'Gama 2017 — "Conditional Pik3ca activation in the mouse cortex showed that mTOR activation in excitatory neurons and glia, but not interneurons, is sufficient for abnormal cortical overgrowth." <strong>[secondhand — RE-VERIFY, and worth the effort: this is the cell-type-specificity claim.]</strong></li>
+<li><strong>Recent contradicting/complicating datum:</strong> Gelot et al., <em>Epilepsia</em> 2025 (<a href="https://pubmed.ncbi.nlm.nih.gov/39973610/" target="_blank" rel="noopener noreferrer">PMID:39973610</a>) report <strong>cytomegalic parvalbumin neurons in fetal HME</strong> — i.e. inhibitory interneurons <em>are</em> morphologically involved in human fetal tissue, even if mouse interneuron-restricted activation isn't sufficient. Curate this as a <code>HUMAN_MODEL_MISMATCH</code> discussion: mouse says interneurons don't matter for overgrowth; human fetal pathology says interneurons are visibly affected. (I could not obtain this abstract verbatim — <strong>RE-VERIFY before use</strong>.)</li>
+<li><strong>Transcriptomics / proteomics / metabolomics / lipidomics:</strong> no dedicated HME datasets of note in GEO/PRIDE/MetaboLights. <strong>This is a genuine, statable gap.</strong></li>
+<li><strong>Functional genomics screens:</strong> none HME-specific.</li>
+</ul>
+<h3>6.10 Cell types (CL) and anatomy — mechanism-relevant</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Cell type</th>
+<th>CL term</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>radial glial cell</td>
+<td><code>CL:0000681</code></td>
+<td>the mutated progenitor; clone founder</td>
+</tr>
+<tr>
+<td>neural progenitor cell</td>
+<td><code>CL:0011020</code></td>
+<td>over-proliferating compartment</td>
+</tr>
+<tr>
+<td>glutamatergic neuron</td>
+<td><code>CL:0000679</code></td>
+<td>the lineage in which mTOR activation is necessary/sufficient</td>
+</tr>
+<tr>
+<td>pyramidal neuron</td>
+<td><code>CL:0000598</code></td>
+<td>substrate of the cytomegalic/dysmorphic neuron</td>
+</tr>
+<tr>
+<td>astrocyte</td>
+<td><code>CL:0000127</code></td>
+<td>pS6-positive; contributes to overgrowth</td>
+</tr>
+<tr>
+<td>oligodendrocyte</td>
+<td><code>CL:0000128</code></td>
+<td>white-matter hypertrophy/dysmyelination</td>
+</tr>
+<tr>
+<td>GABAergic neuron</td>
+<td><code>CL:0000617</code></td>
+<td>E/I imbalance; cytomegalic PV neurons in fetal HME</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Ontology gap to note:</em> Cell Ontology has <strong>no term for "balloon cell" or "dysmorphic (cytomegalic) neuron"</strong> — the two cells that literally define this disease's histology. Use <code>preferred_term: balloon cell</code> over the nearest CL parent and flag the gap.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ level</h3>
+<ul>
+<li><strong>Primary:</strong> one <strong>cerebral hemisphere</strong> — <code>UBERON:0001869</code> cerebral hemisphere; <strong>cerebral cortex</strong> <code>UBERON:0000956</code></li>
+<li><strong>Secondary:</strong> ipsilateral <strong>white matter</strong> <code>UBERON:0002316</code> (hypertrophic, abnormally myelinated); ipsilateral <strong>lateral/telencephalic ventricle</strong> <code>UBERON:0002285</code> (enlarged, with the characteristic straightened frontal horn pointing antero-superiorly); <strong>corpus callosum</strong> <code>UBERON:0002336</code> (dysgenetic); <strong>basal ganglia</strong> <code>UBERON:0002420</code> (often enlarged ipsilaterally); <strong>hippocampal formation</strong> <code>UBERON:0002421</code></li>
+<li><strong>"Total" HME:</strong> ipsilateral <strong>cerebellum</strong> <code>UBERON:0002037</code> and <strong>brainstem</strong> <code>UBERON:0002298</code> hypertrophy — the Flores-Sarnat "total hemimegalencephaly" variant (Flores-Sarnat L, <em>J Child Neurol</em> 2002;17:373–84 Part 1; 2003;18:776–85 Part 2 — <strong>PMIDs not independently verified in this session; verify before citing</strong>)</li>
+<li><strong>Contralateral hemisphere:</strong> <em>not</em> normal in a meaningful fraction — contralateral hemimicrencephaly and abnormalities "occurring outside the involved hemisphere" are described (AJNR 2007), and contralateral EEG abnormality is the dominant negative surgical predictor</li>
+<li><strong>Body systems:</strong> nervous system, primarily; integumentary/vascular/skeletal in syndromic forms</li>
+</ul>
+<h3>Tissue and cell level</h3>
+<p>Neural tissue: cortical grey matter (dyslaminated, thickened), subcortical and periventricular white matter (heterotopic neurons, gliosis, abnormal myelin), leptomeninges (subarachnoid heterotopia in fetal cases). Cell populations as in §6.10.</p>
+<h3>Subcellular level (GO CC)</h3>
+<ul>
+<li><code>GO:0031931</code> TORC1 complex — the locus of the lesion</li>
+<li><code>GO:0005886</code> plasma membrane — where AKT3 E17K wrongly parks</li>
+<li><code>GO:0005829</code> cytosol — PI3K/AKT signalling</li>
+<li><code>GO:0022626</code> cytosolic ribosome / <code>GO:0005840</code> ribosome — the S6 readout</li>
+<li><code>GO:0005764</code> lysosome — the mTORC1 docking platform (Rag/Ragulator); the GATOR arm acts here</li>
+<li><code>GO:0005929</code> cilium — implicated in the MTOR-ciliogenesis dyslamination mechanism</li>
+</ul>
+<h3>Localization and lateralization</h3>
+<ul>
+<li><strong>Unilateral by definition.</strong> <code>HP:0012837</code> Unilateral (as a modifier). Left-sided predominance reported in at least one recent series but not robustly established.</li>
+<li>Distribution within the hemisphere may be <strong>complete</strong> (whole hemisphere) or <strong>partial/lobar</strong> — partial forms shade into hemispheric cortical dysplasia and the FCD end of the continuum, which is a boundary curators will have to draw deliberately.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>The mutation:</strong> prenatal, postzygotic, after gastrulation/neurulation; the lesion is built between roughly <strong>gestational weeks 5–20</strong> (cortical tubers, the closest-studied analogue, are detectable from ~20 weeks; Crino: "indicating that tubers (and by extension, focal cortical dysplasias) form during embryonic brain development, probably between weeks 10 and 20 of human gestation" <strong>[verbatim-verified from cache]</strong>)</li>
+<li><strong>The lesion:</strong> detectable prenatally on fetal MRI and even transabdominal/transvaginal ultrasound (<a href="https://pubmed.ncbi.nlm.nih.gov/38617140/" target="_blank" rel="noopener noreferrer">PMID:38617140</a>); a notable report describes evolution "from an atypical focal early appearance on fetal MRI to more conventional MR findings" — i.e. <strong>the fetal appearance can be misleadingly focal early on</strong></li>
+<li><strong>Seizures:</strong> neonatal to &lt;6 months, very often within days of birth. The 2026 Epilepsia infant surgical series reports "Median seizure onset occurred at 3 days of life" <strong>[secondhand — RE-VERIFY, <a href="https://pubmed.ncbi.nlm.nih.gov/42132620/" target="_blank" rel="noopener noreferrer">PMID:42132620</a>]</strong>; the 2026 TAE series "Mean seizure onset occurred at 9 days old" <strong>[secondhand — RE-VERIFY, <a href="https://pubmed.ncbi.nlm.nih.gov/42208165/" target="_blank" rel="noopener noreferrer">PMID:42208165</a>]</strong>; the 2025 Seizure series reports onset "within the first day of life" <strong>[secondhand — RE-VERIFY, <a href="https://pubmed.ncbi.nlm.nih.gov/41033188/" target="_blank" rel="noopener noreferrer">PMID:41033188</a>]</strong></li>
+<li><strong>Onset pattern:</strong> congenital structural lesion; <strong>acute-to-catastrophic</strong> epilepsy onset superimposed on it</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li><strong>The malformation is static.</strong> The <em>epilepsy</em> and its consequences are not.</li>
+<li>Typical trajectory: neonatal focal seizures → status-epilepticus-prone, multiple daily seizures → often evolution to <strong>epileptic spasms / IESS</strong> at 3–12 months → hemihypsarrhythmia → developmental arrest or regression → in survivors, a chronic multi-seizure-type drug-resistant epilepsy</li>
+<li>Epileptogenic zone can <em>expand</em>: "the epileptogenic area may increase with poor seizure control" <strong>[secondhand — RE-VERIFY]</strong> — the mechanistic justification for early surgery</li>
+<li><strong>Duration:</strong> chronic, lifelong. No spontaneous remission.</li>
+<li>Adult data are scant and unpromising: "Few patients with HME have been followed into adulthood. Reported adult cases have milder epilepsy or underwent hemispherectomy in childhood. Patients surviving to adulthood have poor outcomes, regardless of treatment method, although seizure burden is improved with hemispherectomy." (<a href="https://pubmed.ncbi.nlm.nih.gov/28377884/" target="_blank" rel="noopener noreferrer">PMID:28377884</a>) <strong>[secondhand — RE-VERIFY]</strong></li>
+</ul>
+<h3>Critical periods</h3>
+<p>Two, and they pull against each other — this is the central clinical tension of HME:
+1. <strong>The neurodevelopmental window (first ~6–12 months)</strong>: uncontrolled seizures during peak synaptogenesis cause the encephalopathy. Argues for operating <strong>as early as possible</strong>.
+2. <strong>The surgical-safety window</strong>: hemispherectomy in neonates and very small infants carries high blood-loss and mortality risk. "With neonates and young infants, hemispherectomy has a very high mortality and complication rate, resulting in most neurosurgeons deferring treatment until at least 8 weeks" <strong>[secondhand — RE-VERIFY]</strong>. Argues for <strong>waiting for weight gain</strong>.</p>
+<p>Everything interesting in current HME therapeutics — mTOR inhibitors as a bridge, staged transarterial embolization — is an attempt to buy time between these two windows.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Prevalence:</strong> genuinely unknown at the population level. NORD states prevalence estimates are not available. The most-cited figure is denominator-shifted: <strong>1–3 per 1,000 children with epilepsy</strong> <strong>[secondhand — RE-VERIFY]</strong> — note carefully that this is <em>not</em> a population prevalence and must not be curated as one. For a dismech <code>Prevalence</code> record: <code>measure_type: UNKNOWN</code> or a qualitative <code>prevalence_class: ULTRA_RARE</code>, with the epilepsy-denominator figure in <code>notes</code>.</li>
+<li><strong>Incidence:</strong> no reliable estimate.</li>
+<li><strong>Surgical-series representation</strong> (the only well-quantified denominators, and heavily biased):</li>
+<li>HME was <strong>58%</strong> of seizure etiologies among infants undergoing hemispherectomy/hemispherotomy <strong>[secondhand — RE-VERIFY]</strong></li>
+<li>HME made up <strong>42.6%</strong> of anatomic hemispherectomy cases vs <strong>14.1%</strong> of functional hemispherectomy cases <strong>[secondhand — RE-VERIFY]</strong></li>
+<li>In one 35-year single-institution hemispherectomy series, HME was the third commonest etiology (n=25) after MCD (n=39) and stroke (n=30) <strong>[secondhand — RE-VERIFY]</strong></li>
+</ul>
+<h3>Inheritance</h3>
+<ul>
+<li><strong>Sporadic / non-Mendelian in the overwhelming majority.</strong> The causal event is a <strong>postzygotic somatic mutation</strong>, so HME has no inheritance pattern in the classical sense. HPO: no standard mode-of-inheritance term applies cleanly — the honest annotation is <code>HP:0001470</code>? no — use <strong><code>HP:0001426</code> Multifactorial inheritance</strong>? Also no. The correct handling is to <strong>omit</strong> a mode-of-inheritance term for isolated HME and record "somatic mosaicism, non-heritable" in the description, or use <code>HP:0003745</code> Genetic anticipation-adjacent terms — <strong>do not</strong> force-fit. HPO's <code>HP:0001470</code>-family lacks a "somatic mosaicism" mode; this is a real ontology gap for mosaic diseases and worth flagging.</li>
+<li><strong>Exception — the two-hit / germline-predisposition subset:</strong> where a germline <code>TSC1</code>/<code>TSC2</code> or GATOR1 (<code>DEPDC5</code>/<code>NPRL2</code>/<code>NPRL3</code>) LOF variant is the first hit, the <em>predisposition</em> is <strong>autosomal dominant</strong> (<code>HP:0000006</code>), with the HME lesion itself requiring a somatic second hit. This subset carries a <strong>50% transmission risk for the predisposing allele</strong> — and must be identified, because the counselling is completely different.</li>
+<li><strong>Penetrance:</strong> the germline predisposing allele is incompletely penetrant for HME specifically (most TSC patients never develop HME — <a href="https://pubmed.ncbi.nlm.nih.gov/33387903/" target="_blank" rel="noopener noreferrer">PMID:33387903</a> calls the association "uncommon and has so far been reported only in a few cases"). The somatic second hit is essentially fully penetrant <em>locally</em>.</li>
+<li><strong>Expressivity:</strong> highly variable, and the variability maps onto <strong>VAF and clone geography</strong> rather than onto a modifier locus.</li>
+<li><strong>Genetic anticipation:</strong> not applicable (no repeat expansion).</li>
+<li><strong>Germline mosaicism:</strong> theoretically possible if the mutation arose very early (pre-primordial-germ-cell segregation), which would produce both somatic and gonadal mosaicism. Not documented in HME. Recurrence risk for isolated HME is generally counselled as <strong>near-baseline but not formally zero</strong>.</li>
+<li><strong>Founder effects / carrier frequency / consanguinity:</strong> not applicable.</li>
+</ul>
+<h3>Population demographics</h3>
+<ul>
+<li><strong>Ethnic/geographic:</strong> no established variation. Cases reported worldwide (US, Europe, Japan, Korea, China, Turkey, India, Latin America). Apparent geographic clustering in the literature reflects <strong>where paediatric epilepsy surgery programmes exist</strong>, not disease biology — an important curation caveat.</li>
+<li><strong>Sex ratio:</strong> approximately 1:1; no established bias.</li>
+<li><strong>Age distribution:</strong> overwhelmingly infants and children, because ascertainment is via early catastrophic epilepsy and because unoperated survival into adulthood is uncommon and under-reported.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Imaging — the primary diagnostic modality</h3>
+<p><strong>Brain MRI</strong> is the diagnostic test. Characteristic features:
+- Enlargement of all or part of one hemisphere with <strong>midline shift</strong>
+- <strong>Thickened, dysplastic cortex</strong> with abnormal gyration (agyria, pachygyria, polymicrogyria) and blurred grey–white junction
+- <strong>Abnormal white matter signal</strong> — T2/FLAIR hyperintensity, hypertrophic white matter, often with a transmantle-like tapering to the ventricle
+- <strong>Ipsilateral lateral ventricle enlarged and dysmorphic</strong>, with the classic <strong>straightened frontal horn pointing antero-superiorly</strong> — near-signature
+- Grey-matter <strong>heterotopia</strong> (subcortical, periventricular)
+- Ipsilateral basal ganglia enlargement, corpus callosum dysgenesis, ± ipsilateral cerebellar hypertrophy (total HME)
+- <strong>Fetal MRI and prenatal ultrasound</strong> can make the diagnosis antenatally (<a href="https://pubmed.ncbi.nlm.nih.gov/38617140/" target="_blank" rel="noopener noreferrer">PMID:38617140</a>; the "in utero MRI" literature) — with the caveat that the early fetal appearance may be deceptively focal
+- <strong>FDG-PET:</strong> regional hypometabolism; also reveals <strong>uncrossed cerebellar diaschisis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40344425/" target="_blank" rel="noopener noreferrer">PMID:40344425</a>)
+- <strong>RadLex/DICOM:</strong> standard paediatric brain MRI protocol; add DTI for tractography and presurgical mapping</p>
+<h3>Electrophysiology</h3>
+<ul>
+<li><strong>EEG / video-EEG</strong> is mandatory and is both diagnostic and <strong>prognostic</strong>. Look for: lateralized background suppression with high-voltage spike bursts; <strong>hemihypsarrhythmia</strong>; <strong>unilateral suppression-burst</strong>, especially in sleep; epilepsia partialis continua.</li>
+<li><strong>The single most important EEG finding for prognosis is whether the abnormality is confined to the affected hemisphere.</strong> Bilateral ictal EEG abnormality was the only independent predictor of faster seizure recurrence after hemispherectomy (HR = 11.5; P = .002 — <a href="https://pubmed.ncbi.nlm.nih.gov/37975663/" target="_blank" rel="noopener noreferrer">PMID:37975663</a> <strong>[verbatim-verified from cache]</strong>).</li>
+<li>LOINC: standard EEG codes (e.g. 24708-8 EEG study); no HME-specific code.</li>
+</ul>
+<h3>Histopathology (on resected tissue)</h3>
+<ul>
+<li>Cortical <strong>dyslamination</strong>, <strong>polymicrogyria</strong>, <strong>heterotopia</strong> (subarachnoid, subcortical, subventricular), immature neurons, calcifications</li>
+<li><strong>Dysmorphic (cytomegalic) neurons</strong> and <strong>balloon cells</strong> — histologically indistinguishable from FCD IIb and from TSC giant cells</li>
+<li><strong>Immunohistochemistry: phospho-S6 (Ser240/244 or Ser235/236) is the workhorse.</strong> Positive labelling in DNs and BCs establishes mTOR pathway activation even when sequencing is negative.</li>
+<li>Mixed/ambiguous lineage markers on balloon cells (SOX2, nestin, vimentin, c-myc; Pax6, ER81, Otx1) — the "failed to differentiate" signature</li>
+<li>Recent addition: <strong>cytomegalic parvalbumin (inhibitory) neurons</strong> in fetal HME (<a href="https://pubmed.ncbi.nlm.nih.gov/39973610/" target="_blank" rel="noopener noreferrer">PMID:39973610</a>)</li>
+<li>Note: <strong>HME is not currently accommodated in the ILAE FCD classification</strong> — Crino, <strong>[verbatim-verified from cache]</strong>: "Other types of focal MCD, such as TSC, hemimegalencephaly, and some of the newer focal cortical dysplasia syndromes have not yet been subsumed into the ILAE classification."</li>
+</ul>
+<h3>Genetic testing — the crucial methodological point</h3>
+<p><strong>Blood-based testing is expected to be negative in isolated HME.</strong> This is the diagnostic trap. The variant lives in the brain.</p>
+<p>Recommended approach:
+1. <strong>Deep targeted panel sequencing (≥500×, ideally ≥2000×) of DNA from resected brain tissue</strong>, paired with blood — the reference standard (Baldassari 2019 used "≥ 2000X read depth" on "matched blood-brain samples to search for low-allele frequency variants"). Panel content: <code>MTOR</code>, <code>PIK3CA</code>, <code>AKT1</code>, <code>AKT3</code>, <code>RHEB</code>, <code>PIK3R2</code>, <code>TSC1</code>, <code>TSC2</code>, <code>DEPDC5</code>, <code>NPRL2</code>, <code>NPRL3</code>, <code>PTEN</code>, plus <code>SLC35A2</code> (for the mMCD/MOGHE differential).
+2. <strong>Germline WES/WGS on blood</strong> — to catch the two-hit predisposition arm (TSC1/TSC2/GATOR1), which <em>is</em> blood-detectable and <em>is</em> actionable for the family.
+3. <strong>Chromosomal microarray on brain tissue</strong> — for mosaic 1q gain (AKT3).
+4. <strong>Microdissection / single-cell enrichment of DNs and BCs</strong> raises yield when bulk VAF is low (Baldassari 2019).
+5. <strong>Emerging non-surgical routes:</strong>
+   - <strong>CSF cell-free DNA liquid biopsy</strong> — <a href="https://pubmed.ncbi.nlm.nih.gov/33738444/" target="_blank" rel="noopener noreferrer">PMID:33738444</a>, "cerebrospinal fluid liquid biopsy is valuable in investigating mosaic neurological disorders where brain tissue is unavailable" <strong>[secondhand — RE-VERIFY]</strong>; sensitivity is modest (3/12 known-positive cases in one ddPCR series) so a negative does not exclude.
+   - <strong>Trace DNA from stereo-EEG depth electrodes</strong> — a 2024 report identified a mosaic MTOR variant in purified neuronal DNA from depth electrodes (preprint/medRxiv at time of writing — <strong>do not curate as established</strong>).
+6. <strong>Karyotype, FISH, mtDNA testing, repeat-expansion testing:</strong> not indicated.</p>
+<h3>Laboratory tests / biomarkers</h3>
+<p>No blood or urine biomarker exists. Routine labs are normal. There is <strong>no validated circulating biomarker</strong> for HME — a real gap, and the reason the CSF/electrode-DNA work matters.</p>
+<h3>Clinical criteria and differential diagnosis</h3>
+<p>No formal consensus diagnostic criteria exist (unlike TSC). Diagnosis = characteristic MRI + compatible clinical picture, with histology confirming after surgery.</p>
+<p><strong>Differential diagnosis:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Alternative</th>
+<th>Distinguishing feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Hemispheric / multilobar focal cortical dysplasia</strong></td>
+<td>Hemisphere not enlarged; ventricle normal size — this is the hardest and most important boundary, and it is a <strong>continuum</strong>, not a dichotomy (D'Gama 2017)</td>
+</tr>
+<tr>
+<td><strong>Tuberous sclerosis complex</strong></td>
+<td>Multifocal bilateral tubers, subependymal nodules, systemic stigmata — but note TSC and HME <strong>co-occur</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33387903/" target="_blank" rel="noopener noreferrer">PMID:33387903</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26231267/" target="_blank" rel="noopener noreferrer">PMID:26231267</a>)</td>
+</tr>
+<tr>
+<td><strong>Sturge-Weber syndrome</strong></td>
+<td>Leptomeningeal angioma with contrast enhancement, gyriform calcification, hemi<strong>atrophy</strong> rather than hypertrophy</td>
+</tr>
+<tr>
+<td><strong>Congenital CMV / congenital infection</strong></td>
+<td>Periventricular calcification, microcephaly, positive serology/PCR</td>
+</tr>
+<tr>
+<td><strong>Rasmussen encephalitis</strong></td>
+<td>Later onset, progressive hemi<strong>atrophy</strong>, inflammatory histology</td>
+</tr>
+<tr>
+<td><strong>Hemispheric low-grade tumour (DNET, ganglioglioma)</strong></td>
+<td>Discrete mass, contrast behaviour, different histology — though gangliogliomas <em>also</em> show mTOR activation</td>
+</tr>
+<tr>
+<td><strong>Perinatal arterial ischaemic stroke / porencephaly</strong></td>
+<td>Vascular territory, encephalomalacia, hemiatrophy</td>
+</tr>
+<tr>
+<td><strong>MCAP / MPPH (megalencephaly syndromes)</strong></td>
+<td><strong>Bilateral</strong> brain overgrowth ± polymicrogyria; overlapping genes (PIK3CA, AKT3, PIK3R2) — same pathway, different clone geography</td>
+</tr>
+<tr>
+<td><strong>Hemispheric cortical dysplasia (HCD)</strong></td>
+<td>Often grouped with HME in surgical series; increasingly treated as the same continuum</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Screening</h3>
+<ul>
+<li><strong>No newborn screening, no carrier screening, no population screening.</strong> Not appropriate for a somatic-mutation disease.</li>
+<li><strong>Cascade screening does apply</strong> in the two-hit subset: once a germline TSC1/TSC2/DEPDC5/NPRL2/NPRL3 variant is identified, first-degree relatives should be offered testing.</li>
+<li><strong>Prenatal detection</strong> by fetal MRI/ultrasound is real but opportunistic, not a screening programme.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>Survival and mortality</h3>
+<ul>
+<li><strong>Untreated:</strong> high early morbidity; deaths from status epilepticus, aspiration, and complications of profound neurological impairment. No reliable population survival curve exists.</li>
+<li><strong>Surgical mortality</strong> has fallen dramatically. A meta-analysis reports overall procedure mortality <strong>5%</strong> (hemispherectomy 7%, hemispherotomy 3%), with reported mortality falling "over the last 30 years from 32% to 2%" <strong>[secondhand — RE-VERIFY]</strong>. The 2026 infant series (n=15, surgery at median 6.4 months) reported <strong>no deaths</strong> <strong>[secondhand — RE-VERIFY, <a href="https://pubmed.ncbi.nlm.nih.gov/42132620/" target="_blank" rel="noopener noreferrer">PMID:42132620</a>]</strong>.</li>
+<li><strong>Disease-specific mortality:</strong> no registry data.</li>
+</ul>
+<h3>Seizure outcomes after hemispheric surgery — the best-quantified prognostic data</h3>
+<p><strong>Goel et al., <em>Neurosurgery</em> 2024 — IPD meta-analysis, n=145 from 26 studies (<a href="https://pubmed.ncbi.nlm.nih.gov/37975663/" target="_blank" rel="noopener noreferrer">PMID:37975663</a>) [verbatim-verified from cache]:</strong></p>
+<blockquote>
+<p>"Data from 145 patients were extracted from 26 studies, of which 89 underwent FH (22 vertical, 33 lateral), 47 underwent AH, and 9 received an unspecified hemispherectomy with a median last follow-up of 44.0 months (FH cohort) and 45.0 months (AH cohort). Cohorts were similar in preoperative characteristics and at the last follow-up; 77% (n = 66) of the FH cohort and 81% (n = 38) and of the AH cohort were Engel I."
+"On multivariate analysis, only the presence of bilateral ictal electroencephalography abnormalities (hazard ratio = 11.5; P = .002) was significantly associated with faster time-to-seizure recurrence."
+"A number-needed-to-treat analysis to prevent 1 additional case of posthemispherectomy hydrocephalus reveals that FH, compared with AH, was 3."
+"We show that hemispheric surgery is a highly effective treatment for HME-related DRE."</p>
+</blockquote>
+<p><strong>Goel et al., <em>Epilepsia</em> 2024 — UCLA single-centre, n=56, 1984–2021 (<a href="https://pubmed.ncbi.nlm.nih.gov/37873610/" target="_blank" rel="noopener noreferrer">PMID:37873610</a>) [secondhand — RE-VERIFY]:</strong> 24 patients (49%) seizure-free at median 55 months; 17 (30%) required CSF shunting for hydrocephalus; independent favourable predictors were "Younger age at seizure onset (HR = .29, p = .029), lack of epilepsia partialis continua (EPC) (HR = .30, p = .022), and no contralateral seizures on electroencephalography (EEG) (HR = .33, p = .039)."</p>
+<p><strong>Pielas et al., <em>Epilepsia</em> 2026 — infants &lt;12 months, n=15 (<a href="https://pubmed.ncbi.nlm.nih.gov/42132620/" target="_blank" rel="noopener noreferrer">PMID:42132620</a>) [secondhand — RE-VERIFY]:</strong> Engel I at 12 months in 53.3% overall, 46% in HME specifically; all required transfusion, one-third &gt;1 circulating volume; 26.7% shunted; ~40% ICU stay &gt;5 days; complications included 2 intracerebral haemorrhages and 1 intraoperative cardiac arrest; no deaths.</p>
+<p><strong>Note the apparent tension between the meta-analysis (77–81% Engel I) and the single-centre series (46–53%).</strong> The meta-analysis aggregates published series with publication bias toward good outcomes and heterogeneous follow-up; the single-centre infant series is younger, sicker, and prospectively complete. <strong>Curate both; do not average them.</strong></p>
+<h3>Morbidity, function, and quality of life</h3>
+<p><strong>Puka et al., <em>Epilepsia</em> 2021 — cognitive/language outcomes after hemispherectomy for HME, n=45 (<a href="https://pubmed.ncbi.nlm.nih.gov/34608636/" target="_blank" rel="noopener noreferrer">PMID:34608636</a>) [secondhand — RE-VERIFY]:</strong>
+- 68% seizure-free
+- Only <strong>43%</strong> demonstrated average or mildly impaired cognition
+- Only <strong>26%</strong> could "speak age appropriately"
+- Only <strong>21%</strong> achieved satisfactory reading
+- "55%, 43%, and 17% of children first babbled, spoke their first words, and started speaking in sentences at an age-appropriate period, respectively"
+- Better outcomes with <strong>right</strong>-hemisphere surgery and <strong>later</strong> seizure onset
+- Conclusion: children "continue to require significant language and literacy support long-term after cerebral hemispherectomy"</p>
+<p><strong>This is the outcome message that matters most for a knowledge base: seizure freedom and functional recovery are only loosely coupled.</strong> Two-thirds get seizure control; fewer than half get near-typical cognition; a quarter get fluent speech. Curate seizure outcome and developmental outcome as <strong>separate</strong> outcome nodes, not as one "prognosis."</p>
+<p>Permanent expected deficits after hemispherectomy: contralateral <strong>hemiparesis</strong> (hand function largely lost, ambulation usually preserved) and <strong>homonymous hemianopia</strong> — these are accepted trade-offs, not complications.</p>
+<h3>Complications</h3>
+<ul>
+<li><strong>Post-hemispherectomy hydrocephalus</strong> requiring shunt: <strong>16–30%</strong> across series</li>
+<li>Intraoperative <strong>blood loss</strong> (the dominant infant risk; the malformed hemisphere's vasculature is abnormal and hard to control)</li>
+<li>Aseptic meningitis/fever (~33%), infection (~11%), hematoma requiring evacuation (~8%), subgaleal effusion (~8%) <strong>[secondhand — RE-VERIFY]</strong></li>
+<li>Late: superficial cerebral hemosiderosis, shunt dependence, contralateral seizure emergence</li>
+</ul>
+<h3>Prognostic factors</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Favourable</th>
+<th>Unfavourable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unilateral (hemisphere-confined) ictal EEG</td>
+<td><strong>Bilateral ictal EEG abnormality (HR 11.5)</strong></td>
+</tr>
+<tr>
+<td>Absence of epilepsia partialis continua</td>
+<td>Epilepsia partialis continua</td>
+</tr>
+<tr>
+<td>No contralateral seizures on EEG</td>
+<td>Contralateral EEG seizures</td>
+</tr>
+<tr>
+<td>Right-hemisphere lesion (for language)</td>
+<td>Left-hemisphere lesion</td>
+</tr>
+<tr>
+<td>Later seizure onset (for cognition)</td>
+<td>Very early / day-1 seizure onset (for cognition)</td>
+</tr>
+<tr>
+<td>Complete disconnection at first surgery</td>
+<td>Incomplete disconnection → residual seizures</td>
+</tr>
+<tr>
+<td>Functional over anatomic hemispherectomy (hydrocephalus risk)</td>
+<td>Anatomic hemispherectomy (NNT 3 for hydrocephalus)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Note the deliberate contradiction to record: <strong>younger age at seizure onset was <em>favourable</em> for seizure freedom in the UCLA series</strong> (HR .29) but is <em>unfavourable</em> for cognitive outcome. Those are different endpoints, and the field genuinely disagrees on the seizure-onset-age direction. Do not collapse them.</p>
+<p><strong>Prognostic biomarkers:</strong> none molecular. Attempts to correlate specific genotype (MTOR vs PIK3CA vs DEPDC5) with surgical outcome have not produced a validated predictor. <strong>This is a stated knowledge gap.</strong></p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Definitive treatment — hemispheric surgery</h3>
+<p><strong>Hemispherectomy / hemispherotomy is the only definitive treatment for HME-related drug-resistant epilepsy.</strong></p>
+<ul>
+<li><strong>Anatomic hemispherectomy (AH):</strong> removal of the hemisphere. Higher seizure-freedom in some series; higher hydrocephalus risk (NNT 3).</li>
+<li><strong>Functional hemispherectomy / hemispherotomy (FH):</strong> disconnection with minimal resection; vertical (parasagittal) or lateral (peri-insular) approaches — no significant difference between them (HR = 2.59; P = .101).</li>
+<li>NCIT suggestions: <code>NCIT:C15656</code> <strong>Neurosurgical Procedure</strong> (verified) or <code>NCIT:C15329</code> <strong>Surgical Procedure</strong> (verified). ⚠️ <strong>NCIt has no "Hemispherectomy" term</strong> — I searched both the local <code>sqlite:obo:ncit</code> and live OLS and found none (MeSH <code>D038421</code> and SNOMED <code>14247003</code> do have it). Use <code>NCIT:C15656</code> with <code>preferred_term: cerebral hemispherectomy</code> and flag the ontology gap. <code>therapeutic_modality: SURGERY</code>.</li>
+</ul>
+<h3>12.2 Targeted therapy — mTOR inhibitors</h3>
+<p>The precision-medicine story, still mostly promissory but with a clear rationale and real case-level evidence.</p>
+<p><strong>Agents:</strong> sirolimus/rapamycin (<code>CHEBI:9168</code> <strong>verified</strong>), everolimus (<code>CHEBI:68478</code> <strong>verified</strong>). Both inhibit mTORC1 via FKBP12.</p>
+<p><strong>Regulatory status for HME: none. Off-label everywhere.</strong> Everolimus is approved for TSC-associated refractory focal seizures (EXIST-3) — not for HME or FCD.</p>
+<p><strong>Best case-level human evidence (<a href="https://pubmed.ncbi.nlm.nih.gov/30514132/" target="_blank" rel="noopener noreferrer">PMID:30514132</a>) [secondhand — RE-VERIFY]:</strong></p>
+<blockquote>
+<p>"We report a 6-day-old female with hemimegalencephaly and frequent seizures despite 9 antiseizure medications. At 3 months of age, while awaiting hemispherectomy, an mTOR inhibitor, rapamycin, was initiated by the neurologist. After 1 week of treatment, there was &gt;50% reduction in seizures and total seizure burden, and after 2 weeks, development improved, resulting in deferral of surgery by 2.5 months with an increased body weight. Pathology demonstrated cortical dysplasia with upregulation of the mTOR pathway. Deep-sequencing of brain tissue demonstrated 16% mosaicism for a pathogenic de novo MTOR gene mutation. This case exemplifies how mTOR inhibitors could be considered for seizure reduction in patients with hemimegalencephaly while awaiting surgery."</p>
+</blockquote>
+<p><strong>The framing that matters: mTOR inhibition in HME is currently a <em>bridge to surgery</em>, not a substitute for it.</strong> It buys weight gain and reduces perioperative risk.</p>
+<p><strong>Counter-evidence to curate honestly:</strong> in an NPRL3-associated neonatal HME case, "mTOR inhibitor therapy proved ineffective but functional hemispherectomy at 3 months of age resulted in total abatement of clinical seizures" (<a href="https://pubmed.ncbi.nlm.nih.gov/33749980/" target="_blank" rel="noopener noreferrer">PMID:33749980</a>) <strong>[secondhand — RE-VERIFY]</strong>. Genotype may matter — GATOR1 (amino-acid-sensing arm) lesions may not respond like activator-arm lesions.</p>
+<p><strong>Trial status:</strong> D'Gama &amp; Poduri (<a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a>, <strong>[verbatim-verified from cache]</strong>) — "Clinical studies of mTOR inhibitors for patients with FCD and HME are just emerging and will be an exciting area in the coming years." Active/registered trials are in <strong>FCD II</strong>, not HME: <code>NCT02451696</code> (everolimus, brain mTOR activity in TSC and FCD, US, phase II open-label) and <code>NCT03198949</code> (everolimus in FCD II, Korea, randomized double-blind placebo-controlled crossover phase II). Also <code>NCT03646240</code> (ABI-009 / nab-rapamycin, RaSuRE, surgically-refractory epilepsy). <strong>No HME-specific registered trial was identified.</strong></p>
+<p><strong>Cautions from the same review [verbatim-verified from cache]:</strong> "the long-term effects of early and potentially lifelong treatment with such broad inhibitors on immunosuppression, growth, and development, particularly neurodevelopment and sexual maturation, remain unclear and should prompt caution."</p>
+<p><strong>NCIT/CHEBI pattern:</strong></p>
+<pre><code class="language-yaml">- name: Sirolimus (mTOR inhibitor)
+  therapeutic_modality: SMALL_MOLECULE
+  treatment_term:
+    preferred_term: Targeted Therapy
+    term: {id: NCIT:C93352, label: Targeted Therapy}   # verified
+    therapeutic_agent:
+    - preferred_term: sirolimus
+      term: {id: CHEBI:9168, label: sirolimus}          # verified
+  target_mechanisms: ...  # INHIBITS the &quot;Constitutive mTORC1 Activation&quot; node
+</code></pre>
+<h3>12.3 Antiseizure medications</h3>
+<p>Empiric and largely ineffective as monotherapy — that is the definition of the disease. Agents used: vigabatrin (<code>CHEBI:63638</code> <strong>verified</strong>; first-line for spasms, retinal toxicity risk), ACTH/corticosteroids for spasms, levetiracetam (<code>CHEBI:6437</code> <strong>verified</strong>), phenobarbital, topiramate, carbamazepine/oxcarbazepine, clobazam, cannabidiol, felbamate. The 2026 TAE series reports patients "required a median of 8 antiseizure medications during hospitalization" <strong>[secondhand — RE-VERIFY]</strong> — a number that speaks for itself.
+- NCIT: <code>NCIT:C15986</code> Pharmacotherapy (<strong>verified</strong>), <code>therapeutic_modality: SMALL_MOLECULE</code>.</p>
+<h3>12.4 Emerging: staged transarterial embolization ("endovascular hemispherectomy")</h3>
+<p>A genuinely novel 2023–2026 development, worth a dedicated treatment node.
+- <strong>Concept:</strong> devascularize the malformed hemisphere endovascularly in stages, in neonates too small or unstable for open surgery.
+- <a href="https://pubmed.ncbi.nlm.nih.gov/36302639/" target="_blank" rel="noopener noreferrer">PMID:36302639</a> (<em>J Neurointerv Surg</em> 2023): three infants aged 13 days–13 weeks; "all infants" remained "seizure-free to date" at 8–57 months follow-up <strong>[secondhand — RE-VERIFY]</strong>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/42208165/" target="_blank" rel="noopener noreferrer">PMID:42208165</a> (<em>Pediatr Neurol</em> 2026, n=8): mean seizure onset 9 days, first embolization ~50 days, 3–5 staged procedures; at discharge 75% achieved electrographic seizure freedom from the affected hemisphere; ASM burden fell from median 8 to median 4 <strong>[secondhand — RE-VERIFY]</strong>
+- A 2025 comparative study (TAE n=12 vs surgical hemispherectomy n=11) reported 6/8 (75%) seizure-free among TAE-primary patients <strong>[secondhand — RE-VERIFY]</strong>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40425282/" target="_blank" rel="noopener noreferrer">PMID:40425282</a> (2026): complication analysis and evolution of strategy in infants &lt;3 months
+- Applied even to TSC-related HME (<a href="https://pubmed.ncbi.nlm.nih.gov/41489603/" target="_blank" rel="noopener noreferrer">PMID:41489603</a>)
+- NCIT: <code>NCIT:C15656</code> Neurosurgical Procedure or an interventional-radiology term; <code>therapeutic_modality: DEVICE</code> or <code>SURGERY</code>.</p>
+<p><strong>Evidence caveat for curation:</strong> this is single-institution, small-N, non-randomized, and short-follow-up. Curate as EMERGING, not established.</p>
+<h3>12.5 Supportive, dietary, and rehabilitative</h3>
+<ul>
+<li><strong>Ketogenic diet</strong> — <code>NCIT:C173168</code> <strong>Ketogenic Diet</strong> (verified); mechanistically attractive given the pS6/pAkt reduction seen in ketogenic-fed rats. <code>therapeutic_modality: BEHAVIORAL</code>.</li>
+<li><strong>Vagus nerve stimulation</strong> — palliative; note NCIt's nearest verified term is <code>NCIT:C203750</code> <em>Transcutaneous Auricular</em> VNS, which is <strong>not</strong> implanted VNS — do not use it for implanted VNS. Ontology gap.</li>
+<li><strong>Physical / occupational / speech therapy</strong> — <code>NCIT:C15302</code> Physical Therapy (verified), <code>NCIT:C121351</code> occupational therapy, <code>NCIT:C159273</code> speech therapy. <code>therapeutic_modality: BEHAVIORAL</code>.</li>
+<li><strong>Supportive care</strong> — <code>NCIT:C15747</code> Supportive Care (verified).</li>
+<li><strong>Genetic counseling</strong> — <code>NCIT:C15240</code> Genetic Counseling (verified). Essential specifically to distinguish the sporadic-somatic majority from the germline-predisposed minority.</li>
+</ul>
+<h3>12.6 Not applicable / no evidence</h3>
+<p>Gene therapy, gene editing, cell therapy, RNA therapeutics (ASO/siRNA), immunotherapy, and monoclonal antibodies: <strong>no HME programmes.</strong> Conceptually, an allele-selective approach is nearly impossible here — the lesion is built before birth and the pathological cells are structurally integrated. Correcting the genotype postnatally would not un-build the hemisphere. This is a mechanistically principled therapeutic ceiling worth stating in the entry.</p>
+<h3>12.7 Pharmacogenomics</h3>
+<ul>
+<li><strong>Genotype-guided</strong> in the loosest sense: an identified mTOR-activator variant is the rationale for rapalog use. There is no validated PharmGKB/CPIC pharmacogenomic guidance for HME.</li>
+<li>Practical PGx note: sirolimus/everolimus are <strong>CYP3A4/P-gp</strong> substrates and interact substantially with enzyme-inducing ASMs (carbamazepine, phenytoin, phenobarbital) — a real, curatable drug–drug interaction in exactly this patient population.</li>
+</ul>
+<h3>12.8 Treatment algorithm (synthesized)</h3>
+<ol>
+<li>Neonatal seizures + characteristic MRI → diagnose HME; video-EEG to establish lateralization</li>
+<li>Trial ASMs (vigabatrin/ACTH if spasms) — expect failure</li>
+<li><strong>Refer to a paediatric epilepsy surgery centre early.</strong> Delay costs development.</li>
+<li>If too small/unstable for open surgery: consider mTOR inhibitor as a <strong>bridge</strong>, and/or staged transarterial embolization at experienced centres</li>
+<li><strong>Hemispherotomy (functional) as first surgical management</strong> — the meta-analysis favours it on hydrocephalus grounds at equivalent seizure outcome</li>
+<li>Send resected tissue for <strong>deep sequencing + pS6 IHC</strong>; send blood for germline testing</li>
+<li>Lifelong rehabilitation, education support, and — given the caregiver-burden data — family support that does not stop when the seizures do</li>
+</ol>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention: none possible.</strong> A spontaneous postzygotic mutation in embryogenesis is not preventable by any known intervention. Vaccination, diet, exposure avoidance — all not applicable. State this plainly rather than leaving the section empty.</li>
+<li><strong>Secondary prevention (the real content of this section): early surgical intervention to prevent epileptic encephalopathy.</strong> The whole "buy time, then operate early" strategy — mTOR inhibitor bridging, staged embolization — is secondary prevention of developmental catastrophe. The TSC precedent (EPISTOP, PMID data in D'Gama &amp; Poduri) that pre-emptive vigabatrin on EEG-epileptiform-activity <em>before clinical seizures</em> delays seizure onset and reduces refractory epilepsy at 2 years is the model. <strong>It has not been tested in HME</strong>, but prenatally diagnosed HME is precisely the situation where such a design becomes thinkable. Flag as a proposed experiment.</li>
+<li><strong>Tertiary prevention:</strong> seizure control, aspiration/nutrition management, orthopaedic and spasticity management for the hemiparesis, shunt surveillance post-surgery, developmental and educational support.</li>
+<li><strong>Immunization:</strong> not applicable to disease causation; standard childhood schedule applies, with the caveat that <strong>live vaccines are contraindicated on mTOR inhibitors</strong>.</li>
+<li><strong>Screening:</strong> no population or newborn screening. <strong>Cascade genetic screening is indicated only in the germline-predisposition subset</strong> (TSC1/TSC2/DEPDC5/NPRL2/NPRL3).</li>
+<li><strong>Genetic counselling (<code>NCIT:C15240</code>):</strong> the core preventive service. Key messages: (a) for isolated somatic HME, recurrence risk is near-baseline; (b) germline mosaicism cannot be formally excluded; (c) if a germline predisposing allele is found, the counselling flips entirely to autosomal dominant with 50% transmission and the option of prenatal/preimplantation testing for the <em>predisposition</em> (not for HME itself, which requires the unpredictable second hit).</li>
+<li><strong>Prenatal testing:</strong> fetal MRI/ultrasound can detect the lesion; molecular prenatal diagnosis is not feasible for a brain-restricted somatic variant (amniocytes and CVS won't carry it).</li>
+<li><strong>Public health / environmental interventions:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of naturally affected species:</strong> <em>Homo sapiens</em> (<code>NCBITaxon:9606</code>) only, as far as the literature shows.</li>
+<li><strong>Naturally occurring HME in animals: not documented.</strong> I searched specifically for canine/feline/veterinary hemimegalencephaly and found <strong>no case reports</strong>. Veterinary neurology does describe unilateral cerebral abnormalities (porencephaly, hydranencephaly, hydrocephalus) in dogs and cats, but these are <strong>destructive/cavitary lesions, not hemispheric overgrowth</strong>, and are mechanistically unrelated. <strong>OMIA has no HME entry.</strong></li>
+<li><em>Reason this is unsurprising:</em> HME requires a somatic mutation in a large-brained, long-corticogenesis species, and would require deliberate imaging of a neonate with seizures — an ascertainment pipeline that barely exists in veterinary practice.</li>
+<li><strong>Orthologous genes</strong> (for model-organism curation): mouse <em>Mtor</em> (NCBI Gene 56717), <em>Pik3ca</em> (18706), <em>Akt3</em> (23797), <em>Akt1</em> (11651), <em>Rheb</em> (19744), <em>Tsc1</em> (64930), <em>Tsc2</em> (22084), <em>Depdc5</em> (277854), <em>Pten</em> (19211). The PI3K–AKT–mTOR module is deeply conserved from yeast (TOR1/TOR2) onward — one of the most conserved growth-control circuits in eukaryotes.</li>
+<li><strong>Comparative pathology:</strong> engineered rodent models reproduce cytomegaly, dyslamination, migration failure, and seizures (§15), but <em>no</em> rodent model reproduces <strong>hemisphere-scale unilateral overgrowth</strong>, because the lissencephalic mouse cortex lacks the outer subventricular zone and outer radial glia that drive human cortical expansion. <strong>This is a textbook <code>HUMAN_MODEL_MISMATCH</code>, and should be curated as one.</strong></li>
+<li><strong>Zoonotic potential / cross-species transmission:</strong> not applicable.</li>
+<li><strong>Breed (VBO):</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 Mouse — in utero electroporation (the workhorse)</h3>
+<p>The dominant paradigm: electroporate a mutant construct into a subset of dorsal telencephalic progenitors at ~E14.5, thereby <strong>manufacturing mosaicism on purpose</strong>. Elegant, because it models the <em>mechanism of the mechanism</em> — a clone, not an organism.</p>
+<p>From D'Gama &amp; Poduri (<a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a>) <strong>[verbatim-verified from cache]</strong>:</p>
+<blockquote>
+<p>"In utero electroporation of the variant that results in the Akt3 E17K substitution leads to abnormal cortical architecture, cytomegalic neurons, abnormal neuronal migration, and electrographic seizures that are rescued when rapamycin is administered prenatally but not postnatally."
+"Prenatal conditional expression of Pik3ca mutations leads to megalencephaly, abnormal cortical architecture, cytomegalic neurons, and seizures, and acute postnatal treatment with the PI3K inhibitor BKM120 suppressed seizures."
+"In utero electroporation of the variant that results in Mtor L2427P leads to abnormal neuronal migration, cytomegalic neurons, and spontaneous seizures, and postnatal rapamycin suppressed cytomegalic neurons and seizures."
+"In utero electroporation of the variant that results in Rheb Y35L leads to abnormal neuronal migration, cytomegalic neurons, and seizures, and postnatal rapamycin significantly reduced seizure frequency."</p>
+</blockquote>
+<p><strong>The AKT3 timing result is the single most important preclinical finding in this disease, and it cuts against the therapeutic hope:</strong> prenatal rapamycin rescues the malformation; postnatal rapamycin does not. Reported specifics: rapamycin 3 mg/kg/day E15.5–E18.5 rescued cortical malformation and cytomegaly; P1–P3 dosing did not, with spontaneous seizures at ~P28 <strong>[secondhand — RE-VERIFY]</strong>. Curate this as a <code>HUMAN_MODEL_MISMATCH</code> or at minimum as an explicit caveat on the mTOR-inhibitor treatment node: <strong>the structural lesion may have a closed therapeutic window that the seizures do not.</strong></p>
+<h3>15.2 Mouse — conditional / knockout models of repressors</h3>
+<p>Also from <a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a> <strong>[verbatim-verified from cache]</strong>:</p>
+<blockquote>
+<p>"Conditional knockout of Pten in neurons leads to megalencephaly, cytomegalic neurons, and seizures, and rapamycin suppressed seizures, including in older mice with established epilepsy."
+"Depdc5+/− rats have cytomegalic neurons and balloon-like cells (Depdc5−/− models are embryonic lethal), and prenatal rapamycin suppressed the abnormal cells."
+"Focal mosaic knockout of Depdc5 in mouse brain leads to abnormal cortical lamination, balloon-like cells, and spontaneous epilepsy, and prenatal rapamycin rescued neuronal migration defects."
+"Conditional knockout of Depdc5 in neurons leads to megalencephaly, cytomegalic neurons, and seizures, and postnatal chronic rapamycin prolonged survival and decreased brain size and neuronal soma size."</p>
+</blockquote>
+<p>Note the interesting inversion: in <strong>Pten</strong> models, rapamycin works even in <strong>older mice with established epilepsy</strong> — unlike the AKT3 electroporation result. Genotype-dependent therapeutic windows are a live hypothesis.</p>
+<h3>15.3 Mouse — lineage-restricted conditional activation</h3>
+<p>D'Gama 2017: conditional <em>Pik3ca</em> activation showing that mTOR activation "in excitatory neurons and glia, but not interneurons, is sufficient for abnormal cortical overgrowth." <strong>[secondhand — RE-VERIFY]</strong> The key cell-type-attribution experiment.</p>
+<p>Also from <a href="https://pubmed.ncbi.nlm.nih.gov/34608615/" target="_blank" rel="noopener noreferrer">PMID:34608615</a> <strong>[verbatim-verified from cache]</strong>: "Single cell studies of human brain tissue resected in the course of clinical treatment and mouse studies have suggested that abnormal hyperactivation of the mTOR pathway in neurons is necessary for disease pathogenesis, and further that such hyperactivation in the excitatory neuron lineage is necessary and in some cases sufficient."</p>
+<h3>15.4 Rat</h3>
+<p><code>Depdc5+/−</code> rats (see above). Also PI3K/mTOR inhibition preventing ictal activity and cell death in rat hippocampal organotypic post-traumatic epilepsy cultures (Crino, <a href="https://pubmed.ncbi.nlm.nih.gov/26060899/" target="_blank" rel="noopener noreferrer">PMID:26060899</a>) — relevant to mechanism, not to HME specifically.</p>
+<h3>15.5 Human cortical organoids (iPSC/ESC) — the model that addresses the mouse's biggest limitation</h3>
+<p><strong>Zhang et al., <em>BBA Mol Basis Dis</em> 2024 (<a href="https://pubmed.ncbi.nlm.nih.gov/38759814/" target="_blank" rel="noopener noreferrer">PMID:38759814</a>) [secondhand — RE-VERIFY]:</strong></p>
+<blockquote>
+<p>"Focal malformations of cortical development (FMCDs) are brain disorders mainly caused by hyperactive mTOR signaling due to both inactivating and activating mutations of genes in the PI3K-AKT-mTOR pathway."
+"mosaic and somatic expression of AKT3 activating mutations in cortical organoids mimicking the disease presentation with overproliferation and the formation of dysmorphic neurons"</p>
+</blockquote>
+<p>The study also reports an <strong>allelic-strength gradient</strong>: stronger AKT3 activating mutations → more severe migratory and overgrowth defects. That is the <em>in vitro</em> counterpart of the human VAF-severity relationship, from a different direction.</p>
+<p><strong>Why organoids matter here specifically:</strong> they carry human oRG/OSVZ biology that mice lack, which is exactly the biology that scales a human hemisphere. But they lack vasculature, immune cells, a full developmental timeline, and — critically for an epilepsy — mature circuits and behaviour. <strong>Neither model alone can carry a claim about human HME.</strong></p>
+<h3>15.6 Model characteristics summary</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Recapitulates</th>
+<th>Fails to recapitulate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mouse IUE (Akt3/Pik3ca/Mtor/Rheb)</td>
+<td>mosaicism, cytomegaly, dyslamination, migration failure, spontaneous seizures, rapamycin response</td>
+<td><strong>hemisphere-scale unilateral overgrowth</strong>; gyrification; human oRG/OSVZ expansion; human seizure semiology</td>
+</tr>
+<tr>
+<td>Mouse conditional KO (Pten/Depdc5/Tsc1/Tsc2)</td>
+<td>megalencephaly, cytomegaly, balloon-like cells, epilepsy, drug response</td>
+<td>focality/mosaicism (unless focal-mosaic KO used); unilaterality</td>
+</tr>
+<tr>
+<td>Depdc5+/− rat</td>
+<td>cytomegalic neurons, balloon-like cells</td>
+<td>homozygotes embryonic lethal; limited epilepsy phenotype</td>
+</tr>
+<tr>
+<td>Human cortical organoids (AKT3, PIK3CA)</td>
+<td>human progenitor biology, over-proliferation, dysmorphic neurons, allelic dose-response</td>
+<td>vasculature, immunity, circuits, seizures, full timeline</td>
+</tr>
+<tr>
+<td><strong>No model</strong></td>
+<td>—</td>
+<td><strong>the unilateral, hemisphere-restricted geometry that names the disease</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>15.7 Resources</h3>
+<p>MGI (<code>Mtor</code>, <code>Pik3ca</code>, <code>Akt3</code>, <code>Pten</code>, <code>Depdc5</code>, <code>Tsc1</code>, <code>Tsc2</code> alleles), IMPC/KOMP, IMSR, RGD (Depdc5 rat), Alliance of Genome Resources, Addgene (AKT3 E17K, MTOR, RHEB constructs), Cellosaurus (engineered hESC/iPSC lines from the organoid work).</p>
+<hr />
+<h2>Appendix A — Verified ontology terms (checked this session against local OAK adapters)</h2>
+<p><strong>Confirmed correct (label matches exactly):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>CURIE</th>
+<th>Label</th>
+<th>Adapter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MONDO:0020492</code></td>
+<td>hemimegalencephaly</td>
+<td><code>sqlite:obo:mondo</code></td>
+</tr>
+<tr>
+<td><code>HP:0007206</code></td>
+<td>Hemimegalencephaly</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0001355</code></td>
+<td>Megalencephaly</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0001250</code></td>
+<td>Seizure</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0011097</code></td>
+<td>Epileptic spasm</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0011182</code></td>
+<td>Interictal epileptiform activity</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0002376</code></td>
+<td>Developmental regression</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0001249</code></td>
+<td>Intellectual disability</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0000256</code></td>
+<td>Macrocephaly</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0001344</code></td>
+<td>Absent speech</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0007370</code></td>
+<td>Aplasia/Hypoplasia of the corpus callosum</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0002269</code></td>
+<td>Abnormality of neuronal migration</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>HP:0002119</code></td>
+<td>Ventriculomegaly</td>
+<td><code>sqlite:obo:hp</code></td>
+</tr>
+<tr>
+<td><code>GO:0031929</code></td>
+<td>TOR signaling</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0032008</code></td>
+<td>positive regulation of TOR signaling</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0032006</code></td>
+<td>regulation of TOR signaling</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0038202</code></td>
+<td>TORC1 signaling</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0043491</code></td>
+<td>phosphatidylinositol 3-kinase/protein kinase B signal transduction</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0001764</code></td>
+<td>neuron migration</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0021814</code></td>
+<td>cell motility involved in cerebral cortex radial glia guided migration</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0016049</code></td>
+<td>cell growth</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0008283</code></td>
+<td>cell population proliferation</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0021987</code></td>
+<td>cerebral cortex development</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0007420</code></td>
+<td>brain development</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0006412</code></td>
+<td>translation</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0006914</code></td>
+<td>autophagy</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>GO:0045595</code></td>
+<td>regulation of cell differentiation</td>
+<td><code>sqlite:obo:go</code></td>
+</tr>
+<tr>
+<td><code>CL:0000681</code></td>
+<td>radial glial cell</td>
+<td><code>sqlite:obo:cl</code></td>
+</tr>
+<tr>
+<td><code>CL:0011020</code></td>
+<td>neural progenitor cell</td>
+<td><code>sqlite:obo:cl</code></td>
+</tr>
+<tr>
+<td><code>CL:0000679</code></td>
+<td>glutamatergic neuron</td>
+<td><code>sqlite:obo:cl</code></td>
+</tr>
+<tr>
+<td><code>CL:0000598</code></td>
+<td>pyramidal neuron</td>
+<td><code>sqlite:obo:cl</code></td>
+</tr>
+<tr>
+<td><code>CL:0000127</code></td>
+<td>astrocyte</td>
+<td><code>sqlite:obo:cl</code></td>
+</tr>
+<tr>
+<td><code>CL:0000128</code></td>
+<td>oligodendrocyte</td>
+<td><code>sqlite:obo:cl</code></td>
+</tr>
+<tr>
+<td><code>CL:0000617</code></td>
+<td>GABAergic neuron</td>
+<td><code>sqlite:obo:cl</code></td>
+</tr>
+<tr>
+<td><code>UBERON:0001869</code></td>
+<td>cerebral hemisphere</td>
+<td><code>sqlite:obo:uberon</code></td>
+</tr>
+<tr>
+<td><code>UBERON:0000956</code></td>
+<td>cerebral cortex</td>
+<td><code>sqlite:obo:uberon</code></td>
+</tr>
+<tr>
+<td><code>UBERON:0002285</code></td>
+<td>telencephalic ventricle</td>
+<td><code>sqlite:obo:uberon</code></td>
+</tr>
+<tr>
+<td><code>UBERON:0002316</code></td>
+<td>white matter</td>
+<td><code>sqlite:obo:uberon</code></td>
+</tr>
+<tr>
+<td><code>UBERON:0002336</code></td>
+<td>corpus callosum</td>
+<td><code>sqlite:obo:uberon</code></td>
+</tr>
+<tr>
+<td><code>CHEBI:9168</code></td>
+<td>sirolimus</td>
+<td><code>sqlite:obo:chebi</code></td>
+</tr>
+<tr>
+<td><code>CHEBI:68478</code></td>
+<td>everolimus</td>
+<td><code>sqlite:obo:chebi</code></td>
+</tr>
+<tr>
+<td><code>CHEBI:63638</code></td>
+<td>vigabatrin</td>
+<td><code>sqlite:obo:chebi</code></td>
+</tr>
+<tr>
+<td><code>CHEBI:6437</code></td>
+<td>levetiracetam</td>
+<td><code>sqlite:obo:chebi</code></td>
+</tr>
+<tr>
+<td><code>NCIT:C15986</code></td>
+<td>Pharmacotherapy</td>
+<td><code>sqlite:obo:ncit</code></td>
+</tr>
+<tr>
+<td><code>NCIT:C93352</code></td>
+<td>Targeted Therapy</td>
+<td><code>sqlite:obo:ncit</code></td>
+</tr>
+<tr>
+<td><code>NCIT:C15656</code></td>
+<td>Neurosurgical Procedure</td>
+<td><code>sqlite:obo:ncit</code></td>
+</tr>
+<tr>
+<td><code>NCIT:C15329</code></td>
+<td>Surgical Procedure</td>
+<td><code>sqlite:obo:ncit</code></td>
+</tr>
+<tr>
+<td><code>NCIT:C173168</code></td>
+<td>Ketogenic Diet</td>
+<td><code>sqlite:obo:ncit</code></td>
+</tr>
+<tr>
+<td><code>NCIT:C15302</code></td>
+<td>Physical Therapy</td>
+<td><code>sqlite:obo:ncit</code></td>
+</tr>
+<tr>
+<td><code>NCIT:C15240</code></td>
+<td>Genetic Counseling</td>
+<td><code>sqlite:obo:ncit</code></td>
+</tr>
+<tr>
+<td><code>NCIT:C15747</code></td>
+<td>Supportive Care</td>
+<td><code>sqlite:obo:ncit</code></td>
+</tr>
+<tr>
+<td><code>NCIT:C15447</code></td>
+<td>Dietary Intervention</td>
+<td><code>sqlite:obo:ncit</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Do NOT use:</strong>
+- <code>GO:0014065</code> — <strong>OBSOLETE</strong> ("obsolete phosphatidylinositol 3-kinase signaling"). Use <code>GO:0043491</code>.
+- <code>NCIT:C177779</code> as a hemimegalencephaly mapping — it resolves to <strong>"MCAP Syndrome"</strong>, a different entity, despite MONDO xref-ing it. Verify against live NCIt and consider an upstream MONDO issue.
+- <code>NCIT:C203750</code> for implanted vagus nerve stimulation — it is <em>Transcutaneous Auricular</em> VNS.</p>
+<p><strong>Ontology gaps identified:</strong>
+1. No CL term for <strong>balloon cell</strong> or <strong>dysmorphic/cytomegalic neuron</strong> — the defining cells of this disease.
+2. No HP term for <strong>hemihypsarrhythmia</strong>.
+3. No NCIt term for <strong>hemispherectomy</strong> (MeSH <code>D038421</code> and SNOMED <code>14247003</code> have it).
+4. No HPO mode-of-inheritance term for <strong>somatic mosaicism / postzygotic non-heritable</strong> — a systematic problem for every mosaic disease in the KB, not just this one.</p>
+<hr />
+<h2>Appendix B — Citation index</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Citation</th>
+<th>Verification status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>22500628</td>
+<td>Poduri A et al. Somatic activation of AKT3 causes hemispheric developmental brain malformations. <em>Neuron</em> 2012;74:41-8</td>
+<td>abstract verbatim-verified via raw efetch</td>
+</tr>
+<tr>
+<td>22729223</td>
+<td>Lee JH et al. De novo somatic mutations in components of the PI3K-AKT3-mTOR pathway cause hemimegalencephaly. <em>Nat Genet</em> 2012;44:941-5. <a href="https://doi.org/10.1038/ng.2329" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.2329</a></td>
+<td><strong>cached in repo</strong>, verbatim-verified</td>
+</tr>
+<tr>
+<td>22729224</td>
+<td>Rivière JB et al. De novo germline and postzygotic mutations in AKT3, PIK3R2 and PIK3CA cause a spectrum of related megalencephaly syndromes. <em>Nat Genet</em> 2012;44:934-40. <a href="https://doi.org/10.1038/ng.2331" target="_blank" rel="noopener noreferrer">doi:10.1038/ng.2331</a></td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>25599672</td>
+<td>D'Gama AM et al. Mammalian target of rapamycin pathway mutations cause hemimegalencephaly and focal cortical dysplasia. <em>Ann Neurol</em> 2015;77:720-5</td>
+<td>abstract verbatim-verified via raw efetch</td>
+</tr>
+<tr>
+<td>25722288</td>
+<td>Jansen LA et al. PI3K/AKT pathway mutations cause a spectrum of brain malformations from megalencephaly to focal cortical dysplasia. <em>Brain</em> 2015</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>26060899</td>
+<td>Crino PB. Focal Cortical Dysplasia. <em>Semin Neurol</em> 2015;35:201-8</td>
+<td><strong>cached in repo (full text)</strong>, verbatim-verified</td>
+</tr>
+<tr>
+<td>28377884</td>
+<td>Evolution of epilepsy in hemimegalencephaly from infancy to adulthood. <em>Epilepsy Behav Case Rep</em> 2017</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>29281825</td>
+<td>D'Gama AM et al. Somatic Mutations Activating the mTOR Pathway in Dorsal Telencephalic Progenitors Cause a Continuum of Cortical Dysplasias. <em>Cell Rep</em> 2017</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>30514132</td>
+<td>mTOR Inhibitors as a New Therapeutic Strategy in Treatment Resistant Epilepsy in Hemimegalencephaly: A Case Report. <em>J Child Neurol</em> 2019</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>31444548</td>
+<td>Baldassari S et al. Dissecting the genetic basis of focal cortical dysplasia: a large cohort study. <em>Acta Neuropathol</em> 2019</td>
+<td>abstract verbatim-verified via raw efetch</td>
+</tr>
+<tr>
+<td>33387903</td>
+<td>Hemimegalencephaly and tuberous sclerosis complex: A rare yet challenging association. <em>Eur J Paediatr Neurol</em> 2021</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>33738444</td>
+<td>Cerebrospinal fluid liquid biopsy for detecting somatic mosaicism in brain. <em>Brain Commun</em> 2021</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>33749980</td>
+<td>Hemimegalencephaly and intractable seizures associated with the NPRL3 gene variant in a newborn. <em>Am J Med Genet A</em> 2021</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>34608615</td>
+<td>D'Gama AM, Poduri A. Precision Therapy for Epilepsy Related to Brain Malformations. <em>Neurotherapeutics</em> 2021;18:1548-63</td>
+<td><strong>cached in repo (full text)</strong>, verbatim-verified</td>
+</tr>
+<tr>
+<td>34608636</td>
+<td>Puka K et al. Functional cognitive and language outcomes after cerebral hemispherectomy for hemimegalencephaly. <em>Epilepsia</em> 2021;62:2932-40</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>35022853</td>
+<td>Hemispherectomy for hemimegalencephaly in a 6.5-week-old infant with TSC. <em>Childs Nerv Syst</em> 2022</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>36302639</td>
+<td>Definitive treatment of seizures due to hemimegalencephaly … by transarterial embolization. <em>J Neurointerv Surg</em> 2023</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>36325654</td>
+<td>Itoh M et al. Somatic mosaicism of the PI3K-AKT-MTOR pathway is associated with hemimegalencephaly in fetal brains. <em>Neuropathology</em> 2023</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>37149062</td>
+<td>Gerasimenko A, Baldassari S, Baulac S. mTOR pathway: Insights into an established pathway for brain mosaicism in epilepsy. <em>Neurobiol Dis</em> 2023;182:106144</td>
+<td><strong>cached in repo</strong>, verbatim-verified</td>
+</tr>
+<tr>
+<td>37873610</td>
+<td>Goel K et al. Hemispheric epilepsy surgery for hemimegalencephaly: The UCLA experience. <em>Epilepsia</em> 2024</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>37975663</td>
+<td>Goel K et al. Hemimegalencephaly: A Systematic Comparison of Functional and Anatomic Hemispherectomy for Drug-Resistant Epilepsy. <em>Neurosurgery</em> 2024;94:666-78</td>
+<td><strong>cached in repo</strong>, verbatim-verified</td>
+</tr>
+<tr>
+<td>38617140</td>
+<td>Prenatal diagnosis of hemimegalencephaly via transabdominal and transvaginal ultrasonography. <em>Quant Imaging Med Surg</em> 2024</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>38759814</td>
+<td>A spectrum of AKT3 activating mutations cause focal malformations of cortical development in cortical organoids. <em>BBA Mol Basis Dis</em> 2024;1870:167232</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>39454530</td>
+<td>Facial infiltrating lipomatosis with contralateral hemimegalencephaly. <em>Seizure</em> 2024</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>39641771</td>
+<td>Macdonald-Laurs E et al. ILAE genetic literacy series: Focal cortical dysplasia. <em>Epileptic Disord</em> 2025</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>39926610</td>
+<td>The genetic landscape and classification of infantile epileptic spasms syndrome requiring surgery due to suspected focal brain malformations. <em>Brain Commun</em> 2025</td>
+<td>abstract verbatim-verified via raw efetch</td>
+</tr>
+<tr>
+<td>39973610</td>
+<td>Gelot A et al. Cytomegalic parvalbumin neurons in fetal cases of hemimegalencephaly. <em>Epilepsia</em> 2025</td>
+<td><strong>no abstract obtained</strong> — RE-VERIFY</td>
+</tr>
+<tr>
+<td>40344425</td>
+<td>Uncrossed Cerebellar Diaschisis in Hemimegalencephaly: FDG-PET and DTI. <em>Int J Dev Neurosci</em> 2025</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>40425282</td>
+<td>Transarterial embolization for infants under 3 months … complication analysis. <em>J Neurointerv Surg</em> 2026</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>41033188</td>
+<td>Clinical and radiological evaluation of children with hemimegalencephaly and epilepsy: A single-center study. <em>Seizure</em> 2025</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>41489603</td>
+<td>Hemispheric endovascular embolization in an infant with TSC-related hemimegalencephaly. <em>Seizure</em> 2026</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>42024976</td>
+<td>A novel PTEN variant causing hemimegalencephaly and focal nodular heterotopias in the developing human brain. <em>Epilepsia</em> 2026</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>42132620</td>
+<td>Pielas M et al. Hemispheric surgery for hemimegalencephaly and hemispheric cortical dysplasia in infants below 12 months of age. <em>Epilepsia</em> 2026</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+<tr>
+<td>42208165</td>
+<td>Seizure Burden and Management in Infants With Hemimegalencephaly Prestaged and Poststaged Transarterial Embolization. <em>Pediatr Neurol</em> 2026</td>
+<td>secondhand — RE-VERIFY</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Structured-source references also citable:</strong> <code>ORPHA:99802</code> (Orphanet disorder record — definition, epidemiology class, phenotype table).</p>
+<p><strong>Registered trials referenced:</strong> <code>NCT02451696</code> (everolimus, TSC &amp; FCD, phase II), <code>NCT03198949</code> (everolimus in FCD II, phase II crossover), <code>NCT03646240</code> (ABI-009/nab-rapamycin, RaSuRE), <code>NCT01713946</code> (EXIST-3, TSC — context only), <code>NCT02098759</code> (EPISTOP, TSC — context only). <strong>No HME-specific interventional trial identified.</strong></p>
+<hr />
+<h2>Appendix C — Stated knowledge gaps (candidates for <code>discussions:</code> blocks)</h2>
+<ol>
+<li><strong><code>KNOWLEDGE_GAP</code> — no population prevalence or incidence for HME.</strong> The only circulating figure (1–3 per 1,000 children <em>with epilepsy</em>) has an epilepsy denominator and cannot be converted to a population rate.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — the genetic literature is ascertained entirely through surgery.</strong> Non-operated and milder HME is molecularly unsampled; the true genotype spectrum and the true "unsolved" fraction are unknown.</li>
+<li><strong><code>HUMAN_MODEL_MISMATCH</code> — no animal model reproduces unilateral hemisphere-scale overgrowth.</strong> Rodents lack the outer subventricular zone / outer radial glia biology that scales the human cortex, so every mouse result about <em>magnitude</em> of overgrowth is of uncertain human validity. Proposed resolution: human cortical organoid and assembloid models with mosaic mutation induction at defined developmental stages; comparative ferret/primate work.</li>
+<li><strong><code>HUMAN_MODEL_MISMATCH</code> — interneuron involvement.</strong> Mouse conditional-activation data say mTOR activation in interneurons is <em>not</em> sufficient for overgrowth (D'Gama 2017); human fetal pathology shows cytomegalic parvalbumin interneurons (Gelot 2025). Proposed resolution: single-nucleus multiome of human HME tissue with lineage-resolved variant calling.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — closed therapeutic window for the structural lesion.</strong> Prenatal rapamycin rescues the Akt3-E17K malformation in mice; postnatal does not. Whether postnatal mTOR inhibition in humans can do anything beyond seizure suppression is unresolved, and it determines whether "precision therapy for HME" means disease modification or symptom control.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — no genotype-outcome predictor.</strong> Whether MTOR- vs PIK3CA- vs DEPDC5-associated HME differ in surgical outcome, mTOR-inhibitor responsiveness, or developmental trajectory has not been tested with adequate power. The NPRL3 non-response case (<a href="https://pubmed.ncbi.nlm.nih.gov/33749980/" target="_blank" rel="noopener noreferrer">PMID:33749980</a>) hints that the amino-acid-sensing arm may behave differently.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — no HME-specific quality-of-life instrument, and caregiver burden does not improve with seizure freedom.</strong> The seizure-outcome literature and the family-outcome literature barely touch.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — no validated non-invasive molecular diagnostic.</strong> CSF cfDNA sensitivity is low (3/12 in one series); depth-electrode DNA is preprint-stage. Until one works, molecular diagnosis requires removing the hemisphere first, which is diagnostically backwards.</li>
+</ol>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Hemicrania_Continua-falcon.html">← Hemicrania Continua (Falcon)</a>
+                
+                
+                <a href="Hemochromatosis-falcon.html">Hemochromatosis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Hemimegalencephaly.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Hemimegalencephaly-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
