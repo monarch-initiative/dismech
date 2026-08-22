@@ -828,6 +828,20 @@ check-reference-cache-frontmatter:
 check-term-cache-integrity:
     uv run python -m dismech.term_cache_integrity cache
 
+# Apply the candidate node-class tree across kb/ (the executable half of the
+# pathograph node-classification design). `--format summary` reports coverage;
+# `tsv` emits per-node assignments; `debundle` lists nodes whose own GO
+# annotations span two classes -- each one a node making two claims; and
+# `conformance` compares every conforms_to edge's two sides, which is an
+# INDEPENDENT check on the classes because conforming pairs are curated as
+# "same kind of thing" by an unrelated process. Conformance is gated on both
+# sides being HIGH confidence by default (mismatch 10.0% vs 36.3% once the
+# gene/CL/UBERON fallbacks are let in); pass --include-low to see the rest.
+# Design artifact -- nothing in kb/ or the schema depends on it.
+[group('QC')]
+node-class-scan *args:
+    uv run python -m dismech.node_class_scan {{args}}
+
 # Parse and check the compact pathograph node-class tree
 # (docs/superpowers/pathograph_node_classes.txt). The tree is a DESIGN artifact
 # -- nothing in kb/ or the schema depends on it -- but its leaves are real

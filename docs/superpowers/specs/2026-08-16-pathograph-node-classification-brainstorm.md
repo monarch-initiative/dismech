@@ -226,6 +226,81 @@ disagree is making two claims:
 
 Note how many say "and" in the name.
 
+## The classification now runs over the KB
+
+`src/dismech/node_class_scan.py` applies the seed table plus a documented rule
+cascade to every pathophysiology node, so the numbers above are reproducible
+rather than reported:
+
+```bash
+just node-class-scan                        # coverage summary
+just node-class-scan --format tsv           # per-node assignments
+just node-class-scan --format debundle      # nodes whose own GO terms conflict
+just node-class-scan --format conformance   # class check across conforms_to edges
+```
+
+Rules fire in order, and each carries its own confidence because they are not
+equally trustworthy:
+
+| # | rule | class | confidence | fires on |
+|---|---|---|---|---:|
+| 1 | one HIGH seeded GO BP class | that class | HIGH | 51.2% |
+| 2 | >1 HIGH seeded GO BP class | `CONFLICT` | — | 6.2% |
+| 3 | GO MF present | ACTIVITY | HIGH | 3.2% |
+| 4 | CHEBI present | SUBSTANCE | MEDIUM | 1.8% |
+| 5 | gene present | GENOMIC | **LOW** | 5.5% |
+| 6 | UBERON without CL | TISSUE | **LOW** | 5.0% |
+| 7 | CL present | CELLULAR | **LOW** | 16.5% |
+| — | nothing | unclassified | — | 16.7% |
+
+Rule 5 is deliberately LOW: a gene annotation does not distinguish a genomic
+lesion from a broken molecular activity, and those are now different tiers.
+
+**77.1% of the 12,290 nodes get a class, 6.2% are flagged as debundle
+candidates, 16.7% stay unclassified.** Class mix: CELLULAR 45.9%, TISSUE 16.8%,
+GENOMIC 12.1%, SUBSTANCE 8.1%, ACTIVITY 7.1%, PATHWAY 6.7%, SYSTEMIC 3.2%.
+
+## Conformance edges are an independent check on the classes
+
+This is the test the earlier module section predicted, and it is worth more
+than the coverage number. A `conforms_to` edge asserts that a disorder node and
+a module node are the same *kind* of thing — curated by a process with no
+knowledge of this classification. So the agreement rate is evidence about the
+classes, not a restatement of them.
+
+Over 770 conformance pairs where both sides classify at HIGH confidence:
+**they agree 90.0% of the time.** For a nine-class scheme applied by an
+independent route, that is a real result.
+
+**But the gate matters, and this is the finding:**
+
+| pairs | mismatch |
+|---|---:|
+| both sides HIGH (seeded GO BP or GO MF) | **10.0%** (77/770) |
+| both sides from seeded GO BP alone | 8.1% (60/740) |
+| either side from a LOW fallback rule | **36.3%** (74/204) |
+| all pairs | 15.9% (156/981) |
+
+The gene/CL/UBERON fallbacks more than triple the disagreement rate. They are
+useful for coverage and useless for adjudication, so `--format conformance`
+gates on both-sides-HIGH by default and `--include-low` opts back in.
+
+Per-module agreement varies in an interpretable way:
+`complex_iv_assembly_deficiency` 37/37, `amyloidogenesis` 22/25,
+`epilepsy_excitation_inhibition_imbalance` 84/117, and
+`metabolic_intoxication_decompensation` 14/30 — the worst, and plausibly a real
+finding about that module rather than about the classifier, since its conformers
+substitute enzyme-level lesions under substance- and systemic-level module
+nodes.
+
+**What a mismatch means is not yet settled.** Two readings compete and the data
+does not separate them: either the mapping is wrong, or a conforming node is
+legitimately allowed to sit one tier off its module target because the disorder
+substitutes a disease-specific *cause* for a generic *state*. *Reduced FGF14
+Expression in Cerebellar Neurons* conforming to `cerebellar_purkinje_degeneration#Cerebellar Neuron Insult`
+(GENOMIC vs CELLULAR) reads as the second. Resolving this needs a curator to
+review a sample; until then the check is a worklist, not a verdict.
+
 ## How this ties in with module classification
 
 Modules (`kb/modules/`) validate against the same `Disease` class, so their
