@@ -49,6 +49,9 @@ just validate-terms kb/disorders/Asthma.yaml
 # Validate ontology term references in the schema's dynamic enums
 just validate-terms-schema
 
+# Check that no bound term is flagged Not4Curation by its own ontology
+just check-not4curation
+
 # Run pytest tests
 just pytest-all
 
@@ -154,6 +157,115 @@ test enforces this). `curation-scanner`'s per-effort-tier models live in the sam
 file as a `matrix:` and drive its strategy matrix via a `setup` job. This
 complements — and is separate from — cron cadence (cron-profiles.yaml); it covers
 the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #5218.
+
+### Curation Stub Queue (`stubs/`)
+
+The outstanding curation queue is `stubs/` — **one YAML file per disease we
+intend to curate but have not**. It is repository content, edited by pull
+request, not a generated ranking. Its size is the remaining work.
+
+**Stubs are informative, not curated content.** A curation PR *should* delete
+the stub it curates:
+
+```
+- stubs/Yao_Syndrome.yaml
++ kb/disorders/Yao_Syndrome.yaml
++ history/disorders/Yao_Syndrome/...
+```
+
+but forgetting is not an error, and **nothing blocks on it**. A stub going stale
+because somebody curated its disease is expected drift: gating on it would turn
+every open stub PR red the moment an unrelated curation PR merged, and curators
+would spend their time servicing a bookkeeping message. Overlap and lag are
+fine. `just tidy-stubs --apply` clears the stale ones on a periodic sweep.
+
+`just check-stubs` gates only on a **malformed file** — unparseable YAML, a bad
+MONDO ID, a duplicate, a bad enum value. Only the author of that stub sees those,
+and they are cheap to fix.
+
+Each stub carries MONDO context so the lump/split call can be made from the file:
+`mondo_parents` (is this a subtype of something already curated?),
+`mondo_descendants` + `mondo_descendant_count` (a long list means grouping —
+`autoimmune disease` has 258), and `genes` (MONDO's causal `RO:0004003` genes, in
+lowercase `hgnc:` form). Added by `just enrich-stubs`, which needs the MONDO
+database, is idempotent, and pins the release it read in
+`data/mondo/MANIFEST.yaml`. These are **reported, never scored** — scoring child
+count is what the old dashboard did, with the sign backwards.
+
+```bash
+just next-stubs 5          # what to curate next (see the caveat below)
+just enrich-stubs          # refresh MONDO parents/descendants/genes
+just next-stubs 5 --json   # machine-readable
+just stub-stats            # queue summary
+just check-stubs           # file well-formedness; runs in `just qc`
+just tidy-stubs            # list stale stubs (curated elsewhere, or obsolete)
+just tidy-stubs --apply    # and delete them
+just validate-stubs        # schema validation (src/dismech/schema/curation_stub.yaml)
+just seed-stubs <file>     # import nominations; never overwrites an existing stub
+```
+
+**There is no score, and the ordering carries almost no information.** The only
+ordering is a hand-set `priority` band (`HIGH` / `NORMAL` / `LOW`) that a person
+put there in a PR; within a band `just next-stubs` spreads by a stable hash, so
+the order is arbitrary by design. It gives a *pool*, not a ruling — pick the
+disease you actually know something about, and skip freely. This is deliberate. The previous ranked dashboard scored ~24,000
+MONDO terms and its top 175 candidates were *all* broad parent terms, because
+every cheap ontology feature (child count, synonym count, aggregator tags)
+correlates with being a grouping rather than with being worth curating
+(issue #8969).
+
+**`entry_type` is the lump/split decision and is never pre-filled.** Seeded
+stubs are all `UNDECIDED`. Deciding is the curator's first job:
+
+| `entry_type` | Outcome |
+|---|---|
+| `DISEASE` | Curate it → `kb/disorders/<Name>.yaml` |
+| `GROUPING` | A union of distinct diseases → `kb/groupings/<Name>.yaml` |
+| `SUBTYPE` | A `has_subtypes` entry on a parent disease; name the parent in `notes` |
+| `OUT_OF_SCOPE` | A phenotype, susceptibility term, or category too abstract to carry a mechanism |
+| `UNDECIDED` | Still in the queue (the default) |
+
+Recording `GROUPING`, `SUBTYPE`, or `OUT_OF_SCOPE` and deleting the stub is a
+**completed curation**, not an avoided one. Put the reasoning in `notes` so the
+concept is not re-nominated.
+
+Anyone can change the queue by PR: add a stub (only `mondo_id` and `label` are
+required), raise or lower `priority` with a reason in `notes`, or argue one out
+via `entry_type`.
+
+**Claiming a disease is NOT done in the stub.** The stub queue says what is left;
+an **open GitHub issue labelled `claim`**, titled `Curate <label>
+(MONDO:NNNNNNN)` and assigned to whoever is driving the work, says who has it
+right now. A claim written into YAML would only become visible when its PR
+merged — days too late to stop two agents picking the same disease — so the
+schema has no `claimed_by` and no `CLAIMED` status.
+
+```bash
+just fetch-claims          # one API call -> tmp/claims.json
+just next-unclaimed 5      # the two-phase pick: claims, then stubs
+just check-claims          # double-claims, unkeyed titles, stale claims
+```
+
+The `claim` label is what makes this correct as well as fast: `gh issue list
+--label claim` uses the immediately-consistent list endpoint, where the older
+`--search` preflight used the search API, whose index lag *was* the race window.
+The MONDO ID in the title is the key everything matches on — an issue titled
+`curate peripartum cardiomyopathy` locks nothing.
+
+A claim with an open PR is **never** stale, however old; long-running curation
+PRs are normal. `check-claims` reports old-with-no-PR claims for a person to
+follow up, and never releases one automatically. The curation PR carries
+`Closes #<issue>`, so merging deletes the stub and releases the claim together.
+
+This supersedes the #1079 EPIC checklist; new claim issues should not carry a
+`Tracker: part of #1079` line.
+
+The initial 1,867 stubs were seeded from the Monarch
+[rare-disease-identification](https://github.com/monarch-initiative/rare-disease-identification)
+prioritised rare disease list, minus concepts the KB already covers. The MONDO
+prioritizer and `dashboard/priority.html` still exist as a *browsable pool* for
+finding new nominations, but they are no longer the answer to "what should I
+curate next". See [`docs/curation-stubs.md`](docs/curation-stubs.md).
 
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
@@ -1897,6 +2009,69 @@ just count-verified-snippets kb/disorders/Cholera.yaml kb/disorders/Asthma.yaml
 #   Snippets checked: 376/376 verified against cached references
 ```
 
+**Five more gates belong in this loop, because CI runs them ungated (#9137).**
+The three checks above are the ones CI runs *on your changed files*; these five
+run on **every** PR with no path filter at all (`.github/workflows/main.yaml`),
+precisely because the PRs that trip them are curation PRs touching only `kb/`,
+which no `src/tests` filter would catch. A curator who runs only the documented
+loop can therefore finish every check and still push work that fails CI:
+
+```bash
+just check-folded-hyphens                              # whole KB + src/, ~8s
+just check-snippet-length                              # whole KB, ~1min
+just check-title-snippets                              # whole KB, ~2.5min
+just check-environmental-evidence                      # whole KB, ~1min
+just check-duplicate-keys kb/disorders/MyDisease.yaml  # or bare: kb/ + schema + conf, ~18s
+```
+
+All five are offline — no reference fetching, no OAK, no network — which is why
+they belong in the per-edit loop rather than the pre-PR sweep. They are not all
+*fast*, though: only `check-duplicate-keys` takes file arguments, so the other
+four re-scan the whole KB every run (and the ratchets scan it twice, once at
+`HEAD` and once at the baseline ref). Run them after a tranche of edits rather
+than after every keystroke.
+
+**What each one actually catches** — the failure modes are non-obvious, and all
+five are invisible to `validate` / `validate-terms` / `count-verified-snippets`:
+
+| Gate | The defect |
+|---|---|
+| `check-folded-hyphens` | A line inside a folded (`>`, `>-`) scalar that ends in a hyphen. `SCA3/Machado-` + newline folds to `Machado- Joseph` — a corrupted disease name in the rendered prose, invisible in the raw YAML (#4799). A suspended hyphen whose continuation starts `and`/`or`/`to`/`vs`/`nor` is exempt. |
+| `check-snippet-length` | An evidence snippet under 5 words. A bare term lifted from a table (`'Babinski signs++++'`) carries no propositional content — it can support nothing — and usually signals text-extraction damage (#7450). Pipe-delimited structured-source rows (ORPHA/ClinGen/ICEES/NCIT) are exempt. |
+| `check-title-snippets` | A snippet that is the cited paper's *title*, or a contiguous fragment of it, rather than its finding — see §6 below (#8374). |
+| `check-environmental-evidence` | An `environmental:` entry with no entry-level `evidence:` block, which is an uncited causation claim (#8296). Evidence on that entry's `influences_mechanisms` links is a **different** claim — "this exposure acts on this node", not "this exposure is real" — and does not satisfy this gate. |
+| `check-duplicate-keys` | A repeated mapping key: kept silently by PyYAML's safe loaders, fatal to the ruamel-backed reference validator. See "Duplicate YAML Keys" below (#8623). |
+
+**Grandfathering, and the trap in it.** Four of the five ratchet against a
+baseline so the pre-existing backlog need not be cleaned up first — but they do
+not source that baseline the same way, and the difference decides whether
+`--update-baseline` can help you:
+
+- `check-snippet-length`, `check-title-snippets`, and `check-environmental-evidence`
+  derive the grandfather set **live from a git ref** (`--against-ref origin/main`
+  locally; the PR's base branch in CI). The committed `tests/*_baseline.txt` is
+  only a fallback for when that ref cannot be read, and **CI never reads it**. So
+  a finding your branch *adds* cannot be baselined away: `just
+  update-snippet-length-baseline` (and its `update-title-snippet-baseline` /
+  `update-environmental-evidence-baseline` siblings) rewrites a file CI ignores,
+  passes locally, and still fails CI. Fix the snippet.
+- `check-folded-hyphens` is the exception: CI runs it with no `--against-ref`, so
+  it reads the committed `tests/folded_hyphen_baseline.txt` and `just
+  update-folded-hyphen-baseline` genuinely does move the gate. That is a reason
+  for more care, not less — a hyphen split is a corrupted term in rendered prose.
+  Regenerate it only when you have deliberately changed the backlog (e.g. fixed
+  entries), never to admit a split you just introduced.
+- `check-duplicate-keys` has no baseline at all. Every finding is new.
+
+**Triage views.** Each ratchet has a `list-*` sibling printing every finding,
+baselined or not — `just list-short-snippets`, `just list-title-snippets`,
+`just list-environmental-evidence-gaps` (and `just list-empty-snippets` for the
+unbaselined `check-empty-snippets` guard, which `just qc` and the pytest suite
+run but no ungated CI step does). Use these to see the existing backlog in a
+file you are already editing; the gates themselves only report what is new. All
+of them are also part of `just qc`, but `qc` runs `validate-all` too and is far
+too slow for the curation loop.
+
 **Pre-PR sweep — run ONCE over every changed file, before opening or updating a PR:**
 
 ```bash
@@ -2136,7 +2311,14 @@ just validate-disorders kb/disorders/MyDisease.yaml
    so a PMID you forgot to fetch shows up as `not cached locally` rather than
    passing quietly
 4. If a snippet doesn't match, fix it to be an exact quote or find a different PMID
-5. Run `just validate-disorders <every changed file>` once before opening the PR
+5. Run the five ungated CI gates — `just check-folded-hyphens`,
+   `just check-snippet-length`, `just check-title-snippets`,
+   `just check-environmental-evidence`, and `just check-duplicate-keys
+   kb/disorders/YourFile.yaml`. They are offline, they run on every PR whatever
+   it touches, and none of the checks above can see what they catch (see
+   "Validation Workflow" for what each one means and why a new finding cannot be
+   baselined away)
+6. Run `just validate-disorders <every changed file>` once before opening the PR
    (see "Validation Workflow" for why this is the end-of-run check)
 
 **Deterministic cache contract check (dismech#871):**
@@ -2205,6 +2387,63 @@ defence, and a *repaired* truncation is still invisible to it. When reviewing a
 cache diff, be suspicious of rows sharing one synthetic timestamp (e.g. several
 rows all at `...T00:00:00.000000`): that is the fingerprint of ad-hoc seeding,
 and those labels should be checked against the ontology rather than the cache.
+
+## Terms Flagged `Not4Curation` (dismech#8472)
+
+RGD-curated ontologies (XCO, and its siblings) keep terms for hierarchy and
+structural completeness that they do **not** want used for annotation, and mark
+them with a related synonym reading `Not4Curation`. That is a synonym, not a
+`deprecated`/`obsolete` axiom, so a flagged term:
+
+- exists in the ontology,
+- has a canonical label that matches `term.label` exactly, and
+- is reachable from the dynamic enum's `source_nodes`
+
+— i.e. it passes every check `just validate-terms` performs, while being a term
+its own maintainers say not to use. Three (`XCO:0000294` estrogen/estrogen
+analog, `XCO:0000950` anticonvulsant, `XCO:0000561` antidepressant) reached the
+#8430 binding tranches on exactly that basis; all three had proper ECTO
+equivalents, and only a reviewer noticing one instance led to the others being
+found by hand.
+
+```bash
+just check-not4curation                                  # whole KB + schema; runs in `just qc`
+just check-not4curation kb/disorders/Asthma.yaml         # one file
+just check-not4curation --list-flagged --prefix XCO      # the full deny-list for one ontology
+just check-not4curation --warn-only                      # report without failing
+```
+
+It **fails** on a flagged binding: the whole-KB sweep is clean today, so there is
+no backlog to grandfather and nothing to baseline. Replace a flagged term with
+one intended for annotation (`XCO:0000294` → `ECTO:9000010` exposure to
+estrogens) rather than suppressing the check.
+
+**Scope.** The marker test is a generic synonym-substring check, so it costs
+nothing on ontologies that never use the convention — of everything dismech
+binds, only XCO carries it (24 of 1,816 terms); ECTO, GENO and OPL carry none.
+It covers the prefixes whose `conf/oak_config.yaml` adapter is **local**
+(`sqlite:`), which answer an alias query per term offline. OLS-served prefixes
+are *reported as skipped*, not silently dropped: checking them costs one network
+round trip per term and the KB binds ~18,000 of them (`--include-remote` opts in
+anyway). The coverage line also reports, per prefix, how many terms the adapter
+returned any synonym for — a marker *is* a synonym, so a prefix at `0/N` was
+looked up but not effectively checked, and the check says so rather than
+reporting a clean run.
+
+**Cache interaction — the subtle half.** All three flagged CURIEs are still in
+`cache/xco/terms.csv` and the `exposureterm` enum cache: they were added by
+validation before anyone noticed the flag, and `cache/enums/*.csv` is the
+*offline* positive-hit set for `reachable_from`. A curator reaching for one would
+therefore validate offline, with no network call that could surface the flag.
+**Do not hand-delete those rows** — that is the wrong fix per the cache
+guardrails above, which is precisely why the gate exists. The audit reports
+flagged-but-unused cached CURIEs as a non-gating note so the situation is
+visible.
+
+This is a **stopgap**. The check belongs upstream in `linkml-term-validator`,
+next to the existence and label checks it already performs — every LinkML
+knowledge base consuming RGD ontologies has the same gap. It lives here because
+the validator is a pinned external dependency.
 
 ## Duplicate YAML Keys (dismech#8623)
 
@@ -2512,6 +2751,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `references_cache/*.md` | YES | Required for deterministic `validate-references` CI |
 | `cache/**/*.csv` | YES | Required for deterministic term validation CI |
 | `research/*.md` | YES | Deep-research outputs & script-generated artifacts only (see "Research Artifacts") — do not hand-place ad-hoc notes here; use `docs/` |
+| `stubs/*.yaml` | YES | The curation queue. A curation PR **deletes** the stub it curates |
 | `exports/model_runs/*.json` | YES | Derived `dismech-perturb` results the disorder pages render; regenerate with `just gen-model-results` (needs tellurium), never hand-edit |
 | `exports/sedml/<model_id>/` | YES | Derived SED-ML + COMBINE archive contents (text, reviewable); regenerate with `just sedml-export` |
 | `src/`, `scripts/`, `tests/`, `conf/` | YES | Source code |
