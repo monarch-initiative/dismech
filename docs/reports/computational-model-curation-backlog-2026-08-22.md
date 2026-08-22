@@ -43,7 +43,8 @@ This report complements the execution-focused
 Operational state is deliberately kept out of the table because it changes
 faster than this report. As of 2026-08-22 19:11 UTC, nine approved PRs (#9087
 through #9145 above) were marked ready for review and were conflict-free. #9084
-and #9263 remained drafts while requested review fixes were being completed.
+remained a draft while its requested review fix was being completed; #9263 was
+also awaiting re-review after requested changes.
 Approved, ready, unassigned PRs become eligible for the repository's
 deterministic auto-merge sweep after its three-day cooling period; drafts are
 never eligible. Current state should be read from the linked PRs.
