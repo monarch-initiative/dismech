@@ -59494,6 +59494,10 @@ window.searchData = [
     "subtypes": [],
     "description": "Congenital Zika syndrome (CZS) is a non-genetic malformation of cortical development caused by intrauterine infection with Zika virus (ZIKV), a mosquito-borne flavivirus. After maternal infection \u2014 most consequential for fetal neurodevelopment during the first and second trimesters \u2014 ZIKV crosses the placenta and reaches the developing fetal central nervous system, where it is neurotropic for apical and outer radial glia and other neural progenitor cells of the cortical ventricular and subventricular zones. Productive infection of these founder progenitors dysregulates the cell cycle, triggers caspase-mediated apoptosis, and activates innate antiviral signalling (including the TLR3 pathway and type I interferon responses), collectively depleting the progenitor pool and abrogating neurogenesis during the peak neurogenic window. The resulting deficit of cortical neurons produces the recognizable CZS phenotype: severe (often congenital) microcephaly with a markedly disproportionate skull, agyria/lissencephaly-like smooth cortex, intracranial (cortical and subcortical) calcifications, ventriculomegaly/hydrocephalus, and cortical thinning, frequently accompanied by ocular abnormalities, arthrogryposis, sensorineural hearing loss, seizures, and global developmental delay. CZS is the exemplar infectious (non-Mendelian) cortical malformation mechanism: its proximal cause is a defined viral exposure rather than a germline variant, but it converges on the same progenitor-depletion endpoint as genetic primary microcephaly, distinguished pathologically by a more destructive process with prominent cell death, necrosis, and calcification.",
     "pathophysiology": [
+      "Tunneling Nanotube-Mediated Intercellular Viral Spread",
+      "Placental Infection",
+      "Placental Architectural and Functional Disruption",
+      "Fetal Growth Restriction",
       "Maternal-Fetal Transmission and Neurotropic Viral Entry",
       "Antiviral Innate Immune Activation",
       "Viral Mitotic and Centrosome Cytopathy",
@@ -59501,14 +59505,20 @@ window.searchData = [
       "Impaired Neurogenesis and Congenital Cortical Malformation"
     ],
     "cell_types": [
+      "trophoblast cell",
       "Radial glial cell",
       "Neural progenitor cell"
     ],
     "cell_type_ids": [
+      "CL:0000351",
       "CL:0000681",
       "CL:0011020"
     ],
     "biological_processes": [
+      "tunneling nanotube formation",
+      "TNT-shielded escape from maternal type III interferon control",
+      "maternal type III interferon (IFN-lambda) signaling at the maternal-fetal interface",
+      "placental architecture and efficiency",
       "Viral entry into host cell",
       "Viral genome replication",
       "Innate immune response",
@@ -59555,11 +59565,11 @@ window.searchData = [
     "source_file": "Congenital_Zika_Syndrome.yaml",
     "page_url": "../pages/disorders/Congenital_Zika_Syndrome.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Congestive Splenomegaly",
@@ -100155,15 +100165,18 @@ window.searchData = [
       "VEGF-Triggered AVM Formation",
       "Somatic Second-Hit Mutation and AVM Formation",
       "Chronic Bleeding from Telangiectases",
-      "Vascular Shunting Through Visceral AVMs"
+      "Vascular Shunting Through Visceral AVMs",
+      "Hepatic Vascular Steal and Biliary Ischemia"
     ],
     "cell_types": [
       "endothelial cell",
-      "pericyte"
+      "pericyte",
+      "cholangiocyte"
     ],
     "cell_type_ids": [
       "CL:0000115",
-      "CL:0000669"
+      "CL:0000669",
+      "CL:1000488"
     ],
     "biological_processes": [
       "BMP signaling pathway",
@@ -100183,6 +100196,7 @@ window.searchData = [
       "Transient Ischemic Attack",
       "Brain Abscess",
       "Hepatic Arteriovenous Malformation",
+      "Ischemic Cholangiopathy",
       "Pulmonary Arterial Hypertension",
       "Fatigue"
     ],
@@ -100221,6 +100235,7 @@ window.searchData = [
       "HP:0002326",
       "HP:0030049",
       "HP:0006574",
+      "HP:0030991",
       "HP:0002092",
       "HP:0012378"
     ],
@@ -100249,12 +100264,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Hereditary_Hemorrhagic_Telangiectasia.yaml",
     "page_url": "../pages/disorders/Hereditary_Hemorrhagic_Telangiectasia.html",
-    "num_phenotypes": 15,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 8,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hereditary Hemorrhagic Telangiectasia Type 4",
@@ -110031,6 +110046,110 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Immunodeficiency 85 and Autoimmunity",
+    "disease_id": "MONDO:0030428",
+    "category": "Immunological",
+    "parents": [
+      "Inborn Errors of Immunity",
+      "Combined Immunodeficiency"
+    ],
+    "creation_date": "2026-08-22T04:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An inborn error of immunity caused by a heterozygous missense variant in TOM1, an endosomal adaptor protein with no classical immunological function. The name records what makes it interesting: the same lesion produces immunodeficiency and autoimmunity together, in one patient, rather than one or the other.\nThat combination is the entry's organising claim. TOM1 does not sit in a lymphocyte signalling pathway - it moves ubiquitinated cargo through the endolysosomal system and helps autophagosomes fuse with lysosomes. Losing that function starves immune effector responses of something they need while simultaneously removing a brake on inflammatory signalling, so the immune system is at once underpowered against infection and overactive against self.\nThe evidence base is narrow, and in a specific way. Two related patients - a mother with relatively mild disease and her son, whose disease was aggressive and fatal - carry TOM1 p.Gly307Asp, and every functional experiment curated here was performed on their cells. A second, unrelated child with a different TOM1 variant (a splice change predicted to be dominant negative) has since been reported in an IPEX-like cohort, so the gene now has two families behind it while the variant still has one. The discovery paper's own caveat that unrelated cases are needed is curated on the gene entry rather than left in notes.",
+    "pathophysiology": [
+      "TOM1 GAT-Domain Variant",
+      "Loss of TOM1 Restraint on TOLLIP Phosphoinositide Binding",
+      "Defective Endosomal Cargo Trafficking",
+      "Autophagosome-Lysosome Fusion Failure",
+      "Excessive Inflammatory Pathway Activation",
+      "Impaired Lymphocyte Effector Function"
+    ],
+    "cell_types": [
+      "T cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "endosomal transport",
+      "autophagosome-lysosome fusion",
+      "autophagosome maturation",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Recurrent Respiratory Infections",
+      "Hypogammaglobulinemia",
+      "Oligoarthritis",
+      "Psoriasiform Dermatitis",
+      "Interstitial Lung Disease",
+      "Growth Failure",
+      "Lymphocytic Interstitial Pneumonitis",
+      "Autoimmune Enteropathy",
+      "Chronic Diarrhea",
+      "Persistent EBV Viremia",
+      "Reduced Natural Killer Cell Count",
+      "Decreased Dendritic Cell Count",
+      "Decreased Class-Switched Memory B Cells",
+      "Impaired Regulatory T Cell Function"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Musculoskeletal",
+      "Dermatological",
+      "Respiratory",
+      "Growth",
+      "Gastrointestinal",
+      "Cellular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002205",
+      "HP:0004313",
+      "HP:0040313",
+      "HP:0003765",
+      "HP:0006530",
+      "HP:0001510",
+      "HP:0006527",
+      "HP:0002028",
+      "HP:0020072",
+      "HP:0040218",
+      "HP:0020178"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TOM1"
+    ],
+    "treatments": [
+      "mTOR Inhibitor Therapy",
+      "Proposed Targeted Immunomodulation (IL-1 Antagonism or JAK Inhibition)",
+      "Hematopoietic Stem Cell Transplantation",
+      "Immunoglobulin Replacement Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_85_And_Autoimmunity.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_85_and_Autoimmunity.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Immunodeficiency 93 and Hypertrophic Cardiomyopathy",
     "disease_id": "MONDO:0030528",
     "category": "Mendelian",
@@ -113872,6 +113991,78 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "61",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Isolated Growth Hormone Deficiency Type IA",
+    "disease_id": "MONDO:0009876",
+    "category": "Endocrine",
+    "parents": [
+      "Isolated Growth Hormone Deficiency",
+      "Growth Hormone Deficiency"
+    ],
+    "creation_date": "2026-08-22T04:35:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "The most severe Mendelian form of isolated growth hormone deficiency: autosomal recessive, with complete absence of endogenous growth hormone and severe dwarfism by six months of age. Caused by severe loss-of-function lesions at GH1 - most often deletions, but also frameshift and nonsense mutations.\nWhat makes it worth curating as its own entity rather than as the severe end of a spectrum is that the same lesion causes the disease and the failure of its treatment. These patients have never been exposed to growth hormone, so they were never made tolerant to it. Given recombinant GH, many mount an antibody response against the hormone, and those antibodies can abolish the growth response the treatment was given for.\nThe natural experiment that proves this is the heterozygote. A carrier with one deleted allele and one allele producing non-truncated protein makes GH, and is usually immune tolerant. Tolerance tracks the presence of endogenous hormone, not the genotype as such.",
+    "pathophysiology": [
+      "GH1 Severe Loss-of-Function Lesion",
+      "Complete Absence of Endogenous Growth Hormone",
+      "Loss of Growth Hormone Receptor Signalling",
+      "Failure of Immune Tolerance to Growth Hormone"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "growth hormone receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Severe Short Stature",
+      "Hypoglycemia",
+      "Delayed Skeletal Maturation",
+      "Anti-Growth-Hormone Antibody Formation"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Metabolic",
+      "Skeletal",
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003510",
+      "HP:0001943",
+      "HP:0002750"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GH1"
+    ],
+    "treatments": [
+      "Recombinant Human IGF-1 (Mecasermin)",
+      "Recombinant Human Growth Hormone Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Growth hormone-binding protein (GHBP)",
+      "Insulin-like growth factor binding protein 3 (IGFBP-3)",
+      "Anti-growth hormone antibodies"
+    ],
+    "source_file": "Isolated_Growth_Hormone_Deficiency_Type_IA.yaml",
+    "page_url": "../pages/disorders/Isolated_Growth_Hormone_Deficiency_Type_IA.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Isolated Sedoheptulokinase Deficiency",
@@ -121121,6 +121312,85 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "47",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Lambert-Eaton Myasthenic Syndrome",
+    "disease_id": "MONDO:0018556",
+    "category": "Autoimmune",
+    "parents": [],
+    "creation_date": "2026-08-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autoimmune disorder of neuromuscular transmission caused by antibodies against presynaptic P/Q-type voltage-gated calcium channels, producing proximal weakness, loss of tendon reflexes and autonomic dysfunction.\nIt is the presynaptic mirror of myasthenia gravis, and the contrast is what makes it mechanistically legible. Myasthenia gravis attacks the postsynaptic acetylcholine receptor, so the muscle cannot hear a normal signal; LEMS attacks the presynaptic calcium channel, so the nerve cannot send one. That single difference in locus predicts the entire clinical inversion - reflexes lost rather than preserved, weakness that briefly improves with exertion rather than worsening, autonomic involvement rather than none, and a drug that works by prolonging the nerve terminal action potential rather than by inhibiting acetylcholinesterase.\nIn roughly half to sixty percent of patients it is paraneoplastic to small-cell lung carcinoma, so the diagnosis is also a cancer-screening trigger. That makes prediction of tumour risk a curated part of the disease rather than an afterthought.",
+    "pathophysiology": [
+      "Small-Cell Lung Carcinoma Ectopic Antigen Expression and Anti-Tumour Immune Response",
+      "Anti-P/Q-Type VGCC Autoantibody Production",
+      "Antigenic Modulation and Depletion of Active Zone Particles",
+      "Reduced Calcium-Dependent Acetylcholine Release",
+      "Neuromuscular and Autonomic Transmission Failure"
+    ],
+    "cell_types": [
+      "motor neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000100"
+    ],
+    "biological_processes": [
+      "calcium transport via high voltage-gated calcium channel",
+      "acetylcholine secretion, neurotransmission"
+    ],
+    "phenotypes": [
+      "Proximal Muscle Weakness",
+      "Loss of Tendon Reflexes",
+      "Autonomic Dysfunction",
+      "Dry Mouth",
+      "Erectile Dysfunction",
+      "Bulbar Involvement",
+      "Ptosis",
+      "Diplopia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Autonomic",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003701",
+      "HP:0001265",
+      "HP:0002270",
+      "HP:0000217",
+      "HP:0008652",
+      "HP:0002015",
+      "HP:0000508",
+      "HP:0000651"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Amifampridine (3,4-Diaminopyridine)",
+      "Tumour Treatment",
+      "Immunosuppression"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lambert-Eaton_Myasthenic_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lambert-Eaton_Myasthenic_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Landau-Kleffner Syndrome",
@@ -153961,6 +154231,85 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Normal Pressure Hydrocephalus",
+    "disease_id": "MONDO:0009366",
+    "category": "Complex",
+    "parents": [
+      "Communicating Hydrocephalus",
+      "Hydrocephalus"
+    ],
+    "creation_date": "2026-08-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ventricular enlargement with cerebrospinal fluid pressure in the high-normal range, presenting in older adults as the triad of gait disturbance, cognitive decline and urinary incontinence, and treated by surgical CSF diversion. The idiopathic form is common in the elderly and is the one form of dementia widely described as reversible.\nTwo mechanisms are curated here, and the reason to curate both is that they differ in reversibility. A mechanical arm runs from age-related loss of intracranial compliance through disturbed CSF pulsatility and absorption to ventriculomegaly and stretch injury of the periventricular white matter. A glymphatic arm runs from perivascular AQP4 depolarization through impaired CSF-interstitial fluid exchange to interstitial amyloid-beta accumulation. The first arm is what a shunt addresses; the second is not. In the placebo-controlled trial that finally tested shunting, gait improved and cognition did not.",
+    "pathophysiology": [
+      "Age-Related Loss of Intracranial Compliance",
+      "Increased CSF Pulsatility with Impaired CSF Absorption",
+      "Ventriculomegaly at Normal Mean CSF Pressure",
+      "Periventricular White Matter Compression and Stretch Injury",
+      "Perivascular AQP4 Depolarization",
+      "Impaired Glymphatic CSF-ISF Exchange and Solute Clearance",
+      "Interstitial Amyloid-beta Accumulation"
+    ],
+    "cell_types": [
+      "astrocyte of the cerebral cortex"
+    ],
+    "cell_type_ids": [
+      "CL:0002605"
+    ],
+    "biological_processes": [
+      "cerebrospinal fluid circulation",
+      "water transport",
+      "amyloid-beta clearance"
+    ],
+    "phenotypes": [
+      "Gait Disturbance",
+      "Cognitive Impairment",
+      "Urinary Incontinence",
+      "Urinary Urgency",
+      "Ventriculomegaly"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Genitourinary",
+      "Neuroimaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010521",
+      "HP:0000726",
+      "HP:0000020",
+      "HP:0000012",
+      "HP:0002119"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SLCO1A2",
+      "CFAP43",
+      "SFMBT1"
+    ],
+    "treatments": [
+      "Ventriculoperitoneal Shunt Placement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Normal_Pressure_Hydrocephalus.yaml",
+    "page_url": "../pages/disorders/Normal_Pressure_Hydrocephalus.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 3,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "North Carolina Macular Dystrophy",
     "disease_id": "MONDO:0007630",
     "category": "Mendelian",
@@ -157525,7 +157874,8 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "OFD1 Mutations"
+      "OFD1 Mutations",
+      "OFD1 Hypomorphic Alleles (Isolated X-Linked Retinitis Pigmentosa, RP23)"
     ],
     "treatments": [
       "Surgical Correction of Oral Anomalies",
@@ -157539,7 +157889,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Orofaciodigital_Syndrome_Type_I.html",
     "num_phenotypes": 21,
     "num_pathophysiology": 2,
-    "num_genes": 1,
+    "num_genes": 2,
     "num_treatments": 4,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "1"
@@ -157639,6 +157989,73 @@ window.searchData = [
     "num_genes": 0,
     "num_treatments": 2,
     "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Osmotic Demyelination Syndrome",
+    "disease_id": "MONDO:0006692",
+    "category": "Complex",
+    "parents": [],
+    "creation_date": "2026-08-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Non-inflammatory demyelination of the pons and extrapontine sites, most often following correction of chronic hyponatremia. The umbrella term covers central pontine myelinolysis and extrapontine myelinosis together.\nThe mechanism turns on a single asymmetry. The brain survives chronic hyponatremia by exporting organic osmolytes from its cells, which is what prevents fatal oedema. But those osmolytes come back in more slowly than they left. Correct the sodium faster than the cells can re-accumulate them and the same adaptation that saved the brain now leaves it osmotically stressed - and the regions still most depleted are the ones that demyelinate.\nSo the disease is produced by the treatment of another disorder, acting on a defence the patient had already mounted. That is what makes it iatrogenic in a specific sense: not a drug toxicity, but a rate error.\nThis entry is careful about how strongly to state that, because the best modern evidence is more equivocal than the classical teaching. Rapid correction roughly triples the odds, and the absolute risk stays below one percent either way - and some patients develop the syndrome with no rapid correction at all.",
+    "pathophysiology": [
+      "Osmolyte Depletion in Adaptation to Chronic Hyponatremia",
+      "Osmotic Stress from Asymmetric Osmolyte Reuptake",
+      "Astrocyte Death and Loss of Trophic Support for Oligodendrocytes",
+      "Oligodendrocyte Death and Demyelination",
+      "Biphasic Neurological Deterioration"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "cellular response to osmotic stress",
+      "apoptotic process",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "Spastic Quadriparesis",
+      "Pseudobulbar Paralysis",
+      "Impaired Consciousness"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0002510",
+      "HP:0007024",
+      "HP:0001298"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Rate-Limited Sodium Correction",
+      "Relowering of Serum Sodium After Overcorrection"
+    ],
+    "environmental": [
+      "Rapid correction of chronic hyponatremia"
+    ],
+    "biochemical": [],
+    "source_file": "Osmotic_Demyelination_Syndrome.yaml",
+    "page_url": "../pages/disorders/Osmotic_Demyelination_Syndrome.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
   },
   {
@@ -165328,6 +165745,89 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Paraneoplastic Pemphigus",
+    "disease_id": "MONDO:0018974",
+    "category": "Autoimmune",
+    "parents": [
+      "Pemphigus",
+      "Autoimmune Bullous Disease",
+      "Paraneoplastic Syndrome"
+    ],
+    "creation_date": "2026-08-22T04:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A highly fatal autoimmune blistering disease arising in patients with an underlying neoplasm, most often a lymphoproliferative disorder. Also called paraneoplastic autoimmune multiorgan syndrome, and the second name is the more accurate one: the disease is not confined to skin.\nWhat distinguishes it from the other paraneoplastic autoimmune syndromes is where the antibody comes from. In most of them the immune system mounts a response against a tumour antigen and that response cross-reacts with a host protein. Here, tumour cells of Castleman disease have been shown to secrete antibodies against plakin family proteins directly, and those antibodies detach cultured keratinocytes. The neoplasm is not the provocation for an autoimmune response; it is, at least in that setting, the factory.\nTwo things follow that the entry is built around. Removing the tumour removes the antibody source, which is why tumour control is the first therapeutic move. And it does not reverse bronchiolitis obliterans, the airway complication that drives the mortality - once the small airways have scarred, lung transplantation is often the only option left.",
+    "pathophysiology": [
+      "Underlying Neoplasm with Autoantibody Production",
+      "Autoantibody Binding to Desmosomal Plakins and Desmogleins",
+      "Desmosome Disruption and Keratinocyte Acantholysis",
+      "Cell-Mediated Interface Mucositis",
+      "Bronchiolar Epithelial Injury and Obliterative Airway Scarring"
+    ],
+    "cell_types": [
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "cell-cell adhesion",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Severe Stomatitis",
+      "Cutaneous Blistering",
+      "Acantholysis",
+      "Bronchiolitis Obliterans"
+    ],
+    "phenotype_categories": [
+      "Mucosal",
+      "Dermatological",
+      "Histopathological",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0010280",
+      "HP:0008066",
+      "HP:0100792",
+      "HP:0011946"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Treatment of the Underlying Neoplasm",
+      "Rituximab",
+      "Systemic Corticosteroids",
+      "Intravenous Immunoglobulin",
+      "Lung Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Anti-envoplakin and anti-periplakin autoantibodies",
+      "Anti-desmoglein 3 autoantibodies",
+      "Anti-desmoplakin autoantibodies",
+      "Anti-alpha-2-macroglobulin-like protein 1 (A2ML1) autoantibodies",
+      "Anti-bullous pemphigoid 230 (BP230) autoantibodies"
+    ],
+    "source_file": "Paraneoplastic_Pemphigus.yaml",
+    "page_url": "../pages/disorders/Paraneoplastic_Pemphigus.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Parathyroid Hyperplasia",
@@ -173776,19 +174276,24 @@ window.searchData = [
     "subtypes": [],
     "description": "A chronic autoimmune liver disease characterized by progressive destruction of small intrahepatic bile ducts, leading to cholestasis, fibrosis, and eventually cirrhosis. Highly associated with anti-mitochondrial antibodies (AMA) targeting pyruvate dehydrogenase complex.",
     "pathophysiology": [
+      "Increased CXCR5 Expression on IgM+ B Cells",
+      "CXCR5-Driven B-Cell Portal Infiltration",
       "Anti-Mitochondrial Antibody Response",
       "Biliary Epithelial Cell Targeting",
       "Progressive Ductopenia and Cholestasis"
     ],
     "cell_types": [
+      "IgM+ B-cell",
       "Cholangiocyte",
       "CD8+ T Cell"
     ],
     "cell_type_ids": [
+      "CL:0000236",
       "CL:0000182",
       "CL:0000625"
     ],
     "biological_processes": [
+      "B cell chemotaxis",
       "Immunoglobulin Production",
       "T Cell Cytotoxicity",
       "Bile Acid Metabolic Process"
@@ -173820,6 +174325,7 @@ window.searchData = [
       "FREQUENT"
     ],
     "genes": [
+      "rs57494551 (CXCR5)",
       "HLA-DRB1*08",
       "IL12A",
       "IL12RB2"
@@ -173841,11 +174347,11 @@ window.searchData = [
     "source_file": "Primary_Biliary_Cholangitis.yaml",
     "page_url": "../pages/disorders/Primary_Biliary_Cholangitis.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 3,
-    "num_genes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "4",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Primary Carnitine Deficiency",
@@ -215109,7 +215615,8 @@ window.searchData = [
       "Neuronal Infection",
       "Neuron-Intrinsic Interferon Defense",
       "Neuroinflammatory Response",
-      "Parenchymal Injury and Cerebral Edema"
+      "Parenchymal Injury and Cerebral Edema",
+      "Post-HSE Anti-NMDAR Autoimmune Encephalitis"
     ],
     "cell_types": [
       "brain microvascular endothelial cell",
@@ -215129,7 +215636,8 @@ window.searchData = [
       "type I interferon production",
       "inflammatory response",
       "leukocyte migration",
-      "neuronal apoptotic cell death"
+      "neuronal apoptotic cell death",
+      "humoral immune response"
     ],
     "phenotypes": [
       "Infectious encephalitis",
@@ -215187,11 +215695,11 @@ window.searchData = [
     "source_file": "Viral_Encephalitis.yaml",
     "page_url": "../pages/disorders/Viral_Encephalitis.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 8,
     "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Viral Hemorrhagic Fever",
@@ -219449,7 +219957,7 @@ window.searchData = [
     "num_pathophysiology": 14,
     "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "41",
+    "causal_graph_edges": "44",
     "causal_graph_longest_path": "6"
   },
   {
@@ -222435,17 +222943,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 2128,
+  "total_disorder_pages": 2134,
   "total_subtypes": 3252,
-  "total_disorders_and_subtypes": 5380,
-  "total_unique_evidence_sources": 32241,
-  "total_unique_publications": 30254,
-  "total_unique_disease_categories": 47,
+  "total_disorders_and_subtypes": 5386,
+  "total_unique_evidence_sources": 32298,
+  "total_unique_publications": 30310,
+  "total_unique_disease_categories": 49,
   "total_unique_phenotype_categories": 265,
-  "total_pathographs": 2122,
-  "total_unique_pathological_events": 12222,
-  "total_modules": 127,
-  "total_research_reports": 2369,
+  "total_pathographs": 2128,
+  "total_unique_pathological_events": 12262,
+  "total_modules": 128,
+  "total_research_reports": 2375,
   "total_classifications": 19,
   "total_comorbidities": 21,
   "total_groupings": 77

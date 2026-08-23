@@ -4069,6 +4069,64 @@
     {% endif %}
     {% endmacro %}
 
+    {# ExternalAssertion is bound to both Variant and Disease, so its rendering
+       lives in a shared macro: variants call it inline (issue #8037/#8042) and
+       the disease-level "External Assertions" card calls it too (issue #8044).
+       External assertions are not pathograph nodes -- dismech.graph emits none
+       -- so the cards carry a stable anchor id but no data-dismech-node pair. #}
+    {% macro render_external_assertion_body(assertion) %}
+    {% if assertion.name %}
+    <div class="item-name">{{ assertion.name }}</div>
+    {% endif %}
+    <div class="item-meta">
+        {% if assertion.source %}
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
+        {% endif %}
+        {% if assertion.assertion_type %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
+        {% endif %}
+        {% if assertion.external_id %}
+        {% set assertion_id = assertion.external_id | string %}
+        {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
+        {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
+        <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion_id }}">{{ assertion_id }}</a>
+        {% elif is_curie(assertion_id) %}
+        {# No usable URL, but a CURIE goes through the same `curie_to_url` every
+           other identifier chip on the page uses -- ORPHA:558 and OMIM:154700
+           should not be dead grey text. Neither prefix is in the schema prefix
+           map, so both take that helper's bioregistry fallback, which is also
+           how they already render as evidence references further down. #}
+        {{ render_curie_link(assertion_id) }}
+        {% else %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion_id }}</span>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% if assertion.description %}
+    <div class="item-desc">{{ assertion.description }}</div>
+    {% endif %}
+    {# `notes` often records how the external record's scope differs from this
+       entry's -- a lump/split caveat that contradicts the description if the
+       reader only sees the description. #}
+    {% if assertion.notes %}
+    <div class="mapping-notes">{{ assertion.notes }}</div>
+    {% endif %}
+    {{ render_evidence(assertion.evidence) }}
+    {% endmacro %}
+
+    {% macro render_external_assertions_block(assertions) %}
+    {% if assertions %}
+    <div class="crosslink-block">
+        <div class="crosslink-title">External assertions</div>
+        {% for assertion in assertions %}
+        <div class="variant-effect">
+            {{ render_external_assertion_body(assertion) }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endmacro %}
+
     {% macro render_variant_body(variant) %}
     <div class="item-name">
         {{ variant.name }}
@@ -4158,38 +4216,7 @@
         {% endfor %}
     </div>
     {% endif %}
-    {% if variant.external_assertions %}
-    <div class="crosslink-block">
-        <div class="crosslink-title">External assertions</div>
-        {% for assertion in variant.external_assertions %}
-        <div class="variant-effect">
-            {% if assertion.name %}
-            <div class="item-name">{{ assertion.name }}</div>
-            {% endif %}
-            <div class="item-meta">
-                {% if assertion.source %}
-                <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
-                {% endif %}
-                {% if assertion.assertion_type %}
-                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
-                {% endif %}
-                {% if assertion.external_id %}
-                {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
-                {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
-                <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion.external_id }}">{{ assertion.external_id }}</a>
-                {% else %}
-                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.external_id }}</span>
-                {% endif %}
-                {% endif %}
-            </div>
-            {% if assertion.description %}
-            <div class="item-desc">{{ assertion.description }}</div>
-            {% endif %}
-            {{ render_evidence(assertion.evidence) }}
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+    {{ render_external_assertions_block(variant.external_assertions) }}
     {{ render_evidence(variant.evidence) }}
     {% endmacro %}
 
@@ -5766,6 +5793,22 @@
             </div>
             {% for variant in disorder.variants %}
             {{ render_variant_card(variant) }}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
+        {% if disorder.external_assertions %}
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">{{ disorder.external_assertions | length }}</span>
+            </div>
+            {% for assertion in disorder.external_assertions %}
+            <div class="item-box anchor-target"{% if assertion._anchor_id %} id="{{ assertion._anchor_id }}"{% endif %}>
+                {{ render_external_assertion_body(assertion) }}
+            </div>
             {% endfor %}
         </div>
         {% endif %}
