@@ -140,40 +140,7 @@ ERROR: Could not fetch reference PMID:99999999
 - Check for typos in PMID
 - If PMID is invalid, remove the evidence item
 
-### 3. Typography: snippets do not have to be byte-identical
-
-A snippet is compared **after normalization, on both sides**.
-`SupportingTextValidator.normalize_text` (in `linkml-reference-validator`, and
-mirrored by `just count-verified-snippets`) lowercases the text, spells out Greek
-letters, replaces every non-word non-space character with a space, then collapses
-runs of whitespace with `re.sub(r"\s+", " ", ...)`.
-
-Python's `\s` on `str` patterns matches Unicode whitespace, so the typography a
-publisher's full text is full of **folds away on both sides**:
-
-| In the source | Write in the snippet |
-|---|---|
-| U+2009 thin space (common around `=` in Nature journals) | an ordinary space |
-| U+2013 en dash, U+2212 minus (ranges, negative exponents) | an ordinary hyphen |
-| U+00D7 multiplication sign | see the trap below |
-
-So `"AUC = 0.933"` typed with ordinary spaces matches source text reading
-`AUC<U+2009>=<U+2009>0.933`, and `"(3.97-6.38)"` matches `(3.97–6.38)`. **Keep
-snippets ASCII** — no committed `kb/disorders` snippet uses thin spaces or en
-dashes, and an invisible character in a quote is a trap for the next curator.
-
-**The one real trap:** do **not** transcribe `×` as the letter `x`. `x` is a word
-character and survives normalization, while U+00D7 becomes a space — so
-`"7.03 x 10-48"` will *not* match `7.03 × 10−48`. Either include the literal `×`
-or, better, end the quote before the scientific-notation clause.
-
-This matters because the alternative is silently worse curation: a curator who
-believes a figure "cannot be quoted" will paraphrase it into `explanation` prose
-or drop the claim, when quoting it plainly would have worked. If a quote you
-copied verbatim still fails, run `just count-verified-snippets` — it names the
-span it could not find rather than leaving you guessing.
-
-### 4. Fabricated Evidence Patterns
+### 3. Fabricated Evidence Patterns
 
 Watch for these red flags indicating AI-generated fake evidence:
 - Snippet says "N/A" or "No abstract available"
