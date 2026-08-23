@@ -2690,7 +2690,11 @@ _PREPRINT_DOI_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-_REFERENCES_CACHE_DIR = Path("references_cache")
+# Anchor to the repo root, not the process CWD: render is imported and called
+# from many working directories, and a CWD-relative path would silently drop
+# every preprint badge (the OSError below would swallow the miss). Mirrors the
+# `_REPO_ROOT / "references_cache"` idiom in ictrp_audit.py.
+_REFERENCES_CACHE_DIR = Path(__file__).resolve().parents[2] / "references_cache"
 
 
 @lru_cache(maxsize=4096)
