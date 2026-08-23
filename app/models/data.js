@@ -598,6 +598,61 @@ window.searchData = [
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
+    "model_key": "Alzheimer_Disease--computational-model-digital-alzheimer-s-disease-diagnosis-dadd-patient-specific-brain-model--0",
+    "name": "Digital Alzheimer's Disease Diagnosis (DADD) patient-specific brain model",
+    "description": "A 76-region cortical neural-mass model in The Virtual Brain whose synaptic degeneration, structural-connectivity degeneration, and compensatory rewiring parameters are personalized by inversion against task EEG. The inferred parameters serve as interpretable digital biomarkers for early Alzheimer disease risk and progression.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Jupyter notebooks and NumPy arrays",
+    "model_software": "Python 3.10; The Virtual Brain; NumPy; SciPy; scikit-learn",
+    "base_model": "",
+    "model_id": "DADD_Code_AD_simulations",
+    "repository_url": "https://github.com/LoreAma/Code_AD_simulations",
+    "repository_host": "GitHub",
+    "publication": "PMID:40450374",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Alzheimer Disease",
+    "disease_id": "MONDO:0004975",
+    "category": "Neurodegenerative Disorder",
+    "parents": [
+      "Dementia",
+      "Neurodegenerative Disease"
+    ],
+    "variables": [
+      "Connectivity degeneration",
+      "Synaptic degeneration",
+      "Neuroplastic connectivity rewiring"
+    ],
+    "variable_ids": [
+      "cp",
+      "lp",
+      "np"
+    ],
+    "variable_terms": [],
+    "num_variables": 3,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Cortical Structural Connectivity Degeneration",
+      "Synaptic Dysfunction"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "DADD digital biomarkers distinguished subjective cognitive decline from healthy controls with seven percentage points greater accuracy than standard EEG biomarkers.",
+      "DADD-derived digital biomarkers identified participants positive for Alzheimer CSF biomarkers with 88% accuracy and predicted clinical cognitive-decline conversion with 87% accuracy."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:40450374"
+    ],
+    "num_evidence": 1,
+    "notes": "Repository inspected at commit bf480f5cbba429639fcd6f1cb8dc92081a4f5975 (2025-11-28). It contains three notebooks and a structural-connectivity NumPy array under GPL-2.0, but no pinned dependency manifest, release, or automated tests. The notebooks import The Virtual Brain and scientific-Python packages; execution was not attempted because the repository does not specify compatible package versions. The public notebooks support simulations and model inversion, while patient EEG data are not deposited in the repository.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Alzheimer_Disease.html#computational-model-digital-alzheimer-s-disease-diagnosis-dadd-patient-specific-brain-model",
+    "source_file": "kb/disorders/Alzheimer_Disease.yaml"
+  },
+  {
     "model_key": "Fanconi_Anemia--computational-model-dna-methylation-episignature-classifier--4",
     "name": "DNA Methylation Episignature Classifier",
     "description": "Machine learning classifier trained on genome-wide DNA methylation profiles from peripheral blood of FA patients. Identifies 82 differentially methylated CpG sites that distinguish FA from healthy individuals and other genetic disorders. The episignature is robust across complementation groups and tissue types, and can detect FA even in individuals with reverted phenotype due to gene conversion.",
@@ -2727,10 +2782,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 55,
-  "total_source_entries": 21,
+  "total_models": 56,
+  "total_source_entries": 22,
   "total_model_types": 8,
   "total_runnable": 4,
-  "total_with_repository": 25
+  "total_with_repository": 26
 };
 window.dispatchEvent(new Event('searchDataReady'));
