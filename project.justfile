@@ -1980,6 +1980,19 @@ fetch-reference +identifiers:
 tag-references *args="":
     uv run python scripts/tag_references.py {{args}}
 
+# Backfill missing publication titles on KB references and evidence items
+# (`reference_title` on EvidenceItem, `title` on top-level PublicationReference).
+# Titles are read verbatim from references_cache/ frontmatter — nothing is
+# fabricated, and references with no cached title are reported, not guessed.
+# Fetch any missing cache entry first with `just fetch-reference <ID>`.
+#   just backfill-reference-titles                 # all of kb/
+#   just backfill-reference-titles --dry-run       # preview without writing
+#   just backfill-reference-titles --check         # exit 1 if any title is missing
+#   just backfill-reference-titles kb/disorders/Asthma.yaml
+[group('Curation')]
+backfill-reference-titles *args="":
+    uv run python scripts/backfill_reference_titles.py {{args}}
+
 # Generate a COHD-based association_signals YAML block for a concept pair.
 # Examples:
 #   just cohd-signal --concept-a 436672 --concept-b 80502
@@ -2100,6 +2113,21 @@ icees-rebuild *args="":
 icees-list limit="20":
     uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
 
+# Refresh STRchive loci JSON (pinned by data/strchive/MANIFEST.yaml)
+[group('Research')]
+strchive-refresh:
+    uv run python -m dismech.structured_sources.cli refresh strchive
+
+# Rebuild every references_cache/STRCHIVE_*.md from the current STRchive snapshot.
+# Use --id STRCHIVE:<locus> (e.g. STRCHIVE:SCA3_ATXN3) to limit to one locus.
+[group('Research')]
+strchive-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild strchive {{args}}
+
+# List the first N STRchive tandem-repeat locus identifiers
+[group('Research')]
+strchive-list limit="20":
+    uv run python -m dismech.structured_sources.cli list strchive --limit {{limit}}
 # Fetch WHO ICTRP trial registration record(s) into references_cache/.
 # Covers every ICTRP primary registry (ChiCTR, ISRCTN, EUCTR, JPRN, CTRI, ...)
 # so a non-ClinicalTrials.gov trial can be cited as ICTRP:<TrialID>.
