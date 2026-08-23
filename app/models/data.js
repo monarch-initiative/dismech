@@ -1588,6 +1588,66 @@ window.searchData = [
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
   },
   {
+    "model_key": "Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive--computational-model-patient-specific-cml-tumor-nk-treatment-cessation-ode-model--0",
+    "name": "Patient-Specific CML Tumor-NK Treatment-Cessation ODE Model",
+    "description": "Patient-calibrated three-state ordinary differential-equation model of active, TKI-sensitive CML tumor cells; reversible quiescent, niche-bound and TKI-insensitive tumor cells; and immune effector cells represented using cytolytic NK-cell data. TKI exposure is a time-varying tumor-kill term, while immune control incorporates density-dependent searching, handling, recharging, and tumor-suppressed effector function and recruitment.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Wolfram Notebook (.nb); Wolfram Language (.m/.wl); CSV/TXT inputs; PDF outputs",
+    "model_software": "Wolfram Mathematica 14.1",
+    "base_model": "",
+    "model_id": "Zenodo:13939516",
+    "repository_url": "https://zenodo.org/records/13939516",
+    "repository_host": "Zenodo",
+    "publication": "PMID:41102232",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Chronic Myeloid Leukemia, BCR-ABL1 Positive",
+    "disease_id": "MONDO:0011996",
+    "category": "",
+    "parents": [
+      "myeloid leukemia"
+    ],
+    "variables": [
+      "Active TKI-sensitive tumor cells",
+      "Quiescent niche-bound tumor cells",
+      "Immune effector-cell abundance",
+      "Tumor-dependent NK-cell functionality",
+      "BCR-ABL1/ABL1 molecular burden",
+      "Functional immune-cell abundance",
+      "Molecular-relapse probability"
+    ],
+    "variable_ids": [
+      "Y",
+      "X",
+      "Z",
+      "h",
+      "pontosBcrAblData",
+      "problossMR3"
+    ],
+    "variable_terms": [],
+    "num_variables": 7,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Uncontrolled Myeloid Proliferation"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Full-dose tumor trajectories alone did not resolve treatment-cessation behavior; including the one-year half-dose response increased internal prediction quality, with a further increase after six post-cessation months.",
+      "In the model ensembles, a loss of more than 20% of functional immune-cell abundance after dose reduction was strongly associated with molecular relapse."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:41102232"
+    ],
+    "num_evidence": 1,
+    "notes": "The final five-author publication is PMID:41102232. Its code and data point to Zenodo record 13939516, created for the 2024 preprint; its UI shows v1, but its metadata has no semantic version. The record has concept DOI 10.5281/zenodo.13939515 and uses the bioRxiv DOI 10.1101/2024.10.10.617526 as its record DOI; a putative version DOI 10.5281/zenodo.13939516 does not resolve. The single code and data.zip file is 135,806,838 bytes (Zenodo-reported MD5 327afa8fc9df02a01c4c4318cfe04aaf; locally computed SHA-256 6656ac6fb83cf893ca33367b0f39b70829a80c72c452dbb02ea5de4c2d1099a4), passes ZIP integrity checks, and contains 398 files: ten ordered Mathematica notebooks, generated 4_model_Code.m, four input-data files, 16 precomputed Wolfram outputs, 57 manuscript figures, 308 patient-fit PDFs, a DOCX README, and .DS_Store. Zenodo metadata declares CC BY 4.0, but the ZIP has no embedded license; the final article is separately CC BY-NC-ND 4.0. The author environment is Mathematica 14.1 on an ARM Mac and uses built-ins without an environment lock. A Mathics compatibility smoke test parsed and loaded the generated package and bundled serialized cohort metadata (n=8 Hughes; n=75 DESTINY), then constructed the three ODEs and default initial conditions. Per-patient Hughes evaluation hit Mathics Association/string incompatibilities, Mathics cannot execute the required multivariate NDSolve workflow, and licensed Mathematica was unavailable, so full numerical and figure reproduction was not verified. The notebooks also depend on NotebookDirectory, $FrontEndSession, and PDF export, while solver method, numerical precision, and kernel count are unpinned. Fresh execution on a case-sensitive system also requires correcting data_destiny.csv to the deposited data_Destiny.csv and out_patients_hughes.wl to out_patients_Hughes.wl; the README misnames the final notebook. The complete million-combination search over three parameters is documented as about seven hours on an M3 Mac, while the fixed-parameter 10,000-pair workflow takes under 30 minutes; precomputed outputs permit figure inspection without recomputation. A material methods/code discrepancy affects the immune-kill parameter m_K: the paper specifies a search range of [0,1], while the deposited code searches [0,4]; 2,159 of 7,500 retained million-combination fits across 29 of 75 patients exceed 1 (maximum 3.99966), as do 200 of 7,500 fixed-c_K full-course fits for patients 60 and 69 (maximum 2.89195). The deposited code and results therefore do not exactly implement the published bound, and interpretation requires author clarification. The README also mislabels fitted p_T tuples as p_E. The deposited Hughes data have ten patients, and the workflow hard-codes eight without recording the selection rationale; the paper describes its modeled subset as the eight patients on full TKI dose. The DESTINY deposit has 78 patients (75 selected plus three extras), not the full 174 described in the paper, so the original selection cannot be rerun from this archive alone. For each selected patient, simplified fixed-c_K analyses retain the 100 best fits from 10,000 (p_T,m_K) pairs, while the full analysis retains 100 from one million (p_T,m_K,c_K) combinations. DESTINY has no NK trajectories: NK-number/suppression and NK-function parameters are fixed to population-summary values derived from the eight Hughes patients, while patient-specific p_T and m_K (and c_K in the full three-parameter analysis) are calibrated only from tumor-load data. Deposited internal ROC AUCs for relapse at 12/24/36 months rise from 0.57/0.53/0.53 using full-dose data to 0.79/0.73/0.71 through half dose and 0.92/0.95/0.92 after six post-cessation months, but the reference true scenario is the best complete-trajectory fit, not observed held-out outcomes. This is an artifact-backed, partially reproducible proof-of-concept for patient-calibrated tumor-immune dynamics, not a clinically validated digital twin. The model does not justify links to upstream BCR-ABL1 signaling, apoptosis resistance, genomic instability, or blast crisis.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive.html#computational-model-patient-specific-cml-tumor-nk-treatment-cessation-ode-model",
+    "source_file": "kb/disorders/Chronic_Myeloid_Leukemia.yaml"
+  },
+  {
     "model_key": "Type_2_Diabetes_Mellitus--computational-model-pbpk-model-for-glp-1-receptor-agonists--3",
     "name": "PBPK Model for GLP-1 Receptor Agonists",
     "description": "Physiologically-based pharmacokinetic model for GLP-1 receptor agonists (semaglutide, tirzepatide) in T2D patients. Incorporates drug absorption, distribution, and receptor binding kinetics to optimize dosing regimens.\n",
@@ -2727,10 +2787,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 55,
-  "total_source_entries": 21,
+  "total_models": 56,
+  "total_source_entries": 22,
   "total_model_types": 8,
   "total_runnable": 4,
-  "total_with_repository": 25
+  "total_with_repository": 26
 };
 window.dispatchEvent(new Event('searchDataReady'));
