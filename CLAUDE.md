@@ -425,7 +425,7 @@ schema shape, the trigger→consequence node chain, the treatment
 
 **Available modules:**
 - `fibrotic_response` — Conserved fibrotic response: tissue injury → inflammation → mesenchymal cell activation → myofibroblast → excessive ECM → organ dysfunction
-- `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm).
+- `cellular_senescence` — Conserved cellular senescence: senescence-inducing stress → p16INK4a/Rb and p53/p21 cell-cycle arrest → senescence-associated secretory phenotype (SASP) → senescent cell accumulation (when immune clearance is outpaced) → chronic inflammation and tissue dysfunction driving age-related disease. Carries the two canonical senescence biomarkers (p16INK4a/CDKN2A and senescence-associated beta-galactosidase) as `biochemical` readouts, plus the senolytic drug-target pattern (treatments use `target_mechanisms` to link back to "Senescent Cell Accumulation"). Intentionally lean: disease-specific or context-dependent downstream theories (e.g. the age-contextualized accelerated-aging/early-onset-cancer association) are NOT embedded — they belong on the relevant disorder or comorbidity/trajectory entry, which can `conforms_to`/reference this module. Worked conformers: Osteoarthritis (senescent chondrocytes), pulmonary fibrosis (senescent fibroblasts). Key conformance target: `cellular_senescence#Senescent Cell Accumulation`. Complemented by `senescence_tumor_suppression` (the protective arm). **Do not wire cell-type plasma proteomic aging clocks (astrocyte/skeletal myocyte/myeloid "age gap" biomarkers, PMID:42297981) to this module without new evidence** — they measure no senescence marker, so the nine such biomarkers already curated across `Alzheimer_Disease`, `Amyotrophic_Lateral_Sclerosis`, `Lung_Carcinoma`, `Type_2_Diabetes_Mellitus` and `Frontotemporal_Dementia` are deliberately unattached; the open question and the two experiments that would settle it are recorded in the module's `gap_senescence_vs_plasma_cell_type_aging_clocks` discussion.
 - `senescence_tumor_suppression` — Conserved tumor-SUPPRESSIVE arm of senescence/aging, the deliberate complement of `cellular_senescence`, with two independent routes to a tumor barrier: oncogenic/replicative/genotoxic stress in at-risk cells → p16INK4a/Rb and p53/p21 senescence-associated arrest → restraint of malignant transformation or progression from a benign/low-grade state; separately, directly evidenced aging-associated loss of stemness in the cell of origin (PMID:39633048) can limit tumor-initiating capacity. Carries the pro-senescent (senescence-inducing) drug-target pattern (treatments use `target_mechanisms` with `ACTIVATES` to reinforce the arrest), the conceptual inverse of the senolytic pattern. Together the two senescence modules capture the antagonistic pleiotropy of senescence as two modules rather than one effect-reversing edge. Framing guardrails: does NOT assert net age-protection; generic aging/stem-cell depletion is not evidence for the age/stemness branch; senescence-loss or escape nodes do not directly conform to the positive arrest/barrier targets. Positive conformance to the senescence arm requires stable senescence-associated proliferative arrest plus an evidence-linked tumor-suppressive consequence; p16/p21/SA-beta-gal positivity alone, quiescence, differentiation, or reversible cytostasis is insufficient. Worked conformer: Pilocytic_Astrocytoma (oncogene-induced arrest and low-grade progression barrier). Key conformance target: `senescence_tumor_suppression#Barrier to Malignant Transformation`
 - `immune_checkpoint_blockade` — Conserved tumor-immune evasion pattern: neoantigen generation → anti-tumor T cell response → adaptive immune resistance (PD-L1 upregulation) → T cell exhaustion and immune escape. Drug mechanism design pattern: checkpoint inhibitor treatments use `target_mechanisms` to link back to the "Adaptive Immune Resistance" node they inhibit. Key conformance target: `immune_checkpoint_blockade#Adaptive Immune Resistance`
 - `il11_erk_ampk_mtor_aging` — Conserved pro-inflammatory-cytokine driver of mammalian ageing (Widjaja et al., Nature 2024, PMID:39020175): age-associated IL-11 upregulation across tissues → IL11RA1-gp130 receptor signalling (canonical STAT3 + non-canonical MEK-ERK-p90RSK) → coupled ERK-p90RSK↑ / LKB1-AMPK-inactivation / mTORC1↑ axis dysregulation → mTORC1/ERK-dependent cellular senescence, SASP and metabolic decline (age-repressed WAT beiging, sarcopenia, fibrosis) → frailty, multimorbidity, age-related cancer and reduced lifespan. Carries the anti-IL-11 neutralizing-antibody drug-target pattern (treatment uses `target_mechanisms` with `INHIBITS` on the receptor-signalling node; anti-IL-11 extends mouse median lifespan >20% given from 75 weeks of age). The IL-11-specific, druggable driver arm of inflammaging: it feeds the source-agnostic `inflammaging` chain and the `cellular_senescence` programme, which it deliberately does NOT re-derive; carries a `KNOWLEDGE_GAP` on the canonical-vs-non-canonical signalling contribution and a `HUMAN_MODEL_MISMATCH` on the mouse-only lifespan arm. Worked conformers (all attach at the **amplifier** `#IL-11 Receptor Signalling Activation` node): Idiopathic_Pulmonary_Fibrosis (lung fibroblast), Liver_Cirrhosis (hepatic stellate cell), Chronic_Kidney_Disease (kidney interstitial fibroblast), Dilated_Cardiomyopathy (cardiac fibroblast). Conformance-target guidance: attach at `#IL-11 Receptor Signalling Activation` when only the IL-11→ERK arm is evidenced in that tissue (the case for every current fibrosis conformer); reserve the central_effector `#ERK-AMPK-mTORC1 Axis Dysregulation` (the module's disorder-agnostic rate-limiting node) for entries that actually evidence the coupled LKB1-AMPK-inactivation / mTORC1 metabolic arm. Key conformance target (rate-limiting node): `il11_erk_ampk_mtor_aging#ERK-AMPK-mTORC1 Axis Dysregulation`; current conformance attachment point: `il11_erk_ampk_mtor_aging#IL-11 Receptor Signalling Activation`
@@ -547,8 +547,18 @@ and the payload for that predicate:
 - `HAS_GENE` → `gene`
 - `CONFORMS_TO_MODULE` → `module` (a `kb/modules/` stem, optionally with `#Node Name`)
 - `HAS_BIOLOGICAL_PROCESS` → `biological_processes`
-- `HAS_CLASSIFICATION` → `classification`; `HAS_INHERITANCE` / `HAS_MAPPING` / `OTHER`
-  carry the value in `description`
+- `HAS_INHERITANCE` → `inheritance_term` (an HPO mode-of-inheritance term).
+  **The payload is optional**, unlike every other predicate's: a leaf naming a
+  term is evaluated against every curated `inheritance` block in the member -
+  disease level, `has_subtypes`, and the per-gene blocks under `genetic` - with
+  the same ontology closure as `HAS_PHENOTYPE`; a leaf carrying only a `description` — for a constraint no
+  single HP term names, such as "hereditary rather than acquired" in
+  `Hereditary_Systemic_Amyloidoses` — stays free text and evaluates to UNKNOWN.
+  **Name the term whenever one exists.** An UNKNOWN leaf inside an `AND`
+  forces the whole conjunction to UNKNOWN, so one unevaluable inheritance
+  clause hides every checkable clause beside it.
+- `HAS_CLASSIFICATION` → `classification`; `HAS_MAPPING` / `OTHER` carry the
+  value in `description`
 - `negated: true` negates a leaf (alternative to a `NOT` operator)
 
 **Criteria semantics (`=>` / `<=` / `<=>`):** `criteria_semantics` records the OWL-style
@@ -921,7 +931,43 @@ entries: `Alport_Syndrome`, `Usher_Syndrome`,
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
 `Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
-(`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+(`grouping_basis: OTHER`, a `NECESSARY_AND_SUFFICIENT` `HAS_INHERITANCE`
+criterion over HP:0010984 / HP:0010983).
+
+**Binding the term is what puts an entry in the grouping.** The criteria are
+*sufficient*, so `just check-groupings` reports any entry carrying a bound
+digenic/oligogenic block but missing from `members:` as a candidate — that is
+the mechanism that keeps the union complete, and it only works if the term is
+bound. An entry describing digenic inheritance in prose alone is invisible to
+it.
+
+**The bar is requirement, not severity.** Bind the term when the phenotype does
+not appear without both loci. Decline when either locus suffices on its own and
+the second only shifts penetrance or severity — that is a modifier, and belongs
+in `genetic:` with `relationship_type: MODIFIER`/`COOPERATING`. Most KB entries
+using the word "digenic" are on the declining side, and several say so
+explicitly: `Hypertrophic_Cardiomyopathy_3` (TPM1 alone causes disease; MYH7
+worsens it), `Familial_Defective_Apolipoprotein_B-100`,
+`Primary_Hyperoxaluria_Type_3`, `Cystinuria` (type AB raises aminoaciduria, not
+stone disease), `Chromosome_18p_Deletion_Syndrome` (the digenic claim belongs to
+FSHD2, a different disease), `Brugada_Syndrome` (an unresolved fraction is not a
+demonstrated two-locus architecture),
+`Familial_Nonmedullary_Thyroid_Carcinoma`, `RDH5-Related_Retinopathy` and
+`BBSome-Related_Retinitis_Pigmentosa`. Leaving those unbound is correct, not an
+oversight — read the entry's stated reasoning before overturning it. Watch for
+the title trap in particular: several papers advertise "digenic inheritance" in
+the title while the abstract reports a severity modifier, or (as in
+`Joubert_syndrome`'s citation) a digenic case belonging to a different disease.
+
+**Finding what is still missing.** `scripts/olida_crosswalk.py` cross-walks the
+[OLIDA](https://olida.ibsquare.be/) oligogenic-diseases database against
+`kb/disorders`, splitting it into already-bound, curated-but-unbound (the cheap
+wins) and no-entry-at-all; `research/olida_crosswalk.md` is the committed
+report. Regenerate it rather than hand-editing. Two caveats it states itself: the
+name matching is a screen a curator must confirm, and a high OLIDA confidence
+score rates the *variant combination*, not the claim that the *disease* requires
+two loci — Cystinuria scores at OLIDA's maximum and is still correctly a
+non-member.
 
 ### Hypothesis-Based Phenotype Algorithms
 

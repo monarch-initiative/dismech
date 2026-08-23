@@ -66,6 +66,13 @@ FREE_TEXT_TAG_SLOTS = ("parents", "categories")
 # Map each leaf predicate to the payload slot(s) it requires. ``None`` means the
 # constraint is carried in free text (``description``) and has no structured
 # payload to evaluate.
+#
+# HAS_INHERITANCE is listed as ``None`` because its payload is OPTIONAL, not
+# absent: a leaf carrying an ``inheritance_term`` is evaluated against the
+# member's curated inheritance blocks, while a leaf carrying only a
+# ``description`` (e.g. "hereditary, i.e. germline rather than acquired", which
+# no single HPO term names) stays free text and evaluates to UNKNOWN. Requiring
+# the payload here would invalidate the latter, which is a legitimate use.
 PREDICATE_PAYLOAD = {
     "HAS_PHENOTYPE": "phenotype_term",
     "HAS_GENE": "gene",
@@ -354,6 +361,10 @@ class DiseaseFacts:
     gene_ids: set[str] = field(default_factory=set)
     go_ids: set[str] = field(default_factory=set)
     module_stems: set[str] = field(default_factory=set)
+    # HP mode-of-inheritance ids from curated `inheritance_term` blocks. Kept
+    # separate from `phenotype_freq` because an inheritance term is a statement
+    # about the entry's genetic architecture, not a phenotype it manifests.
+    inheritance_ids: set[str] = field(default_factory=set)
     # HP id -> best (strongest) known frequency band, if any.
     phenotype_freq: dict[str, str | None] = field(default_factory=dict)
     # Normalized nosology/classification tags this disease carries. Holds both
@@ -446,6 +457,20 @@ def extract_disease_facts(name: str, data: dict) -> DiseaseFacts:
             elif tid.startswith("GO:"):
                 facts.go_ids.add(tid)
 
+        # Inheritance: capture the HPO mode-of-inheritance id. The walk reaches
+        # every `inheritance` block in the entry - disease level, has_subtypes,
+        # and the per-gene blocks under `genetic` - which is what the criteria
+        # mean: a disorder qualifies if ANY curated branch of it does. The
+        # gene-level path is deliberate and pinned by a test; no entry uses it
+        # for a multi-locus term today, but a per-gene digenic assertion is a
+        # reasonable place to make one and must not be silently ignored.
+        it = node.get("inheritance_term")
+        if isinstance(it, dict):
+            iterm = it.get("term") or {}
+            ihp = iterm.get("id") if isinstance(iterm, dict) else None
+            if isinstance(ihp, str) and ihp.startswith("HP:"):
+                facts.inheritance_ids.add(ihp)
+
         # Phenotypes: capture HP id + (strongest) frequency band.
         pt = node.get("phenotype_term")
         if isinstance(pt, dict):
@@ -519,6 +544,20 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
                 if stem in facts.module_stems
                 else Satisfaction.NOT_SATISFIED
             )
+    elif predicate == "HAS_INHERITANCE":
+        # Optional payload: only a leaf that names a term can be checked.
+        hp = _term_id(node.get("inheritance_term"))
+        if hp:
+            # Closure, as for HAS_PHENOTYPE: a member curating a descendant of
+            # the criterion term satisfies it. Note the three non-Mendelian
+            # modes are HPO SIBLINGS under HP:0001426, so digenic does not
+            # subsume oligogenic (or vice versa) - a grouping that means either
+            # must say so with an OR, as Digenic_and_Oligogenic_Disorders does.
+            result = (
+                Satisfaction.SATISFIED
+                if term_closure(hp) & facts.inheritance_ids
+                else Satisfaction.NOT_SATISFIED
+            )
     elif predicate == "HAS_PHENOTYPE":
         hp = _term_id(node.get("phenotype_term"))
         if hp:
@@ -553,7 +592,7 @@ def _eval_leaf(node: dict, facts: DiseaseFacts) -> Satisfaction:
                 if _norm_tag(wanted) in facts.classification_tags
                 else Satisfaction.NOT_SATISFIED
             )
-    # HAS_INHERITANCE / HAS_MAPPING / OTHER -> UNKNOWN.
+    # HAS_MAPPING / OTHER, and any payload-less HAS_INHERITANCE leaf -> UNKNOWN.
 
     if node.get("negated"):
         result = result.negate()
