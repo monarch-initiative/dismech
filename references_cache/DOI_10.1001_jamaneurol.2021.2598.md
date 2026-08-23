@@ -1,0 +1,315 @@
+---
+reference_id: DOI:10.1001/jamaneurol.2021.2598
+title: "Association of Variants in the <i>SPTLC1</i> Gene With Juvenile Amyotrophic Lateral Sclerosis"
+authors:
+- Janel O. Johnson
+- Ruth Chia
+- Danny E. Miller
+- Rachel Li
+- Ravindran Kumaran
+- Yevgeniya Abramzon
+- Nada Alahmady
+- Alan E. Renton
+- Simon D. Topp
+- J. Raphael Gibbs
+- Mark R. Cookson
+- Marya S. Sabir
+- Clifton L. Dalgard
+- Claire Troakes
+- Ashley R. Jones
+- Aleksey Shatunov
+- Alfredo Iacoangeli
+- Ahmad Al Khleifat
+- Nicola Ticozzi
+- Vincenzo Silani
+- Cinzia Gellera
+- Ian P. Blair
+- Carol Dobson-Stone
+- John B. Kwok
+- Emily S. Bonkowski
+- Robin Palvadeau
+- Pentti J. Tienari
+- Karen E. Morrison
+- Pamela J. Shaw
+- Ammar Al-Chalabi
+- Robert H. Brown
+- Andrea Calvo
+- Gabriele Mora
+- Hind Al-Saif
+- Marc Gotkine
+- Fawn Leigh
+- Irene J. Chang
+- Seth J. Perlman
+- Ian Glass
+- Anna I. Scott
+- Christopher E. Shaw
+- A. Nazli Basak
+- John E. Landers
+- Adriano Chiò
+- Thomas O. Crawford
+- Bradley N. Smith
+- Bryan J. Traynor
+- Bradley N. Smith
+- Nicola Ticozzi
+- Claudia Fallini
+- Athina Soragia Gkazi
+- Simon D. Topp
+- Emma L. Scotter
+- Kevin P. Kenna
+- Pamela Keagle
+- Cinzia Tiloca
+- Caroline Vance
+- Claire Troakes
+- Claudia Colombrita
+- Andrew King
+- Viviana Pensato
+- Barbara Castellotti
+- Frank Baas
+- Anneloor L. M. A. ten Asbroek
+- Diane McKenna-Yasek
+- Russell L. McLaughlin
+- Meraida Polak
+- Seneshaw Asress
+- Jesús Esteban-Pérez
+- Zorica Stevic
+- Sandra D’Alfonso
+- Letizia Mazzini
+- Giacomo P. Comi
+- Roberto Del Bo
+- Mauro Ceroni
+- Stella Gagliardi
+- Giorgia Querin
+- Cinzia Bertolin
+- Wouter van Rheenen
+- Rosa Rademakers
+- Marka van Blitterswijk
+- Giuseppe Lauria
+- Stefano Duga
+- Stefania Corti
+- Cristina Cereda
+- Lucia Corrado
+- Gianni Sorarù
+- Kelly L. Williams
+- Garth A. Nicholson
+- Ian P. Blair
+- Claire Leblond-Manry
+- Guy A. Rouleau
+- Orla Hardiman
+- Karen E. Morrison
+- Jan H. Veldink
+- Leonard H. van den Berg
+- Ammar Al-Chalabi
+- Hardev Pall
+- Pamela J. Shaw
+- Martin R. Turner
+- Kevin Talbot
+- Franco Taroni
+- Alberto García-Redondo
+- Zheyang Wu
+- Jonathan D. Glass
+- Cinzia Gellera
+- Antonia Ratti
+- Robert H. Brown
+- Vincenzo Silani
+- Christopher E. Shaw
+- John E. Landers
+- Clifton L. Dalgard
+- Adelani Adeleye
+- Anthony R. Soltis
+- Camille Alba
+- Coralie Viollet
+- Dagmar Bacikova
+- Daniel N. Hupalo
+- Gauthaman Sukumar
+- Harvey B. Pollard
+- Matthew D. Wilkerson
+- Elisa McGrath Martinez
+- Yevgeniya Abramzon
+- Sarah Ahmed
+- Sampath Arepalli
+- Robert H. Baloh
+- Robert Bowser
+- Christopher B. Brady
+- Alexis Brice
+- James Broach
+- Roy H. Campbell
+- William Camu
+- Ruth Chia
+- John Cooper-Knock
+- Jinhui Ding
+- Carsten Drepper
+- Vivian E. Drory
+- Travis L. Dunckley
+- John D. Eicher
+- Bryce K. England
+- Faraz Faghri
+- Eva Feldman
+- Mary Kay Floeter
+- Pietro Fratta
+- Joshua T. Geiger
+- Glenn Gerhard
+- J. Raphael Gibbs
+- Summer B. Gibson
+- Jonathan D. Glass
+- John Hardy
+- Matthew B. Harms
+- Terry D. Heiman-Patterson
+- Dena G. Hernandez
+- Lilja Jansson
+- Janine Kirby
+- Neil W. Kowall
+- Hannu Laaksovirta
+- Natalie Landeck
+- Francesco Landi
+- Isabelle Le Ber
+- Serge Lumbroso
+- Daniel J. L. MacGowan
+- Nicholas J. Maragakis
+- Gabriele Mora
+- Kevin Mouzat
+- Natalie A. Murphy
+- Liisa Myllykangas
+- Mike A. Nalls
+- Richard W. Orrell
+- Lyle W. Ostrow
+- Roger Pamphlett
+- Stuart Pickering-Brown
+- Erik P. Pioro
+- Olga Pletnikova
+- Hannah A. Pliner
+- Stefan M. Pulst
+- John M. Ravits
+- Alan E. Renton
+- Alberto Rivera
+- Wim Robberecht
+- Ekaterina Rogaeva
+- Sara Rollinson
+- Jeffrey D. Rothstein
+- Sonja W. Scholz
+- Michael Sendtner
+- Pamela J. Shaw
+- Katie C. Sidle
+- Zachary Simmons
+- Andrew B. Singleton
+- Nathan Smith
+- David J. Stone
+- Pentti J. Tienari
+- Juan C. Troncoso
+- Miko Valori
+- Philip Van Damme
+- Vivianna M. Van Deerlin
+- Ludo Van Den Bosch
+- Lorne Zinman
+- John E. Landers
+- Adriano Chiò
+- Bryan J. Traynor
+- Stefania M. Angelocola
+- Francesco P. Ausiello
+- Marco Barberis
+- Ilaria Bartolomei
+- Stefania Battistini
+- Enrica Bersano
+- Giulia Bisogni
+- Giuseppe Borghero
+- Maura Brunetti
+- Corrado Cabona
+- Andrea Calvo
+- Fabrizio Canale
+- Antonio Canosa
+- Teresa A. Cantisani
+- Margherita Capasso
+- Claudia Caponnetto
+- Patrizio Cardinali
+- Paola Carrera
+- Federico Casale
+- Adriano Chiò
+- Tiziana Colletti
+- Francesca L. Conforti
+- Amelia Conte
+- Elisa Conti
+- Massimo Corbo
+- Stefania Cuccu
+- Eleonora Dalla Bella
+- Eustachio D’Errico
+- Giovanni DeMarco
+- Raffaele Dubbioso
+- Carlo Ferrarese
+- Pilar M. Ferraro
+- Massimo Filippi
+- Nicola Fini
+- Gianluca Floris
+- Giuseppe Fuda
+- Salvatore Gallone
+- Giulia Gianferrari
+- Fabio Giannini
+- Maurizio Grassano
+- Lucia Greco
+- Barbara Iazzolino
+- Alessandro Introna
+- Vincenzo La Bella
+- Serena Lattante
+- Giuseppe Lauria
+- Rocco Liguori
+- Giancarlo Logroscino
+- Francesco O. Logullo
+- Christian Lunetta
+- Paola Mandich
+- Jessica Mandrioli
+- Umberto Manera
+- Fiore Manganelli
+- Giuseppe Marangi
+- Kalliopi Marinou
+- Maria Giovanna Marrosu
+- Ilaria Martinelli
+- Sonia Messina
+- Cristina Moglia
+- Gabriele Mora
+- Lorena Mosca
+- Maria R. Murru
+- Paola Origone
+- Carla Passaniti
+- Cristina Petrelli
+- Antonio Petrucci
+- Susanna Pozzi
+- Maura Pugliatti
+- Angelo Quattrini
+- Claudia Ricci
+- Giulia Riolo
+- Nilo Riva
+- Massimo Russo
+- Mario Sabatelli
+- Paolina Salamone
+- Marco Salivetto
+- Fabrizio Salvi
+- Marialuisa Santarelli
+- Luca Sbaiz
+- Riccardo Sideri
+- Isabella Simone
+- Cecilia Simonini
+- Rossella Spataro
+- Raffaella Tanel
+- Gioacchino Tedeschi
+- Anna Ticca
+- Antonella Torriello
+- Stefania Tranquilli
+- Lucio Tremolizzo
+- Francesca Trojsi
+- Rosario Vasta
+- Veria Vacchiano
+- Giuseppe Vita
+- Paolo Volanti
+- Marcella Zollino
+- Elisabetta Zucchi
+journal: JAMA Neurology
+year: '2021'
+doi: 10.1001/jamaneurol.2021.2598
+content_type: unavailable
+is_preprint: false
+---
+
+# Association of Variants in the <i>SPTLC1</i> Gene With Juvenile Amyotrophic Lateral Sclerosis
+**Authors:** Janel O. Johnson, Ruth Chia, Danny E. Miller, Rachel Li, Ravindran Kumaran, Yevgeniya Abramzon, Nada Alahmady, Alan E. Renton, Simon D. Topp, J. Raphael Gibbs, Mark R. Cookson, Marya S. Sabir, Clifton L. Dalgard, Claire Troakes, Ashley R. Jones, Aleksey Shatunov, Alfredo Iacoangeli, Ahmad Al Khleifat, Nicola Ticozzi, Vincenzo Silani, Cinzia Gellera, Ian P. Blair, Carol Dobson-Stone, John B. Kwok, Emily S. Bonkowski, Robin Palvadeau, Pentti J. Tienari, Karen E. Morrison, Pamela J. Shaw, Ammar Al-Chalabi, Robert H. Brown, Andrea Calvo, Gabriele Mora, Hind Al-Saif, Marc Gotkine, Fawn Leigh, Irene J. Chang, Seth J. Perlman, Ian Glass, Anna I. Scott, Christopher E. Shaw, A. Nazli Basak, John E. Landers, Adriano Chiò, Thomas O. Crawford, Bradley N. Smith, Bryan J. Traynor, Bradley N. Smith, Nicola Ticozzi, Claudia Fallini, Athina Soragia Gkazi, Simon D. Topp, Emma L. Scotter, Kevin P. Kenna, Pamela Keagle, Cinzia Tiloca, Caroline Vance, Claire Troakes, Claudia Colombrita, Andrew King, Viviana Pensato, Barbara Castellotti, Frank Baas, Anneloor L. M. A. ten Asbroek, Diane McKenna-Yasek, Russell L. McLaughlin, Meraida Polak, Seneshaw Asress, Jesús Esteban-Pérez, Zorica Stevic, Sandra D’Alfonso, Letizia Mazzini, Giacomo P. Comi, Roberto Del Bo, Mauro Ceroni, Stella Gagliardi, Giorgia Querin, Cinzia Bertolin, Wouter van Rheenen, Rosa Rademakers, Marka van Blitterswijk, Giuseppe Lauria, Stefano Duga, Stefania Corti, Cristina Cereda, Lucia Corrado, Gianni Sorarù, Kelly L. Williams, Garth A. Nicholson, Ian P. Blair, Claire Leblond-Manry, Guy A. Rouleau, Orla Hardiman, Karen E. Morrison, Jan H. Veldink, Leonard H. van den Berg, Ammar Al-Chalabi, Hardev Pall, Pamela J. Shaw, Martin R. Turner, Kevin Talbot, Franco Taroni, Alberto García-Redondo, Zheyang Wu, Jonathan D. Glass, Cinzia Gellera, Antonia Ratti, Robert H. Brown, Vincenzo Silani, Christopher E. Shaw, John E. Landers, Clifton L. Dalgard, Adelani Adeleye, Anthony R. Soltis, Camille Alba, Coralie Viollet, Dagmar Bacikova, Daniel N. Hupalo, Gauthaman Sukumar, Harvey B. Pollard, Matthew D. Wilkerson, Elisa McGrath Martinez, Yevgeniya Abramzon, Sarah Ahmed, Sampath Arepalli, Robert H. Baloh, Robert Bowser, Christopher B. Brady, Alexis Brice, James Broach, Roy H. Campbell, William Camu, Ruth Chia, John Cooper-Knock, Jinhui Ding, Carsten Drepper, Vivian E. Drory, Travis L. Dunckley, John D. Eicher, Bryce K. England, Faraz Faghri, Eva Feldman, Mary Kay Floeter, Pietro Fratta, Joshua T. Geiger, Glenn Gerhard, J. Raphael Gibbs, Summer B. Gibson, Jonathan D. Glass, John Hardy, Matthew B. Harms, Terry D. Heiman-Patterson, Dena G. Hernandez, Lilja Jansson, Janine Kirby, Neil W. Kowall, Hannu Laaksovirta, Natalie Landeck, Francesco Landi, Isabelle Le Ber, Serge Lumbroso, Daniel J. L. MacGowan, Nicholas J. Maragakis, Gabriele Mora, Kevin Mouzat, Natalie A. Murphy, Liisa Myllykangas, Mike A. Nalls, Richard W. Orrell, Lyle W. Ostrow, Roger Pamphlett, Stuart Pickering-Brown, Erik P. Pioro, Olga Pletnikova, Hannah A. Pliner, Stefan M. Pulst, John M. Ravits, Alan E. Renton, Alberto Rivera, Wim Robberecht, Ekaterina Rogaeva, Sara Rollinson, Jeffrey D. Rothstein, Sonja W. Scholz, Michael Sendtner, Pamela J. Shaw, Katie C. Sidle, Zachary Simmons, Andrew B. Singleton, Nathan Smith, David J. Stone, Pentti J. Tienari, Juan C. Troncoso, Miko Valori, Philip Van Damme, Vivianna M. Van Deerlin, Ludo Van Den Bosch, Lorne Zinman, John E. Landers, Adriano Chiò, Bryan J. Traynor, Stefania M. Angelocola, Francesco P. Ausiello, Marco Barberis, Ilaria Bartolomei, Stefania Battistini, Enrica Bersano, Giulia Bisogni, Giuseppe Borghero, Maura Brunetti, Corrado Cabona, Andrea Calvo, Fabrizio Canale, Antonio Canosa, Teresa A. Cantisani, Margherita Capasso, Claudia Caponnetto, Patrizio Cardinali, Paola Carrera, Federico Casale, Adriano Chiò, Tiziana Colletti, Francesca L. Conforti, Amelia Conte, Elisa Conti, Massimo Corbo, Stefania Cuccu, Eleonora Dalla Bella, Eustachio D’Errico, Giovanni DeMarco, Raffaele Dubbioso, Carlo Ferrarese, Pilar M. Ferraro, Massimo Filippi, Nicola Fini, Gianluca Floris, Giuseppe Fuda, Salvatore Gallone, Giulia Gianferrari, Fabio Giannini, Maurizio Grassano, Lucia Greco, Barbara Iazzolino, Alessandro Introna, Vincenzo La Bella, Serena Lattante, Giuseppe Lauria, Rocco Liguori, Giancarlo Logroscino, Francesco O. Logullo, Christian Lunetta, Paola Mandich, Jessica Mandrioli, Umberto Manera, Fiore Manganelli, Giuseppe Marangi, Kalliopi Marinou, Maria Giovanna Marrosu, Ilaria Martinelli, Sonia Messina, Cristina Moglia, Gabriele Mora, Lorena Mosca, Maria R. Murru, Paola Origone, Carla Passaniti, Cristina Petrelli, Antonio Petrucci, Susanna Pozzi, Maura Pugliatti, Angelo Quattrini, Claudia Ricci, Giulia Riolo, Nilo Riva, Massimo Russo, Mario Sabatelli, Paolina Salamone, Marco Salivetto, Fabrizio Salvi, Marialuisa Santarelli, Luca Sbaiz, Riccardo Sideri, Isabella Simone, Cecilia Simonini, Rossella Spataro, Raffaella Tanel, Gioacchino Tedeschi, Anna Ticca, Antonella Torriello, Stefania Tranquilli, Lucio Tremolizzo, Francesca Trojsi, Rosario Vasta, Veria Vacchiano, Giuseppe Vita, Paolo Volanti, Marcella Zollino, Elisabetta Zucchi
+**Journal:** JAMA Neurology (2021)
+**DOI:** [10.1001/jamaneurol.2021.2598](https://doi.org/10.1001/jamaneurol.2021.2598)
+
+## Content
