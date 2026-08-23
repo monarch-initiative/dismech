@@ -175,12 +175,18 @@ def lint_criterion_advisories(node: Any, path: str = "logic") -> list[str]:
     curated groupings legitimately do not follow, so flagging them as errors
     would turn correct files red.
 
-    Currently one advisory: a ``HAS_CLASSIFICATION`` leaf whose value carries no
-    ``<slot>:`` prefix. ``_classification_tags()`` also emits bare-value tags and
-    folds in the free-text ``parents:``/``categories:`` slots, so a bare value
-    matches a tag in *any* slot -- fine when the tag is unique KB-wide (as for
-    ``RASopathy``), but a latent false positive when two nosology schemes share
-    a string. The keyed form pins the slot.
+    Currently one advisory: a positive ``HAS_CLASSIFICATION`` leaf whose value
+    carries no ``<slot>:`` prefix. ``_classification_tags()`` also emits
+    bare-value tags and folds in the free-text ``parents:``/``categories:``
+    slots, so a bare value matches a tag in *any* slot -- fine when the tag is
+    unique KB-wide (as for ``RASopathy``), but a latent false positive when two
+    nosology schemes share a string. The keyed form pins the slot.
+
+    Negated leaves are deliberately exempt. For an exclusion the slot-agnostic
+    reading is the *stronger* one -- "not classified there, whichever slot says
+    so" -- and keying it would narrow the exclusion, admitting a member tagged
+    under a different slot. Advising the keyed form there would be backwards,
+    so ``negated`` leaves raise nothing.
     """
     advisories: list[str] = []
     if not isinstance(node, dict):
@@ -188,13 +194,20 @@ def lint_criterion_advisories(node: Any, path: str = "logic") -> list[str]:
     if (
         classify_node(node) is NodeKind.LEAF
         and node.get("criterion_predicate") == "HAS_CLASSIFICATION"
+        and not node.get("negated")
     ):
         value = node.get("classification")
         if isinstance(value, str) and ":" not in value:
+            # Name the slots the extractor actually reads, so the advice is
+            # actionable without the curator going to look them up. The
+            # structured `classifications:` keys vary per entry, so those are
+            # described rather than enumerated.
+            slots = " or ".join(f"'{slot}:{value}'" for slot in FREE_TEXT_TAG_SLOTS)
             advisories.append(
-                f"{path}: HAS_CLASSIFICATION {value!r} is unkeyed; prefer "
-                f"'<slot>:{value}' so the criterion pins which "
-                f"classification slot it reads"
+                f"{path}: HAS_CLASSIFICATION {value!r} is unkeyed, so it matches "
+                f"that tag in any slot; prefer {slots}, or "
+                f"'<classifications-key>:{value}' (e.g. "
+                f"'iuis_category:{value}'), to pin which slot it reads"
             )
     for i, child in enumerate(node.get("operands", []) or []):
         advisories.extend(
@@ -345,6 +358,12 @@ def _walk(obj: Any) -> Iterable[Any]:
             yield from _walk(v)
 
 
+# Free-text nosology slots folded into a disease's classification tags,
+# alongside the structured `classifications:` block. Shared so the advisory in
+# lint_criterion_advisories() names exactly the slots the extractor reads.
+FREE_TEXT_TAG_SLOTS = ("parents", "categories")
+
+
 def _norm_tag(value: str) -> str:
     """Normalize a classification tag for comparison (case/whitespace-insensitive)."""
     return " ".join(value.lower().split())
@@ -381,7 +400,7 @@ def _classification_tags(data: dict) -> set[str]:
                     tags.add(_norm_tag(value))
                     tags.add(f"{_norm_tag(str(key))}:{_norm_tag(value)}")
 
-    for slot in ("parents", "categories"):
+    for slot in FREE_TEXT_TAG_SLOTS:
         values = data.get(slot)
         if isinstance(values, str):
             values = [values]

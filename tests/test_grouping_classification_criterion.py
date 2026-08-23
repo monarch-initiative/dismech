@@ -143,7 +143,27 @@ def test_unkeyed_classification_criterion_raises_an_advisory():
     advisories = G.lint_criterion_advisories(_leaf("RASopathy"))
     assert len(advisories) == 1
     assert "unkeyed" in advisories[0]
-    assert "<slot>:RASopathy" in advisories[0]
+
+
+def test_advisory_names_the_slots_the_extractor_actually_reads():
+    """The message must be actionable without the curator looking slots up."""
+    advisory = G.lint_criterion_advisories(_leaf("RASopathy"))[0]
+    for slot in G.FREE_TEXT_TAG_SLOTS:
+        assert f"'{slot}:RASopathy'" in advisory
+    assert "<slot>" not in advisory
+
+
+def test_negated_classification_criterion_raises_no_advisory():
+    """An exclusion is stronger unkeyed: "not there, whichever slot says so".
+
+    Keying a negated leaf narrows the exclusion, so advising it would be
+    backwards. B-Cell Non-Hodgkin Lymphoma excludes Hodgkin lymphoma this way.
+    """
+    assert G.lint_criterion_advisories(_leaf("Hodgkin lymphoma", negated=True)) == []
+
+
+def test_negation_exemption_does_not_leak_to_positive_leaves():
+    assert len(G.lint_criterion_advisories(_leaf("Hodgkin lymphoma"))) == 1
 
 
 def test_keyed_classification_criterion_raises_no_advisory():
@@ -158,7 +178,11 @@ def test_advisories_are_not_structural_errors():
 def test_advisories_recurse_into_branches():
     branch = {
         "operator": "AND",
-        "operands": [_leaf("RASopathy"), _leaf("iuis_category:complement deficiency")],
+        "operands": [
+            _leaf("RASopathy"),
+            _leaf("iuis_category:complement deficiency"),
+            _leaf("Hodgkin lymphoma", negated=True),
+        ],
     }
     advisories = G.lint_criterion_advisories(branch)
     assert len(advisories) == 1
