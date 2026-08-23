@@ -2048,6 +2048,64 @@ window.searchData = [
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
   },
   {
+    "model_key": "Epilepsy--computational-model-virtual-epilepsy-patient-cohort-brain-twins--0",
+    "name": "Virtual Epilepsy Patient Cohort brain twins",
+    "description": "A cohort of 30 patient-specific whole-brain network models for drug-resistant epilepsy. Each twin combines T1 and diffusion MRI, reconstructed SEEG electrodes, structural connectivity, a regional Epileptor neural-mass model, and a patient-specific epileptogenic-zone hypothesis to generate spontaneous, stimulation-induced, and interictal brain activity.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Python scripts with an external iEEG-BIDS virtual-patient dataset",
+    "model_software": "Python; The Virtual Brain; Epileptor; MNE-Python; NumPy; SciPy",
+    "base_model": "",
+    "model_id": "GitHub:BalanceKey/virtual_epilepsy_patient_cohort@a99c88354015f4c961d49a92c076ed0b675c740b",
+    "repository_url": "https://github.com/BalanceKey/virtual_epilepsy_patient_cohort",
+    "repository_host": "GitHub",
+    "publication": "PMID:40215461",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Epilepsy",
+    "disease_id": "MONDO:0005027",
+    "category": "Complex",
+    "parents": [
+      "Neurological Disease"
+    ],
+    "variables": [
+      "Regional excitability",
+      "Structural connectivity",
+      "SEEG source-to-sensor gain",
+      "Stimulation amplitude"
+    ],
+    "variable_ids": [
+      "x0",
+      "weights",
+      "gain",
+      "Iext"
+    ],
+    "variable_terms": [],
+    "num_variables": 4,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Network Hyperexcitability",
+      "Neuronal Hyperexcitability"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Patient-specific virtual seizures reproduced empirical spontaneous-seizure features better than randomized epileptogenic-zone assignments across the tested spatiotemporal metrics.",
+      "For stimulated seizures, the patient-specific cohort outperformed randomized twins on most metrics, but seizure-propagation similarity was not significantly different.",
+      "In an independent retrospective VEP evaluation, predicted epileptogenic-zone precision was 64% and recall was 44% relative to the clinical definition; precision was higher in seizure-free patients."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [
+      "PMID:35604575",
+      "PMID:40215461"
+    ],
+    "num_evidence": 2,
+    "notes": "Repository inspected at commit a99c88354015f4c961d49a92c076ed0b675c740b (2025-04-24). Python byte-compilation succeeds, with two non-fatal invalid-escape SyntaxWarnings. End-to-end execution was not attempted because the repository has no dependency manifest or license, does not bundle the EBRAINS patient dataset, and relies on local data paths and The Virtual Brain. The README also names one interictal-generation script that is not present under that exact filename. These limitations constrain reproducibility despite the public source and separately deposited virtual cohort.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Epilepsy.html#computational-model-virtual-epilepsy-patient-cohort-brain-twins",
+    "source_file": "kb/disorders/Epilepsy.yaml"
+  },
+  {
     "model_key": "Parkinson's_Disease--computational-model-whole-dopaminergic-neuron-sbml-model--1",
     "name": "Whole Dopaminergic Neuron SBML Model",
     "description": "Large-scale Systems Biology Markup Language (SBML) model of dopaminergic neuron containing 139 reactions and 111 metabolites. Captures dopamine synthesis, vesicular storage, release, reuptake, and degradation alongside mitochondrial function and oxidative stress.\n",
@@ -2172,10 +2230,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 45,
-  "total_source_entries": 18,
-  "total_model_types": 7,
+  "total_models": 46,
+  "total_source_entries": 19,
+  "total_model_types": 8,
   "total_runnable": 4,
-  "total_with_repository": 20
+  "total_with_repository": 21
 };
 window.dispatchEvent(new Event('searchDataReady'));
