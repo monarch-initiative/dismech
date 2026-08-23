@@ -588,16 +588,14 @@ window.searchData = [
     ],
     "variables": [
       "Septal-to-lateral myocardial work difference",
-      "Maximum left-ventricular pressure-rise rate",
-      "Left-ventricular end-systolic volume change"
+      "Maximum left-ventricular pressure-rise rate"
     ],
     "variable_ids": [
       "MWLW-S,DT",
-      "dP/dtmax,DT",
-      "\u0394LVESV"
+      "dP/dtmax,DT"
     ],
     "variable_terms": [],
-    "num_variables": 3,
+    "num_variables": 2,
     "perturbations": [],
     "perturbation_ids": [],
     "modeled_mechanisms": [
