@@ -1980,6 +1980,19 @@ fetch-reference +identifiers:
 tag-references *args="":
     uv run python scripts/tag_references.py {{args}}
 
+# Backfill missing publication titles on KB references and evidence items
+# (`reference_title` on EvidenceItem, `title` on top-level PublicationReference).
+# Titles are read verbatim from references_cache/ frontmatter — nothing is
+# fabricated, and references with no cached title are reported, not guessed.
+# Fetch any missing cache entry first with `just fetch-reference <ID>`.
+#   just backfill-reference-titles                 # all of kb/
+#   just backfill-reference-titles --dry-run       # preview without writing
+#   just backfill-reference-titles --check         # exit 1 if any title is missing
+#   just backfill-reference-titles kb/disorders/Asthma.yaml
+[group('Curation')]
+backfill-reference-titles *args="":
+    uv run python scripts/backfill_reference_titles.py {{args}}
+
 # Generate a COHD-based association_signals YAML block for a concept pair.
 # Examples:
 #   just cohd-signal --concept-a 436672 --concept-b 80502
