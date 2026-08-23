@@ -1,0 +1,47 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Heart_Failure
+  path: kb/disorders/Heart_Failure.yaml
+session:
+  id: 2026-08-22T142407Z-claude-code-13e6c6
+  timestamp: '2026-08-22T14:24:07Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/9244
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - pathophysiology
+  summary: 'Review response and correction: bind GO:0031959 for the MR descriptor;
+    correct a search-syntax error in the prior record (PR #9244)'
+  details: |
+    Response to the second review on PR #9244, which APPROVED the work and raised one non-blocking item plus one correction to my own prior history record. Both acted on.
+
+    CORRECTION TO THE PRIOR HISTORY RECORD (2026-08-22T141043Z-claude-code-8c8ae0.yaml). That record states that a GO search for 'mineralocorticoid' returns only the CHEBI chemical. THAT STATEMENT IS WRONG. History records are append-only and the earlier one is left as written; this record carries the correction.
+
+    The root cause is a search-syntax error worth recording for the next curator, because it produces a false negative that looks like a definitive answer. I ran:
+
+      runoak -i sqlite:obo:go search "mineralocorticoid"      -> returns only CHEBI:25354
+
+    whereas the label-substring form returns nine live GO terms:
+
+      runoak -i sqlite:obo:go search "l~mineralocorticoid"    -> CHEBI:25354, CL:0000456, GO:0006705, GO:0006712, GO:0008212, GO:0017082 (obsolete), GO:0031959, GO:0031962, GO:0035931, GO:0051385, GO:0071389, GO:2000855
+
+    A null result from the bare form is not evidence that no term exists. I had used the bare form, got one CHEBI hit, and concluded from it that GO had no live mineralocorticoid receptor term - then built a workaround binding on that false premise. The reviewer caught it; I reproduced both searches before accepting the correction rather than taking it on assertion.
+
+    NON-BLOCKING ITEM, APPLIED - and applied because it is a correction, not polish. The MR descriptor on the Endocrine Convergence node was bound to GO:0003707 nuclear steroid receptor activity (a molecular_function) with a more specific preferred_term. That binding existed only as a workaround for the term I wrongly believed was missing. It is now bound to GO:0031959 nuclear receptor-mediated mineralocorticoid signaling pathway, which is live, specific, and the exact structural analogue of the glucocorticoid term GO:0042921 - both are children of GO:0031958 nuclear receptor-mediated corticosteroid signaling pathway, which I verified directly. The descriptor accordingly moves from molecular_functions to biological_processes, since GO:0031959 is a BP.
+
+    What remains true from the earlier record and is retained in the node's notes: GO:0017082 mineralocorticoid receptor activity IS obsolete with no recorded replacement. What was wrong and is now corrected in the notes: the claim that no specific live term existed. The notes also now record the search-syntax trap itself, so the next curator does not repeat it.
+
+    CACHE NOTE. cache/go/terms.csv and the biologicalprocessterm enum cache gained GO:0031959, written by linkml-term-validator. GO:0003707 and its molecularfunctionterm enum row remain in the cache from the previous commit and are now unused by this entry. They were NOT hand-deleted: the cache guardrails in CLAUDE.md forbid hand-editing validator-written cache files, and an unused row in a label cache asserts nothing about the entry, so removing it would be both prohibited and pointless.
+
+    Validation re-run after the edit: just validate (passed); just validate-terms (passed); just count-verified-snippets (45/45 verified, unchanged - this commit touches a term binding and prose only, no evidence); just check-duplicate-keys and just check-folded-hyphens (passed); pytest tests/test_data.py -k Heart_Failure.yaml (18 passed). Seven unrelated references_cache files rewritten by just validate were reverted, as in both previous commits.
