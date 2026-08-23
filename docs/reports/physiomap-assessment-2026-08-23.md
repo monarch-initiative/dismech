@@ -7,9 +7,11 @@ knowledge graph of human physiology.* bioRxiv preprint, posted 2026-08-07.
 [interactive demo](https://bio2vec.net/physiomap/). Code BSD-3-Clause; map, benchmark
 data, and docs CC BY 4.0. To appear in a PSB-style proceedings volume (© 2027).
 
-**Scope of this document.** What PhysioMap is, how it differs structurally from the dismech
-pathograph, and which of its ideas are worth importing. This is an analysis of an external
-resource, not a curation change. No KB entry, schema file, or cache is modified by it.
+**Scope of this document.** What PhysioMap is, **what is actually inside the v1.1.1 release**
+(§3, read from the published artifact rather than the paper), how it differs structurally
+from the dismech pathograph, and which of its ideas are worth importing. This is an analysis
+of an external resource, not a curation change. No KB entry, schema file, or cache is
+modified by it.
 
 **Bottom line.** PhysioMap and dismech are close to *structural duals*, and the difference
 is not subject matter — it is what an edge means and what a node names. dismech has ~10×
@@ -17,6 +19,13 @@ PhysioMap's edge count but cannot run PhysioMap's central inference, because dis
 edges carry **directness without polarity** and dismech nodes are **file-scoped strings
 rather than a shared variable namespace**. Those are two separable gaps, and the first is
 much cheaper to close than the second.
+
+Reading the release rather than the paper changes the picture in one further way worth
+stating up front: PhysioMap's content is **55% metabolic/hepatic**, its largest edge source
+is 639 mechanically-shaped enzyme→metabolite links, and of the 866 benchmark pairs **56% are
+unreachable from their lesion and 44% of the reachable ones are a single hop**. The headline
+"100% precision" is therefore a much more local claim than whole-body causal inference —
+see §3.5.
 
 ---
 
@@ -213,7 +222,227 @@ from this analysis, not fixed in it.
 
 ---
 
-## 3. Recommendations
+## 3. What is actually in PhysioMap
+
+Everything below is read from the released artifact, not from the paper: the repo was
+cloned at `bio-ontology-research-group/physiomap` and figures computed from
+`web/physiomap-1.1.1.json` (the projected CKG the public demo browses) and
+`benchmarks/results/`. Counts reconcile with the paper exactly — 1,699 nodes, 2,268 causal,
+85 production, 4 constitution, 9 quantitative-identity, 19 modulation, largest SCC 213,
+1,448 SCCs total.
+
+### 3.1 A node is an (entity, quality, context, scale, system) tuple
+
+```json
+{ "id": "renin", "label": "plasma renin activity",
+  "entity_iri": "CHEBI:50266", "quality_iri": "PATO:0001414",
+  "scale": "organ_system", "system": "Cardiovascular–renal",
+  "scc": 0, "in_big_scc": true, "source": "Guyton core (curated)" }
+```
+
+Note the EQ decomposition is *machine-readable on every node* — this is the thing dismech
+pathophysiology nodes lack (`name` is a free-text string; ontology terms live in separate
+descriptor lists and describe the node's participants, not its identity).
+
+**Entity ontologies:** CHEBI 671, PR 510, GO 216, UBERON 139, CL 35, none 128.
+So it is predominantly *chemicals and proteins* — this is a metabolite-and-enzyme map far
+more than an anatomy map.
+
+**Quality reuse is extremely concentrated.** Three PATO terms cover 86% of all traits:
+
+| PATO term | Meaning | Traits |
+|---|---|---:|
+| `PATO:0000033` | concentration | 854 |
+| `PATO:0001414` | (catalytic) activity | 389 |
+| `PATO:0000161` | rate | 221 |
+
+The long tail (mass, volume, pressure, functionality…) is 235 traits. In practice a
+PhysioMap trait is usually "concentration of X", "activity of X", or "rate of X".
+
+**Scale is a 7-value enum** — `molecular, subcellular, cellular, tissue, organ,
+organ_system, organism` — against dismech's 4-value `biological_scale`
+(`MOLECULAR/CELLULAR/TISSUE/ORGANISM`). PhysioMap's distribution is heavily top-weighted:
+organ_system 933, cellular 463, organ 180, subcellular 46, molecular 43, tissue 29,
+organism 5. Its "molecular" tier is *thinner than dismech's*, which is worth knowing before
+assuming PhysioMap is the more mechanistic resource — it is more *physiological*, not more
+molecular.
+
+### 3.2 The content is dominated by metabolism, not by the cardiovascular showpiece
+
+The paper's Figure 1 is a RAAS/baroreflex neighbourhood, and the methods lead with 17
+Guyton BioModels modules. That is not where the mass of the KB is:
+
+| System | Traits | | Edge provenance | Edges |
+|---|---:|---|---|---:|
+| Metabolic / hepatic | **935** | | IEM-enzyme connections | **639** |
+| Cardiovascular–renal | 197 | | Curated system fragment | 273 |
+| Endocrine | 175 | | Williams (endocrinology) | 247 |
+| Neuro / thermal | 114 | | Curated bridges | 184 |
+| Hematologic | 83 | | HPO gap-fill (lab analytes) | 151 |
+| Respiratory / acid–base | 80 | | Textbook extraction (A&P/…) | 136 |
+| Immune / inflammation | 68 | | Connect-isolated (curated) | 111 |
+| Mineral / bone | 31 | | West (respiratory) | 106 |
+| Fluid / electrolyte | 11 | | Guyton & Hall extraction | 101 |
+| Unassigned | 5 | | *(Guyton core curated: 26)* | 26 |
+
+55% of traits are metabolic/hepatic, and the single largest edge source is
+"IEM-enzyme connections" at 639 edges. Those edges have a stereotyped shape — enzyme
+activity to the metabolites on either side of its reaction:
+
+```
+fumarate hydratase (fumarase) activity            --[-]--> plasma fumarate concentration
+fumarate hydratase (fumarase) activity            --[-]--> urinary fumarate level
+fumarate hydratase (fumarase) activity            --[+]--> urinary malic acid level
+succinate dehydrogenase complex (SDH) activity    --[-]--> plasma succinate concentration
+mitochondrial aconitase 2 (ACO2) catalytic act.   --[-]--> urinary citrate level
+```
+
+Substrate accumulates when the enzyme falls (`-`), product falls (`+`). This is close to
+derivable from reaction stoichiometry, which is how 639 edges were produced — and it
+matters for reading the benchmark (§3.5).
+
+Two provenance lines deserve a curator's eye given the evaluation is against HPOA:
+**"HPO gap-fill (lab analytes)" (151 edges)** and **"Phenotype-connection fan-out" (43)**.
+Edges added to cover HPO analytes, then scored against an HPO-derived reference, are the
+concrete form of the circularity the authors flag in prose. Their 15-gene leakage-control
+analysis is the right mitigation; it is worth knowing it is mitigating *this*.
+
+### 3.3 Signs are nearly always committed; `?` is rare and well-chosen
+
+Causal edge signs: **`+` 1,265, `-` 982, `?` 21**. So 99.1% of edges carry a definite sign —
+`?` is not a dumping ground. All 21 are genuinely sign-indeterminate relations, and several
+are textbook non-monotonicities:
+
+- `left-ventricular end-diastolic volume (preload)` → `ejection fraction`
+- `lung volume` → `pulmonary vascular resistance` *(the classic U-shaped curve)*
+- `plasma epinephrine` → `total peripheral resistance` *(α1 vasoconstriction vs β2 vasodilation)*
+- `arterial PaCO2` → `total peripheral resistance`
+- `free T4` → `plasma triglyceride`; `plasma testosterone` → `HDL-cholesterol`
+
+This is direct empirical support for R1's design note: an authored `?` is a *positive claim
+of sign-indeterminate dependence*, used 21 times out of 2,268. It is emphatically not the
+same as "not yet curated", and a dismech polarity slot should not let the two collapse.
+
+### 3.4 The complete non-causal relation sets
+
+Small enough to quote in full, and they show what the extra relation types actually buy.
+
+**All 4 constitutive edges** (`micro` → `macro`, all `+`): adipose tissue mass and lean body
+mass constitute body weight; red cell mass and plasma volume constitute blood volume.
+
+**All 9 quantitative identities** — note each argument carries its own derivative sign, and
+`role` distinguishes `factor` / `summand` / `numerator` / `denominator` / `argument`:
+
+| Result | Kind | Arguments (with derivative sign) |
+|---|---|---|
+| mean arterial pressure | product | cardiac output (+) × total peripheral resistance (+) |
+| cardiac output | product | heart rate (+) × stroke volume (+) |
+| blood volume | aggregation | red cell mass (+) + plasma volume (+) |
+| body weight | aggregation | adipose tissue mass (+) + lean body mass (+) |
+| hematocrit | ratio | red cell mass (+) / blood volume (**−**) |
+| arterial O₂ content | structural-function | Hb O₂ saturation (+), hematocrit (+), arterial PO₂ (+) |
+| oxygen delivery | product | cardiac output (+) × arterial O₂ content (+) |
+| arterial pH | structural-function | arterial PCO₂ (**−**), plasma bicarbonate (+) |
+| alveolar PO₂ | structural-function | inspired PO₂ (+), alveolar PCO₂ (**−**) |
+
+The last two are the Henderson–Hasselbalch and alveolar gas equations reduced to their
+derivative signs — a nice illustration of the paper's claim that signs are an *abstraction
+of* a quantitative constraint rather than a substitute for it.
+
+**All 19 modulation edges** are (modulator, edge) pairs with a mixed-derivative sign. Four
+of them reconstruct the oxyhemoglobin dissociation curve's shift factors as modulations of
+one edge (`arterial PO₂ → arterial Hb O₂ saturation`) — the Bohr/temperature/2,3-BPG
+effects:
+
+```
+[-] arterial PaCO2                    on  arterial PO2 -> Hb O2 saturation
+[+] arterial blood pH                 on  arterial PO2 -> Hb O2 saturation
+[-] body core temperature             on  arterial PO2 -> Hb O2 saturation
+[-] erythrocyte 2,3-BPG               on  arterial PO2 -> Hb O2 saturation
+```
+
+Four more are cortisol's permissive effects (on glucagon→hepatic glucose production,
+epinephrine→glycogenolysis, epinephrine→lipolysis, norepinephrine→TPR) — i.e. "permissive
+hormone action", which really is a mixed partial and really is awkward to express as an
+ordinary edge. This is the clearest argument in the release for modulation as a distinct
+type, even though the first-order solver does not read it.
+
+### 3.5 The benchmark result is shallower than the headline suggests
+
+This is the most consequential thing the released data shows, and it is not in the paper.
+Taking the 866 adjudicated pairs in `benchmarks/results/e1b_forward_pairs.tsv` and running
+BFS from each lesion variable over the causal + production edges:
+
+| | Pairs | Share |
+|---|---:|---:|
+| **Unreachable** from the lesion at any depth | **484** | 55.9% |
+| Reachable | 355 | 41.0% |
+| Lesion id not in the projected graph | 27 | 3.1% |
+
+And among the 355 reachable, distance is heavily front-loaded — **155 (43.7%) are a single
+hop**, 54% within two, 72% within four.
+
+Two readings follow:
+
+1. **Most abstentions are absence of a path, not feedback-induced indeterminacy.** The
+   solver abstained on 695 pairs; at least 484 of those have no directed route from lesion
+   to scored variable at all. The narrative of a solver suspending judgement in the face of
+   coupled feedback applies to a much smaller residue than 695 suggests.
+2. **The determinate set is plausibly concentrated at depth 1.** The solver committed on
+   171 pairs; there are 155 one-hop reachable pairs. Those numbers are consistent with
+   determinacy being mostly the direct enzyme→analyte edges of §3.2 — relations that are
+   close to definitional, and on which 100% precision is a much weaker claim than
+   whole-body causal inference.
+
+**This is consistent-with, not proven.** The release does not publish per-pair determinacy
+labels, so I cannot confirm that the 171 determinate pairs *are* the 155 one-hop pairs plus
+16 others; the counts permit it but do not establish it. My BFS also reconstructs
+reachability from the projected web payload (355) rather than the solver's own graph, and
+the paper reports 375 shortest-path directions — the ~20-pair gap is explained by the 27
+unresolvable lesion ids and possibly by quantitative-identity edges I did not traverse.
+Confirming or refuting this needs the per-pair output, which would be a reasonable thing to
+ask the authors for.
+
+Note this does **not** undercut their abstention result (§1.1). That permutation test was
+restricted to pairs where the shortest-path rule returned a direction — i.e. reachable
+pairs — so unreachable pairs never entered it. The test remains valid on its own terms; what
+the depth analysis changes is the interpretation of the *coverage* figure, not the
+significance of the concentration result.
+
+### 3.6 Content defects visible in the release
+
+Minor, and worth recording because dismech would hit the same class of problem if it built a
+shared trait namespace (§2.2).
+
+- **Exact duplicate traits.** Grouping nodes by (entity IRI, quality IRI) finds 195 colliding
+  pairs, but nearly all are legitimate context distinctions the web payload does not expose —
+  `plasma_phenylalanine` and `csf_phenylalanine` share `CHEBI:28044` + `PATO:0000033` and
+  differ only in context, which is exactly what the trait definition's context conjunct is
+  for. Filtering to collisions that *also* share an identical label leaves **5 genuine
+  duplicate groups (6 redundant nodes)**:
+
+  | Label | Duplicate ids |
+  |---|---|
+  | plasma 11-deoxycorticosterone (DOC) concentration | `plasma_deoxycorticosterone`, `plasma_doc`, `plasma_11_deoxycorticosterone` |
+  | erythrocyte pyruvate kinase (PKLR) catalytic activity | `pyruvate_kinase_activity`, `erythrocyte_pyruvate_kinase_activity` |
+  | alpha-galactosidase A (GLA) activity | `alpha_galactosidase_a_activity`, `gla_activity` |
+  | arylsulfatase A (ARSA) activity | `arylsulfatase_a_activity`, `arsa_activity` |
+  | tissue glucosylceramide content | `tissue_glucosylceramide`, `tissue_glucosylceramide_content` |
+
+  0.35% of nodes — the paper's "reconciled duplicates" step evidently worked, with a
+  residue. It is not cosmetic under SCM semantics, though: each of the three DOC nodes
+  independently carries a `−` edge into `renin`, so an intervention on "DOC" reaches only a
+  third of its edges and the feedback structure around renin is understated. Three of the
+  five are ARSA/GLA/PKLR — genes that also appear in the rare-disease benchmark.
+
+- **One contradictory edge pair.** Exactly one (source, target) pair carries two edges with
+  opposing signs: `plasma insulin concentration → hepatic VLDL secretion rate`, once `+` and
+  once `−`. Biologically this is a real tension (acute insulin suppresses VLDL secretion;
+  chronic hyperinsulinaemia with insulin resistance raises it), so the honest encoding is
+  probably a context distinction or a `?`, not two unqualified edges. That 1 conflict in
+  2,268 edges is a good consistency record.
+
+## 4. Recommendations
 
 Ordered by value-to-cost. Only the first is proposed as near-term work.
 
@@ -296,7 +525,7 @@ presupposes R1 and the §2.2 namespace work.
 
 ---
 
-## 4. Open questions
+## 5. Open questions
 
 1. Is edge polarity already tracked in an issue? (search inconclusive — needs a human check)
 2. Would `causal_effect` be better on `CausalEdge`, or as a fourth mechanism-link class
@@ -309,10 +538,16 @@ presupposes R1 and the §2.2 namespace work.
 4. Should a self-loop `downstream` edge be a test failure? (§2.3 — two exist today.)
 5. `conforms_to` anchors are the only existing cross-file node identity. Are they dense
    enough to seed a shared trait namespace, or is §2.2 genuinely a from-scratch effort?
+6. **Worth asking the PhysioMap authors for the per-pair determinacy labels** (which of the
+   866 pairs the solver committed on). That single file would settle §3.5 — whether the 171
+   determinate predictions are essentially the one-hop enzyme→analyte edges, or whether the
+   solver is genuinely resolving multi-hop and feedback cases. The question is friendly, not
+   adversarial: the release is unusually complete and this is the one artifact missing to
+   reproduce the coverage claim end to end.
 
 ---
 
-## 5. Provenance
+## 6. Provenance
 
 Source PDF supplied by the user (bioRxiv full text, 16 pp.); text extracted locally with
 pypdf and read in full. Repository counts computed at commit `4b2f90c` by walking
@@ -323,5 +558,18 @@ verified against
 `src/dismech/schema/dismech.yaml` (`CausalEdge`, `TreatmentEffectEnum`,
 `EnvironmentalEffectEnum`, `CausalLinkTypeEnum`, `ModifierEnum`, `ModelVariableDescriptor`).
 No supplementary material was retrieved; statements attributed to Suppl. sections are as
-described in the main text. Numbers quoted from the paper are as printed in the preprint and
-were not independently recomputed.
+described in the main text.
+
+**§3 figures are independently computed**, not quoted. The PhysioMap repo was cloned at
+`https://github.com/bio-ontology-research-group/physiomap` and all §3 numbers derived from
+two files in it: `web/physiomap-1.1.1.json` (the projected CKG: node/edge inventories, sign
+and provenance distributions, scale/system/PATO/entity-prefix breakdowns, the complete
+constitutive/quantitative/modulation sets, and the duplicate-trait and sign-conflict checks)
+and `benchmarks/results/e1b_forward_pairs.tsv` plus `e1b_forward.json` (the 866 adjudicated
+pairs and the headline counts). The §3.5 depth analysis is my own BFS over causal +
+production edges from each pair's lesion variable; its limits are stated inline in that
+section. The release's own headline counts reproduce the paper's exactly (1,699 / 2,268 /
+85 / 4 / 9 / 19, largest SCC 213; 171 correct of 171 determinate with 695 abstentions, and
+151/151 with 657 under leakage control), which is a good sign for the release's integrity.
+Numbers quoted *from the paper* — the expert review, the baselines, the abduction table, the
+permutation test — are as printed in the preprint and were not recomputed.
