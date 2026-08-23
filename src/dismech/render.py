@@ -64,6 +64,10 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # (issue #8402). A global for the same reason: it depends only on the two
     # strings, never on which page is being rendered.
     env.globals["label_restates_title"] = label_restates_title
+    # Whether a curated free-text identifier is CURIE-shaped, so it can be
+    # rendered as a resolver chip instead of dead text (issue #8044). Also
+    # depends only on its argument.
+    env.globals["is_curie"] = is_curie
     return env
 
 
@@ -167,6 +171,26 @@ def _load_prefix_map() -> dict:
         for prefix, base in prefixes.items()
         if isinstance(prefix, str) and isinstance(base, str)
     }
+
+
+_CURIE_RE = re.compile(r"^[A-Za-z][A-Za-z0-9._-]*:[^\s]+$")
+
+
+def is_curie(value: object) -> bool:
+    """Whether a string is CURIE-shaped, so it is worth handing to a resolver.
+
+    Used for identifiers curated as free text -- an ``ExternalAssertion``'s
+    ``external_id`` is ``ORPHA:558`` on one record and an opaque ClinGen
+    ``assertion_<uuid>-<timestamp>`` on the next, and only the former should
+    become a resolver link.
+
+    Shape is all this can promise. ``curie_to_url`` never fails: a prefix the
+    schema map does not carry (``ORPHA``, ``OMIM`` and ``CGGV`` are all absent)
+    falls through to ``https://bioregistry.io/{curie}``, which resolves for a
+    registered prefix and 404s otherwise. That is the same treatment these
+    identifiers already get as evidence references elsewhere on the page.
+    """
+    return bool(value) and bool(_CURIE_RE.match(str(value)))
 
 
 def curie_to_url(curie: str) -> str:
@@ -466,6 +490,29 @@ def _annotate_variant_anchors(disorder: dict) -> None:
             continue
         variant["_anchor_id"] = _claim_anchor_id(
             _make_anchor_id("variant", str(name)), used
+        )
+
+
+def _annotate_external_assertion_anchors(disorder: dict) -> None:
+    """Attach anchor IDs to disease-level external assertions (issue #8044).
+
+    These are not pathograph nodes -- ``dismech.graph`` emits none -- so the
+    cards carry no ``data-dismech-node`` pair; the anchor exists so the section
+    can be deep-linked and so future cross-references have a target. IDs are
+    de-duplicated because two registry records may slugify to the same value.
+    """
+    assertions = disorder.get("external_assertions") or []
+    if not isinstance(assertions, list):
+        return
+    used: set[str] = set()
+    for assertion in assertions:
+        if not isinstance(assertion, dict):
+            continue
+        name = assertion.get("name") or assertion.get("external_id")
+        if not name:
+            continue
+        assertion["_anchor_id"] = _claim_anchor_id(
+            _make_anchor_id("external-assertion", str(name)), used
         )
 
 
@@ -1997,6 +2044,7 @@ def render_disorder(
     _annotate_model_links(disorder)
     _annotate_card_anchors(disorder)
     _annotate_variant_anchors(disorder)
+    _annotate_external_assertion_anchors(disorder)
     _annotate_hypothesis_group_links(disorder)
     semantic_ref_index = _build_semantic_ref_index(disorder)
 
