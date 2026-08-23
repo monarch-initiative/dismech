@@ -2514,13 +2514,13 @@ window.searchData = [
       "Regional excitability",
       "Structural connectivity",
       "SEEG source-to-sensor gain",
-      "Stimulation amplitude"
+      "Stimulation waveform input"
     ],
     "variable_ids": [
       "x0",
       "weights",
       "gain",
-      "Iext"
+      "Istim"
     ],
     "variable_terms": [],
     "num_variables": 4,
