@@ -241,6 +241,120 @@ window.searchData = [
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
+    "model_key": "Ataxia-telangiectasia--computational-model-atm-p-ala2386glu-variant-structure-predictions--1",
+    "name": "ATM p.Ala2386Glu variant-structure predictions",
+    "description": "Allele-specific structural analyses of homozygous ATM c.7157C>A (p.Ala2386Glu) found in two brothers with variant A-T. Missense3D/PHYRE2 and DynaMut modeled the substitution in the FAT-domain alpha-21 helix against wild-type cryo-EM template PDB 6K9L and produced competing hypotheses: buried-charge structural destabilization or stabilization of the closed, less-active ATM dimer. Patient lymphoblastoid-cell experiments favored the instability branch while showing residual kinase function.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Missense3D/PHYRE2; DynaMut; PyMOL",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:34759960",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Ataxia-telangiectasia",
+    "disease_id": "MONDO:0008840",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "Hereditary cerebellar ataxia",
+      "DNA repair disorder"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [
+      "ATM"
+    ],
+    "perturbation_ids": [
+      "hgnc:795"
+    ],
+    "modeled_mechanisms": [
+      "ATM kinase deficiency and defective DNA-damage signaling"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Thermal-stability experiments favored Missense3D's protein-instability prediction over DynaMut's closed-dimer loss-of-activity hypothesis."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:34759960"
+    ],
+    "num_evidence": 1,
+    "notes": "No mutant coordinates, prediction outputs, code, or reusable model archive were deposited; PDB 6K9L is the wild-type experimental template, not the p.Ala2386Glu model. The template resolution is 4.27 angstrom. The structural analysis is useful because it is allele-explicit and experimentally checked, but it remains a one-family result and does not model the full A-T spectrum.",
+    "creation_date": "2026-03-15T23:04:29Z",
+    "page_url": "../../pages/disorders/Ataxia-telangiectasia.html#computational-model-atm-p-ala2386glu-variant-structure-predictions",
+    "source_file": "kb/disorders/Ataxia_Telangiectasia.yaml"
+  },
+  {
+    "model_key": "Ataxia-telangiectasia--computational-model-atm-atr-dna-damage-response-and-drug-repurposing-ode-model--0",
+    "name": "ATM/ATR DNA-damage-response and drug-repurposing ODE model",
+    "description": "A single-compartment kinetic model of ATM/ATR-p53 signaling, DNA-damage production and repair, HDAC4-PP2A regulation, NRF2-KEAP1 signaling, autophagy, and p53-dependent cell-fate effectors. The deposited SBML contains 31 species and 40 reactions. The paper compares a physiological simulation with an A-T disease arm created by setting ATM to zero and with separate manually configured simulations of HDAC4 inhibition, omaveloxolone, and spermidine.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "SBML Level 2 Version 4 (XML)",
+    "model_software": "COPASI 4.44 (Build 295)",
+    "base_model": "",
+    "model_id": "AT_ATM_ATR_forDR_v1.xml",
+    "repository_url": "https://github.com/francescopappalardo/ATM-ATR-DDR-DrugRepositioning-Model/tree/b8fe08557e7ba8d32a8168a53641a6c2b1e65bf2",
+    "repository_host": "GitHub",
+    "publication": "PMID:41285916",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Ataxia-telangiectasia",
+    "disease_id": "MONDO:0008840",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "Hereditary cerebellar ataxia",
+      "DNA repair disorder"
+    ],
+    "variables": [
+      "Active ATM",
+      "DNA-damage burden",
+      "Active p53",
+      "Active NRF2",
+      "Active autophagy"
+    ],
+    "variable_ids": [
+      "ATM_active",
+      "DNA_damage",
+      "p53_active",
+      "NRF2_active",
+      "Autophagy_active"
+    ],
+    "variable_terms": [],
+    "num_variables": 5,
+    "perturbations": [
+      "ATM"
+    ],
+    "perturbation_ids": [
+      "hgnc:795"
+    ],
+    "modeled_mechanisms": [
+      "ATM kinase deficiency and defective DNA-damage signaling"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "In the ATM-deficient arm, ATR becomes the principal pathway regulating the modeled cellular response to DNA damage.",
+      "The spermidine arm predicts increased autophagy and lower DNA_damage, but this is an unvalidated in-silico treatment response rather than evidence of clinical efficacy.",
+      "The omaveloxolone arm predicts gradual reduction of DNA_damage, again without experimental A-T validation."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [
+      "PMID:41285916"
+    ],
+    "num_evidence": 1,
+    "notes": "The primary pinned GitHub source is GPL-3.0 (file SHA-256 33139fc6df3278e3bb8e2bf0878367a51653e2c44021541ee261061278f636d1). BioModels accession MODEL2503190002 revision 2 is NON_CURATED; its OMEX metadata declares CC0 while its record has no license field. Its versioned per-file endpoint provides the semantically equivalent SBML (SHA-256 816d0fb1963f142859218e8473dffb9ac1a0a107a5f2988515541173ce399b56), whereas the bulk archive currently contains a zero-byte SBML member. BioModels adds annotations and reserializes the XML, accounting for the cross-source byte difference. Both files validated without libSBML errors and ran finite time courses in COPASI and libRoadRunner during curator smoke testing on 2026-08-20. The paper reports 32 molecular species and 41 reactions, whereas both deposited artifacts contain 31 species and 40 reactions. Only one base SBML file is deposited: disease and drug scenarios, solver tasks, and expected figure outputs are not packaged as separate configurations. Concentrations are qualitative and not calibrated to patient or cell data; the paper's nominal 20 mol/L drug settings must not be interpreted as clinical doses. Parameter sensitivity, Lyapunov stability, and enrichment of the manually selected network test internal behavior or consistency, not external predictive validity; moreover, the three reported Lyapunov exponents sum to -0.06784821 rather than the stated -12.4979. The proposed spermidine-plus-HDAC4 synergy is inferred from separate intervention simulations rather than a deposited combination run and still requires experimental testing. Although the artifact title and notes sometimes say ATM/ATR-deficient A-T, the disease simulation removes ATM while retaining ATR as the compensatory pathway.",
+    "creation_date": "2026-03-15T23:04:29Z",
+    "page_url": "../../pages/disorders/Ataxia-telangiectasia.html#computational-model-atm-atr-dna-damage-response-and-drug-repurposing-ode-model",
+    "source_file": "kb/disorders/Ataxia_Telangiectasia.yaml"
+  },
+  {
     "model_key": "Parkinson's_Disease--computational-model-basal-ganglia-spiking-neural-network--2",
     "name": "Basal Ganglia Spiking Neural Network",
     "description": "Computational model of the basal ganglia circuit capturing dopamine-modulated dynamics between striatum, globus pallidus, subthalamic nucleus, and substantia nigra. Simulates pathological beta-band oscillations and motor dysfunction in PD.\n",
@@ -1400,6 +1514,60 @@ window.searchData = [
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-multi-level-dynamical-modelling-of-scc-in-fa",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
+  },
+  {
+    "model_key": "Ataxia-telangiectasia--computational-model-normative-diffusion-perfusion-mri-autoencoder--2",
+    "name": "Normative diffusion-perfusion MRI autoencoder",
+    "description": "A seven-layer, fully connected PyTorch autoencoder trained only on healthy pediatric MRI features to detect individual deviations in A-T. Twenty inputs (13 regional diffusion/perfusion features plus seven demographic and volume covariates) are compressed and 13 imaging features are reconstructed. The paper reports a four-dimensional latent layer, whereas the released notebook instantiates five latent units. One hundred controls were used for training and validation, 10 controls for held-out testing, and 16 children with A-T for disease evaluation.",
+    "model_type": "Machine Learning",
+    "model_type_raw": "MACHINE_LEARNING",
+    "model_format": "Jupyter Notebook/CSV",
+    "model_software": "Python/PyTorch (versions unpinned); scikit-learn; SHAP",
+    "base_model": "",
+    "model_id": "Notebook/main.ipynb",
+    "repository_url": "https://github.com/stefanpsz/A-T_Autoencoder/commit/d14295ced27c4cbee3e22db966daed38c40f831e",
+    "repository_host": "GitHub",
+    "publication": "PMID:40880371",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Ataxia-telangiectasia",
+    "disease_id": "MONDO:0008840",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "Hereditary cerebellar ataxia",
+      "DNA repair disorder"
+    ],
+    "variables": [
+      "Total MRI-feature reconstruction error",
+      "Cerebellar gray-matter diffusion reconstruction error",
+      "Cerebellar white-matter diffusion reconstruction error"
+    ],
+    "variable_ids": [
+      "total reconstruction error",
+      "CGM diffusion reconstruction error",
+      "CWM diffusion reconstruction error"
+    ],
+    "variable_terms": [],
+    "num_variables": 3,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Progressive cerebellar and peripheral neurodegeneration"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "A-T participants showed substantially higher total reconstruction error than held-out controls, with the clearest anomalies in pallidal and caudate perfusion and cerebellar gray- and white-matter diffusion."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:40880371"
+    ],
+    "num_evidence": 1,
+    "notes": "The MIT-licensed repository is pinned at commit d14295ced27c4cbee3e22db966daed38c40f831e and includes the training/test/A-T combined-feature CSV files plus the analysis notebook; the feature data have no separate data-license file. It does not include trained weights, a dependency manifest, or an environment lock. The notebook expects nine absent split CSV files, saves and loads weights through an author's private Google Drive path, and omits code that constructs several later analysis objects. Its formulas instantiate a five-unit latent layer rather than the four-unit architecture stated in the paper. The committed artifact is therefore not a self-contained replay of the published analysis. The 16-person A-T cohort is small and has no external validation cohort; training controls are younger on average, and exploratory clinical associations were not corrected for multiple testing. This is an individualized anomaly detector, not a longitudinal patient digital twin.",
+    "creation_date": "2026-03-15T23:04:29Z",
+    "page_url": "../../pages/disorders/Ataxia-telangiectasia.html#computational-model-normative-diffusion-perfusion-mri-autoencoder",
+    "source_file": "kb/disorders/Ataxia_Telangiectasia.yaml"
   },
   {
     "model_key": "Anaplastic_Large_Cell_Lymphoma--computational-model-npm-alk-signaling-network-sensitivity-model--0",
@@ -2727,10 +2895,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 55,
-  "total_source_entries": 21,
-  "total_model_types": 8,
+  "total_models": 58,
+  "total_source_entries": 22,
+  "total_model_types": 9,
   "total_runnable": 4,
-  "total_with_repository": 25
+  "total_with_repository": 27
 };
 window.dispatchEvent(new Event('searchDataReady'));
