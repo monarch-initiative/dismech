@@ -75,7 +75,9 @@ ALLOWED_REFERENCE_PREFIXES = (
     "CIVIC_ASSERTION:",
     "CIVIC_EID:",
     "ICEES:",  # ICEES KG comorbidity pairs
+    "ICTRP:",  # WHO ICTRP trial registrations (ChiCTR, ISRCTN, EUCTR, JPRN, ...)
     "NCIT:",  # NCI Thesaurus predicate edges (e.g. NCIT:P302 therapeutic use)
+    "STRCHIVE:",  # STRchive tandem-repeat disease loci (references_cache/STRCHIVE_*.md)
     "metabolights:",  # dataset accession; skip_prefixes in the validator config
 )
 
@@ -104,8 +106,14 @@ def _iter_evidence_lists(node, path=""):
             yield from _iter_evidence_lists(item, f"{path}[{index}]")
 
 
+@lru_cache(maxsize=1)
 def _disease_names():
-    """Set of all Disease `name` values across kb/disorders/."""
+    """Set of all Disease `name` values across kb/disorders/.
+
+    Cached: this parses every file in kb/disorders/ (~2 minutes for the current
+    corpus) and is called once per parametrization of the grouping foreign-key
+    test, i.e. once per grouping. Uncached, that test alone took hours.
+    """
     names = set()
     for fp in DISORDER_FILES:
         with open(fp) as f:
@@ -158,6 +166,7 @@ def _iter_conforms_to(node, path=""):
             yield from _iter_conforms_to(item, f"{path}[{index}]")
 
 
+@lru_cache(maxsize=1)
 def _grouping_names():
     """Set of Grouping `name` values across kb/groupings/."""
     names = set()

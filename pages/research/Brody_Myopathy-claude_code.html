@@ -1,0 +1,2446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brody Myopathy · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Brody Myopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Brody Myopathy</h1>
+                
+                <p class="report-subtitle">Brody Myopathy — Comprehensive Disease Research Report</p>
+                
+                
+                <div class="report-date">2026-08-16</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010977" target="_blank" rel="noopener noreferrer">MONDO:0010977</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                    <span class="meta-chip">32 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Brody Myopathy — Comprehensive Disease Research Report</h1>
+<p><strong>Prepared:</strong> 2026-08-16 · <strong>Target entity:</strong> Brody myopathy / Brody disease · <strong><a href="http://purl.obolibrary.org/obo/MONDO_0010977" target="_blank" rel="noopener noreferrer">MONDO:0010977</a></strong> (verified via OLS4)</p>
+<blockquote>
+<p><strong>How to read the citations here.</strong> Quotes marked <strong>[verbatim]</strong> were pulled character-for-character from the PubMed abstract record via NCBI E-utilities and are safe to use as evidence <code>snippet:</code> values. Anything marked <strong>[full-text derived]</strong> came from reading article body text through a summarizing fetch — those numbers are <em>leads</em>, and need re-verification against the source before they get curated with a snippet. Ontology IDs marked <strong>[OAK-verified]</strong> were checked against local <code>sqlite:obo:*</code> adapters in this session; everything else is a suggestion to check.</p>
+</blockquote>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>What it is</h3>
+<p>Brody myopathy is an ultra-rare, autosomal recessive skeletal muscle disorder in which the calcium pump that resets fast-twitch muscle after a contraction is broken. Think of a sink with a slow drain: the contraction fills the cytoplasm with calcium just fine, but emptying it back into the sarcoplasmic reticulum takes far too long. Clinically that reads as <em>exercise-induced stiffness and delayed relaxation</em> — a cramp-like tightening that looks exactly like myotonia but is electrically <strong>silent</strong> on needle EMG. That silence is the diagnostic tell.</p>
+<p>It is caused by biallelic pathogenic variants in <strong>ATP2A1</strong>, encoding <strong>SERCA1</strong> (sarco/endoplasmic reticulum Ca²⁺-ATPase, isoform 1), the pump that dominates type II (fast-twitch) fibers.</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "Brody disease is an autosomal recessive myopathy characterized by exercise-induced muscle stiffness due to mutations in the ATP2A1 gene." — Molenaar et al., <em>Brain</em> 2020 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a></strong>)</p>
+<p><strong>[verbatim]</strong> "Brody disease is a rare inherited disorder of skeletal muscle function. Symptoms include exercise-induced impairment of skeletal muscle relaxation, stiffness and cramps. Ca2+ uptake and Ca2+ ATPase activities are reduced in the sarcoplasmic reticulum…" — Odermatt et al., <em>Nature Genetics</em> 1996 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/8841193/" target="_blank" rel="noopener noreferrer">PMID:8841193</a></strong>)</p>
+</blockquote>
+<h3>First description</h3>
+<p>Irwin A. Brody, <em>NEJM</em> 1969;281(4):187–192, "Muscle contracture induced by exercise. A syndrome attributable to decreased relaxing factor" (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/4239835/" target="_blank" rel="noopener noreferrer">PMID:4239835</a></strong>). No structured abstract exists on this record — do <strong>not</strong> attempt to snippet-validate against it. The gene link followed 27 years later (Odermatt 1996).</p>
+<h3>Key identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0010977" target="_blank" rel="noopener noreferrer">MONDO:0010977</a></strong> — "Brody myopathy" <em>(OLS4-verified)</em></td>
+</tr>
+<tr>
+<td>OMIM (disease)</td>
+<td><strong>601003</strong> — BRODY DISEASE; BROD</td>
+</tr>
+<tr>
+<td>OMIM (gene)</td>
+<td><strong>108730</strong> — ATP2A1</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><strong><a href="https://bioregistry.io/ORPHA:53347" target="_blank" rel="noopener noreferrer">ORPHA:53347</a></strong> — Brody myopathy</td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td><strong>hgnc:811</strong> — ATP2A1 <strong>[OAK-verified]</strong></td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C1832918 (per NIH GTR conditions page)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>G71.2 / G72.8 range (metabolic-myopathy bucket; no dedicated code) — <em>verify against the ICD release you target</em></td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>8C70.Y / 8C7Y range (other specified myopathies) — <em>verify</em></td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No dedicated descriptor; indexed under Muscular Diseases / Muscle Relaxation</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Synonyms and naming</h3>
+<ul>
+<li>Brody disease (BROD)</li>
+<li>Brody myopathy</li>
+<li>SERCA1 deficiency</li>
+<li>Sarcoplasmic reticulum Ca²⁺-ATPase deficiency</li>
+<li>ATP2A1-related myopathy</li>
+</ul>
+<p><strong>One naming distinction really matters for curation.</strong> The literature separates:</p>
+<ul>
+<li><strong>Brody disease</strong> — reduced SERCA activity <strong>with</strong> identified biallelic <em>ATP2A1</em> variants.</li>
+<li><strong>Brody syndrome</strong> — the same clinical/biochemical picture <strong>without</strong> <em>ATP2A1</em> variants; genetically unsolved.</li>
+</ul>
+<blockquote>
+<p><strong>[verbatim, partial]</strong> "Brody disease is a rare inherited myopathy due to reduced sarcoplasmic reticulum Ca(2+) ATPase (SERCA)1 activity." … "Brody disease presents with an onset in the 1st decade, a generalized pattern of muscle stiffness" … "Patients with Brody syndrome more often report myalgia and experience a considerable impact on daily life." — Voermans et al., <em>Neuromuscul Disord</em> 2012 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/22704959/" target="_blank" rel="noopener noreferrer">PMID:22704959</a></strong>), cross-sectional study of 17 Brody syndrome patients</p>
+</blockquote>
+<p>MONDO folds "Brody disease" in as a synonym of <a href="http://purl.obolibrary.org/obo/MONDO_0010977" target="_blank" rel="noopener noreferrer">MONDO:0010977</a>. If you want the syndrome/disease split represented, do it with a <strong>subtype</strong> or a lump/split note rather than a second MONDO term.</p>
+<h3>Data provenance</h3>
+<p>Everything below is <strong>disease-level aggregated knowledge</strong> — case reports, one 40-patient international cohort, and one 17-patient cross-sectional study. There is no registry, no EHR-derived cohort, and no natural-history study with structured longitudinal data. Curate accordingly: frequencies come from <em>n</em>≈40, not from a population.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Primary cause</h3>
+<p>Biallelic (homozygous or compound heterozygous) loss-of-function variants in <strong>ATP2A1</strong> (16p11.2; older literature maps it to 16p12.1-12.2). Purely Mendelian — no infectious, environmental, or autoimmune contribution to causation.</p>
+<p>Two mechanistic flavors of "loss of function," and they matter therapeutically:</p>
+<ol>
+<li><strong>Quantitative loss</strong> — nonsense, frameshift, splice, large deletion → little or no SERCA1 protein made.</li>
+<li><strong>Qualitative/folding loss</strong> — missense → protein is often <strong>catalytically competent but misfolded</strong>, recognized by ER quality control, ubiquitinated, and destroyed before it reaches the SR membrane. This is the CFTR-ΔF508 playbook running in a different gene, and it's the entire basis for the corrector-drug strategy in §12.</li>
+</ol>
+<blockquote>
+<p><strong>[verbatim]</strong> "Most mutations generate proteins corrupted in proper folding that although catalytically active, were ubiquitinated and prematurely degraded by the ubiquitin-proteasome system, thus sharing with Cystic Fibrosis the same pathogenetic mechanism." — Sacchetto group, <em>Hum Mol Genet</em> 2025 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/41206505/" target="_blank" rel="noopener noreferrer">PMID:41206505</a></strong>)</p>
+</blockquote>
+<h3>Genetic risk factors</h3>
+<ul>
+<li><strong>Causal:</strong> biallelic <em>ATP2A1</em> variants. Heterozygous carriers are clinically unaffected.</li>
+<li><strong>Not causal:</strong> heterozygous <em>ATP2A1</em> variants alone. Odermatt 2000 explicitly disproved one candidate this way.</li>
+</ul>
+<blockquote>
+<p><strong>[verbatim]</strong> "In a fourth family, the heterozygous substitution of T for C2455, mutating Arg819 to Cys, was identified. This mutation was also readily expressed in HEK-293 cells and shown to have near normal Ca2+ transport activity, indicating that it is not causal for Brody disease." — Odermatt et al., <em>Hum Genet</em> 2000 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/10914677/" target="_blank" rel="noopener noreferrer">PMID:10914677</a></strong>)</p>
+</blockquote>
+<ul>
+<li><strong>Consanguinity</strong> raises risk, as for any AR disorder; the 2023 Turkish case was homozygous, consistent with that.</li>
+<li><strong>No modifier genes have been identified.</strong> Genotype–phenotype correlation is reported as absent (see §4).</li>
+</ul>
+<h3>Environmental risk / trigger factors</h3>
+<p>There is a clean distinction here that a knowledge base should preserve: <strong>nothing environmental causes Brody myopathy, but several things unmask or worsen it.</strong> Triggers, not etiology:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Trigger</th>
+<th>Effect</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Physical exertion (even mild)</td>
+<td>Elicits stiffness/delayed relaxation — the defining trigger</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39273176/" target="_blank" rel="noopener noreferrer">PMID:39273176</a></td>
+</tr>
+<tr>
+<td><strong>Cold exposure</strong></td>
+<td>Symptom exacerbation, reported in ~72% of the cohort</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a> <strong>[full-text derived]</strong></td>
+</tr>
+<tr>
+<td><strong>Volatile anesthetics + succinylcholine</strong></td>
+<td>Precipitate malignant-hyperthermia-like episodes</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25614869/" target="_blank" rel="noopener noreferrer">PMID:25614869</a></td>
+</tr>
+<tr>
+<td>Repetitive contraction</td>
+<td>The physical-exam provocation maneuver</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Suggested ECTO grounding: exposure to cold temperature and exposure to anesthetic agent concepts — <strong>verify CURIEs with OAK before binding; I did not verify ECTO terms this session.</strong></p>
+<h3>Protective factors</h3>
+<ul>
+<li><strong>None documented.</strong> No protective allele, dietary factor, or lifestyle exposure has been reported.</li>
+<li>Pacing, warm environments, and avoidance of maximal exertion are <em>symptom-avoidance</em> strategies, not protective factors in the epidemiological sense.</li>
+<li>There is no "second wind" phenomenon (that's McArdle disease) — a useful negative for differential diagnosis.</li>
+</ul>
+<h3>Gene–environment interaction</h3>
+<p>One real, clinically consequential interaction: <strong>genotype (biallelic <em>ATP2A1</em> LoF) × anesthetic exposure → MH-like crisis.</strong> The proposed convergence is shared elevated myoplasmic calcium.</p>
+<blockquote>
+<p><strong>[verbatim, partial]</strong> Sambuughin et al. note that "elevated myoplasmic Ca(2+) content" is common to both conditions, explaining the secondary malignant hyperthermia diagnosis alongside the primary Brody myopathy. — <em>Mol Genet Genomic Med</em> 2014 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/25614869/" target="_blank" rel="noopener noreferrer">PMID:25614869</a></strong>)</p>
+</blockquote>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>HPO annotations currently attached to <a href="https://bioregistry.io/OMIM:601003" target="_blank" rel="noopener noreferrer">OMIM:601003</a></h3>
+<p>Retrieved live from the HPO annotation service. Note the many <strong>0/N</strong> entries — these are curated <em>exclusions</em>, and they're arguably the most diagnostically valuable part of the profile:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Term</th>
+<th>Annotated frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0008967" target="_blank" rel="noopener noreferrer">HP:0008967</a></strong></td>
+<td>Exercise-induced muscle stiffness</td>
+<td><strong>10/10</strong></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011463" target="_blank" rel="noopener noreferrer">HP:0011463</a></td>
+<td>Childhood onset</td>
+<td>5/5</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003710" target="_blank" rel="noopener noreferrer">HP:0003710</a></td>
+<td>Exercise-induced muscle cramps</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" rel="noopener noreferrer">HP:0002047</a></td>
+<td>Malignant hyperthermia</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a></td>
+<td>Motor delay</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003623" target="_blank" rel="noopener noreferrer">HP:0003623</a></td>
+<td>Neonatal onset</td>
+<td>1/1</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009046" target="_blank" rel="noopener noreferrer">HP:0009046</a></td>
+<td>Difficulty running</td>
+<td>1/5</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a></td>
+<td>Autosomal recessive inheritance</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" rel="noopener noreferrer">HP:0002486</a></td>
+<td>Myotonia</td>
+<td><strong>0/5 (excluded)</strong></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100284" target="_blank" rel="noopener noreferrer">HP:0100284</a></td>
+<td>EMG: myotonic discharges</td>
+<td><strong>0/5 (excluded)</strong></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010548" target="_blank" rel="noopener noreferrer">HP:0010548</a></td>
+<td>Percussion myotonia</td>
+<td><strong>0/10 (excluded)</strong></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" rel="noopener noreferrer">HP:0001324</a></td>
+<td>Muscle weakness</td>
+<td>0/5 (excluded)</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a></td>
+<td>Myalgia</td>
+<td>0/5</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002411" target="_blank" rel="noopener noreferrer">HP:0002411</a></td>
+<td>Myokymia</td>
+<td>0/5 (excluded)</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002380" target="_blank" rel="noopener noreferrer">HP:0002380</a></td>
+<td>Fasciculations</td>
+<td>0/5 (excluded)</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" rel="noopener noreferrer">HP:0001371</a></td>
+<td>Flexion contracture</td>
+<td>0/5 (excluded)</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" rel="noopener noreferrer">HP:0003712</a></td>
+<td>Skeletal muscle hypertrophy</td>
+<td>0/5</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031826" target="_blank" rel="noopener noreferrer">HP:0031826</a></td>
+<td>Abnormal reflex</td>
+<td>0/5</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003474" target="_blank" rel="noopener noreferrer">HP:0003474</a></td>
+<td>Somatic sensory dysfunction</td>
+<td>0/5</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All HP IDs above independently <strong>[OAK-verified]</strong> against <code>sqlite:obo:hp</code> except where the HPO service supplied them directly.</p>
+<h3>Clinical features with cohort frequencies</h3>
+<p>From the 40-patient international cohort (Molenaar 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a>). <strong>[full-text derived — re-verify before snippet-curation]</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Frequency</th>
+<th>Suggested HP term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exercise-induced muscle stiffness (limbs)</td>
+<td>40/40 (100%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008967" target="_blank" rel="noopener noreferrer">HP:0008967</a></td>
+</tr>
+<tr>
+<td>Lower-limb involvement</td>
+<td>38/38 (100%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008967" target="_blank" rel="noopener noreferrer">HP:0008967</a></td>
+</tr>
+<tr>
+<td>Upper-limb involvement</td>
+<td>33/38 (87%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008967" target="_blank" rel="noopener noreferrer">HP:0008967</a></td>
+</tr>
+<tr>
+<td><strong>Cold sensitivity / cold-induced worsening</strong></td>
+<td>25/36 (72%)</td>
+<td>— (qualifier, not a term)</td>
+</tr>
+<tr>
+<td><strong>Athletic build</strong> (paradoxical)</td>
+<td>20/30 (67%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" rel="noopener noreferrer">HP:0003712</a> (approximate)</td>
+</tr>
+<tr>
+<td><strong>Eyelid stiffness</strong></td>
+<td>24/38 (63%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008967" target="_blank" rel="noopener noreferrer">HP:0008967</a> + <a href="http://purl.obolibrary.org/obo/UBERON_0001711" target="_blank" rel="noopener noreferrer">UBERON:0001711</a> site</td>
+</tr>
+<tr>
+<td>Stiffness at exercise <em>onset</em></td>
+<td>19/30 (63%)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Myalgia</td>
+<td>20/34 (59%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> / <a href="http://purl.obolibrary.org/obo/HP_0003738" target="_blank" rel="noopener noreferrer">HP:0003738</a></td>
+</tr>
+<tr>
+<td>Muscle cramps</td>
+<td>18/34 (52%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003710" target="_blank" rel="noopener noreferrer">HP:0003710</a></td>
+</tr>
+<tr>
+<td>Reported muscle weakness</td>
+<td>11/35 (31%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" rel="noopener noreferrer">HP:0001324</a> — often misperceived stiffness</td>
+</tr>
+<tr>
+<td><strong>MH-like episodes</strong></td>
+<td>4/40 (10%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" rel="noopener noreferrer">HP:0002047</a></td>
+</tr>
+<tr>
+<td>Clinical muscle atrophy</td>
+<td>0/33 (0%)</td>
+<td><em>(excluded)</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The abstract-level statements are safely quotable:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "This observational study shows that the main feature of Brody disease is an exercise-induced muscle stiffness of the limbs, and often of the eyelids. Onset begins in childhood and there was no or only mild progression of symptoms over time. Four patients had episodes resembling malignant hyperthermia. The key finding at physical examination was delayed relaxation after repetitive contractions. Additionally, no atrophy was seen, muscle strength was generally preserved, and some patients had a remarkable athletic build." — <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a></p>
+</blockquote>
+<p>The eyelid involvement isn't a curiosity — it's mechanistically informative. Orbicularis oculi (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001578" target="_blank" rel="noopener noreferrer">UBERON:0001578</a></strong> [OAK-verified]) is a fast-twitch-rich muscle, so it's exactly where a SERCA1-specific defect should show up first.</p>
+<h3>Phenotype characteristics</h3>
+<ul>
+<li><strong>Age of onset:</strong> first decade in the large majority. Mean reported symptom onset 19.2 ± 15.0 yr with 38/40 in childhood <strong>[full-text derived]</strong> — the mean is skewed by late-recognized cases; the <em>modal</em> onset is childhood. The 2023 Turkish case pushed onset into the second decade (age 14–15).</li>
+<li><strong>Severity:</strong> mild to moderate. Strength preserved. Most patients function independently.</li>
+<li><strong>Progression:</strong> essentially non-progressive or minimally progressive. This is a load-bearing fact for prognosis.</li>
+<li><strong>Course:</strong> <strong>episodic/exertional</strong> — stiffness appears with activity and resolves with a few minutes of rest.</li>
+<li><strong>Duration:</strong> lifelong.</li>
+</ul>
+<h3>Laboratory phenotype</h3>
+<ul>
+<li><strong>Creatine kinase</strong> (<a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a> [OAK-verified]): normal or mildly elevated. Range 50–1,300 IU/L, roughly half normal and half mildly-to-moderately raised <strong>[full-text derived]</strong>.</li>
+<li><strong>SERCA activity in muscle homogenate:</strong> markedly reduced — now with proper reference values, see §10.</li>
+<li><strong>Rhabdomyolysis</strong> (<a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" rel="noopener noreferrer">HP:0003201</a> [OAK-verified]): rare. A 2026 case presented with exercise-induced rhabdomyolysis as the index event (<a href="https://pubmed.ncbi.nlm.nih.gov/41926432/" target="_blank" rel="noopener noreferrer">PMID:41926432</a>) — this genuinely expands the recognized presentation.</li>
+</ul>
+<h3>Quality-of-life impact</h3>
+<p>Thin evidence, honestly. The 2020 cohort used a Modified Rankin Scale, with 13/23 (57%) at "slight disability but able to look after own affairs" <strong>[full-text derived]</strong>. No EQ-5D, SF-36, or PROMIS data exist for this disease. Notably, Voermans 2012 reports that <em>Brody syndrome</em> patients (the gene-negative group) report <strong>more</strong> myalgia and greater daily-life impact than Brody disease patients — a genuine, quotable contrast.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>Causal gene</h3>
+<p><strong>ATP2A1</strong> — ATPase sarcoplasmic/endoplasmic reticulum Ca²⁺ transporting 1</p>
+<ul>
+<li>HGNC: <strong>hgnc:811</strong> <strong>[OAK-verified]</strong> (note repo convention: lowercase <code>hgnc:</code>)</li>
+<li>OMIM gene: <strong>108730</strong></li>
+<li>Locus: <strong>16p11.2</strong></li>
+<li>Reference transcript commonly used in reports: <strong>NM_004320.4</strong></li>
+<li>Protein: SERCA1a, ~994 aa, ~110 kDa P-type ATPase</li>
+<li>UniProt: O14983 (SERCA1 human) — <em>verify before binding</em></li>
+</ul>
+<p><strong>Splice isoforms.</strong> ATP2A1 makes two developmentally regulated isoforms by alternative splicing at the 3′ end: <strong>SERCA1a</strong> (adult; stop codon in exon 22) and <strong>SERCA1b</strong> (neonatal; skips exon 22, stop in exon 23). SERCA1a is &gt;99% of SERCA1 in adult skeletal muscle. This matters for in-vitro work — Guglielmi 2013 found the neonatal SERCA1b isoform predominates in cultured human myotubes and in infant muscle, which limits how well cultured fibers model the adult defect.</p>
+<h3>Pathogenic variant landscape</h3>
+<p><strong>Variant classes seen in Brody disease</strong> (all reported): nonsense, frameshift (deletions and insertions/duplications), canonical splice-site, in-frame single-codon deletions, missense, and large rearrangements including whole-gene deletion.</p>
+<p>From the 40-patient cohort, 33 distinct mutations <strong>[full-text derived]</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Missense</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Frameshift</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Nonsense (stop)</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Splice-site</td>
+<td>4</td>
+</tr>
+<tr>
+<td>In-frame single-codon deletion</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Large rearrangement (exon 9 del; whole-gene del)</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Recurrent variants</strong> noted across unrelated families <strong>[full-text derived]</strong>: p.Leu67del, c.2464dup, exon 9 deletion, p.Arg560Cys. None constitutes an established founder allele.</p>
+<p><strong>Individually characterized variants worth curating:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Consequence</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intron 3 splice-donor site variant</td>
+<td>Splice defect</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8841193/" target="_blank" rel="noopener noreferrer">PMID:8841193</a> <strong>[verbatim]</strong></td>
+</tr>
+<tr>
+<td>Two premature stop codons (two families)</td>
+<td>Truncated SERCA1, essential domains deleted</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8841193/" target="_blank" rel="noopener noreferrer">PMID:8841193</a> <strong>[verbatim]</strong></td>
+</tr>
+<tr>
+<td>c.2366C&gt;T, <strong>p.Pro789Leu</strong> (homozygous)</td>
+<td>Expressed in HEK-293 but "almost complete loss of Ca²⁺ transport activity because of reduced Ca²⁺ affinity"</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10914677/" target="_blank" rel="noopener noreferrer">PMID:10914677</a> <strong>[verbatim]</strong></td>
+</tr>
+<tr>
+<td>c.2455C&gt;T, <strong>p.Arg819Cys</strong> (het)</td>
+<td>Near-normal transport — <strong>NOT causal</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10914677/" target="_blank" rel="noopener noreferrer">PMID:10914677</a> <strong>[verbatim]</strong></td>
+</tr>
+<tr>
+<td>Two novel in-frame deletions (siblings)</td>
+<td>Reduced SERCA1 protein amount, normal IHC pattern</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20142766/" target="_blank" rel="noopener noreferrer">PMID:20142766</a> <strong>[verbatim]</strong></td>
+</tr>
+<tr>
+<td><strong>p.Ile235Asn + p.Glu982Lys</strong> (compound het)</td>
+<td>Absent SERCA1, elevated SERCA2; family carried an MH-susceptibility diagnosis</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25614869/" target="_blank" rel="noopener noreferrer">PMID:25614869</a></td>
+</tr>
+<tr>
+<td>Two novel heterozygous exon 3 variants</td>
+<td>—</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23911890/" target="_blank" rel="noopener noreferrer">PMID:23911890</a> <strong>[verbatim]</strong></td>
+</tr>
+<tr>
+<td><strong>c.2464delC</strong> (frameshift) + <strong>c.324+1G&gt;A</strong> (novel splice)</td>
+<td>Compound het in two siblings</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37332993/" target="_blank" rel="noopener noreferrer">PMID:37332993</a> <strong>[verbatim]</strong></td>
+</tr>
+<tr>
+<td><strong>c.428G&gt;A, p.Arg143Gln</strong> (homozygous, NM_004320.4)</td>
+<td>Very mild, second-decade onset, Turkish patient</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38125752/" target="_blank" rel="noopener noreferrer">PMID:38125752</a> <strong>[verbatim]</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p><strong>[verbatim]</strong> "Here, we report a Turkish Brody Disease patient with a homozygous c.428G&gt;A p.Arg143Gln (NM_004320.4) missense mutation in the ATP2A1." — <a href="https://pubmed.ncbi.nlm.nih.gov/38125752/" target="_blank" rel="noopener noreferrer">PMID:38125752</a></p>
+</blockquote>
+<p><strong>Variant classification / population frequency — honest gaps:</strong></p>
+<ul>
+<li><strong>ClinVar:</strong> a query on <code>ATP2A1[gene]</code> returns <strong>1,113 variation records</strong> total; restricting to pathogenic/likely-pathogenic returns <strong>268</strong>. That P/LP number is almost certainly inflated by multi-gene CNV records, because ATP2A1 sits inside the recurrent <strong>distal 16p11.2 BP2–BP3 ~220 kb deletion</strong> (chr16:28.73–28.95 Mb, ~9 genes including <em>SH2B1</em>; OMIM 613444), which is curated as pathogenic for obesity/developmental delay. <strong>Do not curate 268 as "268 pathogenic ATP2A1 variants."</strong> Re-derive with an explicit single-gene filter.</li>
+<li><strong>gnomAD constraint (pLI, LOEUF, o/e):</strong> <strong>I was unable to retrieve these</strong> — the gnomAD browser is a JS app and its API needs POST. Flagging as not-retrieved rather than guessing. What <em>is</em> clinically established: heterozygous carriers are asymptomatic, so ATP2A1 is not haploinsufficient in the disease-causing sense.</li>
+<li><strong>Carrier frequency:</strong> not established anywhere I could find. Given ~47 patients ever reported, it has never been measured directly.</li>
+</ul>
+<h3>Somatic vs germline</h3>
+<p>Entirely <strong>germline</strong>. No somatic <em>ATP2A1</em> disease has been described. (Incidental note: ATP2A1 shows up in cancer expression literature, but that's not a somatic disease mechanism relevant here.)</p>
+<h3>Functional consequences</h3>
+<ul>
+<li><strong>Loss of function</strong> in all pathogenic cases. Two sub-mechanisms: reduced protein <em>quantity</em> (truncating) and reduced protein <em>stability/trafficking</em> despite retained catalysis (missense; see §6).</li>
+<li><strong>No gain-of-function or dominant-negative</strong> mechanism reported.</li>
+</ul>
+<h3>Modifier genes, epigenetics, chromosomal abnormalities</h3>
+<ul>
+<li><strong>Modifier genes:</strong> none identified.</li>
+<li><strong>Genotype–phenotype:</strong> explicitly reported as absent — "No gradation in severity could be demonstrated in clinical presentation… leading to no particular phenotype-to-genotype correlations." <strong>[full-text derived, <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a>]</strong></li>
+<li><strong>Epigenetics:</strong> no DNA methylation, histone, or chromatin studies exist for Brody myopathy. Genuine blank.</li>
+<li><strong>Chromosomal abnormalities:</strong> whole-gene <em>ATP2A1</em> deletion has been reported as one allele. The distal 16p11.2 BP2–BP3 deletion removes one <em>ATP2A1</em> copy but is <strong>not</strong> reported to cause Brody myopathy on its own — it would need a second-hit point variant in trans. This is a plausible-but-unreported compound-heterozygous mechanism worth flagging as a knowledge gap.</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>Short section, and it should be. Brody myopathy is Mendelian, full stop.</p>
+<ul>
+<li><strong>Environmental factors:</strong> no toxin, radiation, pollutant, or occupational exposure contributes to causation. Cold and exertion are <strong>symptom triggers</strong>, not causes.</li>
+<li><strong>Lifestyle factors:</strong> no dietary, smoking, or alcohol association. Athletic training is neither causal nor protective; several patients are notably athletic <em>despite</em> the disease.</li>
+<li><strong>Infectious agents:</strong> none. Not applicable.</li>
+<li><strong>Iatrogenic exposure worth modeling:</strong> volatile anesthetics and depolarizing muscle relaxants (succinylcholine, <strong><a href="http://purl.obolibrary.org/obo/CHEBI_45652" target="_blank" rel="noopener noreferrer">CHEBI:45652</a></strong> [OAK-verified]) as MH-crisis triggers. This is the one exposure that belongs in an <code>environmental:</code> block with <code>influences_mechanisms</code>.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>Here's the causal chain, laid out for a pathograph.</p>
+<h3>The normal biology it breaks</h3>
+<p>SERCA1 is a <strong>P-type ATPase</strong> with three cytoplasmic domains (A/actuator, N/nucleotide-binding, P/phosphorylation) and ten transmembrane helices carrying two Ca²⁺-binding sites. It runs a Post-Albers E1/E2 cycle, pumping <strong>2 Ca²⁺ into the SR lumen per ATP hydrolyzed</strong> against a countertransport of protons. In fast-twitch fibers it is the overwhelmingly dominant route by which cytosolic calcium is cleared after a contraction — i.e., it <em>is</em> the relaxation machinery. It is tonically restrained by small regulatory peptides (sarcolipin, myoregulin); phospholamban does the equivalent job for the SERCA2a isoform in heart and slow muscle. Structural reference: Toyoshima's rabbit SERCA1a structure (PDB <strong>1SU4</strong>) — <em>verify PDB before binding</em>.</p>
+<h3>Causal chain, upstream → downstream</h3>
+<p><strong>Step 1 (MOLECULAR).</strong> Biallelic <em>ATP2A1</em> LoF variants.
+→ Two routes:
+ - <strong>1a. Truncating/splice/deletion</strong> → little or no SERCA1 protein synthesized.
+ - <strong>1b. Missense</strong> → protein folds badly, is ubiquitinated, and is stripped out by the ubiquitin–proteasome system <strong>before reaching the SR membrane</strong>, despite retaining catalytic activity.</p>
+<blockquote>
+<p><strong>[verbatim, partial]</strong> Bianchini et al. showed the mutation "impairs protein folding rather than catalytic function," and that proteasome inhibition restores "the same ability of wild type to maintain Ca(2+) homeostasis within cells." — <em>J Biol Chem</em> 2014 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/25288803/" target="_blank" rel="noopener noreferrer">PMID:25288803</a></strong>)</p>
+</blockquote>
+<p><strong>Step 2 (MOLECULAR).</strong> Reduced SERCA1 protein at the SR membrane → <strong>reduced SR Ca²⁺-ATPase activity</strong>. Measured reduction: 50–80% of control activity <strong>[full-text derived]</strong>, and now quantified against proper reference values:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "With the optimized assay, SERCA activity was assessed in muscle samples from healthy controls (n = 28) and patients with Brody disease (n = 4)… demonstrate marked decreased SERCA activity in Brody disease muscle samples (30.0 ± 4.2 mU/mg protein) compared to controls (86.7 ± 25.1 mU/mg protein)." — <em>Biochem Biophys Rep</em> 2026 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/41938373/" target="_blank" rel="noopener noreferrer">PMID:41938373</a></strong>)</p>
+</blockquote>
+<p><strong>Step 3 (CELLULAR).</strong> Impaired Ca²⁺ re-uptake into the SR → <strong>prolonged elevation of cytosolic free Ca²⁺</strong> after each contraction, i.e. a slow calcium-transient decay. Directly imaged in the zebrafish model:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "In vivo imaging of muscle Ca2+ transients revealed that cytosolic Ca2+ decay was significantly slower in acc muscle. Thus, it appears that the mutant behavior is caused by a muscle relaxation defect due to the impairment of Ca2+ re-uptake." — Hirata et al., <em>Development</em> 2004 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/15469975/" target="_blank" rel="noopener noreferrer">PMID:15469975</a></strong>)</p>
+</blockquote>
+<p><strong>Step 4 (CELLULAR/TISSUE).</strong> Sustained cytosolic Ca²⁺ keeps troponin C saturated and cross-bridges cycling → <strong>electrically silent contracture</strong>. The key word is <em>silent</em>: the sarcolemma isn't misbehaving, so needle EMG records nothing during the stiffness. That's what separates it from every myotonia on the differential.</p>
+<p><strong>Step 5 (TISSUE).</strong> Selective <strong>type II (fast-twitch) fiber</strong> involvement, because SERCA1 is the fast-fiber isoform and slow fibers run SERCA2a instead. Explains the muscle distribution (limbs, eyelids), the exertion dependence, and the biopsy finding of type II fiber atrophy.</p>
+<p><strong>Step 6 (ORGANISM).</strong> Exercise-induced stiffness, delayed relaxation, cramps, myalgia; cold exacerbation (SERCA kinetics slow further at low temperature); MH-like susceptibility on anesthetic exposure via shared myoplasmic Ca²⁺ overload; rarely, exertional rhabdomyolysis.</p>
+<h3>The compensation branch — why this disease is mild</h3>
+<p>Here's the biologically interesting bit. A <strong>complete</strong> SERCA1 knockout is lethal in mice, yet humans with essentially absent SERCA1 walk around with an athletic build and stiff eyelids. Something is picking up the slack.</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "…raising the intriguing question: how have these Brody patients partially compensated for the functional knockout of a gene product believed to be essential for fast-twitch skeletal muscle relaxation?" — <a href="https://pubmed.ncbi.nlm.nih.gov/8841193/" target="_blank" rel="noopener noreferrer">PMID:8841193</a></p>
+</blockquote>
+<p>Candidate compensators (all still contested):
+- <strong>SERCA2 upregulation</strong> — supported in the MH family (<a href="https://pubmed.ncbi.nlm.nih.gov/25614869/" target="_blank" rel="noopener noreferrer">PMID:25614869</a>: "Muscle analysis revealed absent SERCA1 but elevated SERCA2, suggesting compensatory mechanisms partially restoring calcium transport"), but the 2020 cohort found SERCA2 expression <em>normal</em> in 7/8 tested <strong>[full-text derived]</strong>. Genuinely conflicting.
+- <strong>Plasma membrane Ca²⁺-ATPase (PMCA) upregulation</strong> — the bovine model supports this over SERCA2 <strong>[full-text derived]</strong>.
+- <strong>Na⁺/Ca²⁺ exchanger</strong> activation.
+- <strong>Mitochondrial Ca²⁺ uptake</strong>.
+- <strong>Reduced myoregulin/sarcolipin inhibition</strong> of residual pump.</p>
+<p>This unresolved compensation question is an excellent <code>KNOWLEDGE_GAP</code> discussion for a dismech entry — and the SERCA2 contradiction is a textbook case for curating two competing <code>mechanistic_hypotheses</code> rather than one settled chain.</p>
+<h3>Ontology term suggestions for the mechanism</h3>
+<p><strong>GO biological process / molecular function / cellular component</strong> — all <strong>[OAK-verified]</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>GO ID</th>
+<th>Label</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0005388" target="_blank" rel="noopener noreferrer">GO:0005388</a></td>
+<td>P-type calcium transporter activity</td>
+<td>SERCA1 molecular function; <code>modifier: DECREASED</code></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_1990036" target="_blank" rel="noopener noreferrer">GO:1990036</a></td>
+<td>calcium ion import into sarcoplasmic reticulum</td>
+<td>the specific failing process</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" rel="noopener noreferrer">GO:0070588</a></td>
+<td>calcium ion transmembrane transport</td>
+<td>broader parent</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" rel="noopener noreferrer">GO:0006874</a></td>
+<td>intracellular calcium ion homeostasis</td>
+<td><code>modifier: DECREASED</code>/disrupted</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0032469" target="_blank" rel="noopener noreferrer">GO:0032469</a></td>
+<td>endoplasmic reticulum calcium ion homeostasis</td>
+<td>SR luminal side</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0090075" target="_blank" rel="noopener noreferrer">GO:0090075</a></td>
+<td>relaxation of muscle</td>
+<td>the impaired output — <code>modifier: DECREASED</code></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" rel="noopener noreferrer">GO:0006936</a></td>
+<td>muscle contraction</td>
+<td>prolonged/sustained</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0051209" target="_blank" rel="noopener noreferrer">GO:0051209</a></td>
+<td>release of sequestered calcium ion into cytosol</td>
+<td>the intact upstream arm</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" rel="noopener noreferrer">GO:0043161</a></td>
+<td>proteasome-mediated ubiquitin-dependent protein catabolic process</td>
+<td>the missense-degradation node — <code>modifier: INCREASED</code></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a></td>
+<td>response to endoplasmic reticulum stress</td>
+<td>ER quality-control arm</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0014850" target="_blank" rel="noopener noreferrer">GO:0014850</a></td>
+<td>response to muscle activity</td>
+<td>exertion dependence</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" rel="noopener noreferrer">GO:0016529</a></td>
+<td>sarcoplasmic reticulum</td>
+<td>cellular component</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" rel="noopener noreferrer">GO:0033017</a></td>
+<td>sarcoplasmic reticulum membrane</td>
+<td>where the pump lives / fails to arrive</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Cell types</strong> — <strong>[OAK-verified]</strong>; note the numbering is easy to flip:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>CL ID</th>
+<th>Label</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><a href="http://purl.obolibrary.org/obo/CL_0002212" target="_blank" rel="noopener noreferrer">CL:0002212</a></strong></td>
+<td><strong>type II muscle cell</strong></td>
+<td>the affected population</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/CL_0002211" target="_blank" rel="noopener noreferrer">CL:0002211</a></td>
+<td>type I muscle cell</td>
+<td>the <em>spared</em> population — good for a negative annotation</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a></td>
+<td>skeletal muscle fiber</td>
+<td>general</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a></td>
+<td>cell of skeletal muscle</td>
+<td>parent</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pathways.</strong> KEGG hsa04020 (calcium signaling pathway) and hsa04260/04261; Reactome "Ion homeostasis" (R-HSA-5578775) and "Reduction of cytosolic Ca++ levels" (R-HSA-418359) — <em>verify Reactome IDs before use</em>.</p>
+<h3>Immune system, metabolism, fibrosis</h3>
+<ul>
+<li><strong>Immune involvement:</strong> none. Not an inflammatory or autoimmune myopathy. (Contrast: rippling muscle disease has an immune-mediated form; Brody does not.)</li>
+<li><strong>Metabolic changes:</strong> no primary metabolic defect. Indirect consequence — SERCA pumping is a major consumer of muscle ATP, so a broken pump alters the energy economy of contraction, but there is no documented glycogen, lipid, or amino-acid abnormality. Explicitly <strong>not</strong> a metabolic myopathy in the McArdle sense.</li>
+<li><strong>Tissue damage:</strong> mild. Type II fiber atrophy, fiber-size variability, internal nuclei. Myonecrosis essentially absent (one exception in the 40-patient cohort) <strong>[full-text derived]</strong>. No fibrosis, no ischemia, no oxidative-stress mechanism established.</li>
+</ul>
+<h3>Molecular profiling — a candid inventory</h3>
+<ul>
+<li><strong>Transcriptomics:</strong> no Brody-specific human muscle RNA-seq dataset published.</li>
+<li><strong>Proteomics:</strong> no dedicated proteomic study. The protein-level work is targeted western blot and 2D gel (<a href="https://pubmed.ncbi.nlm.nih.gov/20142766/" target="_blank" rel="noopener noreferrer">PMID:20142766</a> used high-resolution 2D electrophoresis).</li>
+<li><strong>Metabolomics / lipidomics:</strong> none.</li>
+<li><strong>Single-cell / spatial transcriptomics:</strong> none. Given the fiber-type-selective mechanism, single-nucleus RNA-seq of Brody muscle is an obvious unexploited experiment — worth curating as a <code>proposed_experiments</code> entry.</li>
+<li><strong>Functional genomics screens:</strong> none disease-specific.</li>
+<li><strong>Ultrastructure (the one thing that <em>is</em> characterized):</strong></li>
+</ul>
+<blockquote>
+<p><strong>[verbatim]</strong> "Ultrastructural examination revealed dilatation of lateral cisternae and proliferation of tubular elements of the sarcoplasmic reticulum." — <a href="https://pubmed.ncbi.nlm.nih.gov/20142766/" target="_blank" rel="noopener noreferrer">PMID:20142766</a></p>
+</blockquote>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ level</h3>
+<ul>
+<li><strong>Primary:</strong> skeletal muscle — <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a></strong> skeletal muscle tissue <strong>[OAK-verified]</strong>; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0014892" target="_blank" rel="noopener noreferrer">UBERON:0014892</a></strong> skeletal muscle organ, vertebrate <strong>[OAK-verified]</strong>.</li>
+<li><strong>Body system:</strong> musculoskeletal only. <strong>No cardiac involvement</strong> (heart runs SERCA2a from <em>ATP2A2</em>), <strong>no CNS/PNS involvement</strong>, no respiratory involvement in humans.</li>
+<li><strong>Secondary organ involvement:</strong> essentially none. The exceptions are crisis-related — MH-like hypermetabolic episodes and, rarely, rhabdomyolysis with its downstream renal risk.</li>
+</ul>
+<p>Note the striking species contrast: the mouse <em>Atp2a1</em>-null dies of <strong>diaphragm</strong> failure (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a></strong> [OAK-verified]), a compartment humans with the same defect do not clinically manifest. See §15 — this is a genuine <code>HUMAN_MODEL_MISMATCH</code>.</p>
+<h3>Regional distribution</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Site</th>
+<th>UBERON</th>
+<th>Involvement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lower limb muscles</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001377" target="_blank" rel="noopener noreferrer">UBERON:0001377</a> quadriceps femoris <strong>[OAK-verified]</strong> (biopsy site)</td>
+<td>~100%</td>
+</tr>
+<tr>
+<td>Upper limb muscles</td>
+<td>—</td>
+<td>~87%</td>
+</tr>
+<tr>
+<td><strong>Eyelid</strong></td>
+<td><strong><a href="http://purl.obolibrary.org/obo/UBERON_0001711" target="_blank" rel="noopener noreferrer">UBERON:0001711</a></strong> eyelid <strong>[OAK-verified]</strong></td>
+<td>~63%</td>
+</tr>
+<tr>
+<td><strong>Orbicularis oculi muscle</strong></td>
+<td><strong><a href="http://purl.obolibrary.org/obo/UBERON_0001578" target="_blank" rel="noopener noreferrer">UBERON:0001578</a></strong> <strong>[OAK-verified]</strong></td>
+<td>the fast-twitch facial muscle behind eyelid stiffness</td>
+</tr>
+<tr>
+<td>Facial muscles</td>
+<td>—</td>
+<td>reported</td>
+</tr>
+<tr>
+<td>Neck muscles</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002377" target="_blank" rel="noopener noreferrer">UBERON:0002377</a> muscle of neck <strong>[OAK-verified]</strong></td>
+<td>occasional</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Lateralization:</strong> <strong>bilateral and symmetric.</strong> No asymmetric or focal presentation reported.</p>
+<h3>Tissue and cell level</h3>
+<ul>
+<li>Tissue type: <strong>striated skeletal muscle</strong>.</li>
+<li>Target cell population: <strong>type II / fast-twitch muscle fibers (<a href="http://purl.obolibrary.org/obo/CL_0002212" target="_blank" rel="noopener noreferrer">CL:0002212</a>)</strong>, with type I fibers spared. Biopsies show a shifted fiber composition — mean type II fiber fraction in quadriceps ~75% vs. a 50–65% normal range <strong>[full-text derived]</strong> — alongside selective type II atrophy.</li>
+</ul>
+<h3>Subcellular level</h3>
+<ul>
+<li><strong>Sarcoplasmic reticulum (<a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" rel="noopener noreferrer">GO:0016529</a>)</strong>, specifically the <strong>SR membrane (<a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" rel="noopener noreferrer">GO:0033017</a>)</strong> and the longitudinal/free SR where SERCA1 concentrates.</li>
+<li><strong>Terminal cisternae / lateral cisternae</strong> — dilated on EM.</li>
+<li><strong>Cytosol/myoplasm</strong> — the compartment where calcium wrongly lingers.</li>
+<li>For missense alleles: <strong>endoplasmic reticulum quality-control compartment</strong> and the <strong>proteasome</strong> (<a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" rel="noopener noreferrer">GO:0043161</a>) are where the protein is lost.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Typical:</strong> first decade of life. HPO annotates <a href="http://purl.obolibrary.org/obo/HP_0011463" target="_blank" rel="noopener noreferrer">HP:0011463</a> (Childhood onset) at 5/5. The 2020 cohort had 38/40 with childhood onset <strong>[full-text derived]</strong>.</li>
+<li><strong>Range:</strong> one neonatal-onset annotation exists (<a href="http://purl.obolibrary.org/obo/HP_0003623" target="_blank" rel="noopener noreferrer">HP:0003623</a>, 1/1); at the other end, the 2023 Turkish case began at 14–15.</li>
+<li><strong>Pattern:</strong> <strong>insidious and chronic</strong>, punctuated by discrete exertional episodes. Not acute.</li>
+<li><strong>Diagnostic delay is the norm</strong> — mean age at diagnosis 27.3 ± 14.6 yr, mean delay 9.9 ± 13.7 yr <strong>[full-text derived]</strong>. Nearly a decade. That's the headline number for any "under-recognition" argument.</li>
+</ul>
+<blockquote>
+<p><strong>[verbatim]</strong> "Almost 50 years after the initial case presentation, only 18 patients have been reported and many questions regarding the clinical phenotype and results of ancillary investigations remain unanswered, likely leading to incomplete recognition and consequently under-diagnosis." — <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a></p>
+</blockquote>
+<h3>Progression</h3>
+<ul>
+<li><strong>Rate:</strong> none to minimal. This is the single most reassuring fact about the disease.</li>
+</ul>
+<blockquote>
+<p><strong>[verbatim]</strong> "Onset begins in childhood and there was no or only mild progression of symptoms over time." — <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a></p>
+</blockquote>
+<ul>
+<li><strong>Stages:</strong> no staging system exists, and none is warranted for a non-progressive condition.</li>
+<li><strong>Course:</strong> <strong>episodic/exertional on a stable chronic baseline.</strong> Symptoms appear with activity and remit within minutes of rest.</li>
+<li><strong>Duration:</strong> lifelong.</li>
+</ul>
+<p>The mild-progression rule has at least one documented exception at the individual level — the 2023 Turkish patient showed "mild progressive proximal muscle weakness in the lower extremities" <strong>[verbatim, <a href="https://pubmed.ncbi.nlm.nih.gov/38125752/" target="_blank" rel="noopener noreferrer">PMID:38125752</a>]</strong>. Curate that as an individual observation, not a general course.</p>
+<h3>Patterns</h3>
+<ul>
+<li><strong>Remission:</strong> none spontaneous; symptom relief is rest-dependent and immediate rather than a true remission.</li>
+<li><strong>Critical periods:</strong> the actionable ones are <strong>perioperative windows</strong> (anesthetic exposure) and any planned high-intensity exertion. There is no developmental critical window for intervention.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Prevalence:</strong> approximately <strong>1 in 10,000,000</strong>. Orphanet classes it as &lt;1/1,000,000 (point prevalence, worldwide).</li>
+</ul>
+<blockquote>
+<p><strong>[verbatim]</strong> "To date, only thirty-three Brody families with forty-seven patients have been reported in the literature, and the disease prevalence is considered as 1 in 10 million, demonstrating the peculiarity of the disease." — <a href="https://pubmed.ncbi.nlm.nih.gov/38125752/" target="_blank" rel="noopener noreferrer">PMID:38125752</a></p>
+</blockquote>
+<p>For a dismech <code>prevalence</code> block: <code>measure_type: POINT_PREVALENCE</code>, <code>prevalence_class: BELOW_1_IN_1000000</code>, <code>rate_per_100000: 0.01</code>, <code>population: Worldwide</code>, with the verbatim sentence above as the snippet. A parallel <code>CASES_IN_LITERATURE</code> record (47 patients / 33 families as of 2023; the 2020 cohort itself totaled 40 patients from 28 families) captures the other framing.</p>
+<ul>
+<li><strong>Incidence:</strong> never measured.</li>
+<li><strong>Almost certainly under-diagnosed</strong> — the ~10-year diagnostic delay plus the "incomplete recognition" statement above both argue the true figure is higher than the counted figure.</li>
+</ul>
+<h3>Genetic epidemiology</h3>
+<ul>
+<li><strong>Inheritance:</strong> <strong>autosomal recessive</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a>). Confirmed repeatedly since 1996.</li>
+<li><strong>Penetrance:</strong> appears complete in biallelic individuals; no unaffected homozygotes reported. But with n≈47 total, "complete penetrance" is an observation, not a measurement.</li>
+<li><strong>Expressivity:</strong> <strong>variable</strong> — from the very mild second-decade Turkish case to patients with MH crises. Notably, that variability does <strong>not</strong> track genotype.</li>
+<li><strong>Genetic anticipation:</strong> not applicable (no repeat expansion).</li>
+<li><strong>Germline mosaicism:</strong> not reported.</li>
+<li><strong>Founder effects:</strong> none established. Several recurrent alleles (p.Leu67del, c.2464dup, exon 9 del, p.Arg560Cys) appear in &gt;1 family but haven't been shown to share haplotypes.</li>
+<li><strong>Consanguinity:</strong> contributory, as expected for AR; homozygous cases in consanguineous populations are described.</li>
+<li><strong>Carrier frequency:</strong> <strong>not established.</strong></li>
+</ul>
+<h3>Population demographics</h3>
+<ul>
+<li><strong>Sex ratio:</strong> approximately <strong>1:1</strong> — consistent with autosomal inheritance, and reported as roughly equal in the 40-patient cohort <strong>[full-text derived]</strong>.</li>
+<li><strong>Geographic distribution:</strong> no endemic focus. The 2020 cohort drew from France, Netherlands, Canada, UK, Germany, Spain, Italy, Switzerland, and USA <strong>[full-text derived]</strong>; additional reports from Turkey (2023) and Italy (2023). Ascertainment follows neuromuscular-center density, not biology.</li>
+<li><strong>Ethnic predisposition:</strong> none identified.</li>
+<li><strong>Age distribution of affected individuals:</strong> all ages, since the disease neither kills nor progresses; the reported population skews toward young adults simply because that's when the decade-long diagnostic delay finally resolves.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Diagnostic reasoning in one sentence</h3>
+<p>Exercise-induced stiffness + delayed relaxation on repetitive contraction + <strong>electrically silent</strong> EMG during the stiffness → sequence <em>ATP2A1</em>.</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "When physical examination shows delayed relaxation, and there are no myotonic discharges at electromyography, we recommend direct sequencing of the ATP2A1 gene or next generation sequencing with a myopathy panel." — <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a></p>
+</blockquote>
+<h3>Clinical / bedside tests</h3>
+<ul>
+<li><strong>Repetitive contraction provocation</strong> — repeated forceful eye closure or hand grip, watching for progressively delayed relaxation. The cardinal sign.</li>
+<li><strong>Percussion myotonia: absent</strong> (<a href="http://purl.obolibrary.org/obo/HP_0010548" target="_blank" rel="noopener noreferrer">HP:0010548</a>, 0/10) — this negative is diagnostically load-bearing.</li>
+<li><strong>No warm-up phenomenon</strong> (unlike myotonia congenita); <strong>no second wind</strong> (unlike McArdle).</li>
+</ul>
+<h3>Laboratory tests</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Finding</th>
+<th>LOINC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Serum creatine kinase</td>
+<td>Normal to mildly elevated (50–1,300 IU/L)</td>
+<td><a href="https://bioregistry.io/LOINC:2157" target="_blank" rel="noopener noreferrer">LOINC:2157</a>-6 (CK, serum/plasma) — <em>verify</em></td>
+</tr>
+<tr>
+<td>Serum myoglobin / urine myoglobin</td>
+<td>Abnormal only in the rare rhabdomyolysis presentation</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Thyroid function</td>
+<td>Normal — used to exclude hypothyroid pseudomyotonia</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Electrophysiology — the discriminating test</h3>
+<ul>
+<li><strong>Needle EMG:</strong> <strong>no myotonic discharges</strong> (<a href="http://purl.obolibrary.org/obo/HP_0100284" target="_blank" rel="noopener noreferrer">HP:0100284</a>, 0/5 excluded). Instead, <strong>silent contractures</strong> in roughly 64% of tested patients <strong>[full-text derived]</strong>, defined as "prolonged involuntary muscle contractions following voluntary phasic contractions without electrical activity."</li>
+<li>The 2020 authors argue for the term <strong>"silent contractures"</strong> over the older "silent cramps," since the strict electromyographic definition of cramp doesn't apply <strong>[full-text derived]</strong>.</li>
+<li><strong>Nerve conduction studies:</strong> normal.</li>
+<li><strong>ECG/EEG:</strong> normal; not diagnostically relevant.</li>
+</ul>
+<h3>Muscle biopsy and histopathology</h3>
+<p>Mild, nonspecific, and <em>supportive rather than diagnostic</em>:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "…muscle biopsy showed mild myopathic changes with selective type II atrophy." — <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a></p>
+</blockquote>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Frequency</th>
+<th>HP term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Type 2 muscle fiber atrophy</td>
+<td>13/17 (76%)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003554" target="_blank" rel="noopener noreferrer">HP:0003554</a></strong> [OAK-verified]</td>
+</tr>
+<tr>
+<td>Marked fiber-size variability</td>
+<td>11/12 (92%)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003557" target="_blank" rel="noopener noreferrer">HP:0003557</a></strong> [OAK-verified]</td>
+</tr>
+<tr>
+<td>Increased internal nuclei</td>
+<td>14/17 (82%)</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003687" target="_blank" rel="noopener noreferrer">HP:0003687</a></strong> [OAK-verified]</td>
+</tr>
+<tr>
+<td>Myonecrosis</td>
+<td>Essentially absent</td>
+<td>—</td>
+</tr>
+<tr>
+<td>SR lateral cisternae dilatation, tubular proliferation (EM)</td>
+<td>Reported</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>(Frequencies </em><em>[full-text derived]</em><em>.)</em></p>
+<h3>Functional / biochemical confirmatory assays</h3>
+<p>This is where Brody diagnosis has real depth, and where the 2026 paper is a significant advance.</p>
+<p><strong>1. SERCA activity assay on muscle homogenate.</strong> Now with validated reference values:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "We developed a robust enzyme assay to measure SERCA activity with high discriminative power to distinguish patients with Brody disease from controls. Thus, this assay provides a reliable method of studying this important calcium pump for both clinical and scientific purposes." — <a href="https://pubmed.ncbi.nlm.nih.gov/41938373/" target="_blank" rel="noopener noreferrer">PMID:41938373</a></p>
+</blockquote>
+<p>Reference: controls <strong>86.7 ± 25.1 mU/mg protein</strong> (n=28); Brody disease <strong>30.0 ± 4.2 mU/mg protein</strong> (n=4). This is a genuinely curatable <code>reference_ranges</code> block with interpretation bands.</p>
+<p><strong>2. SERCA1 western blot</strong> — decreased or absent protein.</p>
+<p><strong>3. What NOT to rely on: immunohistochemistry alone.</strong> Two independent groups say this explicitly:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "…immunostaining of skeletal muscle to detect the loss of SERCA1a protein is not adequate for the diagnosis of ATP2A1-linked Brody disease." — <a href="https://pubmed.ncbi.nlm.nih.gov/10914677/" target="_blank" rel="noopener noreferrer">PMID:10914677</a></p>
+<p><strong>[verbatim]</strong> "SERCA1 reactivity was observed in type 2 muscle fibers of patients with and without ATP2A1 mutations and staining intensity was similar in patients and controls." — <a href="https://pubmed.ncbi.nlm.nih.gov/23911890/" target="_blank" rel="noopener noreferrer">PMID:23911890</a></p>
+</blockquote>
+<p>That's a false-negative trap worth curating as a diagnostic caveat.</p>
+<h3>Genetic testing</h3>
+<ul>
+<li><strong>First-line:</strong> direct <em>ATP2A1</em> Sanger sequencing, or <strong>NGS myopathy/neuromuscular gene panel</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a> recommendation).</li>
+<li><strong>WES:</strong> effective and has solved cases — including one misassigned as pure MH susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/25614869/" target="_blank" rel="noopener noreferrer">PMID:25614869</a>).</li>
+<li><strong>WGS:</strong> useful for deep-intronic and structural variants; no dedicated study.</li>
+<li><strong>CNV detection required.</strong> Whole-gene and exon-9 deletions are documented, so a sequencing-only panel with no dosage analysis will miss alleles. MLPA/CMA/read-depth CNV calling should be part of the workflow.</li>
+<li><strong>Karyotype / FISH / mtDNA / repeat-expansion testing:</strong> not indicated.</li>
+</ul>
+<h3>Imaging</h3>
+<ul>
+<li><strong>Muscle MRI:</strong> no characteristic pattern described; not a diagnostic test for this disease. Reasonable for excluding dystrophies.</li>
+</ul>
+<h3>Differential diagnosis</h3>
+<p>The whole diagnostic act is separating this from things that look identical at the bedside:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Gene(s)</th>
+<th>Distinguishing feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Myotonia congenita</strong> (Thomsen/Becker)</td>
+<td><em>CLCN1</em></td>
+<td><strong>Myotonic discharges on EMG</strong>; warm-up phenomenon</td>
+</tr>
+<tr>
+<td><strong>Paramyotonia congenita</strong></td>
+<td><em>SCN4A</em></td>
+<td>Myotonic discharges; paradoxical cold-induced worsening with EMG activity</td>
+</tr>
+<tr>
+<td><strong>Myotonic dystrophy 1/2</strong></td>
+<td><em>DMPK</em>, <em>CNBP</em></td>
+<td>Myotonic discharges; multisystem (cataract, cardiac conduction, endocrine)</td>
+</tr>
+<tr>
+<td><strong>Rippling muscle disease</strong></td>
+<td><em>CAV3</em>, <em>CAVIN1/BIN1</em></td>
+<td>Also electrically silent; visible rippling/mounding, percussion-induced</td>
+</tr>
+<tr>
+<td><strong>McArdle disease</strong></td>
+<td><em>PYGM</em></td>
+<td><strong>Second wind</strong>; high baseline CK; myoglobinuria; forearm exercise test</td>
+</tr>
+<tr>
+<td><strong>Schwartz-Jampel syndrome</strong></td>
+<td><em>HSPG2</em></td>
+<td>Chondrodysplasia, blepharophimosis, continuous EMG activity</td>
+</tr>
+<tr>
+<td><strong>Isaacs syndrome / neuromyotonia</strong></td>
+<td>acquired, CASPR2 Ab</td>
+<td>Neuromyotonic/myokymic discharges — <em>electrically noisy</em>, opposite of Brody</td>
+</tr>
+<tr>
+<td><strong>Stiff-person syndrome</strong></td>
+<td>acquired, GAD65 Ab</td>
+<td>Central; continuous motor unit activity; axial</td>
+</tr>
+<tr>
+<td><strong>Hypothyroid pseudomyotonia</strong></td>
+<td>acquired</td>
+<td>Abnormal TSH; reversible</td>
+</tr>
+<tr>
+<td><strong>Tubular aggregate myopathy / Stormorken</strong></td>
+<td><em>STIM1</em>, <em>ORAI1</em></td>
+<td>Also a calcium-handling myopathy; tubular aggregates on biopsy (<a href="http://purl.obolibrary.org/obo/HP_0100301" target="_blank" rel="noopener noreferrer">HP:0100301</a>)</td>
+</tr>
+<tr>
+<td><strong>Brody syndrome</strong></td>
+<td>unknown</td>
+<td>Same phenotype + reduced SERCA activity but <strong>no <em>ATP2A1</em> variant</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The 2026 <em>Muscle &amp; Nerve</em> review is a good single anchor for this whole differential:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "Rippling muscle disease (RMD) and Brody disease are extremely rare nonprogressive myopathies associated with electrical silence on needle EMG during muscle stiffness and delayed muscle relaxation… Brody disease is autosomal recessive myopathy due to defective pumping of calcium from the cytoplasm by sarco(endo)plasmic reticulum Ca2+ adenosine triphosphatase pumps." — Katirji, <em>Muscle Nerve</em> 2026 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/42124386/" target="_blank" rel="noopener noreferrer">PMID:42124386</a></strong>)</p>
+</blockquote>
+<h3>Screening</h3>
+<ul>
+<li><strong>Newborn screening:</strong> not performed anywhere; not a candidate (no treatment, non-progressive).</li>
+<li><strong>Carrier screening:</strong> not offered as a population program; relevant only for cascade testing in known families.</li>
+<li><strong>Cascade family testing:</strong> appropriate once a proband's biallelic variants are established, particularly to identify relatives at anesthetic risk.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>Survival and mortality</h3>
+<ul>
+<li><strong>Life expectancy: normal.</strong> No reduction reported in any series.</li>
+<li><strong>Disease-specific mortality:</strong> essentially zero from the myopathy itself. The one credible mortality pathway is a <strong>perioperative MH-like crisis</strong>, which is why the anesthetic precautions in §12 carry disproportionate weight.</li>
+<li>No 5-/10-year survival statistics exist because there is nothing to survive in the actuarial sense.</li>
+</ul>
+<h3>Morbidity and function</h3>
+<ul>
+<li>Strength is preserved; atrophy is absent clinically; many patients are athletically built.</li>
+<li>Disability is real but modest: 13/23 (57%) at "slight disability but able to look after own affairs" on the modified Rankin Scale <strong>[full-text derived]</strong>.</li>
+<li>Functional limits are activity-specific: stairs, running, sustained grip, sustained eye closure, cold-weather activity.</li>
+<li><strong>Quality-of-life instruments:</strong> no EQ-5D, SF-36, or PROMIS data. A genuine gap.</li>
+</ul>
+<h3>Disease course and complications</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Complication</th>
+<th>Frequency</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MH-like episode</td>
+<td>4/40 (10%)</td>
+<td>The serious one; anesthetic-triggered</td>
+</tr>
+<tr>
+<td>Exertional rhabdomyolysis</td>
+<td>Rare; ≥1 documented index presentation</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41926432/" target="_blank" rel="noopener noreferrer">PMID:41926432</a></td>
+</tr>
+<tr>
+<td>Progressive weakness</td>
+<td>Rare, mild when present</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38125752/" target="_blank" rel="noopener noreferrer">PMID:38125752</a></td>
+</tr>
+<tr>
+<td>Contractures / fixed deformity</td>
+<td>Not reported (<a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" rel="noopener noreferrer">HP:0001371</a> excluded)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cardiac / respiratory involvement</td>
+<td><strong>Not reported in humans</strong></td>
+<td>Contrast with the mouse model</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Recovery potential:</strong> the myopathy does not remit, but individual episodes resolve fully within minutes of rest. No cumulative damage.</li>
+</ul>
+<h3>Prognostic factors</h3>
+<ul>
+<li><strong>Genotype is not prognostic</strong> — no genotype–phenotype correlation demonstrated <strong>[full-text derived, <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a>]</strong>.</li>
+<li>Residual SERCA activity is a plausible but <strong>untested</strong> severity predictor. Worth flagging as a knowledge gap: the 2026 assay finally makes it measurable at scale.</li>
+<li>The one practically prognostic variable is <strong>whether the patient and their anesthesiology team know the diagnosis</strong> before surgery.</li>
+<li><strong>Prognostic biomarkers:</strong> none validated.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<h3>The honest summary</h3>
+<p>There is no disease-modifying therapy. Symptomatic drug treatment has been mostly disappointing.</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "Symptomatic treatment was mostly ineffective or produced unacceptable side effects." — <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a></p>
+</blockquote>
+<h3>Pharmacotherapy tried, and how it went</h3>
+<p>From the 40-patient cohort <strong>[full-text derived — re-verify before curating]</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Drug</th>
+<th>CHEBI</th>
+<th>n</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Verapamil</strong> (Ca²⁺ channel blocker)</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_9948" target="_blank" rel="noopener noreferrer">CHEBI:9948</a> <strong>[OAK-verified]</strong></td>
+<td>9</td>
+<td>Improved 3; stopped in 2 for side effects; 1 long-term success — <strong>the best performer</strong></td>
+</tr>
+<tr>
+<td><strong>Dantrolene</strong> (RyR1 inhibitor)</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_4317" target="_blank" rel="noopener noreferrer">CHEBI:4317</a> <strong>[OAK-verified]</strong></td>
+<td>5</td>
+<td>Ineffective or side effects <em>in this cohort</em></td>
+</tr>
+<tr>
+<td><strong>Mexiletine</strong> (Na⁺ channel blocker)</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_6916" target="_blank" rel="noopener noreferrer">CHEBI:6916</a> <strong>[OAK-verified]</strong></td>
+<td>2</td>
+<td>Improved 1; stopped for side effects</td>
+</tr>
+<tr>
+<td><strong>Carbamazepine</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" rel="noopener noreferrer">CHEBI:3387</a> <strong>[OAK-verified]</strong></td>
+<td>2</td>
+<td>No effect</td>
+</tr>
+<tr>
+<td><strong>Ibuprofen</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_5855" target="_blank" rel="noopener noreferrer">CHEBI:5855</a> <strong>[OAK-verified]</strong></td>
+<td>2</td>
+<td>No effect</td>
+</tr>
+<tr>
+<td><strong>Nifedipine</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" rel="noopener noreferrer">CHEBI:7565</a> <strong>[OAK-verified]</strong></td>
+<td>2</td>
+<td>No effect</td>
+</tr>
+<tr>
+<td><strong>Acetazolamide</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_27690" target="_blank" rel="noopener noreferrer">CHEBI:27690</a> <strong>[OAK-verified]</strong></td>
+<td>1</td>
+<td>Insufficient data</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Overall, only 1 of 18 treated patients achieved durable symptom control; 13/31 never pursued pharmacotherapy at all <strong>[full-text derived]</strong>.</p>
+<p><strong>A 2026 counter-datapoint on dantrolene.</strong> A single case reports clear benefit, which contradicts the cohort experience and is worth curating as a distinct, <code>PARTIAL</code>-strength claim rather than folding into the negative consensus:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "Treatment with dantrolene sodium resulted in marked clinical improvement. The patient demonstrated enhanced muscle relaxation, reduced exercise-induced stiffness, and improved functional capacity following dantrolene therapy." — Edmund, <em>J Am Assoc Nurse Pract</em> 2026 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/41926432/" target="_blank" rel="noopener noreferrer">PMID:41926432</a></strong>)</p>
+</blockquote>
+<p>Mechanistically dantrolene is coherent here — it reduces RyR1-mediated calcium <em>release</em>, attacking the same cytosolic calcium overload from the opposite direction when re-uptake can't be fixed. n=1 is n=1, though.</p>
+<h3>Advanced / experimental therapeutics — the interesting frontier</h3>
+<p><strong>Proteasome inhibition (proof of concept, in vitro).</strong> Since misfolded-but-active SERCA1 is destroyed by the UPS, blocking that destruction restores the pump:</p>
+<blockquote>
+<p><strong>[verbatim, partial]</strong> Proteasome inhibition (MG132) "rescues the expression level and membrane localization of the SERCA1 mutant," and rescued protein has "the same ability of wild type to maintain Ca(2+) homeostasis within cells." — <a href="https://pubmed.ncbi.nlm.nih.gov/25288803/" target="_blank" rel="noopener noreferrer">PMID:25288803</a></p>
+</blockquote>
+<p><strong>CFTR correctors — the most promising translational lead (2025).</strong> Repurposing small molecules developed for ΔF508-CFTR to chaperone misfolded SERCA1 through quality control:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "In this study, we show that CFTR correctors, particularly C17, successfully rescue SERCA1 mutants both in vitro and in vivo models. Our findings suggest that CFTR correctors may be a potential innovative pharmacological approach addressing Brody patients in which mutated SERCA1 retains its activity." — <em>Hum Mol Genet</em> 2025 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/41206505/" target="_blank" rel="noopener noreferrer">PMID:41206505</a></strong>)</p>
+</blockquote>
+<p>Details <strong>[full-text derived]</strong>: twelve correctors screened; <strong>C17</strong> best (C4 and C9 also active); the FDA-approved CF correctors <strong>VX-809 (lumacaftor) and VX-661 (tezacaftor) were NOT highly efficient</strong>. Tested on <strong>R164H</strong> (Chianina) and <strong>G211V</strong> (Romagnola) mutants; in vivo work was <strong>intramuscular C17 in two Romagnola calves</strong>, showing increased SERCA1 in SR membranes and increased Ca²⁺-ATPase activity. Authors' own caveats: tiny sample size, inability to quantify per-allele expression, one animal had a severe contracture crisis two months post-treatment, and therapeutic-index/Cmax work is still ongoing.</p>
+<p><strong>The critical scope limit for curation:</strong> this strategy only helps patients whose mutant SERCA1 <strong>retains catalytic activity</strong> — i.e. a subset of missense alleles. It does nothing for nonsense, frameshift, splice, or deletion alleles. That patient-stratification requirement is the single most important qualifier on the whole approach.</p>
+<ul>
+<li><strong>Gene therapy / gene editing:</strong> none reported. <em>ATP2A1</em> is a plausible AAV target in principle (muscle-tropic serotypes exist), but the ~3 kb coding sequence plus a muscle promoter is a tight but feasible AAV payload. No published program.</li>
+<li><strong>RNA therapies (ASO, siRNA, mRNA):</strong> none. Splice-variant alleles (e.g. c.324+1G&gt;A) are conceptually ASO-addressable but untried.</li>
+<li><strong>Cell therapy, immunotherapy, targeted oncology-style therapy:</strong> not applicable.</li>
+<li><strong>Registered clinical trials:</strong> I found <strong>no ClinicalTrials.gov entries specific to Brody myopathy</strong>. Treat any claimed NCT ID with suspicion.</li>
+</ul>
+<h3>Surgical and interventional</h3>
+<p>No surgical treatment for the myopathy. Surgery matters here only as a <strong>hazard</strong>.</p>
+<h3>Perioperative management — the highest-value actionable content</h3>
+<blockquote>
+<p><strong>[verbatim]</strong> "…patients with Brody disease may be at risk for malignant hyperthermia-like episodes, and therefore appropriate perioperative measures are recommended." — <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a></p>
+</blockquote>
+<p>Practical measures <strong>[full-text derived]</strong>: avoid <strong>succinylcholine</strong> (<a href="http://purl.obolibrary.org/obo/CHEBI_45652" target="_blank" rel="noopener noreferrer">CHEBI:45652</a>) and <strong>volatile/inhalational anesthetics</strong>; use a trigger-free (total intravenous) technique; monitor core temperature and vital functions; treat the patient as MH-susceptible; some patients have had positive in vitro contracture tests.</p>
+<h3>Supportive and rehabilitative</h3>
+<ul>
+<li><strong>Activity pacing and warm-up strategies</strong> — behavioral, low-evidence but low-risk.</li>
+<li><strong>Avoidance of cold exposure</strong> during activity.</li>
+<li><strong>Physical therapy</strong> (NCIT:C15302 Physical Therapy <strong>[OAK-verified]</strong>) — no trial evidence; used pragmatically.</li>
+<li><strong>Genetic counseling</strong> (NCIT:C15240 <strong>[OAK-verified]</strong>) — AR recurrence risk, cascade testing, and crucially, flagging anesthetic risk to relatives.</li>
+<li><strong>Medical-alert documentation of MH-like risk</strong> — arguably the highest-yield intervention in the entire management repertoire.</li>
+</ul>
+<h3>NCIT treatment terms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Treatment</th>
+<th><code>treatment_term</code></th>
+<th><code>therapeutic_agent</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Verapamil</td>
+<td>NCIT:C15986 Pharmacotherapy <strong>[OAK-verified]</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_9948" target="_blank" rel="noopener noreferrer">CHEBI:9948</a> verapamil</td>
+</tr>
+<tr>
+<td>Dantrolene</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_4317" target="_blank" rel="noopener noreferrer">CHEBI:4317</a> dantrolene</td>
+</tr>
+<tr>
+<td>Mexiletine</td>
+<td>NCIT:C15986</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_6916" target="_blank" rel="noopener noreferrer">CHEBI:6916</a> mexiletine</td>
+</tr>
+<tr>
+<td>Physical therapy</td>
+<td>NCIT:C15302 Physical Therapy</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Genetic counseling</td>
+<td>NCIT:C15240 Genetic Counseling</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Supportive/symptomatic care</td>
+<td>NCIT:C15747 Supportive Care <strong>[OAK-verified]</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Rehabilitation</td>
+<td>NCIT:C15315 Rehabilitation <strong>[OAK-verified]</strong></td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Suggested <code>therapeutic_modality</code> values: <code>SMALL_MOLECULE</code> for all drug entries; <code>BEHAVIORAL</code> for pacing/cold-avoidance/physical therapy.</p>
+<h3>Pharmacogenomics</h3>
+<p>No PharmGKB or CPIC guidance for Brody myopathy. The nearest relevant precision-medicine axis is <strong>genotype-guided eligibility for corrector therapy</strong> (activity-retaining missense only), which is a research proposition, not clinical practice.</p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<p>The disease itself is not preventable — it's a germline recessive condition. What <em>is</em> preventable is essentially everything downstream:</p>
+<ul>
+<li><strong>Reproductive/genetic prevention:</strong> genetic counseling for at-risk couples; carrier testing in families with a known proband; prenatal diagnosis and PGT-M technically feasible once both familial variants are known. Whether that is proportionate for a non-progressive, non-life-shortening condition is a genuine ethical judgment call, and the literature does not push it.</li>
+<li><strong>Population carrier screening:</strong> not recommended and not performed. Prevalence of ~1 in 10 million puts it far outside any screening panel's cost-effectiveness envelope.</li>
+<li><strong>Immunization:</strong> not applicable.</li>
+</ul>
+<h3>Secondary prevention (early detection)</h3>
+<ul>
+<li><strong>Newborn screening:</strong> not performed, not proposed. Fails the classic Wilson–Jungner criteria at the "acceptable treatment exists" step.</li>
+<li><strong>The real secondary-prevention win is shortening the ~10-year diagnostic delay</strong> — clinician education that <em>electrically silent</em> stiffness means Brody, not myotonia, and that a myopathy NGS panel should carry <em>ATP2A1</em>.</li>
+<li><strong>Cascade testing</strong> of siblings and relatives of a proband.</li>
+</ul>
+<h3>Tertiary prevention (preventing complications)</h3>
+<p>This is where prevention actually earns its keep for this disease:</p>
+<ol>
+<li><strong>Anesthetic-crisis prevention</strong> — documented MH-like precautions, trigger-free anesthesia, medical-alert identification. Prevents the only plausibly fatal complication.</li>
+<li><strong>Rhabdomyolysis avoidance</strong> — counseling against maximal/unaccustomed exertion, especially in heat or after illness.</li>
+<li><strong>Cold-exposure avoidance</strong> during activity.</li>
+<li><strong>Activity pacing</strong> to keep patients functional rather than deconditioned.</li>
+</ol>
+<h3>Behavioral / public health / environmental interventions</h3>
+<ul>
+<li>Behavioral: pacing, warm-up, temperature management — no trial evidence, plausible mechanism.</li>
+<li>Public health and environmental interventions: <strong>not applicable.</strong> No sanitation, vector, or exposure dimension exists for a Mendelian pump defect.</li>
+</ul>
+<h3>Prophylaxis</h3>
+<p>No prophylactic medication is established. Dantrolene is <em>not</em> used prophylactically in Brody myopathy (it's a treatment for an MH crisis in progress, and prophylactic use is no longer standard even in confirmed MH susceptibility).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>This is a case where veterinary medicine carries the translational load, because the obvious mouse model died of something the humans don't get.</p>
+<h3>Bovine congenital pseudomyotonia — the mammalian model</h3>
+<p><strong>Species:</strong> <em>Bos taurus</em>, <strong>NCBITaxon:9913</strong>.
+<strong>OMIA:</strong> <strong><a href="https://bioregistry.io/OMIA:001464" target="_blank" rel="noopener noreferrer">OMIA:001464</a>-9913</strong> — Pseudomyotonia, congenital in <em>Bos taurus</em> (ATP2A1-related). A related, more severe <em>ATP2A1</em> condition is catalogued as <strong><a href="https://bioregistry.io/OMIA:001450" target="_blank" rel="noopener noreferrer">OMIA:001450</a>-9913</strong> — Congenital muscular dystonia 1.
+<strong>Gene:</strong> bovine <em>ATP2A1</em> (NCBI Gene ID 281583 — <em>verify</em>).</p>
+<p><strong>Affected breeds</strong> (VBO terms exist for these; <em>verify CURIEs</em>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Breed</th>
+<th>Variant</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chianina</strong></td>
+<td>c.491G&gt;A, <strong>p.Arg164His</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18786632/" target="_blank" rel="noopener noreferrer">PMID:18786632</a> — <em>"Identification of a missense mutation in the bovine ATP2A1 gene in congenital pseudomyotonia of Chianina cattle: an animal model of human Brody disease"</em></td>
+</tr>
+<tr>
+<td><strong>Romagnola</strong></td>
+<td>novel exon-8 complex variant c.[632G&gt;T; 857G&gt;T] (p.Gly211Val / p.Gly286Val); 3/4 cases compound het with the Chianina c.491G&gt;A</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23046865/" target="_blank" rel="noopener noreferrer">PMID:23046865</a></td>
+</tr>
+<tr>
+<td><strong>Belgian Blue</strong></td>
+<td>"muscular dystonia type II"</td>
+<td>see <a href="https://bioregistry.io/OMIA:001450" target="_blank" rel="noopener noreferrer">OMIA:001450</a></td>
+</tr>
+<tr>
+<td><strong>Dutch Improved Red and White cross-breed</strong></td>
+<td>single case</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20547455/" target="_blank" rel="noopener noreferrer">PMID:20547455</a>; fiber adaptation study <a href="https://pubmed.ncbi.nlm.nih.gov/26482047/" target="_blank" rel="noopener noreferrer">PMID:26482047</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Commercial genotyping exists (e.g. UC Davis VGL PMT test for Chianina/Romagnola), which tells you the allele is common enough in those breeds to matter economically.</p>
+<p><strong>Why it's the model that counts:</strong></p>
+<blockquote>
+<p><strong>[verbatim]</strong> "Bovine PMT, despite unconventional, is currently the unique mammalian model of Brody disease." — <a href="https://pubmed.ncbi.nlm.nih.gov/41206505/" target="_blank" rel="noopener noreferrer">PMID:41206505</a></p>
+</blockquote>
+<p>The clinical picture is a near-perfect phenocopy: exercise-induced impaired relaxation, triggered by startle or by moving faster than a slow walk, with an uncoordinated hopping gait during cramping episodes.</p>
+<p><strong>Comparative pathology insight:</strong> the bovine work identified <strong>PMCA upregulation</strong> rather than SERCA2 upregulation as the dominant compensation <strong>[full-text derived]</strong> — and the calf study (<a href="https://pubmed.ncbi.nlm.nih.gov/26482047/" target="_blank" rel="noopener noreferrer">PMID:26482047</a>) directly examines fast-twitch fiber adaptation to SERCA1 deficiency. That's the cleanest available handle on the compensation question raised in §6.</p>
+<h3>Other veterinary conditions on the differential</h3>
+<ul>
+<li><strong>Paradoxical pseudomyotonia in English Cocker and Springer Spaniels</strong> — <strong><a href="https://bioregistry.io/OMIA:002645" target="_blank" rel="noopener noreferrer">OMIA:002645</a>-9615</strong>, <em>Canis lupus familiaris</em> (<strong>NCBITaxon:9615</strong>), caused by a <strong>SLC7A10</strong> nonsense variant (c.126C&gt;A, p.Cys42Ter), <strong>not</strong> ATP2A1 (<a href="https://pubmed.ncbi.nlm.nih.gov/36869603/" target="_blank" rel="noopener noreferrer">PMID:36869603</a>). Useful as a "looks like Brody, isn't Brody" comparator.</li>
+<li><strong>Equine muscle biology</strong> is relevant context rather than disease: horse gluteal muscle expresses <em>ATP2A1</em> as its predominant SR Ca²⁺-ATPase, but with strikingly low sarcolipin protein — proposed as an adaptation potentiating calcium cycling in a speed-selected prey species (<a href="https://pubmed.ncbi.nlm.nih.gov/33202832/" target="_blank" rel="noopener noreferrer">PMID:33202832</a>). No equine Brody-equivalent is described.</li>
+</ul>
+<h3>Evolutionary conservation</h3>
+<blockquote>
+<p><strong>[verbatim]</strong> "SERCA protein shows a high degree of conservation among species." — <a href="https://pubmed.ncbi.nlm.nih.gov/39273176/" target="_blank" rel="noopener noreferrer">PMID:39273176</a></p>
+</blockquote>
+<p>That conservation is exactly what makes zebrafish and cattle informative, and it's why the CFTR-corrector result in bovine mutants is taken seriously as a human lead.</p>
+<h3>Zoonotic potential / cross-species transmission</h3>
+<p><strong>Not applicable.</strong> Purely genetic, non-transmissible.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Mouse — <em>Atp2a1</em>-null: the model that failed, informatively</h3>
+<blockquote>
+<p><strong>[verbatim]</strong> "…term SERCA1-null mice had progressive cyanosis and gasping respiration and succumbed from respiratory failure shortly after birth." — Pan et al., <em>J Biol Chem</em> 2003 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/12556521/" target="_blank" rel="noopener noreferrer">PMID:12556521</a></strong>)</p>
+<p><strong>[verbatim]</strong> "…the absence of SERCA1 in type II fibers…coupled with the marked increase in contractile function required of the diaphragm muscle to support postnatal respiration, can account for respiratory failure."</p>
+</blockquote>
+<p><strong>This is a textbook <code>HUMAN_MODEL_MISMATCH</code>, not a <code>KNOWLEDGE_GAP</code>.</strong> Evidence exists in the model; what's open is its translational validity. Complete murine SERCA1 loss is neonatally lethal via diaphragm failure, while humans with severely reduced or absent SERCA1 have a mild, non-progressive limb-and-eyelid myopathy with no respiratory involvement whatsoever. The mismatch is not a nuisance — it's <em>the</em> clue that human compensation (PMCA/NCX/SERCA2/mitochondrial uptake) is doing real work that mouse diaphragm cannot manage under the acute respiratory load of birth.</p>
+<p>Consequence, stated plainly by two independent groups:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "At present, neither specific therapy, nor mouse model exists for Brody myopathy." — <a href="https://pubmed.ncbi.nlm.nih.gov/41206505/" target="_blank" rel="noopener noreferrer">PMID:41206505</a></p>
+<p><strong>[verbatim]</strong> "No mouse model nor specific therapies exist for Brody myopathy, which is therefore considered an orphan disease." — <a href="https://pubmed.ncbi.nlm.nih.gov/39273176/" target="_blank" rel="noopener noreferrer">PMID:39273176</a></p>
+</blockquote>
+<p>(To be precise: an <em>Atp2a1</em> knockout mouse exists; a <em>viable</em> mouse model of Brody myopathy does not. Worth phrasing carefully in an entry.)</p>
+<h3>Zebrafish — <em>accordion</em> mutants: the workhorse in vivo model</h3>
+<p><strong>Species:</strong> <em>Danio rerio</em>, <strong>NCBITaxon:7955</strong>. <strong>Gene:</strong> <em>atp2a1</em>. <strong>ZFIN</strong> has the <em>accordion</em> allele series.</p>
+<p>Two independent 2004 papers positionally cloned it:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "…acc mutants carry a mutation in atp2a1 gene that encodes the sarco(endo)plasmic reticulum Ca2+-ATPase 1 (SERCA1)… As SERCA1 mutations in humans lead to Brody disease, an exercise-induced muscle relaxation disorder, zebrafish accordion mutants could be a useful animal model for this condition." — Hirata et al., <em>Development</em> 2004 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/15469975/" target="_blank" rel="noopener noreferrer">PMID:15469975</a></strong>)</p>
+<p><strong>[verbatim]</strong> "Positional cloning of acc identified a serca mutation as the cause of the acc phenotype… The mutation in SERCA, a serine to phenylalanine substitution, is likely to result in compromised protein function that accounts for the observed phenotype." — Gleason et al., <em>Dev Biol</em> 2004 (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/15581877/" target="_blank" rel="noopener noreferrer">PMID:15581877</a></strong>)</p>
+</blockquote>
+<p><strong>Phenotype recapitulation — strong at the mechanistic level:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Human feature</th>
+<th>Zebrafish <em>acc</em></th>
+<th>Match</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Delayed muscle relaxation</td>
+<td>Relaxation "significantly slower than normal"</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Slowed cytosolic Ca²⁺ clearance</td>
+<td>"cytosolic Ca2+ decay was significantly slower"</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Muscle-intrinsic (not neural)</td>
+<td>"output from the central nervous system is normal in mutants"; "defect is not manifested in neuromuscular transmission"</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>Exercise-induced, adult-onset, mild course</td>
+<td>✘ — embryonic/larval, constitutive</td>
+<td>✘</td>
+</tr>
+<tr>
+<td>Bilateral simultaneous contraction ("accordion" shortening)</td>
+<td>Fish-specific behavioral readout</td>
+<td>n/a</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Model limitations to record:</strong> the phenotype is embryonic/larval and behavioral, not exertional; there is no fast/slow fiber architecture equivalent to adult human limb muscle; and the readout (touch-evoked coiling) is a swimming-behavior proxy, not muscle stiffness.</p>
+<p><strong>Current use.</strong> The <code>acc^tq206</code> line was comprehensively re-characterized in 2024 specifically as a testbed for the corrector strategy:</p>
+<blockquote>
+<p><strong>[verbatim]</strong> "In this paper, we focused on a comprehensive characterization of the 'acctq206' zebrafish variant. Our aim was to use this mutant line as an experimental animal model for testing the novel therapeutic approach for BD." — <a href="https://pubmed.ncbi.nlm.nih.gov/39273176/" target="_blank" rel="noopener noreferrer">PMID:39273176</a></p>
+</blockquote>
+<p>An antisense morpholino knockdown of <em>serca</em> reproduces the phenotype in wild-type fish (<a href="https://pubmed.ncbi.nlm.nih.gov/15581877/" target="_blank" rel="noopener noreferrer">PMID:15581877</a>) — a clean orthogonal validation.</p>
+<h3>Cellular / in vitro models</h3>
+<ul>
+<li><strong>HEK-293 heterologous expression</strong> — the classic functional assay for novel variants. Used to establish that p.Pro789Leu abolishes transport while p.Arg819Cys does not (<a href="https://pubmed.ncbi.nlm.nih.gov/10914677/" target="_blank" rel="noopener noreferrer">PMID:10914677</a>). This is the assay that turns a VUS into a call.</li>
+<li><strong>Heterologous cell models of bovine mutants</strong> — used for the MG132 and CFTR-corrector rescue work (<a href="https://pubmed.ncbi.nlm.nih.gov/25288803/" target="_blank" rel="noopener noreferrer">PMID:25288803</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41206505/" target="_blank" rel="noopener noreferrer">PMID:41206505</a>).</li>
+<li><strong>Cultured human myotubes</strong> — available but <strong>caveat</strong>: they predominantly express the <strong>neonatal SERCA1b</strong> isoform, not adult SERCA1a (<a href="https://pubmed.ncbi.nlm.nih.gov/23911890/" target="_blank" rel="noopener noreferrer">PMID:23911890</a>), which limits fidelity to the adult disease.</li>
+<li><strong>iPSC-derived skeletal myocytes / organoids:</strong> <strong>not reported</strong> for Brody myopathy. Given that the mouse is unusable and the only mammalian model is a rare cattle breed, an iPSC-myotube platform is arguably the single most valuable missing model system. Strong candidate for a <code>proposed_experiments</code> entry.</li>
+</ul>
+<h3>Model resources</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Relevance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ZFIN</strong></td>
+<td><em>accordion</em> alleles incl. <code>acc^tq206</code>; the primary live model</td>
+</tr>
+<tr>
+<td><strong>MGI / IMPC / KOMP</strong></td>
+<td><em>Atp2a1</em> alleles; note neonatal lethality of the null</td>
+</tr>
+<tr>
+<td><strong>OMIA</strong></td>
+<td><a href="https://bioregistry.io/OMIA:001464" target="_blank" rel="noopener noreferrer">OMIA:001464</a>-9913 (bovine PMT), <a href="https://bioregistry.io/OMIA:001450" target="_blank" rel="noopener noreferrer">OMIA:001450</a>-9913, <a href="https://bioregistry.io/OMIA:002645" target="_blank" rel="noopener noreferrer">OMIA:002645</a>-9615 (canine SLC7A10)</td>
+</tr>
+<tr>
+<td><strong>Alliance of Genome Resources</strong></td>
+<td><em>ATP2A1</em> orthology across human/mouse/zebrafish</td>
+</tr>
+<tr>
+<td><strong>Cellosaurus / ATCC</strong></td>
+<td>No Brody-specific line</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Orthologous genes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Species</th>
+<th>NCBI Taxon</th>
+<th>Gene</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human</td>
+<td>NCBITaxon:9606</td>
+<td><em>ATP2A1</em> (hgnc:811)</td>
+</tr>
+<tr>
+<td>Mouse</td>
+<td>NCBITaxon:10090</td>
+<td><em>Atp2a1</em></td>
+</tr>
+<tr>
+<td>Zebrafish</td>
+<td>NCBITaxon:7955</td>
+<td><em>atp2a1</em></td>
+</tr>
+<tr>
+<td>Cattle</td>
+<td>NCBITaxon:9913</td>
+<td><em>ATP2A1</em></td>
+</tr>
+<tr>
+<td>Rabbit</td>
+<td>NCBITaxon:9986</td>
+<td><em>ATP2A1</em> — the source of the canonical SERCA1a structural biology</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Appendix A — Reference list with verification status</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Short citation</th>
+<th>Year</th>
+<th>Abstract verbatim-verified?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4239835</td>
+<td>Brody IA, <em>NEJM</em> — original description</td>
+<td>1969</td>
+<td>✘ no abstract in record</td>
+</tr>
+<tr>
+<td>8841193</td>
+<td>Odermatt et al., <em>Nat Genet</em> — ATP2A1 mutations identified</td>
+<td>1996</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>10914677</td>
+<td>Odermatt et al., <em>Hum Genet</em> — p.Pro789Leu functional analysis</td>
+<td>2000</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>12556521</td>
+<td>Pan et al., <em>J Biol Chem</em> — SERCA1-null mouse</td>
+<td>2003</td>
+<td>✔ (partial quotes)</td>
+</tr>
+<tr>
+<td>15469975</td>
+<td>Hirata et al., <em>Development</em> — accordion zebrafish</td>
+<td>2004</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>15581877</td>
+<td>Gleason et al., <em>Dev Biol</em> — serca mutation in accordion</td>
+<td>2004</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>18786632</td>
+<td>Chianina cattle ATP2A1 missense, <em>Genomics</em></td>
+<td>2008</td>
+<td>✘ title only</td>
+</tr>
+<tr>
+<td>20142766</td>
+<td>Vattemi et al., <em>J Neuropathol Exp Neurol</em></td>
+<td>2010</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>20547455</td>
+<td>Dutch Red/White calf pseudomyotonia, <em>Neuromuscul Disord</em></td>
+<td>2010</td>
+<td>✘ not fetched</td>
+</tr>
+<tr>
+<td>22704959</td>
+<td>Voermans et al., <em>Neuromuscul Disord</em> — Brody syndrome vs disease</td>
+<td>2012</td>
+<td>✔ (partial)</td>
+</tr>
+<tr>
+<td>23046865</td>
+<td>Romagnola cattle ATP2A1, <em>BMC Vet Res</em></td>
+<td>2012</td>
+<td>✘ title only</td>
+</tr>
+<tr>
+<td>23911890</td>
+<td>Guglielmi et al., <em>Mol Genet Metab</em> — SERCA1 expression</td>
+<td>2013</td>
+<td>✔ (partial)</td>
+</tr>
+<tr>
+<td>25288803</td>
+<td>Bianchini et al., <em>J Biol Chem</em> — UPS inhibition rescue</td>
+<td>2014</td>
+<td>✔ (partial)</td>
+</tr>
+<tr>
+<td>25614869</td>
+<td>Sambuughin et al., <em>Mol Genet Genomic Med</em> — exome/MH family</td>
+<td>2014</td>
+<td>✔ (partial)</td>
+</tr>
+<tr>
+<td>26482047</td>
+<td>Calf fast-twitch fiber adaptation, <em>Neuromuscul Disord</em></td>
+<td>2015</td>
+<td>✘ title only</td>
+</tr>
+<tr>
+<td><strong>32040565</strong></td>
+<td><strong>Molenaar et al., <em>Brain</em> — 40-patient cohort</strong></td>
+<td><strong>2020</strong></td>
+<td><strong>✔ full abstract</strong></td>
+</tr>
+<tr>
+<td>33202832</td>
+<td>Horse gluteal SLN/SERCA, <em>Vet Sci</em></td>
+<td>2020</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>36869603</td>
+<td>Canine SLC7A10 paradoxical pseudomyotonia, <em>Anim Genet</em></td>
+<td>2023</td>
+<td>✘ title only</td>
+</tr>
+<tr>
+<td>37332993</td>
+<td>Velardo et al., <em>Front Neurol</em> — two siblings</td>
+<td>2023</td>
+<td>✔ (partial)</td>
+</tr>
+<tr>
+<td>38125752</td>
+<td>Şahin et al., <em>Front Genet</em> — Turkish patient</td>
+<td>2023</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>39273176</td>
+<td><em>acc^tq206</em> zebrafish characterization, <em>IJMS</em></td>
+<td>2024</td>
+<td>✔</td>
+</tr>
+<tr>
+<td>40637686</td>
+<td>Bi-allelic LOF ATP2A1, <em>QJM</em></td>
+<td>2025</td>
+<td>✘ no abstract in record</td>
+</tr>
+<tr>
+<td><strong>41206505</strong></td>
+<td><strong>CFTR corrector C17, <em>Hum Mol Genet</em></strong></td>
+<td><strong>2025</strong></td>
+<td><strong>✔ full abstract</strong></td>
+</tr>
+<tr>
+<td>41926432</td>
+<td>Edmund, <em>J Am Assoc Nurse Pract</em> — dantrolene response</td>
+<td>2026</td>
+<td>✔</td>
+</tr>
+<tr>
+<td><strong>41938373</strong></td>
+<td><strong>SERCA activity assay + reference values, <em>Biochem Biophys Rep</em></strong></td>
+<td><strong>2026</strong></td>
+<td><strong>✔ full abstract</strong></td>
+</tr>
+<tr>
+<td>42124386</td>
+<td>Katirji, <em>Muscle Nerve</em> — muscle stiffness review</td>
+<td>2026</td>
+<td>✔</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Structured-source references available for citation in dismech format: <strong><a href="https://bioregistry.io/ORPHA:53347" target="_blank" rel="noopener noreferrer">ORPHA:53347</a></strong>, <strong><a href="https://bioregistry.io/OMIM:601003" target="_blank" rel="noopener noreferrer">OMIM:601003</a></strong>, <strong><a href="https://bioregistry.io/OMIM:108730" target="_blank" rel="noopener noreferrer">OMIM:108730</a></strong>, <strong><a href="https://bioregistry.io/OMIA:001464" target="_blank" rel="noopener noreferrer">OMIA:001464</a>-9913</strong>, <strong><a href="https://bioregistry.io/OMIA:001450" target="_blank" rel="noopener noreferrer">OMIA:001450</a>-9913</strong>, <strong><a href="https://bioregistry.io/OMIA:002645" target="_blank" rel="noopener noreferrer">OMIA:002645</a>-9615</strong>.</p>
+<hr />
+<h2>Appendix B — Verified ontology term set</h2>
+<p>Every ID in this table was checked against a local OAK adapter during this session. IDs <em>not</em> in this table that appear elsewhere in the report (ECTO, LOINC, Reactome, UniProt, PDB, VBO, NCBI Gene) were <strong>not</strong> verified and must be checked before binding.</p>
+<p><strong>HPO</strong> — <a href="http://purl.obolibrary.org/obo/HP_0008967" target="_blank" rel="noopener noreferrer">HP:0008967</a> Exercise-induced muscle stiffness · <a href="http://purl.obolibrary.org/obo/HP_0003710" target="_blank" rel="noopener noreferrer">HP:0003710</a> Exercise-induced muscle cramps · <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" rel="noopener noreferrer">HP:0003552</a> Muscle stiffness · <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> Myalgia · <a href="http://purl.obolibrary.org/obo/HP_0003738" target="_blank" rel="noopener noreferrer">HP:0003738</a> Exercise-induced myalgia · <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" rel="noopener noreferrer">HP:0003546</a> Exercise intolerance · <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" rel="noopener noreferrer">HP:0002047</a> Malignant hyperthermia · <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" rel="noopener noreferrer">HP:0003201</a> Rhabdomyolysis · <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a> Elevated circulating creatine kinase concentration · <a href="http://purl.obolibrary.org/obo/HP_0003554" target="_blank" rel="noopener noreferrer">HP:0003554</a> Type 2 muscle fiber atrophy · <a href="http://purl.obolibrary.org/obo/HP_0003557" target="_blank" rel="noopener noreferrer">HP:0003557</a> Increased variability in muscle fiber diameter · <a href="http://purl.obolibrary.org/obo/HP_0003687" target="_blank" rel="noopener noreferrer">HP:0003687</a> Centrally nucleated skeletal muscle fibers · <a href="http://purl.obolibrary.org/obo/HP_0003457" target="_blank" rel="noopener noreferrer">HP:0003457</a> EMG abnormality · <a href="http://purl.obolibrary.org/obo/HP_0100284" target="_blank" rel="noopener noreferrer">HP:0100284</a> EMG: myotonic discharges <em>(excluded)</em> · <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" rel="noopener noreferrer">HP:0002486</a> Myotonia <em>(excluded)</em> · <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" rel="noopener noreferrer">HP:0001324</a> Muscle weakness · <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" rel="noopener noreferrer">HP:0003701</a> Proximal muscle weakness · <a href="http://purl.obolibrary.org/obo/HP_0009046" target="_blank" rel="noopener noreferrer">HP:0009046</a> Difficulty running · <a href="http://purl.obolibrary.org/obo/HP_0000577" target="_blank" rel="noopener noreferrer">HP:0000577</a> Exotropia · <a href="http://purl.obolibrary.org/obo/HP_0011463" target="_blank" rel="noopener noreferrer">HP:0011463</a> Childhood onset · <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a> Autosomal recessive inheritance</p>
+<p><strong>GO</strong> — <a href="http://purl.obolibrary.org/obo/GO_0005388" target="_blank" rel="noopener noreferrer">GO:0005388</a> P-type calcium transporter activity · <a href="http://purl.obolibrary.org/obo/GO_1990036" target="_blank" rel="noopener noreferrer">GO:1990036</a> calcium ion import into sarcoplasmic reticulum · <a href="http://purl.obolibrary.org/obo/GO_0070588" target="_blank" rel="noopener noreferrer">GO:0070588</a> calcium ion transmembrane transport · <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" rel="noopener noreferrer">GO:0006874</a> intracellular calcium ion homeostasis · <a href="http://purl.obolibrary.org/obo/GO_0032469" target="_blank" rel="noopener noreferrer">GO:0032469</a> endoplasmic reticulum calcium ion homeostasis · <a href="http://purl.obolibrary.org/obo/GO_0090075" target="_blank" rel="noopener noreferrer">GO:0090075</a> relaxation of muscle · <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" rel="noopener noreferrer">GO:0006936</a> muscle contraction · <a href="http://purl.obolibrary.org/obo/GO_0051209" target="_blank" rel="noopener noreferrer">GO:0051209</a> release of sequestered calcium ion into cytosol · <a href="http://purl.obolibrary.org/obo/GO_0014850" target="_blank" rel="noopener noreferrer">GO:0014850</a> response to muscle activity · <a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" rel="noopener noreferrer">GO:0043161</a> proteasome-mediated ubiquitin-dependent protein catabolic process · <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a> response to endoplasmic reticulum stress · <a href="http://purl.obolibrary.org/obo/GO_0016529" target="_blank" rel="noopener noreferrer">GO:0016529</a> sarcoplasmic reticulum · <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" rel="noopener noreferrer">GO:0033017</a> sarcoplasmic reticulum membrane</p>
+<p><strong>CL</strong> — <a href="http://purl.obolibrary.org/obo/CL_0002212" target="_blank" rel="noopener noreferrer">CL:0002212</a> type II muscle cell · <a href="http://purl.obolibrary.org/obo/CL_0002211" target="_blank" rel="noopener noreferrer">CL:0002211</a> type I muscle cell · <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a> skeletal muscle fiber · <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a> cell of skeletal muscle · <a href="http://purl.obolibrary.org/obo/CL_0000187" target="_blank" rel="noopener noreferrer">CL:0000187</a> muscle cell</p>
+<p><strong>UBERON</strong> — <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> skeletal muscle tissue · <a href="http://purl.obolibrary.org/obo/UBERON_0014892" target="_blank" rel="noopener noreferrer">UBERON:0014892</a> skeletal muscle organ, vertebrate · <a href="http://purl.obolibrary.org/obo/UBERON_0001630" target="_blank" rel="noopener noreferrer">UBERON:0001630</a> muscle organ · <a href="http://purl.obolibrary.org/obo/UBERON_0001711" target="_blank" rel="noopener noreferrer">UBERON:0001711</a> eyelid · <a href="http://purl.obolibrary.org/obo/UBERON_0001578" target="_blank" rel="noopener noreferrer">UBERON:0001578</a> orbicularis oculi muscle · <a href="http://purl.obolibrary.org/obo/UBERON_0001377" target="_blank" rel="noopener noreferrer">UBERON:0001377</a> quadriceps femoris · <a href="http://purl.obolibrary.org/obo/UBERON_0002377" target="_blank" rel="noopener noreferrer">UBERON:0002377</a> muscle of neck · <a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a> diaphragm</p>
+<p><strong>CHEBI</strong> — <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a> calcium(2+) · <a href="http://purl.obolibrary.org/obo/CHEBI_30616" target="_blank" rel="noopener noreferrer">CHEBI:30616</a> ATP(4-) · <a href="http://purl.obolibrary.org/obo/CHEBI_9948" target="_blank" rel="noopener noreferrer">CHEBI:9948</a> verapamil · <a href="http://purl.obolibrary.org/obo/CHEBI_4317" target="_blank" rel="noopener noreferrer">CHEBI:4317</a> dantrolene · <a href="http://purl.obolibrary.org/obo/CHEBI_6916" target="_blank" rel="noopener noreferrer">CHEBI:6916</a> mexiletine · <a href="http://purl.obolibrary.org/obo/CHEBI_7565" target="_blank" rel="noopener noreferrer">CHEBI:7565</a> nifedipine · <a href="http://purl.obolibrary.org/obo/CHEBI_27690" target="_blank" rel="noopener noreferrer">CHEBI:27690</a> acetazolamide · <a href="http://purl.obolibrary.org/obo/CHEBI_3387" target="_blank" rel="noopener noreferrer">CHEBI:3387</a> carbamazepine · <a href="http://purl.obolibrary.org/obo/CHEBI_5855" target="_blank" rel="noopener noreferrer">CHEBI:5855</a> ibuprofen · <a href="http://purl.obolibrary.org/obo/CHEBI_45652" target="_blank" rel="noopener noreferrer">CHEBI:45652</a> succinylcholine</p>
+<p><strong>NCIT</strong> — NCIT:C15986 Pharmacotherapy · NCIT:C15302 Physical Therapy · NCIT:C15240 Genetic Counseling · NCIT:C15747 Supportive Care · NCIT:C15315 Rehabilitation · NCIT:C49236 Therapeutic Procedure</p>
+<p><strong>MONDO</strong> — <a href="http://purl.obolibrary.org/obo/MONDO_0010977" target="_blank" rel="noopener noreferrer">MONDO:0010977</a> Brody myopathy · <strong>HGNC</strong> — hgnc:811 ATP2A1</p>
+<hr />
+<h2>Appendix C — Explicit knowledge gaps for the entry</h2>
+<p>These are the places where the literature genuinely stops, and they are worth curating as structured <code>discussions</code> rather than leaving as silence:</p>
+<ol>
+<li><strong><code>HUMAN_MODEL_MISMATCH</code> — the mouse.</strong> Complete murine SERCA1 loss is neonatally lethal via diaphragm failure; human SERCA1 loss produces a mild non-progressive myopathy with no respiratory involvement. Proposed experiments: conditional/hypomorphic <em>Atp2a1</em> alleles; quantify PMCA/NCX/SERCA2 compensation across species.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — which compensator?</strong> SERCA2 upregulation is reported in one human family (<a href="https://pubmed.ncbi.nlm.nih.gov/25614869/" target="_blank" rel="noopener noreferrer">PMID:25614869</a>) but <em>not</em> in the larger cohort (7/8 normal); bovine data favor PMCA. Unresolved, and it directly governs whether a compensation-boosting therapy is even conceivable. Curate as two competing <code>mechanistic_hypotheses</code>, not one chain.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — Brody syndrome's genetic cause.</strong> Patients with the full phenotype and reduced SERCA activity but no <em>ATP2A1</em> variant remain unsolved (<a href="https://pubmed.ncbi.nlm.nih.gov/22704959/" target="_blank" rel="noopener noreferrer">PMID:22704959</a>). WGS in this cohort is the obvious unrun experiment.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — is residual SERCA activity prognostic?</strong> The 2026 assay finally makes this measurable; nobody has correlated it with severity.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — no omics of any kind.</strong> No transcriptomics, proteomics, metabolomics, or single-cell data on Brody muscle exists. Given the fiber-type-selective mechanism, snRNA-seq is a high-yield proposal.</li>
+<li><strong><code>KNOWLEDGE_GAP</code> — no human-relevant scalable model.</strong> No iPSC-derived myotube model published; cultured human myotubes express the wrong (neonatal SERCA1b) isoform.</li>
+<li><strong>Contradiction to preserve, not resolve — dantrolene.</strong> Ineffective in 5 cohort patients (<a href="https://pubmed.ncbi.nlm.nih.gov/32040565/" target="_blank" rel="noopener noreferrer">PMID:32040565</a>), markedly effective in 1 case (<a href="https://pubmed.ncbi.nlm.nih.gov/41926432/" target="_blank" rel="noopener noreferrer">PMID:41926432</a>). Curate both with honest <code>supports</code> tags rather than picking a winner.</li>
+<li><strong>Unreported but plausible mechanism.</strong> Distal 16p11.2 BP2–BP3 deletion (which removes one <em>ATP2A1</em> copy) in trans with a point variant has never been reported as a cause of Brody myopathy. Flag as a hypothesis, not a finding.</li>
+</ol>
+<p><strong>Sources:</strong>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/32040565/">Molenaar et al., Brain 2020 — international study of 40 patients (PMID:32040565)</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7009512/">Brain 2020 full text, PMC7009512</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/8841193/">Odermatt et al., Nature Genetics 1996 (PMID:8841193)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/10914677/">Odermatt et al., Human Genetics 2000 (PMID:10914677)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/12556521/">Pan et al., J Biol Chem 2003 — SERCA1-null mouse (PMID:12556521)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/15469975/">Hirata et al., Development 2004 — accordion zebrafish (PMID:15469975)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/15581877/">Gleason et al., Dev Biol 2004 (PMID:15581877)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/20142766/">Vattemi et al., J Neuropathol Exp Neurol 2010 (PMID:20142766)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/22704959/">Voermans et al., Neuromuscul Disord 2012 — Brody syndrome (PMID:22704959)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/23911890/">Guglielmi et al., Mol Genet Metab 2013 (PMID:23911890)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/25288803/">Bianchini et al., J Biol Chem 2014 — UPS rescue (PMID:25288803)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/25614869/">Sambuughin et al., Mol Genet Genomic Med 2014 — MH family (PMID:25614869)</a>
+- <a href="https://academic.oup.com/hmg/article/34/24/2042/8315897">CFTR corrector C17, Hum Mol Genet 2025 (PMID:41206505)</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11395142/">Accordion zebrafish tq206, IJMS 2024 (PMID:39273176)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/41938373/">SERCA activity assay and reference values, Biochem Biophys Rep 2026 (PMID:41938373)</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10731957/">Şahin et al., Front Genet 2023 — Turkish patient (PMID:38125752)</a>
+- <a href="https://www.frontiersin.org/journals/neurology/articles/10.3389/fneur.2023.1170071/full">Velardo et al., Front Neurol 2023 — two siblings (PMID:37332993)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/41926432/">Edmund, J Am Assoc Nurse Pract 2026 — dantrolene case (PMID:41926432)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/42124386/">Katirji, Muscle Nerve 2026 — neuromuscular hyperexcitability review (PMID:42124386)</a>
+- <a href="https://www.omim.org/entry/601003">OMIM #601003 — Brody disease</a>
+- <a href="https://omim.org/entry/108730">OMIM *108730 — ATP2A1</a>
+- <a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?Lng=GB&amp;Expert=53347">Orphanet — Brody myopathy (ORPHA:53347)</a>
+- <a href="https://omia.org/OMIA001464/9913/">OMIA:001464-9913 — Pseudomyotonia, congenital in Bos taurus</a>
+- <a href="https://www.omia.org/OMIA001450/9913/">OMIA:001450-9913 — Congenital muscular dystonia 1 in Bos taurus</a>
+- <a href="https://www.omia.org/OMIA002645/9615/">OMIA:002645-9615 — Paradoxical pseudomyotonia, SLC7A10-related, dog</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3545862/">Pseudomyotonia in Romagnola cattle, BMC Vet Res 2012 (PMID:23046865)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/18786632/">Chianina cattle ATP2A1 missense, Genomics 2008 (PMID:18786632)</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9604440/">Gly211Val/Gly286Val SERCA1 analysis, IJMS 2022</a>
+- <a href="https://omim.org/entry/613444">OMIM #613444 — Chromosome 16p11.2 deletion syndrome, 220-kb</a>
+- <a href="https://www.ncbi.nlm.nih.gov/clinvar/?term=ATP2A1%5Bgene%5D">ClinVar — ATP2A1 variants</a>
+- <a href="https://medlineplus.gov/download/genetics/condition/brody-myopathy.pdf">MedlinePlus Genetics — Brody myopathy</a>
+- <a href="https://vgl.ucdavis.edu/test/pmt-cattle">UC Davis VGL — Pseudomyotonia (PMT) in Chianina and Romagnola cattle</a></p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Unresolved references</h3>
+<p>These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:</p>
+<ul>
+<li><code>PMID:41938373</code> (5 mentions) - Identifier did not resolve to a record</li>
+<li><code>PMID:18786632</code> (4 mentions) - Identifier did not resolve to a record</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Breast_Fibroadenoma-perplexity.html">← Breast Fibroadenoma (Perplexity)</a>
+                
+                
+                <a href="Bronchiectasis-cyberian-codex.html">Bronchiectasis (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Brody_Myopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Brody_Myopathy-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

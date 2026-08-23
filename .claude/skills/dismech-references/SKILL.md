@@ -250,9 +250,27 @@ writes the outcome into the report itself:
 - a `## Reference Validation` section at the end of the body, with a counts table
   and an `### Unresolved references` list
 
+Since 0.2.10 the same pass adds a third check — **topical relevance**. Each
+resolved reference's already-fetched record (title, journal, MeSH terms,
+abstract) is scored against the report's own most characteristic vocabulary;
+`>= 0.35` is on topic, `<= 0.08` is off topic. It costs no extra lookups and is
+on by default. It adds `relevance_assessed` / `on_topic` (and `off_topic` +
+`off_topic_references` when something is flagged) to the frontmatter, a
+`### References that may not be about this subject` section to the body, and sets
+`needs_review: true`.
+
 **Read that before citing anything from the report.** An identifier listed under
 `unresolved_references` should not be curated into an evidence item — find
-another source or drop the claim.
+another source or drop the claim. `needs_review: true` is the single key worth
+grepping for: it is set by an unresolved identifier, an unsupported quote, *or*
+an off-topic reference, whereas `confabulation_rate` only measures identifier
+resolution.
+
+An **off-topic flag is evidence, not a verdict.** The reference resolved, so it
+is not a fabrication — it just shares little vocabulary with the report, and a
+paper can be relevant in ways its title and abstract do not spell out. Read it
+before dropping the claim. Off-topic references deliberately do not count as
+confabulations and do not trip `--fail-on-unresolved`.
 
 For a report generated before 0.2.9 (most of `research/`):
 
@@ -270,7 +288,10 @@ a retro-fitted report, read the section at the bottom of the file.
    `kb/` entry is correctly quoted — the snippet you paste is a different quote
    in a different file.
 2. It cannot catch Named Entity Confusion (a report about the wrong disease
-   cites real papers correctly). Run `just preflight-dr` as usual.
+   cites real papers correctly). Run `just preflight-dr` as usual. The relevance
+   check does not help here: it scores references against the report's *own*
+   vocabulary, so a wrong-disease report and its wrong-disease citations agree
+   with each other and everything reads as on topic.
 3. It cannot catch a real paper cited for a claim it does not make, where the
    report paraphrases rather than quotes (issue #7791).
 

@@ -4069,6 +4069,64 @@
     {% endif %}
     {% endmacro %}
 
+    {# ExternalAssertion is bound to both Variant and Disease, so its rendering
+       lives in a shared macro: variants call it inline (issue #8037/#8042) and
+       the disease-level "External Assertions" card calls it too (issue #8044).
+       External assertions are not pathograph nodes -- dismech.graph emits none
+       -- so the cards carry a stable anchor id but no data-dismech-node pair. #}
+    {% macro render_external_assertion_body(assertion) %}
+    {% if assertion.name %}
+    <div class="item-name">{{ assertion.name }}</div>
+    {% endif %}
+    <div class="item-meta">
+        {% if assertion.source %}
+        <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
+        {% endif %}
+        {% if assertion.assertion_type %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
+        {% endif %}
+        {% if assertion.external_id %}
+        {% set assertion_id = assertion.external_id | string %}
+        {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
+        {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
+        <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion_id }}">{{ assertion_id }}</a>
+        {% elif is_curie(assertion_id) %}
+        {# No usable URL, but a CURIE goes through the same `curie_to_url` every
+           other identifier chip on the page uses -- ORPHA:558 and OMIM:154700
+           should not be dead grey text. Neither prefix is in the schema prefix
+           map, so both take that helper's bioregistry fallback, which is also
+           how they already render as evidence references further down. #}
+        {{ render_curie_link(assertion_id) }}
+        {% else %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion_id }}</span>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% if assertion.description %}
+    <div class="item-desc">{{ assertion.description }}</div>
+    {% endif %}
+    {# `notes` often records how the external record's scope differs from this
+       entry's -- a lump/split caveat that contradicts the description if the
+       reader only sees the description. #}
+    {% if assertion.notes %}
+    <div class="mapping-notes">{{ assertion.notes }}</div>
+    {% endif %}
+    {{ render_evidence(assertion.evidence) }}
+    {% endmacro %}
+
+    {% macro render_external_assertions_block(assertions) %}
+    {% if assertions %}
+    <div class="crosslink-block">
+        <div class="crosslink-title">External assertions</div>
+        {% for assertion in assertions %}
+        <div class="variant-effect">
+            {{ render_external_assertion_body(assertion) }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endmacro %}
+
     {% macro render_variant_body(variant) %}
     <div class="item-name">
         {{ variant.name }}
@@ -4158,38 +4216,7 @@
         {% endfor %}
     </div>
     {% endif %}
-    {% if variant.external_assertions %}
-    <div class="crosslink-block">
-        <div class="crosslink-title">External assertions</div>
-        {% for assertion in variant.external_assertions %}
-        <div class="variant-effect">
-            {% if assertion.name %}
-            <div class="item-name">{{ assertion.name }}</div>
-            {% endif %}
-            <div class="item-meta">
-                {% if assertion.source %}
-                <span class="tag" style="background: #e0f2fe; color: #0369a1;">{{ assertion.source }}</span>
-                {% endif %}
-                {% if assertion.assertion_type %}
-                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.assertion_type | replace('_', ' ') }}</span>
-                {% endif %}
-                {% if assertion.external_id %}
-                {# Only link out over http(s); a curated javascript: URL must not become clickable. #}
-                {% if assertion.url and (assertion.url | string | lower).startswith(('http://', 'https://')) %}
-                <a class="curie-chip" href="{{ assertion.url }}" target="_blank" rel="noopener noreferrer" title="Open {{ assertion.external_id }}">{{ assertion.external_id }}</a>
-                {% else %}
-                <span class="tag" style="background: #f1f5f9; color: #475569;">{{ assertion.external_id }}</span>
-                {% endif %}
-                {% endif %}
-            </div>
-            {% if assertion.description %}
-            <div class="item-desc">{{ assertion.description }}</div>
-            {% endif %}
-            {{ render_evidence(assertion.evidence) }}
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+    {{ render_external_assertions_block(variant.external_assertions) }}
     {{ render_evidence(variant.evidence) }}
     {% endmacro %}
 
@@ -4576,64 +4603,48 @@
 
         <!-- Classifications -->
         {% if disorder.classifications %}
+        {# Slots whose values are mechanism/pathway statements rather than nosology #}
+        {# placements; styled differently, as they were before this became a loop.  #}
+        {% set mechanistic_slots = ['mechanistic_category', 'lysosomal_storage_category', 'channelopathy_category'] %}
+        {% set groups_with_content = [] %}
+        {% for group in classification_spec %}
+        {% set present = [] %}
+        {% for member in group.members %}
+        {% if disorder.classifications.get(member.slot) %}{% set _ = present.append(member) %}{% endif %}
+        {% endfor %}
+        {% if present %}{% set _ = groups_with_content.append({'label': group.label, 'members': present, 'multi': group.members | length > 1}) %}{% endif %}
+        {% endfor %}
+        {% if groups_with_content %}
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
                 <h2 class="card-title">Classifications</h2>
             </div>
-            {% if disorder.classifications.harrisons_chapter %}
+            {# Driven by classification_spec, derived from DiseaseClassifications in the   #}
+            {# schema, so a newly added classification slot renders with no template edit. #}
+            {# Labels are the slots' LinkML `title`; nesting follows their `slot_group`.   #}
+            {% for group in groups_with_content %}
             <div style="margin-bottom: 16px;">
-                <div class="classification-category">Harrison's Chapter</div>
+                <div class="classification-category">{{ group.label }}</div>
+                {% for member in group.members %}
+                {% set entry = disorder.classifications[member.slot] %}
+                {% set items = entry if entry is sequence and entry is not mapping else [entry] %}
                 <div class="tag-list">
-                    {% for hc in disorder.classifications.harrisons_chapter %}
-                    <span class="tag tag-classification">{{ hc.classification_value }}</span>
+                    {# A grouped slot needs its own sub-label; a lone slot would just #}
+                    {# repeat the group heading it is the sole member of.             #}
+                    {% if group.multi %}
+                    <span style="font-size: 0.78rem; color: #6b7280;">{{ member.label }}</span>
+                    {% endif %}
+                    {% for item in items %}
+                    {% set value = item.classification_value %}
+                    <span class="tag {{ 'tag-mechanistic' if member.slot in mechanistic_slots else 'tag-classification' }}"{% if item.notes %} title="{{ item.notes }}"{% endif %}>{{ value | replace('_', ' ') }}{% if value is string and value.startswith('suspected_') %} (Annex II — suspected){% endif %}</span>
                     {% endfor %}
                 </div>
+                {% endfor %}
             </div>
-            {% endif %}
-            {% if disorder.classifications.mechanistic_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Mechanistic Nosology</div>
-                <div class="tag-list">
-                    {% for mc in disorder.classifications.mechanistic_category %}
-                    <span class="tag tag-mechanistic">{{ mc.classification_value }}</span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.icdo_morphology %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">ICD-O Morphology</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.icdo_morphology.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.lysosomal_storage_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Lysosomal Storage</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.lysosomal_storage_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.iuis_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">IUIS Category</div>
-                <div class="tag-list">
-                    <span class="tag tag-classification">{{ disorder.classifications.iuis_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
-            {% if disorder.classifications.channelopathy_category %}
-            <div style="margin-bottom: 16px;">
-                <div class="classification-category">Channelopathy</div>
-                <div class="tag-list">
-                    <span class="tag tag-mechanistic">{{ disorder.classifications.channelopathy_category.classification_value }}</span>
-                </div>
-            </div>
-            {% endif %}
+            {% endfor %}
         </div>
+        {% endif %}
         {% endif %}
 
         <!-- Mappings -->
@@ -5786,6 +5797,22 @@
         </div>
         {% endif %}
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+        {% if disorder.external_assertions %}
+        <div class="card" id="external-assertions">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🗃️</div>
+                <h2 class="card-title">External Assertions</h2>
+                <span class="card-count">{{ disorder.external_assertions | length }}</span>
+            </div>
+            {% for assertion in disorder.external_assertions %}
+            <div class="item-box anchor-target"{% if assertion._anchor_id %} id="{{ assertion._anchor_id }}"{% endif %}>
+                {{ render_external_assertion_body(assertion) }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <!-- Medical actions -->
         {% if disorder.treatments %}
         <div class="card" id="treatments">
@@ -6053,6 +6080,32 @@
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
+                </div>
+                {% endif %}
+                {# Exposure/agent-level classifications: hazard type, route, duration, IARC group, #}
+                {# GHS class, exposome domain. These classify the AGENT, not the disease, which is #}
+                {# why they render on the exposure card rather than in the Classifications card. #}
+                {% if env.exposure_classifications %}
+                {% set exposure_axes = [
+                    ("Hazard type", env.exposure_classifications.hazard_agent_type),
+                    ("Route", env.exposure_classifications.exposure_route),
+                    ("Duration", env.exposure_classifications.exposure_duration),
+                    ("IARC group", env.exposure_classifications.iarc_carcinogen_group),
+                    ("GHS hazard class", env.exposure_classifications.ghs_health_hazard_class),
+                    ("Exposome domain", env.exposure_classifications.exposome_domain)
+                ] %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    {% for axis_label, axis_value in exposure_axes %}
+                    {% if axis_value %}
+                    {% set axis_items = axis_value if axis_value is sequence and axis_value is not mapping else [axis_value] %}
+                    <div style="margin: 4px 0; font-size: 0.85rem;">
+                        <strong style="font-size: 0.8rem; color: #0f766e;">{{ axis_label }}:</strong>
+                        {% for assignment in axis_items %}
+                        <span class="tag tag-classification"{% if assignment.notes %} title="{{ assignment.notes }}"{% endif %}>{{ assignment.classification_value | replace('_', ' ') }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
                 </div>
                 {% endif %}
                 {% if env.notes %}

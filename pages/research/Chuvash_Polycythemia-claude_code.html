@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chuvash Polycythemia · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Chuvash Polycythemia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Chuvash Polycythemia</h1>
+                
+                <p class="report-subtitle">Chuvash Polycythemia — Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-15</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009892" target="_blank" rel="noopener noreferrer">MONDO:0009892</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                    <span class="meta-chip">8 citations</span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Chuvash Polycythemia — Comprehensive Research Report</h1>
+<p><em>Prepared 2026-08-15 for a dismech knowledge-base entry. Every mechanistic and clinical claim below is tied to a PMID; direct abstract quotes are marked with quotation marks so they can be lifted straight into <code>evidence.snippet</code> fields. Where I could not verify something, I say so instead of filling the gap.</em></p>
+<hr />
+<h2>0. The one-paragraph version</h2>
+<p>Your cells have a little oxygen thermostat. A protein called VHL is the part that says "okay, we have plenty of air, stand down" — it grabs the hypoxia-response transcription factors (HIF-1α, HIF-2α), tags them for the shredder, and the body's emergency oxygen program shuts off. In Chuvash polycythemia, both copies of <em>VHL</em> carry one specific typo (R200W), the grip on HIF is a bit slippery, and the thermostat never fully stands down. So the body sits in a permanent, low-grade impression that it's on a mountaintop: erythropoietin runs high, red cells pile up, the pulmonary arteries stay tense, ventilation runs fast. It is the first recognized <em>congenital disorder of oxygen sensing</em>. Crucially — and this is the weird, beautiful part — it is a <em>VHL</em> disease that <strong>doesn't</strong> cause the tumors <em>VHL</em> disease is famous for. What it does cause is clots, and those clots are what kills people.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Concise overview.</strong> Chuvash polycythemia (CP), increasingly called <strong>Chuvash erythrocytosis (CE)</strong>, is an autosomal recessive congenital secondary erythrocytosis caused by homozygosity for the <em>VHL</em> c.598C&gt;T (p.Arg200Trp) allele. It was mapped to 3p25 and the gene identified in 2002 (<a href="https://pubmed.ncbi.nlm.nih.gov/12415268/" target="_blank" rel="noopener noreferrer">PMID:12415268</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11987242/" target="_blank" rel="noopener noreferrer">PMID:11987242</a>). It presents with lifelong elevated hemoglobin/hematocrit, inappropriately high or high-normal serum erythropoietin, <strong>normal</strong> hemoglobin–oxygen affinity, and a striking burden of thrombotic and cerebrovascular events — but no increase in the hemangioblastomas, renal cell carcinomas, or pheochromocytomas that define classical VHL syndrome.</p>
+<p>Orphanet's definition (<a href="https://bioregistry.io/ORPHA:238557" target="_blank" rel="noopener noreferrer">ORPHA:238557</a>, retrieved 2026-08-15 via the Orphanet API):</p>
+<blockquote>
+<p>"Chuvash erythrocytosis is a rare, genetic, congenital secondary polycythemia disorder characterized by increased hemoglobin, hematocrit and erythropoietin serum levels and normal oxygen affinity, which usually manifests with headache, dizziness, dyspnea and/or plethora. Patients present an increased risk of hemorrhage, thrombosis and early death."</p>
+</blockquote>
+<p><strong>Key identifiers</strong> (all verified live against Monarch, ClinVar, and the Orphanet product1 XML on 2026-08-15):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO</strong></td>
+<td><code>MONDO:0009892</code></td>
+<td>label "Chuvash polycythemia"; Orphanet asserts an <strong>Exact</strong> mapping to <a href="https://bioregistry.io/ORPHA:238557" target="_blank" rel="noopener noreferrer">ORPHA:238557</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td><code>263400</code></td>
+<td>ERYTHROCYTOSIS, FAMILIAL, 2 (ECYT2)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><code>ORPHA:238557</code></td>
+<td>preferred term "Chuvash erythrocytosis"; parent = Rare hematologic disease (<a href="https://bioregistry.io/ORPHA:97992" target="_blank" rel="noopener noreferrer">ORPHA:97992</a>)</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><code>DOID:0060474</code></td>
+<td>"familial erythrocytosis 2" — this is the term MGI uses for the mouse model</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td><code>D75.1</code></td>
+<td>Orphanet-attributed; relation <strong>NTBT</strong> (the ORPHA concept is <em>narrower</em> than D75.1, secondary polycythaemia)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td><code>3A80.0</code></td>
+<td>Orphanet-attributed index term, also <strong>NTBT</strong></td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td><code>C563918</code></td>
+<td>supplementary concept record</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td><code>C1837915</code></td>
+<td></td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td><code>332974</code></td>
+<td></td>
+</tr>
+<tr>
+<td>GARD</td>
+<td><code>0017176</code></td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names</strong> (Orphanet + MONDO): Chuvash erythrocytosis; VHL-related polycythemia; VHL-related erythrocytosis; Von Hippel-Lindau-related erythrocytosis; Von Hippel-Lindau-dependent polycythemia; erythrocytosis, familial, 2; ECYT2; familial polycythemia caused by mutation in VHL. Older literature uses "Chuvash-type congenital polycythemia."</p>
+<p><strong>Provenance of the evidence base.</strong> This is a disease-level literature knowledge base built almost entirely from <strong>deeply phenotyped cohort studies of individual patients</strong>, not EHR aggregates. The backbone is a single long-running matched-cohort in Chuvashia (Cheboksary) run by Gordeuk, Prchal, Sergueeva, Miasnikova and colleagues from the late 1990s to the 2020s — the same ~30–155 homozygotes and matched wild-type controls reappear across two decades of papers, with a prospective arm registered as <strong>NCT00495638</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>). Add to that the Ischia (Italy) cluster (<a href="https://pubmed.ncbi.nlm.nih.gov/16210343/" target="_blank" rel="noopener noreferrer">PMID:16210343</a>), the Oxford physiology group's studies of UK/Irish patients (<a href="https://pubmed.ncbi.nlm.nih.gov/16768548/" target="_blank" rel="noopener noreferrer">PMID:16768548</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/20616028/" target="_blank" rel="noopener noreferrer">PMID:20616028</a>), and scattered case series from Belfast, Ulm, Chandigarh, and elsewhere. That means: rich mechanistic depth, but small N, one dominant investigator network, and geographic concentration. Curate frequencies with that in mind.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary cause</h3>
+<p>A single germline point mutation, in <strong>biallelic</strong> dose. <em>VHL</em> NM_000551.4:c.598C&gt;T, p.(Arg200Trp), rs28940298, GRCh38 chr3:10,149,921 C&gt;T (GRCh37 chr3:10,191,605); ClinVar canonical SPDI <code>NC_000003.12:10149920:C:T</code>.</p>
+<p>Ang et al. 2002 (<a href="https://pubmed.ncbi.nlm.nih.gov/12415268/" target="_blank" rel="noopener noreferrer">PMID:12415268</a>) established both the genetic and the mechanistic link:</p>
+<blockquote>
+<p>"Chuvash polycythemia is an autosomal recessive disorder that is endemic to the mid-Volga River region. We previously mapped the locus associated with Chuvash polycythemia to chromosome 3p25. The gene associated with von Hippel-Lindau syndrome, VHL, maps to this region, and homozygosity with respect to a C--&gt;T missense mutation in VHL, causing an arginine-to-tryptophan change at amino-acid residue 200 (Arg200Trp), was identified in all individuals affected with Chuvash polycythemia."</p>
+</blockquote>
+<p>and</p>
+<blockquote>
+<p>"Our data indicate that the Arg200Trp substitution impairs the interaction of VHL with HIF1alpha, reducing the rate of degradation of HIF1alpha and resulting in increased expression of downstream target genes including EPO (encoding erythropoietin), SLC2A1 (also known as GLUT1...), TF (encoding transferrin), TFRC (encoding transferrin receptor (p90, CD71)) and VEGF (encoding vascular endothelial growth factor)."</p>
+</blockquote>
+<p>R200W is a <strong>hypomorph</strong>, not a null. That distinction is the whole story of why this disease is not cancer — see §6.</p>
+<h3>2.2 Genetic risk factors</h3>
+<ul>
+<li><strong>Causal genotype:</strong> R200W/R200W. This is the "Chuvash" form proper.</li>
+<li><strong>Allelic heterogeneity within the same disease concept.</strong> Congenital erythrocytosis also arises from <em>VHL</em> compound heterozygosity (R200W plus a second <em>VHL</em> allele — e.g. c.562C&gt;G/p.Leu188Val or c.574C&gt;T) and from other homozygous <em>VHL</em> alleles such as the Croatian <strong>H191D</strong> (c.571C&gt;G) (<a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a>). Pastore et al. concluded: <em>"up to half of the consecutive patients with apparent congenital polycythemia and increased serum Epo we have examined have mutations of both VHL alleles."</em> Whether these compound genotypes belong inside <code>Chuvash_Polycythemia</code> or as siblings is a lump/split call the curator has to make — Tomasic et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a>) argue explicitly that <strong>H191D homozygotes are phenotypically distinct</strong> (higher EPO for age; erythroid progenitors <em>not</em> EPO-hypersensitive).</li>
+<li><strong>Cryptic-exon and splicing alleles.</strong> Lenglet et al. 2018 (<a href="https://pubmed.ncbi.nlm.nih.gov/29891534/" target="_blank" rel="noopener noreferrer">PMID:29891534</a>) found a new <em>VHL</em> cryptic exon <strong>E1′</strong> deep in intron 1, with mutations in E1′ in 7 erythrocytosis families, plus pathogenic <em>synonymous</em> exon-2 variants acting via E2 skipping. Practical consequence: a standard coding-exon panel can miss a <em>VHL</em>-erythrocytosis diagnosis.</li>
+<li><strong>Modifier loci with real data.</strong> Shah et al. 2023 (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>) found that in <em>VHL</em>^R200W homozygotes, the A allele of the <em>EPO</em> promoter SNP <strong>rs1617640</strong> "associated with elevated erythropoietin and increased thrombosis risk," whereas the A allele of the <em>TF</em> intronic SNP <strong>rs3811647</strong> "associated with higher transferrin and protection from thrombosis in patients." These are the best-documented genetic modifiers in the disease.</li>
+<li><strong>Digenic coincidence, not modification.</strong> A reported case of coinherited Chuvash polycythemia and G6PD Kerala-Kalyan producing a blended "hemolytic erythrocytosis" phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/33033909/" target="_blank" rel="noopener noreferrer">PMID:33033909</a>) — worth a note, not a mechanism.</li>
+</ul>
+<h3>2.3 Environmental risk / exacerbating factors</h3>
+<p>There is <strong>no environmental cause</strong>; this is Mendelian. But several exposures modulate the phenotype, and one of them is iatrogenic:</p>
+<ul>
+<li><strong>Iron deficiency, usually caused by therapeutic phlebotomy.</strong> Low ferritin independently predicted higher tricuspid regurgitation velocity (a pulmonary-pressure surrogate) in 120 homozygotes (<a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>, "low ferritin independently predicted higher tricuspid regurgitation velocity (standardized beta=0.29; P=0.009)"). Iron deficiency also reshapes the transcriptional response — potentiating HIF-1α while suppressing HIF-2α targets (<a href="https://pubmed.ncbi.nlm.nih.gov/23993337/" target="_blank" rel="noopener noreferrer">PMID:23993337</a>). So the standard polycythemia reflex (bleed them) may worsen two of the disease's main problems.</li>
+<li><strong>Hypoxic exposure (altitude, exercise).</strong> The hypoxic EPO response is intact and set on top of an already-elevated baseline (<a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a>), and hypoxic ventilatory and pulmonary vasoconstrictive responses are <em>greatly exaggerated</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16768548/" target="_blank" rel="noopener noreferrer">PMID:16768548</a>). Altitude and exertion are physiologically meaningful stressors here.</li>
+<li><strong>Pregnancy</strong> is a documented management challenge (<a href="https://pubmed.ncbi.nlm.nih.gov/18161409/" target="_blank" rel="noopener noreferrer">PMID:18161409</a>, a case managed with repeated venesection plus heparin) — thrombotic risk plus a physiologically expanded plasma volume.</li>
+<li>Smoking, obesity, and conventional cardiovascular risk factors are not disease-specific but sit directly on top of a thrombotic diathesis; guideline advice is to optimize them (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>).</li>
+</ul>
+<h3>2.4 Protective factors</h3>
+<ul>
+<li><strong>Heterozygote advantage — probably protection from anemia.</strong> Miasnikova et al. 2011 (<a href="https://pubmed.ncbi.nlm.nih.gov/21606165/" target="_blank" rel="noopener noreferrer">PMID:21606165</a>): "Mild anemia was present in 15% of VHL(R200W) heterozygotes and 34% of controls without a mutated VHL allele. By multivariate logistic regression, the odds of anemia were reduced an estimated 5.6-fold in the VHL(R200W) heterozygotes compared to controls (95% confidence interval 1.4-22.7; P=0.017)." Perrotta et al. independently found that "nonaffected heterozygotes had increased HIF-1alpha activity, which might confer a biochemical advantage for mutation maintenance" (<a href="https://pubmed.ncbi.nlm.nih.gov/16210343/" target="_blank" rel="noopener noreferrer">PMID:16210343</a>). This is the leading explanation for why an ancient, mildly deleterious allele persists at ~6–7% in two separate populations.</li>
+<li><strong>High transferrin appears protective against thrombosis</strong> — and this genuinely surprised the investigators (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>): "Unexpectedly, transferrin elevation associated with reduced rather than increased thrombosis risk."</li>
+<li><strong>Relative protection from cancer.</strong> No excess malignancy has been demonstrated (<a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>). Transcriptomics offers a candidate reason: down-regulation of cell proliferation and stress-induced apoptosis modules (<a href="https://pubmed.ncbi.nlm.nih.gov/23993337/" target="_blank" rel="noopener noreferrer">PMID:23993337</a>). Also lower glucose/HbA1c (<a href="https://pubmed.ncbi.nlm.nih.gov/23015148/" target="_blank" rel="noopener noreferrer">PMID:23015148</a>) and lower systemic blood pressures (<a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a>) — cardiometabolically favorable traits sitting inside an otherwise dangerous phenotype. Classic antagonistic pleiotropy.</li>
+</ul>
+<h3>2.5 Gene–environment interaction</h3>
+<p>The cleanest documented GxE in this disease is <strong>genotype × iron status</strong>. Zhang et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/23993337/" target="_blank" rel="noopener noreferrer">PMID:23993337</a>) compared PBMC expression in homozygotes with normal iron vs. homozygotes made iron-deficient by phlebotomy: "iron deficiency enhanced the induction effect of VHL(R200W) for 50 genes including hemoglobin synthesis loci but suppressed the effect for 107 genes enriched for HIF-2 targets. This pattern is consistent with potentiation of HIF-1α protein stability by iron deficiency but a trend for down-regulation of HIF-2α translation by iron deficiency overriding an increase in HIF-2α protein stability." Iron isn't just a nutrient here — it's a dial on which arm of the HIF response dominates.</p>
+<p>Second: <strong>genotype × hypoxic challenge</strong> (§2.3), where the hypoxic response is preserved in shape but shifted in setpoint.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>3.1 HPO annotations already curated for <a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a></h3>
+<p>Retrieved live from the HPO/Monarch annotation API on 2026-08-15. These are the terms the ontology itself already asserts, with their source and n/N frequencies — safest starting point for the <code>phenotypes</code> block.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>HP ID</th>
+<th>Label</th>
+<th>Frequency (as annotated)</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001900" target="_blank" rel="noopener noreferrer">HP:0001900</a></td>
+<td>Increased circulating hemoglobin concentration</td>
+<td>9/9</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001899" target="_blank" rel="noopener noreferrer">HP:0001899</a></td>
+<td>Increased hematocrit</td>
+<td>7/7</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001898" target="_blank" rel="noopener noreferrer">HP:0001898</a></td>
+<td>Increased red blood cell mass</td>
+<td>—</td>
+<td><a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033644" target="_blank" rel="noopener noreferrer">HP:0033644</a></td>
+<td>Elevated circulating erythropoietin concentration</td>
+<td>7/9</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002641" target="_blank" rel="noopener noreferrer">HP:0002641</a></td>
+<td>Peripheral thrombosis</td>
+<td>—</td>
+<td><a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001297" target="_blank" rel="noopener noreferrer">HP:0001297</a></td>
+<td>Stroke</td>
+<td>—</td>
+<td><a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001342" target="_blank" rel="noopener noreferrer">HP:0001342</a></td>
+<td>Cerebral hemorrhage</td>
+<td>—</td>
+<td><a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" rel="noopener noreferrer">HP:0002092</a></td>
+<td>Pulmonary arterial hypertension</td>
+<td>1/1</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002619" target="_blank" rel="noopener noreferrer">HP:0002619</a></td>
+<td>Varicose veins</td>
+<td>—</td>
+<td><a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" rel="noopener noreferrer">HP:0002615</a></td>
+<td>Hypotension</td>
+<td>—</td>
+<td><a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001028" target="_blank" rel="noopener noreferrer">HP:0001028</a></td>
+<td>Hemangioma</td>
+<td>—</td>
+<td><a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a> (vertebral hemangiomas)</td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></td>
+<td>Headache</td>
+<td>1/1</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a></td>
+<td>Fatigue</td>
+<td>—</td>
+<td><a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001050" target="_blank" rel="noopener noreferrer">HP:0001050</a></td>
+<td>Plethora</td>
+<td>—</td>
+<td><a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></td>
+<td>Failure to thrive</td>
+<td>1/1</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011463" target="_blank" rel="noopener noreferrer">HP:0011463</a></td>
+<td>Childhood onset</td>
+<td>7/8</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a></td>
+<td>Infantile onset</td>
+<td>1/1</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003621" target="_blank" rel="noopener noreferrer">HP:0003621</a></td>
+<td>Juvenile onset</td>
+<td>1/7</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a></td>
+</tr>
+<tr>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a></td>
+<td>Autosomal recessive inheritance</td>
+<td>—</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>⚠️ <strong>Frequency caution.</strong> Several of these n/N values (1/1, 7/9) come from tiny case series, one of which (<a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a>) is about the <strong>Croatian H191D</strong> genotype, not R200W. Under the dismech frequency-evidence SOP, most of these do <strong>not</strong> support a <code>FrequencyEnum</code> band. I would omit <code>frequency:</code> for nearly all of them and use the cohort-derived numbers below where a real denominator exists.</p>
+<h3>3.2 Additional phenotypes with cohort-level evidence</h3>
+<p>These are not in the current HPO annotation set but are supported by the matched-cohort literature. HP IDs below were verified against the dismech validated term cache.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>HP term</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Polycythemia / erythrocytosis (the umbrella finding)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001901" target="_blank" rel="noopener noreferrer">HP:0001901</a> Polycythemia</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9058724/" target="_blank" rel="noopener noreferrer">PMID:9058724</a> → correction: <a href="https://pubmed.ncbi.nlm.nih.gov/9058738/" target="_blank" rel="noopener noreferrer">PMID:9058738</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12415268/" target="_blank" rel="noopener noreferrer">PMID:12415268</a></td>
+</tr>
+<tr>
+<td>Vertebral hemangioma</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001028" target="_blank" rel="noopener noreferrer">HP:0001028</a> Hemangioma (+ <a href="http://purl.obolibrary.org/obo/UBERON_0001130" target="_blank" rel="noopener noreferrer">UBERON:0001130</a> vertebral column)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a></td>
+</tr>
+<tr>
+<td>Low-to-normal / reduced systemic blood pressure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002632" target="_blank" rel="noopener noreferrer">HP:0002632</a> Low-to-normal blood pressure</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16769575/" target="_blank" rel="noopener noreferrer">PMID:16769575</a> ("systolic systemic blood pressures were lower (p=0.001)")</td>
+</tr>
+<tr>
+<td>Arterial thrombosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004420" target="_blank" rel="noopener noreferrer">HP:0004420</a></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a></td>
+</tr>
+<tr>
+<td>Venous thrombosis / DVT</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" rel="noopener noreferrer">HP:0004936</a> / <a href="http://purl.obolibrary.org/obo/HP_0002625" target="_blank" rel="noopener noreferrer">HP:0002625</a></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a></td>
+</tr>
+<tr>
+<td>Thromboembolism, incl. pulmonary embolism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001907" target="_blank" rel="noopener noreferrer">HP:0001907</a> / <a href="http://purl.obolibrary.org/obo/HP_0002204" target="_blank" rel="noopener noreferrer">HP:0002204</a></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39113647/" target="_blank" rel="noopener noreferrer">PMID:39113647</a> (review of cohort data)</td>
+</tr>
+<tr>
+<td>Myocardial infarction</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" rel="noopener noreferrer">HP:0001658</a></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39113647/" target="_blank" rel="noopener noreferrer">PMID:39113647</a></td>
+</tr>
+<tr>
+<td>Exercise intolerance</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" rel="noopener noreferrer">HP:0003546</a></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20616028/" target="_blank" rel="noopener noreferrer">PMID:20616028</a> ("reduced maximum exercise capacities")</td>
+</tr>
+<tr>
+<td>Exertional dyspnea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" rel="noopener noreferrer">HP:0002875</a></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16768548/" target="_blank" rel="noopener noreferrer">PMID:16768548</a> (elevated basal ventilation)</td>
+</tr>
+<tr>
+<td>Vertigo / dizziness</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002321" target="_blank" rel="noopener noreferrer">HP:0002321</a></td>
+<td>Orphanet definition; <a href="https://pubmed.ncbi.nlm.nih.gov/25573974/" target="_blank" rel="noopener noreferrer">PMID:25573974</a> (36.7% at baseline)</td>
+</tr>
+<tr>
+<td>Splenomegaly / hepatomegaly (organ enlargement)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a> / <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20140661/" target="_blank" rel="noopener noreferrer">PMID:20140661</a> — "the volumes of liver, spleen, and kidneys relative to body mass were larger in 30 individuals with Chuvash polycythemia than in 30 matched Chuvash controls"</td>
+</tr>
+<tr>
+<td>Decreased circulating ferritin (usually iatrogenic)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012343" target="_blank" rel="noopener noreferrer">HP:0012343</a></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a></td>
+</tr>
+<tr>
+<td>Hypoglycemia-adjacent: lower glucose and HbA1c</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001943" target="_blank" rel="noopener noreferrer">HP:0001943</a> Hypoglycemia (use cautiously — the finding is <em>lower</em>, not frankly hypoglycemic)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23015148/" target="_blank" rel="noopener noreferrer">PMID:23015148</a></td>
+</tr>
+<tr>
+<td>Major bleeding episodes</td>
+<td>(no clean HP term; consider <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" rel="noopener noreferrer">HP:0001892</a> Abnormal bleeding)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>3.3 Laboratory phenotype (the diagnostic signature)</h3>
+<ul>
+<li><strong>Hemoglobin markedly elevated from early life.</strong> Sergeyeva et al. 1997 (<a href="https://pubmed.ncbi.nlm.nih.gov/9058738/" target="_blank" rel="noopener noreferrer">PMID:9058738</a>), studying six Chuvash patients under 20 years old: <em>"Hemoglobins were markedly elevated in the index subjects (mean +/- standard deviation [SD] of 22.6 +/- 1.4 g/dL), while platelet and white blood cell counts were normal."</em> That last clause is the key discriminator from polycythemia vera — <strong>no leukocytosis, no thrombocytosis</strong>. Cohort analyses actually report <em>lower</em> WBC and platelet counts than controls (<a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>).</li>
+<li><strong>Erythropoietin inappropriately high, but hypoxic regulation intact.</strong> Gordeuk et al. 2004 (<a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a>): <em>"Although hemoglobin-adjusted serum erythropoietin concentrations were approximately 10-fold higher in VHL 598C&gt;T homozygotes than in controls, erythropoietin response to hypoxia was identical."</em> Note EPO can also be within the normal range — 4 of 9 in Percy's series had normal EPO (<a href="https://pubmed.ncbi.nlm.nih.gov/12702509/" target="_blank" rel="noopener noreferrer">PMID:12702509</a>), and in the Indian screening series EPO was low in 19% and normal in 69% of erythrocytosis cases (<a href="https://pubmed.ncbi.nlm.nih.gov/37362405/" target="_blank" rel="noopener noreferrer">PMID:37362405</a>). <strong>A normal EPO does not exclude the diagnosis.</strong></li>
+<li><strong>Normal p50 / normal hemoglobin–oxygen affinity, normal 2,3-BPG.</strong> This was established before the gene was known (<a href="https://pubmed.ncbi.nlm.nih.gov/9058738/" target="_blank" rel="noopener noreferrer">PMID:9058738</a>).</li>
+<li>Elevated serum <strong>VEGF</strong>, <strong>endothelin-1</strong>, <strong>PAI-1</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16769575/" target="_blank" rel="noopener noreferrer">PMID:16769575</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>).</li>
+<li>Suppressed <strong>hepcidin</strong>: 8.1 (6.3–10.5) ng/mL in homozygotes vs 26.9 (18.6–38.0) ng/mL in controls after adjustment for EPO and ferritin, P&lt;.001 (<a href="https://pubmed.ncbi.nlm.nih.gov/21876117/" target="_blank" rel="noopener noreferrer">PMID:21876117</a>).</li>
+<li>Elevated <strong>transferrin</strong>, reduced <strong>ferritin</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>).</li>
+<li>Elevated <strong>homocysteine, glutathione, γ-glutamyltransferase, cysteinylglycine</strong>; reduced cysteine (<a href="https://pubmed.ncbi.nlm.nih.gov/18223282/" target="_blank" rel="noopener noreferrer">PMID:18223282</a>).</li>
+<li>Broadly elevated Th1 <strong>and</strong> Th2 cytokines with preserved ratio; lower CD4 counts and CD4/CD8 ratio (<a href="https://pubmed.ncbi.nlm.nih.gov/19062180/" target="_blank" rel="noopener noreferrer">PMID:19062180</a>).</li>
+<li>Lower random glucose and HbA1c; higher serum glycerol and citrate on metabolomics (<a href="https://pubmed.ncbi.nlm.nih.gov/23015148/" target="_blank" rel="noopener noreferrer">PMID:23015148</a>).</li>
+</ul>
+<h3>3.4 Onset, severity, course</h3>
+<ul>
+<li><strong>Onset is congenital/lifelong</strong> — elevated hematocrit is often documented from birth or infancy (<a href="https://pubmed.ncbi.nlm.nih.gov/39113647/" target="_blank" rel="noopener noreferrer">PMID:39113647</a> case: "Her elevated hematocrit had been known since birth"). HPO annotates childhood onset 7/8.</li>
+<li><strong>Severity is variable</strong>, even within the same genotype. The belzutifan case report notes: "in two patients with the same VHL R200W/L188V genotype as our patient, Hb levels ranged from 16.3 g/dL to 21.0 g/dL. This variability highlights the..." (<a href="https://pubmed.ncbi.nlm.nih.gov/39113647/" target="_blank" rel="noopener noreferrer">PMID:39113647</a>).</li>
+<li><strong>Course: chronic, lifelong, non-remitting</strong>, punctuated by discrete vascular events. Not episodic in the seizure/attack sense — the hematologic phenotype is stable-to-slowly-worsening while the clinical risk is event-driven.</li>
+</ul>
+<h3>3.5 Quality-of-life impact</h3>
+<p>There are no published EQ-5D/SF-36/PROMIS data specific to CP that I could find — flag this as a genuine gap. What exists is symptom-burden reporting: in the pediatric/adolescent longitudinal letter (<a href="https://pubmed.ncbi.nlm.nih.gov/25573974/" target="_blank" rel="noopener noreferrer">PMID:25573974</a>, read via the PMC rendering), baseline symptoms in affected subjects were headache ~73%, leg pain ~50%, vertigo/dizziness ~37%, versus much lower rates in controls, and at follow-up "over half of the subjects continue to suffer from previously reported Chuvash polycythemia symptoms: chronic headache, fatigue, and/or lower extremity pain." Because these numbers were extracted from a rendered page rather than a cached abstract, <strong>verify against the source PDF before using them as evidence snippets.</strong></p>
+<p>The Formenti exercise study (<a href="https://pubmed.ncbi.nlm.nih.gov/20616028/" target="_blank" rel="noopener noreferrer">PMID:20616028</a>) gives an objective functional correlate: reduced maximum exercise capacity with early muscle acidosis. That's the physiological substrate of "I get tired fast."</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Causal gene</h3>
+<p><strong>VHL</strong> — von Hippel-Lindau tumor suppressor. HGNC: <code>hgnc:12687</code> (verified). Chromosome 3p25.3. UniProt P40337 (pVHL30 / pVHL19 isoforms). OMIM gene entry 608537.</p>
+<h3>4.2 The pathogenic variant</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HGVS (coding)</td>
+<td>NM_000551.4:c.598C&gt;T</td>
+</tr>
+<tr>
+<td>HGVS (protein)</td>
+<td>p.Arg200Trp (R200W)</td>
+</tr>
+<tr>
+<td>dbSNP</td>
+<td>rs28940298</td>
+</tr>
+<tr>
+<td>GRCh38</td>
+<td>chr3:10,149,921 C&gt;T</td>
+</tr>
+<tr>
+<td>GRCh37</td>
+<td>chr3:10,191,605 C&gt;T</td>
+</tr>
+<tr>
+<td>Variant type</td>
+<td>single-nucleotide, <strong>missense</strong></td>
+</tr>
+<tr>
+<td>Origin</td>
+<td><strong>germline</strong> (never somatic in this disease)</td>
+</tr>
+<tr>
+<td>Zygosity required</td>
+<td><strong>homozygous</strong> (or compound het with a second <em>VHL</em> allele)</td>
+</tr>
+<tr>
+<td>Functional consequence</td>
+<td><strong>partial loss of function / hypomorph</strong> — reduced HIF-α binding and degradation, <em>not</em> abolished</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>ClinVar (VCV 2232, retrieved 2026-08-15):</strong> germline classification is <strong>"Conflicting classifications of pathogenicity"</strong>, review status "criteria provided, conflicting classifications", last evaluated 2026-02-03. The conflict is <em>interpretive, not evidentiary</em>: the same allele is submitted against multiple conditions — Chuvash polycythemia (<a href="http://purl.obolibrary.org/obo/MONDO_0009892" target="_blank" rel="noopener noreferrer">MONDO:0009892</a> / <a href="https://bioregistry.io/OMIM:263400" target="_blank" rel="noopener noreferrer">OMIM:263400</a>), von Hippel-Lindau syndrome (<a href="https://bioregistry.io/OMIM:193300" target="_blank" rel="noopener noreferrer">OMIM:193300</a>), and "Inherited phaeochromocytoma and paraganglioma excluding NF1." It is unambiguously pathogenic <em>for Chuvash polycythemia in the homozygous state</em>; it is <strong>not</strong> established as a heterozygous VHL-tumor-syndrome allele. Do not curate the ClinVar aggregate as "conflicting = uncertain" without that qualifier.</p>
+<p><strong>Population frequency (gnomAD v4, queried live 2026-08-15):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Dataset</th>
+<th>AC</th>
+<th>AN</th>
+<th>AF</th>
+<th>Homozygotes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exomes, global</td>
+<td>351</td>
+<td>1,461,844</td>
+<td><strong>2.40 × 10⁻⁴</strong></td>
+<td>1</td>
+</tr>
+<tr>
+<td>— South Asian</td>
+<td>53</td>
+<td>86,248</td>
+<td>6.15 × 10⁻⁴</td>
+<td><strong>1</strong></td>
+</tr>
+<tr>
+<td>— Non-Finnish European</td>
+<td>287</td>
+<td>1,111,994</td>
+<td>2.58 × 10⁻⁴</td>
+<td>0</td>
+</tr>
+<tr>
+<td>— Finnish</td>
+<td>2</td>
+<td>53,408</td>
+<td>3.74 × 10⁻⁵</td>
+<td>0</td>
+</tr>
+<tr>
+<td>— African/African-American</td>
+<td>1</td>
+<td>33,480</td>
+<td>2.99 × 10⁻⁵</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Genomes, global</td>
+<td>13</td>
+<td>152,176</td>
+<td>8.54 × 10⁻⁵</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Note the mismatch between gnomAD's global ~0.024% and the <strong>0.057 (Chuvashia) / 0.070 (Ischia)</strong> allele frequencies in the endemic clusters (<a href="https://pubmed.ncbi.nlm.nih.gov/16210343/" target="_blank" rel="noopener noreferrer">PMID:16210343</a>) — a ~250-fold enrichment. gnomAD simply doesn't sample Chuvashia or Ischia. The single South Asian homozygote in gnomAD is consistent with the well-documented Bangladeshi/Pakistani/north Indian burden (<a href="https://pubmed.ncbi.nlm.nih.gov/12702509/" target="_blank" rel="noopener noreferrer">PMID:12702509</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37362405/" target="_blank" rel="noopener noreferrer">PMID:37362405</a>).</p>
+<h3>4.3 Other <em>VHL</em> alleles causing erythrocytosis</h3>
+<ul>
+<li><strong>H191D</strong> (c.571C&gt;G), homozygous, Croatian founder (~6 generations back) — phenotypically distinct from R200W (<a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a>).</li>
+<li><strong>L188V</strong> (c.562C&gt;G) and c.574C&gt;T, seen as the second allele in compound heterozygotes with R200W (<a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39113647/" target="_blank" rel="noopener noreferrer">PMID:39113647</a>).</li>
+<li><strong>S179P</strong> homozygous, reported in a Hungarian patient via WES and classified likely pathogenic by ACMG (<a href="https://pubmed.ncbi.nlm.nih.gov/40130200/" target="_blank" rel="noopener noreferrer">PMID:40130200</a>).</li>
+<li><strong>G311T</strong> in exon 1, heterozygous, novel (<a href="https://pubmed.ncbi.nlm.nih.gov/15642664/" target="_blank" rel="noopener noreferrer">PMID:15642664</a>).</li>
+<li><strong>Cryptic exon E1′ variants</strong> and <strong>synonymous exon-2 splice-altering variants</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29891534/" target="_blank" rel="noopener noreferrer">PMID:29891534</a>) — genotype–phenotype correlation there tracked with the degree of splicing disruption: "In all the studied cases, the mutations differentially affected splicing, correlating with phenotype severity."</li>
+</ul>
+<h3>4.4 Modifier genes</h3>
+<p>Established: <em>EPO</em> promoter rs1617640 (risk) and <em>TF</em> rs3811647 (protective), both <a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>. HGNC: <em>TF</em> = <code>hgnc:11740</code> (verified). Downstream candidates without direct CP modifier evidence but mechanistically implicated: <em>EPAS1</em>/HIF2A (<code>hgnc:3374</code>), <em>HIF1A</em>, <em>IRP1/ACO1</em>, <em>SOCS1</em>, <em>JAK2</em> (<code>hgnc:6192</code>).</p>
+<h3>4.5 Epigenetics and chromosomal abnormalities</h3>
+<p><strong>Not applicable / no data.</strong> I found no methylation, histone-modification, or chromatin studies specific to Chuvash polycythemia, and no chromosomal abnormalities — this is a point mutation in a structurally normal genome. Somatic second-hit <em>VHL</em> loss (the mechanism of VHL-syndrome tumors) is specifically <strong>not</strong> part of CP pathogenesis, which is the point of §6.4.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> none causal. See §2.3 for modifiers (iron status, altitude/hypoxia, pregnancy).</li>
+<li><strong>Lifestyle factors:</strong> no CP-specific data. General cardiovascular risk optimization is advised on first principles (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>), and smoking is a particularly poor idea in someone whose baseline problem is a false hypoxia signal plus a thrombotic diathesis — but I can find no study testing this.</li>
+<li><strong>Infectious agents:</strong> not applicable.</li>
+<li>Possible ECTO-style exposure terms if the entry needs them: exposure to high altitude / hypobaric hypoxia (modifier, <code>EXACERBATES</code>), and — unusually — a <em>therapeutic</em> exposure, repeated phlebotomy-induced iron depletion, which the evidence suggests is <code>EXACERBATES</code> for pulmonary pressure and possibly thrombosis rather than protective. That last one is worth modeling explicitly; it's the most clinically consequential "environmental" input in the disease and it comes from a doctor.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p>This is the section where the disease earns its reputation. The causal chain, upstream → downstream:</p>
+<h3>6.1 The canonical chain</h3>
+<p><strong>Node 1 (MOLECULAR) — Impaired pVHL–HIF-α binding.</strong>
+pVHL is the substrate-recognition subunit of a Cullin-2 RING E3 ubiquitin ligase (the VCB-CR complex: VHL–Elongin B–Elongin C–Cul2–Rbx1). Under normoxia, prolyl hydroxylases (EGLN1/PHD2 et al.) hydroxylate conserved prolines in HIF-1α/HIF-2α; pVHL binds the hydroxyproline and marks HIF-α for polyubiquitination and proteasomal destruction. R200W sits in the elongin-binding/β-domain region and <strong>weakens, but does not abolish</strong>, that interaction (<a href="https://pubmed.ncbi.nlm.nih.gov/12415268/" target="_blank" rel="noopener noreferrer">PMID:12415268</a>).
+GO: <code>GO:0016567</code> protein ubiquitination; <code>GO:0043161</code> proteasome-mediated ubiquitin-dependent protein catabolic process; <code>GO:0004842</code> ubiquitin-protein transferase activity; <code>GO:0061630</code> ubiquitin protein ligase activity. Modifier: <code>LOSS_OF_FUNCTION</code> (qualitative — the E3 recognition step escapes normal oxygen-dependent control), or <code>DECREASED</code> if you prefer the quantitative reading.</p>
+<p><strong>Node 2 (MOLECULAR/CELLULAR) — Normoxic HIF-α stabilization ("pseudohypoxia").</strong>
+HIF-1α and HIF-2α accumulate and dimerize with HIF-1β/ARNT at normal pO₂. The cell believes it is short of oxygen while sitting in ordinary room air.
+GO: <code>GO:0001666</code> response to hypoxia; <code>GO:0071456</code> cellular response to hypoxia; <code>GO:0097411</code> hypoxia-inducible factor-1alpha signaling pathway; <code>GO:0070482</code> response to oxygen levels. Modifier: <code>GAIN_OF_FUNCTION</code> — this is genuinely qualitative (the pathway is no longer under its normal oxygen-dependent regulatory constraint), which is exactly the case where the dismech guidance says GOF beats INCREASED.</p>
+<p><strong>Node 3 (MOLECULAR) — HIF target gene program activation.</strong>
+"increased expression of downstream target genes including EPO..., SLC2A1..., TF..., TFRC... and VEGF" (<a href="https://pubmed.ncbi.nlm.nih.gov/12415268/" target="_blank" rel="noopener noreferrer">PMID:12415268</a>). Add ET-1/<em>EDN1</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16769575/" target="_blank" rel="noopener noreferrer">PMID:16769575</a>), <em>CXCL12</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33512384/" target="_blank" rel="noopener noreferrer">PMID:33512384</a>), and PDK/PFK/PKM glycolytic enzymes (<a href="https://pubmed.ncbi.nlm.nih.gov/20616028/" target="_blank" rel="noopener noreferrer">PMID:20616028</a>).</p>
+<p><strong>Node 4 (TISSUE/ORGANISM) — Erythropoietin excess → erythroid expansion.</strong>
+Renal (and hepatic) EPO output rises; erythroid progenitors expand. Two additional wrinkles:
+ - <strong>EPO hypersensitivity of erythroid progenitors</strong> is reported for R200W but explicitly <em>not</em> for H191D (<a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a>) — an important asymmetry.
+ - <strong>Splenic erythropoiesis</strong> contributes substantially, at least in mouse: "we observed a striking phenotype in Vhl(R/R) spleens, with greater numbers of erythroid progenitors and megakaryocytes and increased erythroid differentiation of Vhl(R/R) splenic cells in vitro" (<a href="https://pubmed.ncbi.nlm.nih.gov/17992257/" target="_blank" rel="noopener noreferrer">PMID:17992257</a>).
+GO: <code>GO:0030218</code> erythrocyte differentiation; <code>GO:0030097</code> hemopoiesis. CL: <code>CL:0000038</code> erythroid progenitor cell; <code>CL:0000765</code> erythroblast; <code>CL:0000232</code> erythrocyte; <code>CL:0000037</code> hematopoietic stem cell; EPO source: <code>CL:1000692</code> kidney interstitial fibroblast. UBERON: <code>UBERON:0002371</code> bone marrow; <code>UBERON:0002106</code> spleen; <code>UBERON:0002113</code> kidney.</p>
+<p><strong>Node 5a (ORGANISM) — Erythrocytosis and hyperviscosity.</strong> Headache, fatigue, plethora, dizziness.</p>
+<p><strong>Node 5b (TISSUE) — Pulmonary vascular tone and remodeling → pulmonary hypertension.</strong>
+Human: elevated basal pulmonary vascular tone and greatly increased hypoxic pulmonary vasoconstriction (<a href="https://pubmed.ncbi.nlm.nih.gov/16768548/" target="_blank" rel="noopener noreferrer">PMID:16768548</a>); 36% with sPAP ≥35 mmHg (<a href="https://pubmed.ncbi.nlm.nih.gov/16769575/" target="_blank" rel="noopener noreferrer">PMID:16769575</a>); elevated tricuspid regurgitation velocity independent of blood-volume surrogates (<a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>). Mouse: PH develops <strong>independently of polycythemia</strong>, with vascular remodeling, hemorrhage, edema, macrophage infiltration, and later fibrosis, all HIF-2α-dependent (<a href="https://pubmed.ncbi.nlm.nih.gov/20197624/" target="_blank" rel="noopener noreferrer">PMID:20197624</a>).
+GO: <code>GO:0042310</code> vasoconstriction; <code>GO:0045907</code> positive regulation of vasoconstriction; <code>GO:0001525</code> angiogenesis. CL: <code>CL:0002591</code> smooth muscle cell of the pulmonary artery; <code>CL:1001568</code> pulmonary artery endothelial cell. UBERON: <code>UBERON:0002012</code> pulmonary artery; <code>UBERON:0002048</code> lung.
+<strong>This node is a strong <code>conforms_to</code> candidate for <code>pulmonary_vascular_remodeling#Obstructive Pulmonary Vascular Remodeling</code>.</strong></p>
+<p><strong>Node 5c (ORGANISM) — Prothrombotic state → arterial and venous thrombosis, stroke.</strong>
+The terminal, lethal branch. Elevated PAI-1, altered thrombospondin-1 (<a href="https://pubmed.ncbi.nlm.nih.gov/28104701/" target="_blank" rel="noopener noreferrer">PMID:28104701</a>), elevated VEGF and ET-1, and endothelial activation. Critically, <strong>hematocrit is not the driver</strong> (see §6.3).
+GO: <code>GO:0007596</code> blood coagulation; <code>GO:0030194</code> positive regulation of blood coagulation; <code>GO:0070527</code> platelet aggregation. Candidate <code>conforms_to</code>: <code>thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation</code>.</p>
+<p><strong>Node 5d (ORGANISM) — Iron/hepcidin axis.</strong> Hepcidin suppression (<a href="https://pubmed.ncbi.nlm.nih.gov/21876117/" target="_blank" rel="noopener noreferrer">PMID:21876117</a>) independent of EPO and RBC count, plus transferrin/TfR induction, gives a HIF-driven iron-mobilization program layered on top of phlebotomy-induced depletion.</p>
+<p><strong>Node 5e (ORGANISM) — Metabolic reprogramming.</strong> Increased glycolysis and lactate, reduced hepatic gluconeogenesis, lower glucose and HbA1c (<a href="https://pubmed.ncbi.nlm.nih.gov/23015148/" target="_blank" rel="noopener noreferrer">PMID:23015148</a>); in exercising humans "early and marked phosphocreatine depletion and acidosis in skeletal muscle, greater accumulation of lactate in blood, and reduced maximum exercise capacities" with elevated muscle <em>PDK</em>, <em>PFK</em>, <em>PKM</em> transcripts (<a href="https://pubmed.ncbi.nlm.nih.gov/20616028/" target="_blank" rel="noopener noreferrer">PMID:20616028</a>). Mouse hearts show 1.8-fold higher glycolytic flux and 1.5-fold higher lactate efflux (<a href="https://pubmed.ncbi.nlm.nih.gov/27422990/" target="_blank" rel="noopener noreferrer">PMID:27422990</a>).
+GO: <code>GO:0006096</code> glycolytic process; <code>GO:0006094</code> gluconeogenesis.</p>
+<p><strong>Node 5f (TISSUE) — Increased solid organ size.</strong> Liver, spleen, kidney volumes larger than matched controls; proposed to run through HIF-2α ↑ / p21^Cip1 ↓ → hepatocyte proliferation (<a href="https://pubmed.ncbi.nlm.nih.gov/20140661/" target="_blank" rel="noopener noreferrer">PMID:20140661</a>).</p>
+<h3>6.2 The HIF-1α vs HIF-2α question — resolve this correctly</h3>
+<p>The 2002 discovery paper framed everything around <strong>HIF-1α</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/12415268/" target="_blank" rel="noopener noreferrer">PMID:12415268</a>), and much early literature followed. The mouse genetics say otherwise: "heterozygosity for Hif2a, but not Hif1a, genetically suppressed both the polycythemia and pulmonary hypertension in the VhlR/R mice" (<a href="https://pubmed.ncbi.nlm.nih.gov/20197624/" target="_blank" rel="noopener noreferrer">PMID:20197624</a>), and HIF-2α drives the splenic erythropoiesis phenotype (<a href="https://pubmed.ncbi.nlm.nih.gov/17992257/" target="_blank" rel="noopener noreferrer">PMID:17992257</a>). Human patients have <strong>both</strong> isoforms elevated (<a href="https://pubmed.ncbi.nlm.nih.gov/21876117/" target="_blank" rel="noopener noreferrer">PMID:21876117</a> states "elevated hypoxia-inducible factor 1α (HIF-1α) and HIF-2α levels"). Curate this as: both accumulate; <strong>HIF-2α is the dominant effector</strong> for the erythroid and pulmonary-vascular phenotypes; HIF-1α contributes to the metabolic arm. The therapeutic data (§12) independently confirm the HIF-2α dominance.</p>
+<h3>6.3 The hematocrit heresy — the single most important clinical mechanism claim</h3>
+<p>Everyone's intuition is "high hematocrit → viscous blood → clots." In Chuvash erythrocytosis that intuition is <strong>wrong</strong>, and this is now well supported:</p>
+<ul>
+<li>Gordeuk et al. 2020 letter title says it flat out: <em>"Thrombotic risk in congenital erythrocytosis due to up-regulated hypoxia sensing is not associated with elevated hematocrit"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31289208/" target="_blank" rel="noopener noreferrer">PMID:31289208</a>).</li>
+<li>The companion review (<a href="https://pubmed.ncbi.nlm.nih.gov/30872370/" target="_blank" rel="noopener noreferrer">PMID:30872370</a>) states: "We review studies indicating that the occurrence of thrombosis in Chuvash erythrocytosis is independent of hematocrit, that the thrombotic risk is paradoxically increased by phlebotomy in Chuvash erythrocytosis..."</li>
+<li>Prospectively, over 11 years in 155 patients vs 154 controls: "risk of thrombosis increased 8.9-fold in patients versus controls. <strong>Erythropoietin elevation, but not hematocrit or ferritin, correlated with thrombosis risk</strong>" (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>).</li>
+</ul>
+<p>So the causal edge is <strong>HIF/EPO signaling → prothrombotic state</strong>, with erythrocytosis as a <em>parallel</em> consequence rather than the intermediate. Model it that way. This has direct treatment implications (§12).</p>
+<h3>6.4 Why no tumors? (the mechanism-of-absence)</h3>
+<p>Three converging explanations, all worth curating as an explicit "absent phenotype with a mechanism":</p>
+<ol>
+<li><strong>Dose.</strong> R200W is a hypomorph retaining substantial pVHL function; classical VHL tumors need biallelic inactivation with much deeper loss (<a href="https://pubmed.ncbi.nlm.nih.gov/12415268/" target="_blank" rel="noopener noreferrer">PMID:12415268</a>; the Blood 2014 abstract by Lenglet-adjacent workers describes "a gradual dysregulation of the hypoxia pathway in oncogenesis" with severity correlating to the gradient of pVHL dysfunction).</li>
+<li><strong>HIF is not sufficient.</strong> Gordeuk 2004 (<a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a>): "Spinocerebellar hemangioblastomas, renal carcinomas, and pheochromocytomas typical of classical VHL syndrome were not found, suggesting that overexpression of HIF-1alpha and VEGF is not sufficient for tumorigenesis."</li>
+<li><strong>A HIF-independent pVHL function is preserved.</strong> Li et al. 2022 (<a href="https://pubmed.ncbi.nlm.nih.gov/35760869/" target="_blank" rel="noopener noreferrer">PMID:35760869</a>) found pVHL stabilizes hydroxylated TFAM to sustain mitochondrial biogenesis, and: "Tumorigenic VHL variants leading to different clinical manifestations fail to bind hydroxylated TFAM. In contrast, cells harbouring the Chuvash polycythaemia VHLR200W mutation, involved in hypoxia-sensing disorders without tumour development, are capable of binding hydroxylated TFAM." That is a beautifully clean molecular dissociation between the erythrocytosis arm and the oncogenic arm.</li>
+</ol>
+<h3>6.5 A contested alternative mechanism — curate as a competing hypothesis, not settled fact</h3>
+<p>Russell et al. 2011 (<a href="https://pubmed.ncbi.nlm.nih.gov/21685897/" target="_blank" rel="noopener noreferrer">PMID:21685897</a>) proposed that pVHL heterodimerizes with SOCS1 to form an E3 ligase degrading <strong>phospho-JAK2</strong>, and that CP mutants fail to do so — explaining EPO hypersensitivity through JAK2 rather than (only) HIF: "Systemic administration of a highly selective JAK2 inhibitor, TG101209, reversed the disease phenotype in Vhl(R200W/R200W) knock-in mice."</p>
+<p>But Tomasic et al. 2013 (<a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a>) push back with human data: H191D homozygotes' "native erythroid progenitors, unlike Chuvash R200W, are not hypersensitive to erythropoietin. <strong>This observation contrasts with a report suggesting that polycythemia in VHL R200W and H191D homozygotes is due to the loss of JAK2 regulation from VHL R200W and H191D binding to SOCS1.</strong>"</p>
+<p>Recommended curation: <code>mechanistic_hypotheses</code> with <code>canonical_hif_stabilization</code> (CANONICAL) and <code>vhl_socs1_jak2_dysregulation</code> (ALTERNATIVE), with the contradicting human progenitor data attached. The single successful ruxolitinib case (§12) is <em>consistent</em> with the JAK2 hypothesis but doesn't settle it — JAK2 inhibition would blunt EPO signaling regardless of why EPO signaling is high.</p>
+<h3>6.6 Molecular profiling data</h3>
+<ul>
+<li><strong>Transcriptomics (human PBMCs):</strong> 812 up, 2120 down at FDR 0.05 in 8 homozygotes vs 17 wild-type; three modules — "induction of innate immune responses, alteration of carbohydrate and lipid metabolism, and down-regulation of cell proliferation, stress-induced apoptosis and T-cell activation" (<a href="https://pubmed.ncbi.nlm.nih.gov/23993337/" target="_blank" rel="noopener noreferrer">PMID:23993337</a>). Search GEO for the accompanying accession before curating a <code>datasets:</code> record — I did not verify one, and per the dismech dataset SOP an unverified accession must not be written.</li>
+<li><strong>Metabolomics (serum):</strong> higher glycerol and citrate in homozygotes (<a href="https://pubmed.ncbi.nlm.nih.gov/23015148/" target="_blank" rel="noopener noreferrer">PMID:23015148</a>).</li>
+<li><strong>Proteomics:</strong> no dedicated CP proteomics study found. Gap.</li>
+<li><strong>Single-cell / spatial:</strong> none found. Gap.</li>
+<li><strong>Structural biology:</strong> the VCB complex structures (PDB 1LM8, 1LQB) define the HIF-hydroxyproline binding pocket; note I did not re-verify these PDB IDs in this session, so confirm before curating.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Primary (where the lesion does its first work):</strong>
+- Kidney — <code>UBERON:0002113</code> — dysregulated EPO production; cell type <code>CL:1000692</code> kidney interstitial fibroblast.
+- Bone marrow — <code>UBERON:0002371</code> — erythroid hyperplasia.
+- Spleen — <code>UBERON:0002106</code> — extramedullary/splenic erythropoiesis (strongly shown in mouse, <a href="https://pubmed.ncbi.nlm.nih.gov/17992257/" target="_blank" rel="noopener noreferrer">PMID:17992257</a>) and increased volume in humans (<a href="https://pubmed.ncbi.nlm.nih.gov/20140661/" target="_blank" rel="noopener noreferrer">PMID:20140661</a>).
+- Blood — <code>UBERON:0000178</code>, <code>UBERON:0001969</code> blood plasma, <code>UBERON:0001977</code> blood serum.</p>
+<p><strong>Secondary / complication sites:</strong>
+- Pulmonary vasculature — <code>UBERON:0002012</code> pulmonary artery, <code>UBERON:0002048</code> lung. Cells: <code>CL:0002591</code>, <code>CL:1001568</code>. Mouse lungs additionally show fibrosis and macrophage infiltration (<code>CL:0000235</code>) (<a href="https://pubmed.ncbi.nlm.nih.gov/20197624/" target="_blank" rel="noopener noreferrer">PMID:20197624</a>).
+- Cerebral arteries and brain — <code>UBERON:0004449</code> cerebral artery, <code>UBERON:0000955</code> brain — stroke and cerebral hemorrhage.
+- Systemic veins — <code>UBERON:0001638</code> vein, <code>UBERON:0035552</code> deep vein — varicose veins and DVT.
+- Vertebral column — <code>UBERON:0001130</code> — vertebral hemangiomas (<a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a>).
+- Liver — <code>UBERON:0002107</code> — increased volume; altered gluconeogenesis (<code>CL:0000182</code> hepatocyte).
+- Skeletal muscle — early acidosis and PCr depletion on exercise (<a href="https://pubmed.ncbi.nlm.nih.gov/20616028/" target="_blank" rel="noopener noreferrer">PMID:20616028</a>).
+- Heart — altered substrate/high-energy phosphate metabolism, RV hypertrophy in mouse (<a href="https://pubmed.ncbi.nlm.nih.gov/27422990/" target="_blank" rel="noopener noreferrer">PMID:27422990</a>).</p>
+<p><strong>Subcellular (GO CC):</strong> cytosol (HIF-α accumulation), nucleus (HIF-α/ARNT transcriptional complex), proteasome complex <code>GO:0000502</code>, Cul2-RING ubiquitin ligase complex, and — per <a href="https://pubmed.ncbi.nlm.nih.gov/35760869/" target="_blank" rel="noopener noreferrer">PMID:35760869</a> — mitochondrion (TFAM stabilization; preserved in R200W).</p>
+<p><strong>Lateralization:</strong> not applicable. Systemic and bilateral; vascular events are focal and stochastic.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> congenital. Erythrocytosis is present from birth or infancy; formal diagnosis often in childhood or adolescence, sometimes not until adulthood when an incidental CBC or a first thrombosis prompts workup. HPO: childhood onset 7/8, infantile onset 1/1, juvenile onset 1/7.</li>
+<li><strong>Onset pattern:</strong> insidious and chronic — there is no acute onset event.</li>
+<li><strong>Progression:</strong> slow/stable hematologically; <strong>event-driven</strong> clinically. Vascular events accumulate with age. Pulmonary artery pressure appears to be a progressive, modifiable-by-iron-status variable (<a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>).</li>
+<li><strong>Course:</strong> lifelong, no spontaneous remission. Not relapsing-remitting.</li>
+<li><strong>Complications begin early.</strong> In 30 children and adolescents followed a median of 8 years, 9 (31%) developed complications versus zero of 16 controls, including a thromboembolic death at age 17 (<a href="https://pubmed.ncbi.nlm.nih.gov/25573974/" target="_blank" rel="noopener noreferrer">PMID:25573974</a> — numbers read from the PMC rendering; <strong>verify against source before curating as snippets</strong>). This matters: the window for intervention opens in childhood, not middle age.</li>
+<li><strong>Critical periods:</strong> puberty onward (symptom escalation and start of phlebotomy in many patients), pregnancy (<a href="https://pubmed.ncbi.nlm.nih.gov/18161409/" target="_blank" rel="noopener noreferrer">PMID:18161409</a>), and any period of iron depletion.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology</h3>
+<ul>
+<li><strong>Orphanet's own position (retrieved 2026-08-15 from <code>en_product9_prev.xml</code>): worldwide point prevalence class = "Unknown", validation status "Not yet validated."</strong> No numeric estimate. Curate <code>prevalence_class: UNKNOWN</code> for worldwide rather than inventing a number.</li>
+<li><strong>Endemic-cluster allele frequencies</strong> are the solid numbers (<a href="https://pubmed.ncbi.nlm.nih.gov/16210343/" target="_blank" rel="noopener noreferrer">PMID:16210343</a>): Ischia <strong>0.070</strong>, Chuvashia <strong>0.057</strong>. Under Hardy-Weinberg those imply homozygote frequencies of ~0.49% and ~0.32% respectively (~490 and ~320 per 100,000) — but treat this as <em>derived arithmetic</em>, not a published prevalence, and label it as such if you record it.</li>
+<li>Sergeyeva 1997 (<a href="https://pubmed.ncbi.nlm.nih.gov/9058738/" target="_blank" rel="noopener noreferrer">PMID:9058738</a>) qualitatively: "Hundreds of individuals appear to be affected in an autosomal recessive pattern... This condition is the only endemic form of familial and congenital polycythemia described."</li>
+<li><strong>Incidence:</strong> no published incidence figure found.</li>
+<li><strong>Share of congenital erythrocytosis caseload:</strong> up to half of consecutive congenital-polycythemia-with-high-EPO patients had biallelic <em>VHL</em> mutations in one series (<a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a>). In north India a prior report put Chuvash polycythemia at <strong>61%</strong> of inherited erythrocytosis; a 2023 PGIMER prospective screen found a lower <strong>8%</strong> (3/38) among JAK2-negative unexplained erythrocytosis patients and 0/61 among high-Hb blood donors (<a href="https://pubmed.ncbi.nlm.nih.gov/37362405/" target="_blank" rel="noopener noreferrer">PMID:37362405</a>). Big spread — ascertainment-dependent.</li>
+</ul>
+<h3>9.2 Genetics of inheritance</h3>
+<ul>
+<li><strong>Pattern:</strong> autosomal recessive (<a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a>). Heterozygotes are clinically unaffected but not biologically silent (§2.4).</li>
+<li><strong>Penetrance:</strong> appears essentially complete for the <em>hematologic</em> phenotype in homozygotes; <strong>incomplete and variable for complications</strong> — 31% of children/adolescents had complications over 8 years (<a href="https://pubmed.ncbi.nlm.nih.gov/25573974/" target="_blank" rel="noopener noreferrer">PMID:25573974</a>), 36% of adults had mild PH (<a href="https://pubmed.ncbi.nlm.nih.gov/16769575/" target="_blank" rel="noopener noreferrer">PMID:16769575</a>).</li>
+<li><strong>Expressivity:</strong> variable, even within genotype (<a href="https://pubmed.ncbi.nlm.nih.gov/39113647/" target="_blank" rel="noopener noreferrer">PMID:39113647</a>).</li>
+<li><strong>Anticipation:</strong> not applicable (no repeat expansion).</li>
+<li><strong>Germline mosaicism:</strong> not reported.</li>
+<li><strong>Founder effect:</strong> yes, and a striking one. Gordeuk 2004 (<a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a>): "Although endemic to the Chuvash population of Russia, this mutation occurs worldwide and originates from a single ancient event." Perrotta 2006 confirmed the Ischian cluster shares the Chuvash haplotype: "The haplotype of all patients matched that identified in the Chuvash cluster, thereby supporting the single-founder hypothesis." <strong>But not exclusively single-origin</strong> — Cario et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/15642664/" target="_blank" rel="noopener noreferrer">PMID:15642664</a>) found "One patient of Turkish origin with homozygous Chuvash-type mutation had a haplotype not previously found in individuals with Chuvash-type mutation," concluding "this mutation was not spread only from a single founder but developed independently in other individuals." Curate both.</li>
+<li><strong>Consanguinity:</strong> not specifically studied; expected to matter for a recessive disease outside endemic regions.</li>
+<li><strong>Carrier frequency:</strong> ~11% in Chuvashia and ~14% on Ischia by HW from the allele frequencies above; ~0.05% globally by gnomAD exomes. Verify the derivation is labeled as such.</li>
+</ul>
+<h3>9.3 Population demographics</h3>
+<ul>
+<li><strong>Ethnic/geographic clusters:</strong> Chuvash Republic, mid-Volga, Russian Federation (<a href="https://pubmed.ncbi.nlm.nih.gov/9058738/" target="_blank" rel="noopener noreferrer">PMID:9058738</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11987242/" target="_blank" rel="noopener noreferrer">PMID:11987242</a>); island of <strong>Ischia</strong>, Bay of Naples, Italy (<a href="https://pubmed.ncbi.nlm.nih.gov/16210343/" target="_blank" rel="noopener noreferrer">PMID:16210343</a> — 14 affected subjects in 5 families, 12 on Ischia); <strong>Bangladeshi and Pakistani</strong> ancestry (8 homozygotes among 78 erythrocytosis patients screened in Northern Ireland, <a href="https://pubmed.ncbi.nlm.nih.gov/12702509/" target="_blank" rel="noopener noreferrer">PMID:12702509</a>); <strong>north Indian</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37362405/" target="_blank" rel="noopener noreferrer">PMID:37362405</a>); scattered cases of Danish, American, English, Turkish, German ancestry (<a href="https://pubmed.ncbi.nlm.nih.gov/12844285/" target="_blank" rel="noopener noreferrer">PMID:12844285</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15642664/" target="_blank" rel="noopener noreferrer">PMID:15642664</a>); a recent Turkish report (<a href="https://pubmed.ncbi.nlm.nih.gov/41930727/" target="_blank" rel="noopener noreferrer">PMID:41930727</a>).</li>
+<li><strong>Sex ratio:</strong> no sex bias reported; autosomal recessive. gnomAD carrier counts are near-balanced across XX/XY.</li>
+<li><strong>Age distribution:</strong> all ages; the disease is congenital, and the mortality burden falls disproportionately on adults through cerebrovascular and thrombotic events, but pediatric deaths occur (<a href="https://pubmed.ncbi.nlm.nih.gov/25573974/" target="_blank" rel="noopener noreferrer">PMID:25573974</a>).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 The workup, in order</h3>
+<ol>
+<li><strong>Confirm true erythrocytosis</strong> (persistently elevated Hb/Hct; red cell mass measurement is largely unavailable now — <a href="https://pubmed.ncbi.nlm.nih.gov/30872370/" target="_blank" rel="noopener noreferrer">PMID:30872370</a>).</li>
+<li><strong>Exclude polycythemia vera:</strong> <em>JAK2</em> V617F (and exon 12) negative; and note the discriminating CBC pattern — in CP, "platelet and white blood cell counts were normal" (<a href="https://pubmed.ncbi.nlm.nih.gov/9058738/" target="_blank" rel="noopener noreferrer">PMID:9058738</a>), indeed often <em>lower</em> than controls (<a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>), versus the trilineage expansion of PV.</li>
+<li><strong>Exclude acquired secondary causes:</strong> cardiopulmonary disease, high-altitude residence, sleep apnea, renal artery stenosis, EPO-secreting tumor, testosterone/ESA use (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>).</li>
+<li><strong>Serum erythropoietin</strong> — high or inappropriately normal for the hematocrit. Low EPO points to <em>EPOR</em> instead. <strong>Do not use a normal EPO to exclude CP</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/12702509/" target="_blank" rel="noopener noreferrer">PMID:12702509</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37362405/" target="_blank" rel="noopener noreferrer">PMID:37362405</a>).</li>
+<li><strong>p50 / oxygen dissociation curve</strong> — normal in CP; abnormal in high-affinity hemoglobinopathies and <em>BPGM</em> deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/9058738/" target="_blank" rel="noopener noreferrer">PMID:9058738</a>).</li>
+<li><strong>Genetic confirmation.</strong></li>
+</ol>
+<h3>10.2 Genetic testing</h3>
+<ul>
+<li><strong>Targeted single-variant testing</strong> is efficient where the allele is common. Duggal et al. validated <strong>PCR-RFLP for VHL c.598C&gt;T</strong> as a cheap first-line screen: "the relatively simpler PCR-RFLP for VHL:c.598C &gt; T mutation may be considered for the initial genetic screening of unexplained, suspected congenital erythrocytosis in regions where Chuvash polycythemia comprises a large proportion of inherited erythrocytosis, after polycythemia vera and common acquired secondary causes are excluded" (<a href="https://pubmed.ncbi.nlm.nih.gov/37362405/" target="_blank" rel="noopener noreferrer">PMID:37362405</a>).</li>
+<li><strong>Congenital erythrocytosis gene panel</strong> — should include <em>VHL</em>, <em>EPAS1</em>/HIF2A, <em>EGLN1</em>/PHD2, <em>EPOR</em>, <em>HBB</em>, <em>HBA1/2</em>, <em>BPGM</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>).</li>
+<li><strong>WES/WGS</strong> for unexplained cases — has yielded rare <em>VHL</em> genotypes (e.g. S179P homozygous, <a href="https://pubmed.ncbi.nlm.nih.gov/40130200/" target="_blank" rel="noopener noreferrer">PMID:40130200</a>), with the authors recommending "the utilization of high-throughput genomic testing in cases with unexplained polyglobulia."</li>
+<li>⚠️ <strong>Coverage caveat:</strong> a coding-exon-only assay can miss the intron-1 <strong>cryptic exon E1′</strong> variants and the splice-altering synonymous exon-2 variants (<a href="https://pubmed.ncbi.nlm.nih.gov/29891534/" target="_blank" rel="noopener noreferrer">PMID:29891534</a>). If clinical suspicion is high and coding <em>VHL</em> is clean, that's the next place to look.</li>
+<li>CMA, karyotype, FISH, mtDNA testing, and repeat-expansion testing: <strong>not applicable.</strong></li>
+</ul>
+<h3>10.3 Other testing</h3>
+<ul>
+<li><strong>Echocardiography</strong> for pulmonary hypertension screening — tricuspid regurgitation velocity, with the caveat that TRV is influenced by blood volume and iron status; the CP cohort study adjusted for LV diastolic and LA diameters and the elevation persisted (<a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>).</li>
+<li><strong>Iron studies</strong> (ferritin, transferrin, TIBC) — both to monitor phlebotomy-induced deficiency and because transferrin is prognostically informative (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>).</li>
+<li><strong>VHL tumor surveillance:</strong> classical VHL surveillance (abdominal/CNS/spine MRI, audiometry, ophthalmologic exam, metanephrines) has been performed in reported cases and was "unrevealing" (<a href="https://pubmed.ncbi.nlm.nih.gov/39113647/" target="_blank" rel="noopener noreferrer">PMID:39113647</a>). Since no excess tumor risk is demonstrated (<a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>), routine lifelong VHL-syndrome surveillance is <strong>not</strong> standard for R200W homozygotes — but is reasonable in compound heterozygotes carrying a second allele of uncertain tumor risk. This is a real clinical judgment call worth recording in the entry.</li>
+<li><strong>Biopsy/histopathology:</strong> no diagnostic biopsy role. Mouse lung histology shows vascular remodeling, hemorrhage, edema, macrophage infiltration, and fibrosis (<a href="https://pubmed.ncbi.nlm.nih.gov/20197624/" target="_blank" rel="noopener noreferrer">PMID:20197624</a>).</li>
+</ul>
+<h3>10.4 Differential diagnosis</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Distinguishing features</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Polycythemia vera</td>
+<td><em>JAK2</em> mutation; <strong>low</strong> EPO; trilineage expansion (leukocytosis, thrombocytosis); splenomegaly; acquired, adult-onset</td>
+</tr>
+<tr>
+<td><em>EPOR</em> truncation erythrocytosis</td>
+<td><strong>Low/subnormal</strong> EPO; autosomal dominant</td>
+</tr>
+<tr>
+<td><em>EGLN1</em>/PHD2 erythrocytosis</td>
+<td>Normal-to-high EPO; AD; no PH signature</td>
+</tr>
+<tr>
+<td><em>EPAS1</em>/HIF2A gain-of-function</td>
+<td>AD; associated with paraganglioma/somatostatinoma in the mosaic Pacak-Zhuang form; belzutifan-responsive (<a href="https://pubmed.ncbi.nlm.nih.gov/34818480/" target="_blank" rel="noopener noreferrer">PMID:34818480</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40879399/" target="_blank" rel="noopener noreferrer">PMID:40879399</a>)</td>
+</tr>
+<tr>
+<td>High-oxygen-affinity hemoglobin</td>
+<td><strong>Left-shifted p50</strong></td>
+</tr>
+<tr>
+<td><em>BPGM</em> (2,3-BPG) deficiency</td>
+<td>Abnormal p50; reduced 2,3-BPG</td>
+</tr>
+<tr>
+<td>Croatian <em>VHL</em> H191D homozygous erythrocytosis</td>
+<td>Higher EPO for age; erythroid progenitors <strong>not</strong> EPO-hypersensitive (<a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a>)</td>
+</tr>
+<tr>
+<td>Secondary erythrocytosis (hypoxic, tumoral, drug-induced)</td>
+<td>Acquired; identifiable cause</td>
+</tr>
+<tr>
+<td>Classical VHL syndrome</td>
+<td>Heterozygous <em>VHL</em>, autosomal dominant, tumor-predominant; erythrocytosis uncommon</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>10.5 Screening</h3>
+<ul>
+<li><strong>Cascade family testing</strong> after a proband — straightforward for a known single variant; identifies affected sibs (recessive: 25% risk) and carriers.</li>
+<li><strong>Population/newborn screening:</strong> not established anywhere. A regional screening program in Chuvashia or Ischia is plausible on paper (high allele frequency, cheap PCR-RFLP assay, complications starting in childhood) but I found no published program — flag as a gap and a potential <code>KNOWLEDGE_GAP</code> discussion.</li>
+<li><strong>Blood-donor screening was tested and was negative</strong>: 0/61 volunteer donors deferred for unexplained high hemoglobin carried the mutation (<a href="https://pubmed.ncbi.nlm.nih.gov/37362405/" target="_blank" rel="noopener noreferrer">PMID:37362405</a>). Useful negative result.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>The honest state of the evidence:</strong> there is no dedicated survival study with a published median. What exists is repeated, consistent cohort language about <strong>premature mortality</strong>, plus one strong prospective hazard estimate.</p>
+<ul>
+<li>Gordeuk 2004 (<a href="https://pubmed.ncbi.nlm.nih.gov/14726398/" target="_blank" rel="noopener noreferrer">PMID:14726398</a>): VHL 598C&gt;T homozygosity was associated with "...<strong>premature mortality related to cerebral vascular events and peripheral thrombosis</strong>."</li>
+<li>Gordeuk &amp; Prchal 2006 (<a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>): "These studies have also shown associations with arterial and venous thrombosis, major bleeding episodes, cerebral vascular events, and premature mortality."</li>
+<li>Orphanet: "Patients present an increased risk of hemorrhage, thrombosis and early death."</li>
+<li><strong>Best quantitative outcome figure:</strong> over ~11 years of prospective follow-up of 155 patients vs 154 matched controls, "risk of thrombosis increased <strong>8.9-fold</strong> in patients versus controls" (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>).</li>
+<li>Pediatric: 31% complication rate over a median 8 years in 30 children/adolescents including a death at 17 (<a href="https://pubmed.ncbi.nlm.nih.gov/25573974/" target="_blank" rel="noopener noreferrer">PMID:25573974</a>, verify).</li>
+</ul>
+<p><strong>Prognostic factors:</strong>
+- <strong>Elevated erythropoietin</strong> predicts thrombosis; <strong>hematocrit and ferritin do not</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>). This is the headline prognostic finding of the last decade.
+- <strong>Elevated transferrin</strong> is protective (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>).
+- <em>EPO</em> rs1617640 A allele → higher risk; <em>TF</em> rs3811647 A allele → lower risk (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>).
+- Low ferritin → higher estimated pulmonary artery pressure (<a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>).
+- <strong>Phlebotomy</strong> is associated with increased thrombotic risk (<a href="https://pubmed.ncbi.nlm.nih.gov/30872370/" target="_blank" rel="noopener noreferrer">PMID:30872370</a>) — a prognostic factor that is also a treatment, which is uncomfortable and important.</p>
+<p><strong>Morbidity:</strong> chronic headache, fatigue, lower-extremity pain in over half of long-followed patients; reduced exercise capacity; pulmonary hypertension in ~a third; varicose veins; stroke sequelae. <strong>Malignancy risk is not increased</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>).</p>
+<p><strong>Quality-of-life instruments:</strong> none published. Gap.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>⚠️ <strong>Frame the whole section with this:</strong> there are <strong>no randomized trials</strong> in Chuvash polycythemia. Everything below is cohort inference, expert opinion, mouse data, or single cases. Gordeuk &amp; Prchal (<a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>) put it plainly: "Retrospective analyses among patients with Chuvash polycythemia have not shown benefit for therapy with phlebotomy or aspirin, but these and other modes of therapy should be studied prospectively."</p>
+<h3>12.1 Phlebotomy — the contested standard of care</h3>
+<p><code>treatment_term</code>: NCIT:C28221 Phlebotomy (verified). <code>therapeutic_modality</code>: OTHER or PROCEDURE-adjacent — it's not cleanly any of the enum values; consider <code>OTHER</code> with a note.</p>
+<ul>
+<li><strong>What it does:</strong> reduces hematocrit and relieves hyperviscosity symptoms (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>: "Phlebotomies reduce hematocrit and hyperviscosity symptoms").</li>
+<li><strong>What it also does:</strong> causes iron deficiency, which raises pulmonary artery pressure (<a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>) and may further elevate HIF activity; and phlebotomy is associated with <em>increased</em> thrombotic risk (<a href="https://pubmed.ncbi.nlm.nih.gov/30872370/" target="_blank" rel="noopener noreferrer">PMID:30872370</a>).</li>
+<li><strong>Current expert position (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>):</strong> "In general, cytoreductive therapy should be avoided and phlebotomy is seldom warranted where frequency is determined by <strong>symptom control rather than Hct threshold</strong>."</li>
+<li>The Hungarian case-report authors make the same point from the clinic: the PV rule of thumb (keep Hct &lt;0.45) "needs to be re-evaluated" in genetically determined secondary polyglobulias (<a href="https://pubmed.ncbi.nlm.nih.gov/40130200/" target="_blank" rel="noopener noreferrer">PMID:40130200</a>).</li>
+</ul>
+<p><strong>Curation guidance:</strong> model this as a treatment with <code>treatment_effect</code> that is genuinely mixed, and attach the harm evidence as its own items rather than burying it in prose. The <code>INHIBITS</code> edge from phlebotomy goes to the erythrocytosis node, <em>not</em> to the thrombosis node — and there is an additional <code>EXACERBATES</code>-flavored edge from phlebotomy-induced iron deficiency back onto the pulmonary-pressure node. That inverted-arrow structure is the clinically important thing this entry should capture.</p>
+<h3>12.2 Low-dose aspirin</h3>
+<p><code>treatment_term</code>: NCIT:C15986 Pharmacotherapy; <code>therapeutic_agent</code>: <a href="http://purl.obolibrary.org/obo/CHEBI_15365" target="_blank" rel="noopener noreferrer">CHEBI:15365</a> acetylsalicylic acid (verified); <code>therapeutic_modality</code>: SMALL_MOLECULE.
+Widely advised, not demonstrated to help in CP specifically. "Although not supported by hard evidence, cardiovascular risk optimization and low-dose aspirin use are often advised" (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>); retrospective analyses showed no benefit (<a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>). The British Society for Haematology guideline on polycythaemia vera and secondary erythrocytosis (<a href="https://pubmed.ncbi.nlm.nih.gov/30426472/" target="_blank" rel="noopener noreferrer">PMID:30426472</a>) is the relevant published guidance document, though its coverage of Chuvash-specific management is limited.</p>
+<h3>12.3 Anticoagulation</h3>
+<p><code>treatment_term</code>: NCIT:C63341 Anticoagulation Therapy or agent class NCIT:C263 Anticoagulant Agent (both verified). Used for treatment/secondary prevention of documented thrombosis, per general thrombosis practice. Heparin was used through a pregnancy alongside venesection (<a href="https://pubmed.ncbi.nlm.nih.gov/18161409/" target="_blank" rel="noopener noreferrer">PMID:18161409</a>). No CP-specific primary-prophylaxis evidence.</p>
+<h3>12.4 HIF-2α inhibition — the mechanism-matched therapy, and the most interesting development</h3>
+<p><code>therapeutic_agent</code>: NCIT:C135627 Belzutifan (verified); <code>treatment_term</code>: NCIT:C15986 Pharmacotherapy; <code>therapeutic_modality</code>: SMALL_MOLECULE. <code>target_mechanisms</code>: <code>INHIBITS</code> the normoxic HIF-2α stabilization node.</p>
+<ul>
+<li><strong>Preclinical, and it's convincing.</strong> Ghosh et al. 2021 (<a href="https://pubmed.ncbi.nlm.nih.gov/33512384/" target="_blank" rel="noopener noreferrer">PMID:33512384</a>) treated Vhl^R200W mice (and Irp1-KO mice, and the double mutant) with the second-generation allosteric HIF-2α inhibitor <strong>MK-6482 (belzutifan)</strong>: "MK-6482 treatment decreased EPO production and reversed polycythemia in all 3 mouse models. Drug treatment also decreased right ventricular pressure and mitigated pulmonary hypertension... to near normal wild-type levels and normalized the movement of the cardiac interventricular septum in VhlR200W mice." It also reduced Cxcl-12, the proposed driver of the pulmonary fibrosis.</li>
+<li><strong>Human evidence: one case, and read it carefully.</strong> Siqueira do Amaral et al. 2024 (<a href="https://pubmed.ncbi.nlm.nih.gov/39113647/" target="_blank" rel="noopener noreferrer">PMID:39113647</a>) report a 30-year-old woman with congenital polycythemia, phlebotomy-refractory symptoms, Hb 19.0 g/dL, Hct 63.8%, EPO 138 mIU/mL. On belzutifan 120 mg daily: Hb 17.0 at 4 weeks, normalized to 13.0 at 8 weeks, then 9.4 g/dL at 16 weeks (grade 2 anemia) prompting dose reduction to 80 mg with normalized Hb and EPO. <strong>Important caveat for curation: this patient was a <em>compound heterozygote</em> (R200W + c.562C&gt;G), not a Chuvash R200W homozygote.</strong> Do not curate this as "belzutifan treats Chuvash polycythemia" without that qualifier. Note also the anemia — HIF-2α inhibition overshoots easily, and belzutifan carries a known hypoxia/anemia toxicity profile (<a href="https://pubmed.ncbi.nlm.nih.gov/40806229/" target="_blank" rel="noopener noreferrer">PMID:40806229</a>).</li>
+<li>Related supporting context: belzutifan works in the mechanistically adjacent <em>EPAS1</em>-driven conditions (Pacak-Zhuang syndrome, <a href="https://pubmed.ncbi.nlm.nih.gov/34818480/" target="_blank" rel="noopener noreferrer">PMID:34818480</a>; <em>EPAS1</em>-mutated congenital erythrocytosis, <a href="https://pubmed.ncbi.nlm.nih.gov/40879399/" target="_blank" rel="noopener noreferrer">PMID:40879399</a>).</li>
+</ul>
+<p><strong>This is the most important open therapeutic question in the disease</strong>, and a good <code>KNOWLEDGE_GAP</code> discussion: does HIF-2α inhibition reduce <em>thrombosis and mortality</em> in R200W homozygotes, or only normalize the hematocrit — which we now know is not the thing that kills people?</p>
+<h3>12.5 JAK2 inhibition</h3>
+<p><code>therapeutic_agent</code>: <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" rel="noopener noreferrer">CHEBI:66919</a> ruxolitinib / NCIT:C77888 Ruxolitinib (both verified).
+Mouse: TG101209 "reversed the disease phenotype in Vhl(R200W/R200W) knock-in mice" (<a href="https://pubmed.ncbi.nlm.nih.gov/21685897/" target="_blank" rel="noopener noreferrer">PMID:21685897</a>). Human: a single NEJM correspondence, "Clinical Improvement with JAK2 Inhibition in Chuvash Polycythemia" (<a href="https://pubmed.ncbi.nlm.nih.gov/27518686/" target="_blank" rel="noopener noreferrer">PMID:27518686</a>) — one patient, letter format, no abstract. Curate as EMERGING/experimental with N=1.</p>
+<h3>12.6 Tempol / IRP1-mediated translational repression of HIF2α</h3>
+<p>Mouse only. Ghosh et al. 2018 (<a href="https://pubmed.ncbi.nlm.nih.gov/29480820/" target="_blank" rel="noopener noreferrer">PMID:29480820</a>): "Tempol decreased erythropoietin production, corrected splenomegaly, normalized hematocrit levels, and increased the lifespans of these mice," acting via Irp1 — the effect was abolished when Irp1 was genetically ablated. The authors suggest "dietary supplementation of Tempol" as a possible approach. <strong>No human data.</strong> <code>evidence_source: MODEL_ORGANISM</code>.</p>
+<h3>12.7 Not indicated / avoid</h3>
+<ul>
+<li><strong>Cytoreduction (hydroxyurea, NCIT:C560 / <a href="http://purl.obolibrary.org/obo/CHEBI_44423" target="_blank" rel="noopener noreferrer">CHEBI:44423</a>)</strong> — explicitly advised against in JAK2-unmutated erythrocytosis (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>).</li>
+<li><strong>Aggressive Hct-target phlebotomy</strong> — see §12.1.</li>
+</ul>
+<h3>12.8 Supportive and other</h3>
+<ul>
+<li>Genetic counseling — NCIT:C15240 (verified).</li>
+<li>Supportive care / symptom management — NCIT:C15747 (verified).</li>
+<li>Cardiovascular risk optimization (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>).</li>
+<li>Iron repletion is a genuinely open question: iron deficiency is harmful for pulmonary pressure (<a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>), but iron repletion in someone with suppressed hepcidin and HIF-driven iron avidity has not been studied. Another good gap.</li>
+</ul>
+<h3>12.9 Pharmacogenomics</h3>
+<p>No CPIC/PharmGKB guideline exists for CP. The nearest thing is the <em>EPO</em> rs1617640 / <em>TF</em> rs3811647 risk stratification (<a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>), which is prognostic rather than drug-metabolism pharmacogenomics.</p>
+<h3>12.10 Clinical trials</h3>
+<ul>
+<li><strong>NCT00495638</strong> — the observational cardiovascular/echocardiographic study underlying <a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>. Cite with <code>clinicaltrials:NCT00495638</code> and fetch via <code>just fetch-reference NCT00495638</code> before curating; I did not verify its current status field here, so do <strong>not</strong> guess the <code>status:</code> or <code>phase:</code> enum values.</li>
+<li>I found <strong>no interventional trial registered specifically for Chuvash polycythemia</strong>. Belzutifan trials are in RCC/VHL-syndrome/PPGL populations, not CP.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention of the disease: not possible.</strong> It's a germline recessive condition. The only true primary prevention is reproductive: carrier/cascade testing, genetic counseling (NCIT:C15240), and in endemic populations the option of prenatal or preimplantation genetic testing. No published program exists.</li>
+<li><strong>Secondary prevention (early detection):</strong> cascade testing of relatives after a proband; targeted PCR-RFLP screening of unexplained JAK2-negative erythrocytosis in high-prevalence regions (<a href="https://pubmed.ncbi.nlm.nih.gov/37362405/" target="_blank" rel="noopener noreferrer">PMID:37362405</a>). Population newborn screening is not established anywhere — and given that complications begin in childhood (<a href="https://pubmed.ncbi.nlm.nih.gov/25573974/" target="_blank" rel="noopener noreferrer">PMID:25573974</a>), that's arguably a defensible target for a regional program.</li>
+<li><strong>Tertiary prevention (preventing complications in diagnosed patients)</strong> is where the real action is, and where the evidence is thinnest:</li>
+<li>Symptom-directed rather than threshold-directed phlebotomy (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>).</li>
+<li>Avoid unnecessary iron depletion (<a href="https://pubmed.ncbi.nlm.nih.gov/21993671/" target="_blank" rel="noopener noreferrer">PMID:21993671</a>).</li>
+<li>Low-dose aspirin and cardiovascular risk-factor control — advised, unproven (<a href="https://pubmed.ncbi.nlm.nih.gov/34021251/" target="_blank" rel="noopener noreferrer">PMID:34021251</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16673284/" target="_blank" rel="noopener noreferrer">PMID:16673284</a>).</li>
+<li>Echocardiographic pulmonary hypertension surveillance.</li>
+<li>Thromboprophylaxis around surgery, immobility, and pregnancy (<a href="https://pubmed.ncbi.nlm.nih.gov/18161409/" target="_blank" rel="noopener noreferrer">PMID:18161409</a>) — extrapolated from general practice.</li>
+<li><strong>Immunization:</strong> no disease-specific vaccine considerations.</li>
+<li><strong>Public health / environmental interventions:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> the disease as such is <strong>human-only</strong> — <code>NCBITaxon:9606</code>. No naturally occurring animal counterpart of Chuvash polycythemia has been described.</li>
+<li><strong>OMIA:</strong> I did not find an OMIA entry for a <em>VHL</em>-associated polycythemia in any domestic species. Treat as absent unless a targeted OMIA search says otherwise.</li>
+<li><strong>Breed (VBO):</strong> not applicable.</li>
+<li><strong>Orthologs:</strong> mouse <em>Vhl</em> (chromosome 6, MGI); zebrafish <em>vhl</em>. Functional conservation of the human residue is demonstrated experimentally — van Rooijen et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/19304954/" target="_blank" rel="noopener noreferrer">PMID:19304954</a>): "Injections with human VHLp30 and R200W mutant mRNA demonstrate functional conservation of VHL between mammals and zebrafish at the amino acid level, indicating that vhl mutants are a powerful new tool to study genotype-phenotype correlations in human disease."</li>
+<li><strong>Comparative biology:</strong> the VHL–PHD–HIF oxygen-sensing axis is deeply conserved across metazoans, which is precisely why zebrafish and mouse models recapitulate the human phenotype so well. The interesting <em>divergence</em> is species scale: hypoxic pulmonary vasoconstriction and pulmonary vascular remodeling are much more prominent in the mouse lung phenotype (fibrosis appears with age, <a href="https://pubmed.ncbi.nlm.nih.gov/20197624/" target="_blank" rel="noopener noreferrer">PMID:20197624</a>) than the human data have so far demonstrated.</li>
+<li><strong>Zoonosis / cross-species transmission:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 Mouse — the flagship</h3>
+<p><strong>Vhl^R200W knock-in (Vhl^R/R).</strong> MGI allele: <strong><code>MGI:3776030</code>, Vhl<tm1Mcs></strong> (synonym Vhl^R), targeted, allele attribute <strong>Hypomorph</strong>, germline transmission, created in the M. Celeste Simon lab. MGI annotates it to human disease "familial erythrocytosis 2 <a href="http://purl.obolibrary.org/obo/DOID_0060474" target="_blank" rel="noopener noreferrer">DOID:0060474</a>" and to abnormal phenotype systems: cardiovascular, growth/size/body, hematopoietic, immune, liver/biliary, mortality/aging. (Verified live against MGI 2026-08-15.)</p>
+<p><strong>Phenotype recapitulation — genuinely high fidelity:</strong>
+- Erythrocytosis: "Vhl(R/R) mice developed polycythemia highly similar to the human disease," with HIF-2α upregulation and striking splenic erythroid/megakaryocyte expansion (<a href="https://pubmed.ncbi.nlm.nih.gov/17992257/" target="_blank" rel="noopener noreferrer">PMID:17992257</a>). The authors conclude it "is a faithful recapitulation of this VHL-associated syndrome."
+- Pulmonary hypertension + enhanced normoxic respiration: "These mice developed pulmonary hypertension independently of polycythemia and enhanced normoxic respiration similar to Chuvash patients, further validating VhlR/R mice as a model for Chuvash disease" (<a href="https://pubmed.ncbi.nlm.nih.gov/20197624/" target="_blank" rel="noopener noreferrer">PMID:20197624</a>). Lungs show vascular remodeling, hemorrhage, edema, macrophage infiltration, and — in older mice — <strong>fibrosis</strong>.
+- Metabolic: lower fasting glucose and glucose excursions, reduced hepatic <em>Glut2</em>/<em>G6pc</em>, increased skeletal muscle <em>Glut1</em>/<em>Pdk1</em>/<em>Pdk4</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23015148/" target="_blank" rel="noopener noreferrer">PMID:23015148</a>) — matching the human metabolic phenotype.
+- Cardiac: pulmonary hypertension, RV hypertrophy, increased LVEF, 1.8-fold higher glycolytic flux, 1.5-fold higher lactate efflux, PCr depletion under isoproterenol stress (<a href="https://pubmed.ncbi.nlm.nih.gov/27422990/" target="_blank" rel="noopener noreferrer">PMID:27422990</a>).</p>
+<p><strong>Model limitations — curate these honestly:</strong>
+- Pulmonary <strong>fibrosis</strong> in aged Vhl^R/R mice is prominent; a corresponding human fibrotic phenotype has not been demonstrated. Candidate <code>HUMAN_MODEL_MISMATCH</code>.
+- Human thrombosis — the disease's actual cause of death — is not well recapitulated in the published mouse work. That is a substantive gap, and arguably <em>the</em> gap: the model reproduces everything except the thing that kills patients.
+- The mouse cardiac work found "no changes in cardiac gene expression were detected" despite clear metabolic changes, and the authors conclude "the effects of manipulating HIF on the heart are dose dependent" (<a href="https://pubmed.ncbi.nlm.nih.gov/27422990/" target="_blank" rel="noopener noreferrer">PMID:27422990</a>) — a caution against extrapolating from high-HIF models.
+- Hif2a heterozygosity rescue "resulted in partial protection against vascular remodeling, hemorrhage, and edema, <strong>but not inflammation</strong>" (<a href="https://pubmed.ncbi.nlm.nih.gov/20197624/" target="_blank" rel="noopener noreferrer">PMID:20197624</a>) — a documented partial rescue, useful as a <code>PARTIALLY_RECAPITULATES</code> / mechanism-dissection link.</p>
+<p><strong>Other mouse lines used in the CP literature:</strong>
+- <strong>Irp1-knockout mice</strong> — polycythemia, pulmonary hypertension, and cardiac fibrosis via translational derepression of Hif2α (<a href="https://pubmed.ncbi.nlm.nih.gov/33512384/" target="_blank" rel="noopener noreferrer">PMID:33512384</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23395173/" target="_blank" rel="noopener noreferrer">PMID:23395173</a> in the wider literature). Used as a mechanistic complement and as a second model for HIF-2α-directed drug testing.
+- <strong>VhlR200W;Irp1-KO double mutant</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33512384/" target="_blank" rel="noopener noreferrer">PMID:33512384</a>).
+- <strong>Hif1a^+/−</strong> mice for the organ-size mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/20140661/" target="_blank" rel="noopener noreferrer">PMID:20140661</a>).
+- Numerous conditional <em>Vhl</em> floxed alleles (Vhl<tm1Jae> <a href="https://bioregistry.io/MGI:2136645" target="_blank" rel="noopener noreferrer">MGI:2136645</a>, etc.) exist but model <em>VHL-syndrome</em> biology, not CP.</p>
+<h3>15.2 Zebrafish</h3>
+<p><em>vhl</em> germline inactivating mutants (van Rooijen et al., <a href="https://pubmed.ncbi.nlm.nih.gov/19304954/" target="_blank" rel="noopener noreferrer">PMID:19304954</a>) — "the first congenital embryonic viable systemic vertebrate animal model for VHL, representing the most accurate model for VHL-associated polycythemia to date." Phenotype: systemic hypoxic response by 1 dpf, severe hyperventilation and cardiophysiologic response, polycythemia with increased <em>epo/epor</em>, expanded c-myb⁺ HSCs and circulating erythroid precursors. ZFIN alleles hu2117 and hu2081 (verify the exact allele IDs in ZFIN before curating).
+<strong>Limitation:</strong> these are <em>null</em> alleles, not R200W knock-ins — so they model VHL loss broadly rather than the CP hypomorph specifically. The R200W-specific validation was done by mRNA injection rescue, not by a knock-in line.</p>
+<h3>15.3 In vitro / cellular</h3>
+<ul>
+<li><strong>Vhl^R/R ES cells</strong> showing HIF-2α-biased activity (<a href="https://pubmed.ncbi.nlm.nih.gov/17992257/" target="_blank" rel="noopener noreferrer">PMID:17992257</a>).</li>
+<li>Patient-derived <strong>native erythroid progenitors</strong> assayed for EPO hypersensitivity — the assay that discriminated R200W from H191D (<a href="https://pubmed.ncbi.nlm.nih.gov/23403324/" target="_blank" rel="noopener noreferrer">PMID:23403324</a>). This is a genuine human-tissue functional readout and belongs in <code>experimental_models</code>.</li>
+<li>Patient <strong>PBMCs</strong> for transcriptomics (<a href="https://pubmed.ncbi.nlm.nih.gov/23993337/" target="_blank" rel="noopener noreferrer">PMID:23993337</a>) and plasma for cytokine multiplex (<a href="https://pubmed.ncbi.nlm.nih.gov/19062180/" target="_blank" rel="noopener noreferrer">PMID:19062180</a>).</li>
+<li>Cell lines expressing tumorigenic vs CP <em>VHL</em> variants for the TFAM-binding assay (<a href="https://pubmed.ncbi.nlm.nih.gov/35760869/" target="_blank" rel="noopener noreferrer">PMID:35760869</a>) — the cleanest in vitro dissociation of the oncogenic from the erythrocytosis arm.</li>
+<li>Human <strong>skeletal muscle biopsy</strong> with ³¹P-MRS in vivo (<a href="https://pubmed.ncbi.nlm.nih.gov/20616028/" target="_blank" rel="noopener noreferrer">PMID:20616028</a>) — a rare integrated human "model."</li>
+</ul>
+<h3>15.4 Model databases</h3>
+<p>MGI (informatics.jax.org — <code>MGI:3776030</code> is the allele to start from), IMSR/JAX for strain availability, ZFIN for the <em>vhl</em> lines, Alliance of Genome Resources for orthology, and the Human Phenotype Ontology / Monarch for the human-side phenotype comparison.</p>
+<hr />
+<h2>Curation notes for the dismech entry (read before writing YAML)</h2>
+<p>A few things this disease will trip you on:</p>
+<ol>
+<li>
+<p><strong>Model it as a hypoxia-sensing disorder, not a myeloproliferative one.</strong> The erythrocytosis is a <em>branch</em>, not the trunk. The trunk is <code>Impaired pVHL-HIF-α Degradation</code> → <code>Normoxic HIF Stabilization</code>, from which erythroid, pulmonary-vascular, thrombotic, iron, and metabolic branches all hang in parallel.</p>
+</li>
+<li>
+<p><strong>Do not draw an edge from erythrocytosis to thrombosis.</strong> Three independent studies say the thrombotic risk is hematocrit-independent (<a href="https://pubmed.ncbi.nlm.nih.gov/30872370/" target="_blank" rel="noopener noreferrer">PMID:30872370</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31289208/" target="_blank" rel="noopener noreferrer">PMID:31289208</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37435906/" target="_blank" rel="noopener noreferrer">PMID:37435906</a>). Drawing that edge would encode the exact error the field spent a decade correcting.</p>
+</li>
+<li>
+<p><strong>HIF-1α vs HIF-2α:</strong> both elevated; HIF-2α dominant for erythroid + pulmonary phenotypes (mouse genetics, <a href="https://pubmed.ncbi.nlm.nih.gov/20197624/" target="_blank" rel="noopener noreferrer">PMID:20197624</a>). The 2002 discovery paper's HIF-1α framing is historically important but incomplete — cite it for the ubiquitination mechanism, not for isoform attribution.</p>
+</li>
+<li>
+<p><strong>The tumor absence is a curatable finding, with a mechanism</strong> (§6.4). Three lines of evidence, including a clean molecular dissociation (<a href="https://pubmed.ncbi.nlm.nih.gov/35760869/" target="_blank" rel="noopener noreferrer">PMID:35760869</a>). This is one of the more interesting negative phenotypes in the whole KB.</p>
+</li>
+<li>
+<p><strong>Two competing mechanistic hypotheses</strong> (HIF-canonical vs VHL-SOCS1-JAK2) with human data on both sides — use <code>mechanistic_hypotheses</code> + <code>hypothesis_groups</code> on the relevant <code>downstream</code> edges rather than picking a winner.</p>
+</li>
+<li>
+<p><strong>Candidate <code>conforms_to</code> targets:</strong> <code>pulmonary_vascular_remodeling#Obstructive Pulmonary Vascular Remodeling</code> (strong), <code>thrombogenesis#Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation</code> (moderate — the prothrombotic mediators are documented but the platelet/fibrin chain is not directly evidenced in CP), and possibly <code>deregulated_cellular_energetics#Aerobic Glycolysis (Warburg Effect)</code> for the metabolic arm — though that module is framed oncologically, so check the fit before wiring it.</p>
+</li>
+<li>
+<p><strong>Belzutifan evidence is one compound heterozygote, not a homozygote.</strong> Say so in the treatment <code>notes:</code> and the evidence <code>explanation:</code>.</p>
+</li>
+<li>
+<p><strong>Frequencies:</strong> the HPO annotation n/N values are mostly too small (and partly drawn from the <em>H191D</em> genotype) to support a <code>FrequencyEnum</code> band. Omit <code>frequency:</code> rather than manufacture one. The defensible cohort numbers are ~36% for pulmonary hypertension (5/14, <a href="https://pubmed.ncbi.nlm.nih.gov/16769575/" target="_blank" rel="noopener noreferrer">PMID:16769575</a>) and ~31% for pediatric complications over 8 years (<a href="https://pubmed.ncbi.nlm.nih.gov/25573974/" target="_blank" rel="noopener noreferrer">PMID:25573974</a>, verify first).</p>
+</li>
+<li>
+<p><strong>Prevalence:</strong> Orphanet says Unknown, not-yet-validated. Record <code>prevalence_class: UNKNOWN</code> for worldwide, plus the two founder-population <strong>allele frequencies</strong> as separate records with <code>measure_type: CARRIER_FREQUENCY</code>-adjacent framing and the verbatim Perrotta quote. Do not silently convert an allele frequency into a prevalence and present it as sourced.</p>
+</li>
+<li>
+<p><strong>PMID correction to watch for:</strong> the 1997 Sergeyeva Chuvash paper is <strong><a href="https://pubmed.ncbi.nlm.nih.gov/9058738/" target="_blank" rel="noopener noreferrer">PMID:9058738</a></strong>, not 9058724 (which is an unrelated AML signaling paper in the same <em>Blood</em> issue). Adjacent PMIDs in the same issue are an easy and invisible mis-citation — I made exactly that mistake mid-research and caught it only by fetching the abstract.</p>
+</li>
+</ol>
+<hr />
+<h2>Reference list (all PMIDs verified by direct PubMed retrieval, 2026-08-15)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Citation</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>9058738</td>
+<td>Sergeyeva A, et al. Congenital polycythemia in Chuvashia. <em>Blood</em> 1997;89(6):2148-54</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>11987242</td>
+<td>Ang SO, et al. Endemic polycythemia in Russia: mutation in the VHL gene. <em>Blood Cells Mol Dis</em> 2002;28(1):57-62</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>12415268</td>
+<td>Ang SO, et al. Disruption of oxygen homeostasis underlies congenital Chuvash polycythemia. <em>Nat Genet</em> 2002;32(4):614-21</td>
+<td>HUMAN_CLINICAL / IN_VITRO</td>
+</tr>
+<tr>
+<td>12702509</td>
+<td>Percy MJ, et al. Chuvash-type congenital polycythemia in 4 families of Asian and Western European ancestry. <em>Blood</em> 2003;102(3):1097-9</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>12844285</td>
+<td>Pastore Y, et al. Mutations of von Hippel-Lindau tumor-suppressor gene and congenital polycythemia. <em>Am J Hum Genet</em> 2003;73(2):412-9</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>14726398</td>
+<td>Gordeuk VR, et al. Congenital disorder of oxygen sensing... <em>Blood</em> 2004;103(10):3924-32</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>15642664</td>
+<td>Cario H, et al. Mutations in the VHL gene and VHL-haplotype analysis... <em>Haematologica</em> 2005;90(1):19-24</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>16210343</td>
+<td>Perrotta S, et al. Von Hippel-Lindau-dependent polycythemia is endemic on the island of Ischia. <em>Blood</em> 2006;107(2):514-9</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>16673284</td>
+<td>Gordeuk VR, Prchal JT. Vascular complications in Chuvash polycythemia. <em>Semin Thromb Hemost</em> 2006;32(3):289-94</td>
+<td>Review</td>
+</tr>
+<tr>
+<td>16768548</td>
+<td>Smith TG, et al. Mutation of von Hippel-Lindau tumour suppressor and human cardiopulmonary physiology. <em>PLoS Med</em> 2006;3(7):e290</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>16769575</td>
+<td>Bushuev VI, et al. Endothelin-1, VEGF and systolic pulmonary artery pressure... <em>Haematologica</em> 2006;91(6):744-9</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>17992257</td>
+<td>Hickey MM, et al. VHL mutation in mice recapitulates Chuvash polycythemia via HIF-2α... <em>J Clin Invest</em> 2007;117(12):3879-89</td>
+<td>MODEL_ORGANISM</td>
+</tr>
+<tr>
+<td>18161409</td>
+<td>Chuvash-type polycythemia in pregnancy... <em>J Reprod Med</em> 2007;52(11)</td>
+<td>HUMAN_CLINICAL (case)</td>
+</tr>
+<tr>
+<td>18223282</td>
+<td>Sergueeva AI, et al. Elevated homocysteine, glutathione and cysteinylglycine... <em>Haematologica</em> 2008;93(2):279-82</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>19062180</td>
+<td>Niu X, et al. Altered cytokine profiles in patients with Chuvash polycythemia. <em>Am J Hematol</em> 2009;84(2):74-8</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>19304954</td>
+<td>van Rooijen E, et al. Zebrafish mutants in the von Hippel-Lindau tumor suppressor... <em>Blood</em> 2009;113(25):6449-60</td>
+<td>MODEL_ORGANISM</td>
+</tr>
+<tr>
+<td>20140661</td>
+<td>Yoon D, et al. Increased size of solid organs... <em>J Mol Med</em> 2010;88(5):523-30</td>
+<td>HUMAN_CLINICAL / MODEL_ORGANISM</td>
+</tr>
+<tr>
+<td>20197624</td>
+<td>Hickey MM, et al. The VHL Chuvash mutation promotes pulmonary hypertension and fibrosis in mice. <em>J Clin Invest</em> 2010;120(3):827-39</td>
+<td>MODEL_ORGANISM</td>
+</tr>
+<tr>
+<td>20616028</td>
+<td>Formenti F, et al. Regulation of human metabolism by hypoxia-inducible factor. <em>PNAS</em> 2010;107(28):12722-7</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>21606165</td>
+<td>Miasnikova GY, et al. The heterozygote advantage of the Chuvash polycythemia VHLR200W mutation... <em>Haematologica</em> 2011;96(9):1371-4</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>21685897</td>
+<td>Russell RC, et al. Loss of JAK2 regulation via a heterodimeric VHL-SOCS1 E3 ubiquitin ligase... <em>Nat Med</em> 2011;17(7):845-53</td>
+<td>IN_VITRO / MODEL_ORGANISM</td>
+</tr>
+<tr>
+<td>21876117</td>
+<td>Gordeuk VR, et al. Chuvash polycythemia VHLR200W mutation is associated with down-regulation of hepcidin. <em>Blood</em> 2011;118(19):5278-82</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>21993671</td>
+<td>Sable CA, et al. Pulmonary artery pressure and iron deficiency... <em>Haematologica</em> 2012;97(2):193-200</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>22252661</td>
+<td>Gordeuk VR. Chuvash polycythemia: diagnosis and management. <em>Clin Adv Hematol Oncol</em> 2011;9(12):929-30</td>
+<td>Review</td>
+</tr>
+<tr>
+<td>23015148</td>
+<td>McClain DA, et al. Decreased serum glucose and glycosylated hemoglobin levels... <em>J Mol Med</em> 2013;91(1):59-67</td>
+<td>HUMAN_CLINICAL / MODEL_ORGANISM</td>
+</tr>
+<tr>
+<td>23403324</td>
+<td>Tomasic NL, et al. The phenotype of polycythemia due to Croatian homozygous VHL (571C&gt;G:H191D)... <em>Haematologica</em> 2013;98(4):560-7</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>23993337</td>
+<td>Zhang X, et al. Iron deficiency modifies gene expression variation induced by augmented hypoxia sensing. <em>Blood Cells Mol Dis</em> 2014;52(1):35-45</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>25573974</td>
+<td>Sergueeva AI, et al. Complications in children and adolescents with Chuvash polycythemia. <em>Blood</em> 2015;125(2):414-5</td>
+<td>HUMAN_CLINICAL (letter)</td>
+</tr>
+<tr>
+<td>27422990</td>
+<td>Slingo M, et al. The VHL Chuvash mutation in mice alters cardiac substrate and high-energy phosphate metabolism. <em>Am J Physiol Heart Circ Physiol</em> 2016;311(3):H759-67</td>
+<td>MODEL_ORGANISM</td>
+</tr>
+<tr>
+<td>27518686</td>
+<td>Zhou AW, et al. Clinical Improvement with JAK2 Inhibition in Chuvash Polycythemia. <em>N Engl J Med</em> 2016;375(5):494-6</td>
+<td>HUMAN_CLINICAL (letter, N=1)</td>
+</tr>
+<tr>
+<td>28104701</td>
+<td>Sergueeva A, et al. Prospective study of thrombosis and thrombospondin-1 expression in Chuvash polycythemia. <em>Haematologica</em> 2017;102(5):e166-9</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>29480820</td>
+<td>Ghosh MC, et al. Translational repression of HIF2α expression in mice with Chuvash polycythemia reverses polycythemia. <em>J Clin Invest</em> 2018;128(4):1317-25</td>
+<td>MODEL_ORGANISM</td>
+</tr>
+<tr>
+<td>29891534</td>
+<td>Lenglet M, et al. Identification of a new VHL exon and complex splicing alterations... <em>Blood</em> 2018;132(5):469-83</td>
+<td>HUMAN_CLINICAL / IN_VITRO</td>
+</tr>
+<tr>
+<td>30426472</td>
+<td>McMullin MFF, et al. BSH Guideline: management of specific situations in polycythaemia vera and secondary erythrocytosis. <em>Br J Haematol</em> 2019;184(2):161-75</td>
+<td>Guideline</td>
+</tr>
+<tr>
+<td>30872370</td>
+<td>Gordeuk VR, Key NS, Prchal JT. Re-evaluation of hematocrit as a determinant of thrombotic risk in erythrocytosis. <em>Haematologica</em> 2019;104(4):653-8</td>
+<td>Review</td>
+</tr>
+<tr>
+<td>31289208</td>
+<td>Gordeuk VR, et al. Thrombotic risk in congenital erythrocytosis... is not associated with elevated hematocrit. <em>Haematologica</em> 2020;105(3):e87-90</td>
+<td>HUMAN_CLINICAL (letter)</td>
+</tr>
+<tr>
+<td>33033909</td>
+<td>Hemolytic erythrocytosis: coinherited Chuvash polycythemia and G6PD Kerala-Kalyan. <em>Ann Hematol</em> 2021</td>
+<td>HUMAN_CLINICAL (case)</td>
+</tr>
+<tr>
+<td>33512384</td>
+<td>Ghosh MC, et al. Therapeutic inhibition of HIF-2α reverses polycythemia and pulmonary hypertension in murine models. <em>Blood</em> 2021;137(18):2509-19</td>
+<td>MODEL_ORGANISM</td>
+</tr>
+<tr>
+<td>34021251</td>
+<td>Gangat N, et al. JAK2 unmutated erythrocytosis: current diagnostic approach and therapeutic views. <em>Leukemia</em> 2021;35(8):2166-81</td>
+<td>Review</td>
+</tr>
+<tr>
+<td>34818480</td>
+<td>Belzutifan, a Potent HIF2α Inhibitor, in the Pacak-Zhuang Syndrome. <em>N Engl J Med</em> 2021</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>35205407</td>
+<td>Hudler P, Urbancic M. The Role of VHL in the Development of von Hippel-Lindau Disease and Erythrocytosis. <em>Genes</em> 2022;13(2):362</td>
+<td>Review</td>
+</tr>
+<tr>
+<td>35760869</td>
+<td>Li S, et al. Impaired oxygen-sensitive regulation of mitochondrial biogenesis within the von Hippel-Lindau syndrome. <em>Nat Metab</em> 2022;4(6):739-58</td>
+<td>IN_VITRO</td>
+</tr>
+<tr>
+<td>37362405</td>
+<td>Duggal N, et al. A Screening Approach for Inherited Erythrocytosis due to the VHL:c.598C&gt;T Mutation. <em>Indian J Hematol Blood Transfus</em> 2023</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>37435906</td>
+<td>Shah BN, et al. Increased transferrin protects from thrombosis in Chuvash erythrocytosis. <em>Am J Hematol</em> 2023;98(10):1532-9</td>
+<td>HUMAN_CLINICAL</td>
+</tr>
+<tr>
+<td>39113647</td>
+<td>Siqueira do Amaral P, et al. von Hippel-Lindau syndrome-related congenital polycythemia and response to belzutifan. <em>Haematologica</em> 2024;109(12):4145-7</td>
+<td>HUMAN_CLINICAL (case)</td>
+</tr>
+<tr>
+<td>40130200</td>
+<td>Nagy ZF, et al. Case Report: Importance of high-throughput genetic investigations... <em>Pathol Oncol Res</em> 2025;31:1612037</td>
+<td>HUMAN_CLINICAL (case)</td>
+</tr>
+<tr>
+<td>40806229</td>
+<td>Belzutifan-Associated Hypoxia: A Review... <em>Int J Mol Sci</em> 2025</td>
+<td>Review</td>
+</tr>
+<tr>
+<td>40879399</td>
+<td>Successful Use of Targeted HIF-2α Inhibition in EPAS1-Mutated Congenital Erythrocytosis. <em>Pediatr Blood Cancer</em> 2025</td>
+<td>HUMAN_CLINICAL (case)</td>
+</tr>
+<tr>
+<td>41930727</td>
+<td>Yurt ÖF, et al. A Rare Cause of Erythrocytosis: VHL Gene Mutation. <em>Turk J Haematol</em> 2026 (online ahead of print)</td>
+<td>HUMAN_CLINICAL (case)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Non-literature sources consulted live on 2026-08-15:</strong> HPO/Monarch annotation API (<code>ontology.jax.org</code>, <code>api.monarchinitiative.org</code>) for HP terms and MONDO identity; NCBI ClinVar E-utilities (VCV 2232) for variant classification and coordinates; gnomAD v4 GraphQL API for population frequencies; Orphanet <code>api.orphacode.org</code> and the Orphadata <code>en_product1.xml</code> / <code>en_product9_prev.xml</code> bulk files for ORPHA definition, synonyms, ICD-10/ICD-11 mappings, and prevalence class; MGI allele report for <code>MGI:3776030</code>; and the dismech repository's own validated term caches (<code>cache/hp</code>, <code>cache/go</code>, <code>cache/cl</code>, <code>cache/uberon</code>, <code>cache/chebi</code>, <code>cache/ncit</code>, <code>cache/hgnc</code>) for every ontology CURIE quoted above except the HPO-API-sourced terms noted in §3.1.</p>
+<p><strong>Sources (web):</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/clinvar/RCV000002320.11/">ClinVar RCV000002320 — NM_000551.4(VHL):c.598C&gt;T (p.Arg200Trp)</a>
+- <a href="https://www.omim.org/entry/263400">OMIM #263400 — Erythrocytosis, Familial, 2 (ECYT2)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/12415268/">Ang et al. 2002, <em>Nature Genetics</em> — Disruption of oxygen homeostasis underlies congenital Chuvash polycythemia</a>
+- <a href="https://ashpublications.org/blood/article/103/10/3924/17668/Congenital-disorder-of-oxygen-sensing-association">Gordeuk et al. 2004, <em>Blood</em> — Congenital disorder of oxygen sensing</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11609798/">Siqueira do Amaral et al. 2024, <em>Haematologica</em> — VHL-related congenital polycythemia and response to belzutifan</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4287647/">Sergueeva et al. 2015, <em>Blood</em> — Complications in children and adolescents with Chuvash polycythemia</a>
+- <a href="https://www.nejm.org/doi/full/10.1056/NEJMc1600337">Zhou et al. 2016, <em>NEJM</em> — Clinical Improvement with JAK2 Inhibition in Chuvash Polycythemia</a>
+- <a href="https://haematologica.org/article/view/6076">Miasnikova et al. 2011, <em>Haematologica</em> — The heterozygote advantage of the Chuvash polycythemia VHLR200W mutation</a></p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>52</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>52</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>PMID:39113647</code>: "in two patients with the same VHL R200W/L188V genotype as our patient, Hb levels ranged from 16.3 g/dL to 21.0 g/dL. This variability highlights the..."</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Chung-Jansen_Syndrome-falcon.html">← Chung-Jansen Syndrome (Falcon)</a>
+                
+                
+                <a href="CINCA_Syndrome-cyberian-codex.html">CINCA Syndrome (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Chuvash_Polycythemia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Chuvash_Polycythemia-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
