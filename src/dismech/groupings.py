@@ -57,6 +57,12 @@ GROUPINGS_DIR = ROOT_DIR / "kb" / "groupings"
 
 BRANCH_OPERATORS = {"AND", "OR", "NOT"}
 
+# Free-text nosology slots folded into a disease's classification tags,
+# alongside the structured `classifications:` block. Shared so the advisory in
+# lint_criterion_advisories() names exactly the slots _classification_tags()
+# reads, and the two cannot drift apart.
+FREE_TEXT_TAG_SLOTS = ("parents", "categories")
+
 # Map each leaf predicate to the payload slot(s) it requires. ``None`` means the
 # constraint is carried in free text (``description``) and has no structured
 # payload to evaluate.
@@ -167,7 +173,9 @@ def lint_criterion(node: Any, path: str = "logic") -> list[str]:
     return errors
 
 
-def lint_criterion_advisories(node: Any, path: str = "logic") -> list[str]:
+def lint_criterion_advisories(
+    node: Any, path: str = "logic", negated_context: bool = False
+) -> list[str]:
     """Return non-gating style advisories for a criteria expression.
 
     Distinct from :func:`lint_criterion`, whose findings are structural errors
@@ -185,16 +193,23 @@ def lint_criterion_advisories(node: Any, path: str = "logic") -> list[str]:
     Negated leaves are deliberately exempt. For an exclusion the slot-agnostic
     reading is the *stronger* one -- "not classified there, whichever slot says
     so" -- and keying it would narrow the exclusion, admitting a member tagged
-    under a different slot. Advising the keyed form there would be backwards,
-    so ``negated`` leaves raise nothing.
+    under a different slot. Advising the keyed form there would be backwards.
+
+    The schema offers two ways to negate, and the exemption covers both: a leaf
+    marked ``negated: true``, and a leaf sitting under an ``operator: NOT``
+    branch. ``negated_context`` carries the second down the recursion, flipping
+    at each NOT so a doubly-negated leaf is treated as positive again. No KB
+    grouping uses the NOT-operator form today, so this closes a latent
+    inconsistency rather than a live false positive.
     """
     advisories: list[str] = []
     if not isinstance(node, dict):
         return advisories
+    excluded = bool(node.get("negated")) ^ negated_context
     if (
         classify_node(node) is NodeKind.LEAF
         and node.get("criterion_predicate") == "HAS_CLASSIFICATION"
-        and not node.get("negated")
+        and not excluded
     ):
         value = node.get("classification")
         if isinstance(value, str) and ":" not in value:
@@ -209,9 +224,10 @@ def lint_criterion_advisories(node: Any, path: str = "logic") -> list[str]:
                 f"'<classifications-key>:{value}' (e.g. "
                 f"'iuis_category:{value}'), to pin which slot it reads"
             )
+    child_context = negated_context ^ (node.get("operator") == "NOT")
     for i, child in enumerate(node.get("operands", []) or []):
         advisories.extend(
-            lint_criterion_advisories(child, f"{path}.operands[{i}]")
+            lint_criterion_advisories(child, f"{path}.operands[{i}]", child_context)
         )
     return advisories
 
@@ -356,12 +372,6 @@ def _walk(obj: Any) -> Iterable[Any]:
     elif isinstance(obj, list):
         for v in obj:
             yield from _walk(v)
-
-
-# Free-text nosology slots folded into a disease's classification tags,
-# alongside the structured `classifications:` block. Shared so the advisory in
-# lint_criterion_advisories() names exactly the slots the extractor reads.
-FREE_TEXT_TAG_SLOTS = ("parents", "categories")
 
 
 def _norm_tag(value: str) -> str:

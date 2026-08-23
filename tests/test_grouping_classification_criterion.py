@@ -192,3 +192,37 @@ def test_advisories_recurse_into_branches():
 def test_other_predicates_raise_no_advisory():
     leaf = {"criterion_predicate": "HAS_GENE", "gene": {"term": {"id": "hgnc:1133"}}}
     assert G.lint_criterion_advisories(leaf) == []
+
+
+def test_not_operator_exempts_its_leaf_like_negated_true():
+    """The schema offers two ways to negate; the exemption must cover both."""
+    branch = {"operator": "NOT", "operands": [_leaf("Hodgkin lymphoma")]}
+    assert G.lint_criterion_advisories(branch) == []
+
+
+def test_double_negation_is_positive_again():
+    """NOT over NOT is not an exclusion, so the advisory should return."""
+    inner = {"operator": "NOT", "operands": [_leaf("Hodgkin lymphoma")]}
+    outer = {"operator": "NOT", "operands": [inner]}
+    advisories = G.lint_criterion_advisories(outer)
+    assert len(advisories) == 1
+
+
+def test_negated_leaf_under_a_not_operator_is_double_negation():
+    """`negated: true` inside a NOT cancels out — the leaf is positive."""
+    branch = {"operator": "NOT", "operands": [_leaf("Hodgkin lymphoma", negated=True)]}
+    assert len(G.lint_criterion_advisories(branch)) == 1
+
+
+def test_not_context_does_not_leak_to_a_sibling_and_branch():
+    """Only the NOT branch's own operands inherit the exclusion context."""
+    tree = {
+        "operator": "AND",
+        "operands": [
+            {"operator": "NOT", "operands": [_leaf("Hodgkin lymphoma")]},
+            _leaf("RASopathy"),
+        ],
+    }
+    advisories = G.lint_criterion_advisories(tree)
+    assert len(advisories) == 1
+    assert "operands[1]" in advisories[0]
