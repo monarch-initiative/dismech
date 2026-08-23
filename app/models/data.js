@@ -1987,6 +1987,65 @@ window.searchData = [
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
   },
   {
+    "model_key": "Renal_Cell_Carcinoma--computational-model-rcc-3d-agent-based-learning-model--0",
+    "name": "RCC 3D Agent-Based Learning Model",
+    "description": "Spatial three-dimensional agent-based simulation of established renal cell carcinoma, immune-cell populations, sex-hormone effects, and ICI or TKI treatment rules. A genetic algorithm evolves synthetic tumor-cell genotypes, while Optuna tunes model parameters against overall-survival and survival-status outcomes from selected ARON registry cases.",
+    "model_type": "Agent Based",
+    "model_type_raw": "AGENT_BASED",
+    "model_format": "Custom imperative Python/Mesa source (not SBML or CellML); Jupyter Notebook (IPYNB); CSV patient input",
+    "model_software": "Python 3.13; Mesa 3.2.0; Optuna; Solara 1.48.0; pythreejs 2.4.2",
+    "base_model": "OncoAgent RCC obesity-paradox agent-based learning model (PMID:33996779)",
+    "model_id": "GitHub:marco-caputo/RCC-agent-learning-model@40220d6c398d90b41971f102acb9f84838982601",
+    "repository_url": "https://github.com/marco-caputo/RCC-agent-learning-model/tree/40220d6c398d90b41971f102acb9f84838982601",
+    "repository_host": "GitHub",
+    "publication": "PMID:42064045",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Renal Cell Carcinoma",
+    "disease_id": "MONDO:0005086",
+    "category": "Cancer",
+    "parents": [
+      "Kidney Cancer"
+    ],
+    "variables": [
+      "Patient sex",
+      "Treatment regimen",
+      "Treatment start",
+      "Tumor-cell count",
+      "Simulated overall survival",
+      "Mean tumor mutation mask"
+    ],
+    "variable_ids": [
+      "sex",
+      "treatment",
+      "treatment_start",
+      "Tumor Cells",
+      "steps",
+      "average_mutation_mask"
+    ],
+    "variable_terms": [],
+    "num_variables": 6,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Renal Epithelial Malignancy"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Female-model runs showed delayed initial responses followed by stronger late immune activation and rapid regression, whereas male-model runs showed steadier early responses but greater modeled tumor resilience.",
+      "Parameter tuning used seven RCC records and 26 Optuna trials for each objective; the paper reports lower aggregate prediction MSE and increasingly stable CI, without held-out validation."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:42064045"
+    ],
+    "num_evidence": 1,
+    "notes": "The GitHub repository is pinned at unsigned commit 40220d6c398d90b41971f102acb9f84838982601 (tree acfe9582f716869dc965aad04c11f279a5c13470) and has no tags or releases. Zenodo record 10.5281/zenodo.18727138 archives software version 1.0.0 as RCC-ALM.zip (SHA-256 4e7c38b570916555fac9fd422f0e5b8d52c5ebd2f8c93a708f3b0dedf4745358), although pyproject.toml calls the package 0.1.0; all 72 archived files are byte-identical to the pinned Git tree. Software Heritage directory swh:1:dir:570c82c75e1f417940762d4d66706f3467df706c contains the matching inner Git-tree directory, but no revision object for the commit resolves, so it preserves deposited content rather than Git history. The repository LICENSE and Zenodo software record are MIT. The upstream ARON-1 dataset is Zenodo DOI 10.5281/zenodo.13353313 under CC BY 4.0. The repository contains three byte-identical copies of a derived seven-row, 19-column CSV (SHA-256 aef040b2d21069fcdb58aca45a3331fa03c85c2dfadf6b9d5e8bc713cbf1d585), but does not cite that DOI, state data-specific attribution or licensing, or provide the manual selection and conversion procedure. Curator smoke testing installed the requirements under Python 3.13.9, constructed and advanced the 643-agent default model, exercised a small data pipeline, and completed the documented 100-step non-GUI command. That command emits only console traces and does not reproduce a paper result. Reproducibility remains partial: dependencies are not fully pinned or locked; the documented Solara interface fails with the resolved unbounded Starlette version; the built wheel omits required package data and uses incompatible src.* imports outside the checkout; and the analysis notebook has no executed outputs or reference results. There are 83 tuned weights for seven non-held-out cases. The MSE result-loading code mistakenly reloads CI parameters, repeat-count handling is defective, stochastic antigen selection depends on Python hash ordering, and a class-global tumor blood-source list can contaminate repeated runs. The model is exploratory and hypothesis-generating, not a clinically validated patient digital twin. Generic mutation adaptation does not justify linking it to the entry's histologic-and-molecular-subtype node, and it does not encode the PRR15/NF-\u03baB/FDX1 cuproptosis mechanism.",
+    "creation_date": "2026-02-02T00:16:36Z",
+    "page_url": "../../pages/disorders/Renal_Cell_Carcinoma.html#computational-model-rcc-3d-agent-based-learning-model",
+    "source_file": "kb/disorders/Renal_Cell_Carcinoma.yaml"
+  },
+  {
     "model_key": "Phenylketonuria--computational-model-recon3d-with-pah-knockout--1",
     "name": "Recon3D with PAH knockout",
     "description": "Human genome-scale metabolic model simulating phenylalanine hydroxylase deficiency",
@@ -2727,10 +2786,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 55,
-  "total_source_entries": 21,
+  "total_models": 56,
+  "total_source_entries": 22,
   "total_model_types": 8,
   "total_runnable": 4,
-  "total_with_repository": 25
+  "total_with_repository": 26
 };
 window.dispatchEvent(new Event('searchDataReady'));
