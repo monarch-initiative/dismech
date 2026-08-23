@@ -907,6 +907,110 @@ window.searchData = [
     "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
   },
   {
+    "model_key": "Noonan_Syndrome--computational-model-lztr1-l580p-alphafold-multimer-polymerization-model--1",
+    "name": "LZTR1 L580P AlphaFold-Multimer Polymerization Model",
+    "description": "ColabFold/AlphaFold-Multimer comparison of wild-type and homozygous Noonan syndrome LZTR1 L580P trimers. The highest-ranked wild-type arrangement contained a BACK2-BACK2 dimer plus a monomer, whereas the L580P arrangement added a BACK1-BACK1 interface to form a linear trimer, providing a structural hypothesis for the higher-order polymers observed experimentally.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "ColabFold version 02c53 with AlphaFold-Multimer v2; six recycles, no templates, NVIDIA A5000 24 GB, two independent runs",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:39003740",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Noonan Syndrome",
+    "disease_id": "MONDO:0018997",
+    "category": "Genetic",
+    "parents": [
+      "RASopathy",
+      "Congenital Heart Disease"
+    ],
+    "variables": [
+      "Predicted local-distance difference test",
+      "Predicted aligned error",
+      "LZTR1 multimer interface topology"
+    ],
+    "variable_ids": [
+      "pLDDT",
+      "PAE"
+    ],
+    "variable_terms": [],
+    "num_variables": 3,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "LZTR1-Mediated RAS Proteostasis Defect"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Uni- or biallelic correction of LZTR1 L580P rescued the molecular and cellular disease phenotype surrounding the structural prediction."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:39003740"
+    ],
+    "num_evidence": 1,
+    "notes": "The article is CC BY-NC 4.0 and explicitly reports no original code. It provides no reusable paper-specific coordinates or prediction metadata; PXD038425 and PXD038417 are proteomics deposits, not model archives. The generic mutable ColabFold notebook is therefore not recorded as this model's repository. Evidence comes from one homozygous patient and family; iPSC-cardiomyocytes are developmentally immature and engineered heart muscle does not reproduce whole-organ physiology.",
+    "creation_date": "2026-02-04T01:40:11Z",
+    "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-lztr1-l580p-alphafold-multimer-polymerization-model",
+    "source_file": "kb/disorders/Noonan_Syndrome.yaml"
+  },
+  {
+    "model_key": "Noonan_Syndrome--computational-model-lztr1-rit1-recruitment-docking-and-molecular-dynamics-model--0",
+    "name": "LZTR1-RIT1 Recruitment Docking and Molecular-Dynamics Model",
+    "description": "Integrated structural model of the near-full-length human CUL3 substrate adaptor LZTR1 (modeled residues 35-833) binding substrate RIT1. A multi-template LZTR1 homology model was combined with consensus protein-protein docking, FoldX calculations and duplicate 200-ns atomistic simulations of wild-type LZTR1 and the disease-associated G248R, R283Q and R412C variants in free and RIT1-bound states. The deposited artifact preserves wild-type static structures, not the mutant trajectories used for the published comparisons.",
+    "model_type": "Molecular Docking",
+    "model_type_raw": "MOLECULAR_DOCKING",
+    "model_format": "PDB",
+    "model_software": "MODELLER 9.23, HHpred, Maestro 2019-4, ClusPro, ZDOCK, PatchDock, FRODOCK, FoldX, GROMACS 5.1.5 with Amber03/TIP3P, and VMD",
+    "base_model": "HHpred multi-template LZTR1 model using PDB 5A10 and 4J8Z",
+    "model_id": "LZTR1-RIT1.pdb",
+    "repository_url": "https://zenodo.org/records/4593670",
+    "repository_host": "Zenodo",
+    "publication": "PMID:33792302",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Noonan Syndrome",
+    "disease_id": "MONDO:0018997",
+    "category": "Genetic",
+    "parents": [
+      "RASopathy",
+      "Congenital Heart Disease"
+    ],
+    "variables": [
+      "LZTR1-RIT1 interface contacts",
+      "LZTR1 backbone displacement",
+      "LZTR1 residue fluctuation"
+    ],
+    "variable_ids": [
+      "RMSD",
+      "RMSF"
+    ],
+    "variable_terms": [],
+    "num_variables": 3,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "LZTR1-Mediated RAS Proteostasis Defect"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The consensus complex predicts an electrostatic LZTR1-RIT1 recognition surface resembling substrate interfaces in homologous ubiquitin ligases."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:33792302"
+    ],
+    "num_evidence": 1,
+    "notes": "Zenodo record 4593670 (DOI 10.5281/zenodo.4593670) is immutable and CC BY 4.0. Curator smoke checks confirmed both PDB files parse as single-model coordinate sets and match the deposited checksums: LZTR1-RIT1.pdb SHA256 e8d6ccd42ed610ae23f490f4e0d5b274a5cb2eb09413b3243a72d058df704a29 and full-lengthLZTR1.pdb SHA256 05fabfd85279a69056e95244ea94ef561d66c5b604a5b4f4ff76f7226082a891. The latter begins at residue 35 and ends at 833 despite its filename. The bundled predict_pathogenicity.pl is actually a shell-style ANNOVAR command, fails Perl syntax checking, and depends on separately obtained databases; it is not part of a runnable molecular-dynamics workflow. A later experimental LZTR1 Kelch-RIT1 structure (PMID:40934300; PDB 9MEY) supersedes this model for current interface geometry; the 2021 model is retained as a historical, variant-dynamics hypothesis with LOW fidelity.",
+    "creation_date": "2026-02-04T01:40:11Z",
+    "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-lztr1-rit1-recruitment-docking-and-molecular-dynamics-model",
+    "source_file": "kb/disorders/Noonan_Syndrome.yaml"
+  },
+  {
     "model_key": "Glioblastoma,_IDH-Wildtype--computational-model-m4rl-glioblastoma-tumor-microenvironment-treatment-model--2",
     "name": "M4RL Glioblastoma Tumor-Microenvironment Treatment Model",
     "description": "Multiscale framework combining a spatial agent-based model of tumor cells, tumor-associated macrophages, cytokines, and intracellular ERK/AKT signaling with a Fokker-Planck physics-informed neural-network surrogate and A3C reinforcement learning to optimize CSF1R- and IGF1R-inhibitor scheduling.",
@@ -2136,6 +2240,57 @@ window.searchData = [
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
   },
   {
+    "model_key": "Noonan_Syndrome--computational-model-rit1-a57g-raf1-interface-structural-model--2",
+    "name": "RIT1 A57G-RAF1 Interface Structural Model",
+    "description": "Active-state structural models of wild-type and Noonan-associated RIT1 A57G bound to the RAF1 RAS-binding domain, compared with the solved KRAS-RAF1 complex and annotated with NMR chemical-shift perturbations. The model localizes a shared switch-I interface and proposes that A57G increases local backbone flexibility and RAF1 affinity.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "KRAS-RAF1-RBD crystal structure PDB 6VJJ",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:37450595",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Noonan Syndrome",
+    "disease_id": "MONDO:0018997",
+    "category": "Genetic",
+    "parents": [
+      "RASopathy",
+      "Congenital Heart Disease"
+    ],
+    "variables": [
+      "RIT1-RAF1 interface residues",
+      "RIT1-RAF1 dissociation constant"
+    ],
+    "variable_ids": [
+      "KD"
+    ],
+    "variable_terms": [],
+    "num_variables": 2,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "RIT1-Mediated RAF Recruitment"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The A57G interface model and NMR mapping predict differential engagement of RAF1-RBD around RIT1 switch I, consistent with higher measured affinity.",
+      "Direct RAF binding does not let pathogenic RIT1 bypass classical RAS; classical RAS remains necessary for MAPK activation."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:37450595"
+    ],
+    "num_evidence": 1,
+    "notes": "The article is CC BY 4.0. Neither model coordinates nor code were deposited; GEO GSE207187 and GSE207188 contain RNA-seq rather than model artifacts. PDB 6VJJ is an experimental KRAS-RAF1 template, not the modeled RIT1 complex. The paper does not report the model-building engine or output format; PyMOL was used only to map NMR perturbations. Consequently, the published geometry cannot be independently rebuilt from the reported methods alone. Inefficient RAF1 cysteine-rich-domain engagement is an author hypothesis, not an output of the modeled RIT1-RAF1-RBD complex.",
+    "creation_date": "2026-02-04T01:40:11Z",
+    "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-rit1-a57g-raf1-interface-structural-model",
+    "source_file": "kb/disorders/Noonan_Syndrome.yaml"
+  },
+  {
     "model_key": "Glioblastoma,_IDH-Wildtype--computational-model-serial-mri-high-grade-glioma-data-assimilation-digital-twin--1",
     "name": "Serial-MRI High-Grade Glioma Data-Assimilation Digital Twin",
     "description": "Patient-specific two-species reaction-diffusion model of enhancing and non-enhancing tumor regions. The platform repeatedly assimilates quantitative MRI-derived cell-density maps during chemoradiotherapy to update spatial tumor forecasts, and also evaluates longer forecasts initialized from two visits with patient-specific and cohort-derived parameters.",
@@ -2186,6 +2341,111 @@ window.searchData = [
     "creation_date": "2026-01-26T02:55:13Z",
     "page_url": "../../pages/disorders/Glioblastoma,_IDH-Wildtype.html#computational-model-serial-mri-high-grade-glioma-data-assimilation-digital-twin",
     "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
+  },
+  {
+    "model_key": "Noonan_Syndrome--computational-model-shp2-n308s-molecular-dynamics-and-interaction-network-model--3",
+    "name": "SHP2 N308S Molecular-Dynamics and Interaction-Network Model",
+    "description": "Molecular-dynamics and protein-interaction-network analysis of the PTPN11 N308S variant that co-segregated with Noonan syndrome in seven affected relatives. The integrated model predicts loss of stabilizing hydrogen bonds, greater conformational heterogeneity and a shift toward an activated open SHP2 state, followed by stronger predicted interactions with signaling hubs including GRB2 and SRC.",
+    "model_type": "Unclassified",
+    "model_type_raw": "",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:41843963",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Noonan Syndrome",
+    "disease_id": "MONDO:0018997",
+    "category": "Genetic",
+    "parents": [
+      "RASopathy",
+      "Congenital Heart Disease"
+    ],
+    "variables": [
+      "SHP2 hydrogen-bond network",
+      "SHP2 conformational-state shift",
+      "Predicted SHP2 interaction network"
+    ],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 3,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "SHP2 Gain-of-Function Activation"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "N308S was predicted to disrupt hydrogen bonds, increase conformational heterogeneity and favor an open SHP2 conformation."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:41843963"
+    ],
+    "num_evidence": 1,
+    "notes": "This 2026 study is a pedigree-specific mechanistic model, not a longitudinal digital twin. The article is not openly licensed and no model repository was identified. PXD068242/IPX0011703000 contains the phosphoproteomics data, not the molecular-dynamics model, and has no stated reusable model license. The model-building engine, force field, duration, trajectory files and output format are not publicly reported. `model_type` is omitted because the current enum has no category for disease-variant molecular dynamics without docking.",
+    "creation_date": "2026-02-04T01:40:11Z",
+    "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-shp2-n308s-molecular-dynamics-and-interaction-network-model",
+    "source_file": "kb/disorders/Noonan_Syndrome.yaml"
+  },
+  {
+    "model_key": "Noonan_Syndrome--computational-model-sos1-r1131k-transfer-entropy-signaling-model--4",
+    "name": "SOS1 R1131K Transfer-Entropy Signaling Model",
+    "description": "Information-theoretic model of bidirectional predictive dependence between SOS1 and RAF from simultaneous single-cell membrane-translocation trajectories. A Gaussian covariance approximation estimates time-resolved transfer entropy in wild-type and Noonan-associated SOS1 R1131K cells with or without MEK inhibition, revealing phase-specific effective regulation consistent with feedback changes or shared hidden inputs.",
+    "model_type": "Unclassified",
+    "model_type_raw": "",
+    "model_format": "Jupyter Notebook and CSV single-cell time series",
+    "model_software": "Python 3.9.7, Jupyter, NumPy, pandas, matplotlib, and seaborn",
+    "base_model": "Gaussian-approximation transfer-entropy method of Imaizumi et al. 2022",
+    "model_id": "TE_by_Gaussian_Approximation_2.ipynb",
+    "repository_url": "https://archive.softwareheritage.org/swh:1:rev:7ff6a1cfdef5163ae98a663381e12cc4f065d3f6",
+    "repository_host": "Other",
+    "publication": "PMID:40047537",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Noonan Syndrome",
+    "disease_id": "MONDO:0018997",
+    "category": "Genetic",
+    "parents": [
+      "RASopathy",
+      "Congenital Heart Disease"
+    ],
+    "variables": [
+      "SOS1 membrane-translocation trajectory",
+      "RAF membrane-translocation trajectory",
+      "SOS-to-RAF transfer entropy",
+      "RAF-to-SOS transfer entropy"
+    ],
+    "variable_ids": [
+      "X(t)",
+      "Y(t)",
+      "fw-TE",
+      "bw-TE"
+    ],
+    "variable_terms": [],
+    "num_variables": 4,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "SOS-Family-Mediated RAS-GTP Loading"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "R1131K raises early backward transfer entropy and lowers late backward transfer entropy, revealing a signaling defect not evident from RAF activation or translocation amplitude alone.",
+      "Trametinib restores the late-phase transfer-entropy abnormality but not the early-phase abnormality."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:40047537"
+    ],
+    "num_evidence": 1,
+    "notes": "`model_type` is deliberately omitted: information-theoretic network inference fits none of the current enum values and is not a kinetic, machine-learning or Boolean model. The paper-pinned Software Heritage revision is 7ff6a1cfdef5163ae98a663381e12cc4f065d3f6; the mutable repository home is https://github.com/YasushiSako/transfer_entropy_2. That revision has no software-license file; repository HEAD 3467850de2e45dfc2b7766ba4dce0d7af8839a00 only adds the MIT LICENSE. The README licenses the 16 CSV data files under CC BY-NC-SA 4.0. Curator static inspection confirmed that all wild-type and R1131K, vehicle and MEK-inhibitor CSVs are present. The seeded notebook has no environment lock and expects selected input pairs to be copied or renamed to SOStotal.csv and RAFtotal.csv. It also uses the removed pandas `set_axis(inplace=True)` API and fails under pandas 3.0.3 without a small compatibility edit, so it is not a one-command reproduction.",
+    "creation_date": "2026-02-04T01:40:11Z",
+    "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-sos1-r1131k-transfer-entropy-signaling-model",
+    "source_file": "kb/disorders/Noonan_Syndrome.yaml"
   },
   {
     "model_key": "Type_2_Diabetes_Mellitus--computational-model-topp-beta-cell-mass-insulin-glucose-model--0",
@@ -2727,10 +2987,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 55,
-  "total_source_entries": 21,
-  "total_model_types": 8,
+  "total_models": 60,
+  "total_source_entries": 22,
+  "total_model_types": 10,
   "total_runnable": 4,
-  "total_with_repository": 25
+  "total_with_repository": 27
 };
 window.dispatchEvent(new Event('searchDataReady'));
