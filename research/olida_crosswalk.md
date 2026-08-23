@@ -28,11 +28,11 @@ frequently mean the OLIDA concept is a sibling or a part of that entry
 rather than the entry itself - check those before acting on them.
 
 - diseases at or above the floor: **218**
-- already bound to HP:0010984 / HP:0010983: **14**
-- curated in dismech but unbound (cheap wins): **85**
-- no matching dismech entry: **119**
+- already bound to HP:0010984 / HP:0010983: **15**
+- curated in dismech but unbound (cheap wins): **87**
+- no matching dismech entry: **116**
 
-## Already bound (14)
+## Already bound (15)
 
 In the grouping already; nothing to do.
 
@@ -47,13 +47,14 @@ In the grouping already; nothing to do.
 | Usher syndrome type 1 | 13 | 2 | True Digenic, Unknown | Usher Syndrome | name |
 | Usher syndrome type 2 | 7 | 2 | Monogenic+Modifier, True Digenic, Unknown | Usher Syndrome | name |
 | Hirschsprung disease | 4 | 2 | Monogenic+Modifier, True Digenic, Unknown | Hirschsprung Disease | name |
+| Rotor syndrome | 4 | 2 | Unknown | Rotor Syndrome | name |
 | Cerebellar ataxia-hypogonadism syndrome | 1 | 2 | Unknown | Cerebellar Ataxia-Hypogonadism Syndrome | name |
 | Short rib-polydactyly syndrome | 1 | 2 | True Digenic | Short-Rib Polydactyly Syndrome | name |
 | 46,XY partial gonadal dysgenesis | 2 | 1 | Unknown | 46,XY partial gonadal dysgenesis | name |
 | Meckel syndrome | 3 | 0 | Unknown | Meckel Syndrome | name |
 | Usher syndrome | 1 | 0 | Unknown | Usher Syndrome | name |
 
-## Curated but unbound (85)
+## Curated but unbound (87)
 
 A dismech entry exists. Needs only an inheritance block plus evidence - confirm the OLIDA disease really is this entry's concept first.
 
@@ -63,7 +64,7 @@ A dismech entry exists. Needs only an inheritance block plus evidence - confirm 
 | Familial long QT syndrome | 25 | 3 | Monogenic+Modifier, Unknown | Jervell and Lange-Nielsen Syndrome 2 | omim |
 | Retinitis pigmentosa | 12 | 3 | Monogenic+Modifier, True Digenic, Unknown | EYS-Related Retinitis Pigmentosa | synonym |
 | Common variable immunodeficiency | 11 | 3 | Monogenic+Modifier, Unknown | Common Variable Immunodeficiency | name |
-| Congenital glaucoma | 9 | 3 | True Digenic, Unknown | Glaucoma | name |
+| Congenital glaucoma | 9 | 3 | True Digenic, Unknown | Congenital Glaucoma | name |
 | Left ventricular noncompaction | 8 | 3 | Dual Molecular Diagnosis, Monogenic+Modifier, True Digenic, Unknown | Left ventricular noncompaction | name |
 | Achromatopsia | 6 | 3 | Monogenic+Modifier | Achromatopsia | name |
 | Epidermolysis bullosa simplex | 6 | 3 | Dual Molecular Diagnosis, True Digenic, Unknown | Epidermolysis Bullosa Simplex | name |
@@ -82,6 +83,7 @@ A dismech entry exists. Needs only an inheritance block plus evidence - confirm 
 | Lynch syndrome | 2 | 2 | Unknown | Lynch Syndrome | name |
 | Severe congenital neutropenia | 2 | 2 | Dual Molecular Diagnosis, Unknown | G6PC3 Deficiency | synonym |
 | Congenital heart disease | 1 | 2 | True Digenic | Congenital Heart Disease | name |
+| Congenital hydrocephalus | 1 | 2 | Unknown | Congenital Hydrocephalus | name |
 | Diamond-Blackfan anemia | 1 | 2 | True Digenic | Diamond-Blackfan Anemia | name |
 | Goldenhar syndrome | 1 | 2 | True Digenic | Craniofacial Microsomia | synonym |
 | Hereditary coproporphyria | 1 | 2 | Monogenic+Modifier | Inherited Porphyria | subtype |
@@ -118,6 +120,7 @@ A dismech entry exists. Needs only an inheritance block plus evidence - confirm 
 | Dyskeratosis congenita | 6 | 0 | Unknown | Dyskeratosis Congenita | name |
 | Hereditary chronic pancreatitis | 4 | 0 | Unknown | Chronic Pancreatitis | name |
 | CHARGE syndrome | 3 | 0 | Unknown | CHARGE syndrome | name |
+| Juvenile amyotrophic lateral sclerosis | 2 | 0 | Unknown | Juvenile Amyotrophic Lateral Sclerosis | name |
 | Pulmonary arterial hypertension associated with congenital heart disease | 2 | 0 | Unknown | Eisenmenger Syndrome | synonym |
 | Waardenburg syndrome | 2 | 0 | Monogenic+Modifier, Unknown | PAX3-Related Waardenburg Syndrome | subtype |
 |  Duchenne muscular dystrophy | 1 | 0 | Dual Molecular Diagnosis | Duchenne Muscular Dystrophy | name |
@@ -145,7 +148,7 @@ A dismech entry exists. Needs only an inheritance block plus evidence - confirm 
 | Rubinstein-Taybi syndrome | 1 | 0 | Unknown | Rubinstein-Taybi Syndrome | name |
 | Wilson disease | 1 | 0 | Dual Molecular Diagnosis | Wilson Disease | name |
 
-## No dismech entry (119)
+## No dismech entry (116)
 
 New entry required.
 
@@ -180,14 +183,12 @@ New entry required.
 | Alström syndrome | 7 | 2 | Unknown | - | - |
 | Heterotaxia | 6 | 2 | True Digenic, Unknown | - | - |
 | Colorectal cancer | 5 | 2 | Monogenic+Modifier, Unknown | - | - |
-| Rotor syndrome | 4 | 2 | Unknown | - | - |
 | Congenital heart block | 2 | 2 | True Digenic, Unknown | - | - |
 | Generalized pustular psoriasis | 2 | 2 | Dual Molecular Diagnosis | - | - |
 | Juvenile glaucoma | 2 | 2 | Monogenic+Modifier, Unknown | - | - |
 | Rare hereditary hemochromatosis | 2 | 2 | Monogenic+Modifier, True Digenic | - | - |
 | X-linked cerebellar ataxia | 2 | 2 | Unknown | - | - |
 | Behcet disease | 1 | 2 | Dual Molecular Diagnosis | - | - |
-| Congenital hydrocephalus | 1 | 2 | Unknown | - | - |
 | Facioscapulohumeral dystrophy | 1 | 2 | Monogenic+Modifier | - | - |
 | Global developmental delay,Hypertelorism,Intellectual disability,Macrocephaly,Tall Stature | 1 | 2 | Dual Molecular Diagnosis | - | - |
 | Hereditary hypophosphatemic rickets with hypercalciuria | 1 | 2 | Monogenic+Modifier | - | - |
@@ -252,7 +253,6 @@ New entry required.
 | Male infertility due to sperm disorder | 3 | 0 | Unknown | - | - |
 | Non-syndromic metopic and sagittal craniosynostosis | 3 | 0 | True Digenic, Unknown | - | - |
 | Recurrent Pregnancy Loss,Recurrent implantation failure,Primary infertility | 3 | 0 | Unknown | - | - |
-| Juvenile amyotrophic lateral sclerosis | 2 | 0 | Unknown | - | - |
 | Non-syndromic posterior hypospadias | 2 | 0 | Unknown | - | - |
 | Recurrent implantation failure,Primary infertility | 2 | 0 | Unknown | - | - |
 | Autism Spectrum Disorder,Lung disease,Global developmental delay | 1 | 0 | Unknown | - | - |

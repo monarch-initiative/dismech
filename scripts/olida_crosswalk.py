@@ -123,11 +123,11 @@ def load_dismech() -> tuple[dict[str, str], dict[str, str], set[str]]:
             if key not in by_name or (kind == "name" and by_name[key][1] != "name"):
                 by_name[key] = (entry, kind)
 
-        for text in json.dumps(data.get("mappings") or {}) + json.dumps(
+        text = json.dumps(data.get("mappings") or {}) + json.dumps(
             data.get("disease_term") or {}
-        ), :
-            for omim in re.findall(r"OMIM[:_]?(\d{6})", text):
-                by_omim.setdefault(omim, entry)
+        )
+        for omim in re.findall(r"OMIM[:_]?(\d{6})", text):
+            by_omim.setdefault(omim, entry)
 
         def scan(blocks: Any, entry: str = entry) -> None:
             for b in blocks or []:
@@ -135,9 +135,17 @@ def load_dismech() -> tuple[dict[str, str], dict[str, str], set[str]]:
                 if term.get("id") in MULTILOCUS_TERMS:
                     bound.add(entry)
 
+        # Reach every `inheritance` block the criteria reach, matching the walk
+        # in `extract_disease_facts` (src/dismech/groupings.py): disease level,
+        # has_subtypes, and the per-gene blocks under `genetic`. Missing the
+        # gene-level path would report an entry bound only there as an unbound
+        # "cheap win" - the opposite of the truth, in a report whose whole job
+        # is to say which entries still need binding.
         scan(data.get("inheritance"))
         for st in data.get("has_subtypes") or []:
             scan(st.get("inheritance"))
+        for g in data.get("genetic") or []:
+            scan((g or {}).get("inheritance"))
     return by_name, by_omim, bound
 
 
