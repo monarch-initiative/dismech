@@ -889,6 +889,12 @@ def test_entity_ref_prefixes_are_schema_slot_names(filepath):
     This gate only keeps the curated corpus in one spelling. The backlog was
     driven to zero in the same change, so there is no baseline: a finding here
     is always something this branch introduced.
+
+    Cross-file references are skipped deliberately, mirroring
+    `test_entity_ref_foreign_keys`: this file is not the other entry's schema,
+    and a prefix naming a section of a different file is not ours to rewrite.
+    All 14 cross-file refs in `kb/` are `:pathophysiology#` and already
+    canonical, so the skip closes no live hole.
     """
     with open(filepath) as f:
         data = yaml.safe_load(f)
