@@ -38,6 +38,7 @@ ENTRY = {
     "datasets": [{"accession": "geo:GSE1", "title": "A dataset"}],
     "animal_models": [{"species": "Mus musculus", "genotype": "Foo-/-"}],
     "discussions": [{"discussion_id": "gap_one"}],
+    "clinical_burden": {"burden_level": "SEVERE"},
 }
 
 
@@ -185,6 +186,41 @@ def test_section_keys_point_at_real_disease_slots():
     for kind, (slot, key_slots) in SECTION_KEYS.items():
         assert slot in disease_slots, f"{kind} -> unknown slot {slot}"
         assert key_slots, kind
+
+
+@pytest.mark.parametrize(
+    "ref",
+    [
+        "prevalence#",  # the section as a whole, not one population
+        "treatments#",
+        "clinical_burden#",  # a singleton object with no name to anchor to
+        "disease#",  # the entry as a whole
+    ],
+)
+def test_whole_section_anchor_resolves(ref):
+    """An empty anchor names the section itself (#9394)."""
+    assert resolve_entity_ref(ENTRY, ref) is True
+
+
+def test_whole_section_anchor_resolves_on_the_name_not_the_contents():
+    """A section with no content still satisfies `<section>#`.
+
+    The motivating case is a KNOWLEDGE_GAP attached to a section precisely
+    because it is empty — `Spondyloepimetaphyseal_Dysplasia_Bieganski_Type`
+    records that no disease-specific management is established and curates no
+    `treatments:` at all. Requiring content would make that gap unattachable.
+    """
+    empty = {"name": "Bare Disease"}
+    assert resolve_entity_ref(empty, "treatments#") is True
+    assert resolve_entity_ref(empty, "clinical_burden#") is True
+    # A misspelled or invented section is still caught — that is what the
+    # check is for once contents are not required.
+    assert resolve_entity_ref(empty, "treatmnets#") is None
+
+
+def test_singleton_section_rejects_a_named_anchor():
+    """`clinical_burden` has no `name`, so only the whole-section form works."""
+    assert resolve_entity_ref(ENTRY, "clinical_burden#Anything") is False
 
 
 def test_iter_entity_refs_walks_objects_inside_a_ref_slot():

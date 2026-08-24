@@ -31,6 +31,27 @@ Curated content also drifts between singular and plural prefixes
 ``phenotypes#`` 82). Both forms are accepted; content is not churned to
 normalise them.
 
+A reference may also name a **whole section** by leaving the anchor empty::
+
+    clinical_burden#          # the ClinicalBurden object, not a node within it
+
+This exists because not every referenceable thing has a name to anchor to.
+``clinical_burden`` is a singleton inlined object with no ``name`` slot, so
+there is nothing to put on the right of the ``#`` — and writing the bare word
+``clinical_burden`` instead would be indistinguishable from a node that happens
+to be called that. The empty anchor keeps every reference matching
+``<kind>#<name>``, which is what lets the grammar be checked at all.
+
+**A whole-section reference resolves on the section name, not its contents.**
+``treatments#`` is satisfied by ``treatments`` being a real section, even in an
+entry that curates none — because the case that motivates it is a
+``KNOWLEDGE_GAP`` attached to a section precisely *because* it is empty
+(``Spondyloepimetaphyseal_Dysplasia_Bieganski_Type`` records that no
+disease-specific management is established, and has no ``treatments:`` block at
+all). Requiring content would make the gap impossible to attach exactly when it
+matters most. The check that remains is still worth having: it catches a
+misspelled or invented section name.
+
 An unknown prefix, or a cross-file reference, yields ``None`` — "no opinion" —
 rather than a failure, so a gap in :data:`SECTION_KEYS` can never be mistaken
 for a broken reference in the knowledge base.
@@ -43,6 +64,7 @@ from typing import Any, NamedTuple
 
 __all__ = [
     "DISEASE_KIND",
+    "SINGLETON_SECTIONS",
     "REF_SLOTS",
     "SECTION_KEYS",
     "EntityRef",
@@ -69,6 +91,11 @@ class EntityRef(NamedTuple):
 
 #: Virtual ``kind`` naming the entry itself rather than one of its sections.
 DISEASE_KIND = "disease"
+
+#: Slots that are a single inlined object rather than a list, so a reference to
+#: one can only ever be the whole-section form ``<slot>#``. They carry no
+#: ``name``, which is why the empty anchor exists.
+SINGLETON_SECTIONS: frozenset[str] = frozenset({"clinical_burden"})
 
 #: Reference prefix -> (top-level slot, key slots to match ``name`` against).
 #:
@@ -206,11 +233,21 @@ def resolve_entity_ref(data: dict, ref: Any) -> bool | None:
     if parsed is None or parsed.file is not None:
         return None
     if parsed.kind == DISEASE_KIND:
-        return parsed.name == data.get("name")
+        # `disease#` with an empty anchor means the entry as a whole, same as
+        # naming it; `disease#<name>` must match that name.
+        return not parsed.name or parsed.name == data.get("name")
+    if parsed.kind in SINGLETON_SECTIONS:
+        # No name to anchor to, so only the whole-section form is meaningful.
+        return not parsed.name
     mapping = SECTION_KEYS.get(parsed.kind)
     if mapping is None:
         return None
     slot, key_slots = mapping
+    if not parsed.name:
+        # Whole-section reference: resolves on the section *name*. See the
+        # module docstring -- an empty section is the motivating case, so
+        # requiring content here would defeat the purpose.
+        return True
     return any(
         parsed.name in set(_key_values(item, key_slots))
         for item in section_items(data, slot)

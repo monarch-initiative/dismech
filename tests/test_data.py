@@ -838,6 +838,15 @@ def test_entity_ref_foreign_keys(filepath):
     follow a reference the same way. A cross-file reference, or a prefix absent
     from ``SECTION_KEYS``, is skipped rather than failed: an unmapped prefix is
     a gap in that map, not a defect in the content.
+
+    ``attaches_to`` additionally has to *use* the grammar: a bare name there is
+    not a reference, so it silently resolved to nothing before (#9394). The
+    other two ref-bearing slots are exempt -- ``would_support`` /
+    ``would_refute`` deliberately hold references only, with prose outcomes
+    living in ``supporting_outcome`` / ``refuting_outcome``, but a stray prose
+    value there should be moved rather than failed, so it is not gated here.
+    ``target`` is exempt because it carries plain node names in its other homes
+    (``ModelMechanismLink``, ``target_mechanisms``, ``downstream``).
     """
     with open(filepath) as f:
         data = safe_load(f)
@@ -846,8 +855,15 @@ def test_entity_ref_foreign_keys(filepath):
 
     errors = []
     for path, ref in iter_entity_refs(data):
+        parsed = parse_entity_ref(ref)
+        if parsed is None:
+            if path.rsplit(".", 1)[-1].split("[")[0] == "attaches_to":
+                errors.append(
+                    f"{path}={ref!r} is a bare name, not a <kind>#<name> "
+                    f"entity reference"
+                )
+            continue
         if resolve_entity_ref(data, ref) is False:
-            parsed = parse_entity_ref(ref)
             errors.append(f"{path}={ref!r} does not resolve to a {parsed.kind}")
 
     assert not errors, f"Dangling entity refs in {Path(filepath).name}: {errors}"

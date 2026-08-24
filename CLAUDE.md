@@ -517,6 +517,16 @@ The following modules capture conserved final-common-pathway mechanisms of **"di
 **Module-level hypotheses and gaps:**
 - Modules may define `mechanistic_hypotheses` just like disease entries. Use stable `hypothesis_group_id` values for canonical, alternative, or emerging mechanism groupings.
 - Causal edges opt into those groups with `downstream[].hypothesis_groups`. In conforming disorder entries, copy and specialize the same grouping only when the disease-specific causal edge belongs to that model.
+- An `Experiment` under a discussion states what its result would mean in **two
+  different registers, and they are different slots** (issue #9394).
+  `would_support` / `would_refute` take **entity references** — what the result
+  bears on (`pathophysiology#Motor Neuron Degeneration`). `supporting_outcome` /
+  `refuting_outcome` take **prose** — what would be observed ("Increased
+  progenitor apoptosis in patient organoids would establish that the mouse
+  mechanism operates in human cells"). They are the two arms of
+  `decision_criterion`, which is single-valued and so cannot express the pair.
+  Prose in the reference slots used to render inside a monospace reference chip;
+  the prose slots render as text.
 - Knowledge gaps should currently use `discussions` with `kind: KNOWLEDGE_GAP`, `attaches_to`, and optional `proposed_experiments`. A separate structural `knowledge_gaps:` slot is still a schema follow-up; do not invent it in YAML entries yet.
 - For the specific case where model-system evidence exists but its fidelity to human biology is uncertain (e.g., mouse knockout does not reproduce the human phenotype, lissencephalic models lack human-specific outer radial glia/OSVZ biology, organoid data are not confirmed in human tissue), use `kind: HUMAN_MODEL_MISMATCH` instead of the generic `KNOWLEDGE_GAP`. Key distinction: `KNOWLEDGE_GAP` means evidence is absent; `HUMAN_MODEL_MISMATCH` means evidence exists in a model but translational validity to human disease is the open question. Include a `prompt` that states the mismatch explicitly as a question, a `rationale` explaining why the mismatch is mechanistically meaningful, and `proposed_experiments` mapping to the experiments needed to resolve it. See the Autosomal_Recessive_Primary_Microcephaly entry for a worked example.
 
@@ -561,6 +571,27 @@ normalise them. A cross-file reference, or a prefix absent from `SECTION_KEYS`,
 is **skipped, never failed**: an unmapped prefix is a gap in that map, not a
 defect in the content. Add the prefix to `SECTION_KEYS` rather than working
 around it.
+
+**An empty anchor names the whole section** (issue #9394):
+
+```yaml
+attaches_to:
+- clinical_burden#      # the ClinicalBurden object itself
+- treatments#           # the treatments section, not one treatment
+```
+
+Use it when there is no item to point at — `clinical_burden` is a singleton
+inlined object with no `name` slot, so `clinical_burden#` is the only way to
+reference it. Writing the bare word `clinical_burden` instead is **not**
+allowed: `attaches_to` values must use the grammar, and a bare name is
+indistinguishable from a node that happens to be called that.
+
+A whole-section reference resolves on the section **name**, not its contents,
+so `treatments#` is satisfied in an entry curating no treatments. That is
+deliberate: the motivating case is a `KNOWLEDGE_GAP` attached to a section
+precisely *because* it is empty (`Spondyloepimetaphyseal_Dysplasia_Bieganski_Type`
+records that no disease-specific management is established). A misspelled
+section name is still caught.
 
 On the page, a reference that resolves renders as a live in-page link. A few
 referenced sections (`diagnosis`, `prevalence`, `progression`,
