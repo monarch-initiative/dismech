@@ -100,12 +100,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.reference_snippet_audit import (  # noqa: E402
+from dismech.reference_snippet_audit import (
     DEFAULT_CONFIG,
     CachedReferenceIndex,
     load_cache_dir,
 )
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 SCAN_DIR = ROOT / "kb"
 
@@ -258,15 +258,21 @@ NEGATIVE_EXISTENCE = re.compile(
 # "does not specify the mouse allele" is a claim about *which* allele, not about
 # whether the words "mouse" and "allele" occur -- adjudicating it on token
 # presence would contradict a true claim.
-_STOPWORDS = frozenset(
-    """a an the this that these those its their his her our any some such
+# Grouped by why each word is unsearchable, not alphabetically: determiners and
+# pronouns, then generic nouns for "a thing a paper reports", then the domain
+# head nouns that a qualifier almost always narrows ("the mouse ALLELE"), then
+# function words.
+_STOPWORD_TEXT = """
+    a an the this that these those its their his her our any some such
     other another either neither each every both all no not more most less
     least much many few several one two three
     it they them he she we you i
+
     value values number numbers detail details data datum result results
     finding findings figure figures outcome outcomes measure measures
     information evidence study studies paper papers report reports
     analysis analyses method methods design designs
+
     allele alleles variant variants mutation mutations genotype genotypes
     gene genes protein proteins
     patient patients case cases cohort cohorts subject subjects
@@ -275,12 +281,14 @@ _STOPWORDS = frozenset(
     mechanism mechanisms pathway pathways process processes
     type types form forms kind kinds subtype subtypes
     effect effects change changes level levels
+
     which what whether how why when where who
     specific exact precise direct explicit particular relevant
     of in on at to for from with without by as is are was were be been
     and or but if then than so that
-    """.split()
-)
+"""
+
+_STOPWORDS = frozenset(_STOPWORD_TEXT.split())
 
 # Objects that ARE specific enough to search even though short: a gene symbol,
 # an accession, a numeric quantity, an ontology CURIE.

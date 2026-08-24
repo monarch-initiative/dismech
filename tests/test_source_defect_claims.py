@@ -20,10 +20,10 @@ from dismech.reference_snippet_audit import (
 )
 from scripts.check_source_defect_claims import (
     ClaimKind,
-    antecedent_reference,
     Verdict,
     abstract_prose,
     adjudicate_all,
+    antecedent_reference,
     find_claims_in_text,
     inline_references,
     is_narration,
@@ -72,12 +72,18 @@ def test_genetics_and_threshold_prose_is_not_a_source_defect_claim(text):
         "No abstract-level source with a citable numeric interval was available.",
         # Set-level claims: nothing in the reference set says X. True even when
         # every record in that set has an abstract.
-        "No cached abstract in this curation pass gives a proportion for "
-        "pulmonary embolism specifically.",
-        "Historically this differential carried no evidence item because no "
-        "abstract in the reference set made the comparison directly.",
-        "The report flags its own threshold table as unverified and no cached "
-        "abstract supplies a quotable interval.",
+        (
+            "No cached abstract in this curation pass gives a proportion for "
+            "pulmonary embolism specifically."
+        ),
+        (
+            "Historically this differential carried no evidence item because no "
+            "abstract in the reference set made the comparison directly."
+        ),
+        (
+            "The report flags its own threshold table as unverified and no cached "
+            "abstract supplies a quotable interval."
+        ),
     ],
 )
 def test_content_claims_are_not_read_as_missing_abstract_claims(text):
@@ -306,11 +312,15 @@ PMID: 22351933 [Indexed for MEDLINE]"""
     [
         # The Tetralogy_of_Fallot.yaml correction paragraph exists *because*
         # four such claims there were false, and has to restate them to say so.
-        "An earlier revision of this entry asserted in three places that cached "
-        "abstracts were truncated, and in one place that PMID:30582441 had no "
-        "abstract body. All four claims were false.",
-        "The earlier note recorded that no cached abstract stated the practice "
-        "in quotable form; PMID:21045974 does.",
+        (
+            "An earlier revision of this entry asserted in three places that "
+            "cached abstracts were truncated, and in one place that "
+            "PMID:30582441 had no abstract body. All four claims were false."
+        ),
+        (
+            "The earlier note recorded that no cached abstract stated the "
+            "practice in quotable form; PMID:21045974 does."
+        ),
         "A previous version wrongly claimed the record has no abstract.",
     ],
 )
@@ -374,7 +384,7 @@ class _FakeIndex(CachedReferenceIndex):
         super().__init__(Path("references_cache"), (), ())
         self._content = content
 
-    def normalized_content(self, reference_id):  # noqa: D102
+    def normalized_content(self, reference_id):
         return self.normalize(self._content)
 
 
