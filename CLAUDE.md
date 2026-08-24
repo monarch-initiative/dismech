@@ -2067,6 +2067,58 @@ report before curating from it", not as evidence that a confusion has occurred �
 name-shaped risk signal, and an unbadged candidate is not thereby cleared (the
 surname detector only fires when the eponym sits directly before a disease head-noun).
 
+### 2c. Fabricated verification notes — the audit trail lies, not the data (dismech#7835)
+
+A **fifth** failure mode, distinct from the three hallucination categories in §2a and from
+NEC in §2b. An entry binds an over-broad ontology term and then adds a `notes:` sentence
+asserting that a search was run and nothing more specific exists. The binding is wrong
+**and** its justification is false.
+
+This is the only failure mode in the taxonomy where the defect is in the **audit trail
+about the data rather than in the data**. The bound term is real, its label matches, and
+it is inside the enum root — so `just validate-terms` passes, and so does every other
+check in the stack. Worse, the note is *actively harmful*: a plain over-broad binding is a
+small error a reviewer might spot, whereas an over-broad binding plus *"I checked, nothing
+finer exists"* hands the reviewer an explicit reason to skip the one check that would
+catch it. Like NEC, only a semantic re-check finds it.
+
+Three confirmed instances came out of a single batch of ten freshly curated entries. In
+each, an independent verifier re-ran the search the note claimed had been run and found an
+exact match: `UBERON:0014527` posterior limb of internal capsule (bound as the whole
+capsule `UBERON:0001887`), `NCIT:C80435` (bound as the branch root `NCIT:C49236`
+Therapeutic Procedure), and `HP:0004890` Elevated pulmonary artery pressure (asserted to
+be unavailable). All three were corrected before their PRs merged.
+
+**Rules:**
+
+1. **A negative-existence claim is a checkable assertion, not prose.** If you write that
+   no finer term exists, write the *query you ran*, verbatim and re-runnable, plus what it
+   returned — not a bare assertion that searching happened. `KLHL24-Related_Hypertrophic_Cardiomyopathy.yaml`
+   is the worked example: it names ``runoak -i sqlite:obo:ncit search 't~defibrillator'``
+   and the term that came back, so the next reader can re-run it in one paste instead of
+   guessing what was searched for.
+2. **Prefer no note to an unverified note.** A bare over-broad binding is a *smaller*
+   defect than an over-broad binding with a false justification. If you did not run the
+   search, silence is the honest output. Never write a verification sentence to satisfy
+   the instruction to document verification.
+3. **State the relation you did check, not the absence you did not.** The strongest form
+   of these notes explains the binding *positively* against the alternative — as in
+   `CDH2-Related_ACOG_Syndrome.yaml`, which records that `HP:0002092` was rejected because
+   OAK shows it descending from `HP:0033578` pre-capillary pulmonary hypertension, a
+   haemodynamic category the source does not establish. That is a claim a reviewer can
+   falsify; "nothing finer exists" is not.
+
+This does **not** withdraw the instruction to document verification — the same batch
+produced genuinely excellent provenance notes, including one naming four papers it
+excluded as off-entity, each of which independently checked out. The rule is about what an
+*unbacked* verification sentence costs, not about whether to write notes.
+
+No lint covers this yet. Extracting "no more specific term exists"-shaped sentences from
+`notes:` and re-running the OAK search would catch the whole class mechanically; that is
+tracked as a follow-on rather than done. Until then it is caught only by a reviewer
+re-running the search — so treat any negative-existence sentence in a diff as a prompt to
+do exactly that.
+
 ### 3. Validation Workflow
 
 There are two loops here, and mixing them up is what makes people skip checks

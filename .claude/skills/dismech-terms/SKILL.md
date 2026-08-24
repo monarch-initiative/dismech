@@ -355,5 +355,13 @@ Record *why* a binding was chosen in the entry's `notes:`, not in `description:`
 The description says what the exposure is; the reasoning behind the CURIE choice is
 curation provenance and belongs in the slot meant for it.
 
+**When that reason is "nothing more specific exists", write the query, not the
+conclusion.** A note asserting that a search was run and found nothing is unverifiable
+prose that passes every check in the stack while telling the next reviewer not to
+re-run the search — the failure mode in CLAUDE.md §2c (dismech#7835), which produced
+three wrong bindings in one batch of ten entries. Paste the exact re-runnable command
+and what it returned, or write no note at all: an unexplained over-broad binding is a
+smaller defect than one carrying a false justification.
+
 Do not migrate an entry between the terms in a pair without checking that its name
 and its mechanistic claim agree with the destination.
